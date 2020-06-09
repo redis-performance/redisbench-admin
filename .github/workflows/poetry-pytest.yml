@@ -1,5 +1,11 @@
 name: Run Tests
-on: push
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  release:
+    types: [created, edited, published, prereleased]
 
 jobs:
   pytest:
@@ -41,3 +47,8 @@ jobs:
 
     - name: Upload coverage
       run: poetry run codecov -t ${{ secrets.CODECOV_TOKEN }}
+
+    - name: Publish to PyPI
+      if: github.event_name == 'release'
+      run: |
+        poetry publish -u __token__ -p ${{ secrets.PYPI_TOKEN }}
