@@ -38,3 +38,6 @@ jobs:
         DJANGO_SETTINGS_MODULE: project.settings
         SECRETS_FILE: .confidential/ci.json
       run: poetry run pytest --cov redisbench_admin
+
+    - name: Upload coverage
+      run: poetry run codecov -t ${{ secrets.CODECOV_TOKEN }}
