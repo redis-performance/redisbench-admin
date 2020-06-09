@@ -3,9 +3,12 @@ import sys
 
 import toml
 
-from redisbench_admin.compare.compare import create_compare_arguments, compare_command_logic
-from redisbench_admin.export.export import create_export_arguments, export_command_logic
-from redisbench_admin.run.run import create_run_arguments, run_command_logic
+from redisbench_admin.compare.args import create_compare_arguments
+from redisbench_admin.compare.compare import compare_command_logic
+from redisbench_admin.export.args import create_export_arguments
+from redisbench_admin.export.export import export_command_logic
+from redisbench_admin.run.args import create_run_arguments
+from redisbench_admin.run.run import run_command_logic
 
 
 def populate_with_poetry_data():
@@ -27,7 +30,10 @@ def main():
     parser = argparse.ArgumentParser(
         description=project_description,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    # common arguments to all tools
     parser.add_argument('--version', default=False, action='store_true', help='print version and exit')
+    parser.add_argument('--local-dir', type=str, default="./", help='local dir to use as storage')
+
     if requested_tool == "run":
         parser = create_run_arguments(parser)
     elif requested_tool == "compare":
@@ -56,13 +62,10 @@ def main():
 
     argv = sys.argv[2:]
     args = parser.parse_args(args=argv)
-    if args.version:
-        print("{project_name} {project_version}".format(project_name=project_name, project_version=project_version))
-        sys.exit(0)
 
     if requested_tool == "run":
         run_command_logic(args)
     if requested_tool == "compare":
-        export_command_logic(args)
-    if requested_tool == "export":
         compare_command_logic(args)
+    if requested_tool == "export":
+        export_command_logic(args)

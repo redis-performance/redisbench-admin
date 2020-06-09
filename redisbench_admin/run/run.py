@@ -2,10 +2,8 @@ import datetime as dt
 import json
 import os
 import os.path
-import subprocess
 import sys
 
-import boto3
 import humanize
 import pandas as pd
 import redis
@@ -13,16 +11,15 @@ import requests
 from cpuinfo import cpuinfo
 from tqdm import tqdm
 
-from redisbench_admin.utils.utils import required_utilities, whereis, decompress_file, findJsonPath, ts_milli
+from redisbench_admin.compare.compare import generate_comparison_dataframe_configs, from_resultsDF_to_key_results_dict
+from redisbench_admin.run.ftsb_redisearch.ftsb_redisearch import run_ftsb_redisearch, get_run_options
+from redisbench_admin.utils.redisearch import check_and_extract_redisearch_info
+from redisbench_admin.utils.utils import required_utilities, whereis, decompress_file, findJsonPath, ts_milli, \
+    retrieve_local_or_remote_input_json, upload_artifacts_to_s3
 
 
 def run_command_logic(args):
-    # workaround having required=True on --benchmark-config-file due to version printing
-    if args.benchmark_config_file == "" or args.benchmark_config_file == None:
-        print("redisbench-admin: error: the following arguments are required: --benchmark-config-file")
-        sys.exit(1)
     use_case_specific_arguments = dict(args.__dict__)
-    benchmark_config = None
     s3_bucket_name = "benchmarks.redislabs"
     required_utilities_list = ["ftsb_redisearch"]
     if required_utilities(required_utilities_list) == 0:
@@ -33,8 +30,6 @@ def run_command_logic(args):
     workers = args.workers
     benchmark_machine_info = cpuinfo.get_cpu_info()
     total_cores = benchmark_machine_info['count']
-    redisearch_version = None
-    redisearch_git_sha = None
     benchmark_infra = {"total-benchmark-machines": 0, "benchmark-machines": {}, "total-db-machines": 0,
                        "db-machines": {}}
     benchmark_machine_1 = {"machine_info": benchmark_machine_info}
@@ -43,19 +38,14 @@ def run_command_logic(args):
     if workers == 0:
         print('Setting number of workers equal to machine VCPUs {}'.format(total_cores))
         workers = total_cores
-    if args.benchmark_config_file.startswith("http"):
-        print("retrieving benchmark config file from remote url {}".format(args.benchmark_config_file))
-        r = requests.get(args.benchmark_config_file)
-        benchmark_config = r.json()
-        remote_filename = args.benchmark_config_file[args.benchmark_config_file.rfind('/') + 1:]
-        local_config_file = "{}/{}".format(local_path, remote_filename)
-        open(local_config_file, 'wb').write(r.content)
-        print("To avoid fetching again the config file use the option --benchmark-config-file {}".format(
-            local_config_file))
 
-    else:
-        with open(args.benchmark_config_file, "r") as json_file:
-            benchmark_config = json.load(json_file)
+    deployment_type = args.deployment_type
+    config_filename = args.benchmark_config_file
+    benchmark_config = retrieve_local_or_remote_input_json(config_filename, local_path, "--benchmark-config-file")
+    if benchmark_config is None:
+        print('Error while retrieving {}! Exiting..'.format(config_filename))
+        sys.exit(1)
+
     test_name = benchmark_config["name"]
     print("Preparing to run test: {}.\nDescription: {}.".format(test_name,
                                                                 benchmark_config["description"]))
@@ -65,12 +55,8 @@ def run_command_logic(args):
     s3_uri = "https://s3.amazonaws.com/{bucket_name}/{bucket_path}".format(bucket_name=s3_bucket_name,
                                                                            bucket_path=s3_bucket_path)
     run_stages = ["setup", "benchmark"]
-    run_stages_inputs = {
-
-    }
     benchmark_output_dict = {
-        "key-configs": {"deployment-type": args.deployment_type, "deployment-shards": args.deployment_shards,
-                        "redisearch-version": None, "git_sha": None},
+        "key-configs": {},
         "key-results": {},
         "benchmark-config": benchmark_config,
         "setup": {},
@@ -78,7 +64,134 @@ def run_command_logic(args):
         "infastructure": benchmark_infra
     }
     print("Checking required inputs are in place...")
-    for stage, input_description in benchmark_config["inputs"].items():
+    benchmark_inputs_dict = benchmark_config["inputs"]
+    run_stages_inputs = check_and_get_inputs(benchmark_inputs_dict, local_path, run_stages)
+    aux_client = None
+    redisearch_git_sha, redisearch_version, server_info = check_and_extract_redisearch_info(args.redis_url)
+
+    db_machine_1 = {"machine_info": None, "redis_info": server_info}
+    benchmark_infra["db-machines"]["db-machine-1"] = db_machine_1
+    benchmark_infra["total-db-machines"] += 1
+    benchmark_output_dict["key-configs"] = {"deployment-type": deployment_type,
+                                            "deployment-shards": args.deployment_shards,
+                                            "redisearch-version": redisearch_version, "git_sha": redisearch_git_sha}
+    print("Running setup steps...")
+    for command in benchmark_config["setup"]["commands"]:
+        try:
+            aux_client = redis.from_url(args.redis_url)
+            aux_client.execute_command(" ".join(command))
+        except redis.connection.ConnectionError as e:
+            print('Error while issuing setup command to Redis.Command {}! Error message: {} Exiting..'.format(command,
+                                                                                                              e.__str__()))
+            sys.exit(1)
+    ###############################
+    # Go client stage starts here #
+    ###############################
+    options = get_run_options()
+    start_time = dt.datetime.now()
+    benchmark_repetitions_require_teardown = benchmark_config["benchmark"][
+        "repetitions-require-teardown-and-re-setup"]
+    total_steps = args.repetitions
+    if benchmark_repetitions_require_teardown is True:
+        total_steps += total_steps
+    else:
+        total_steps += 1
+    progress = tqdm(unit="bench steps", total=total_steps)
+    for repetition in range(1, args.repetitions + 1):
+
+        if benchmark_repetitions_require_teardown is True or repetition == 1:
+            setup_run_key = "setup-run-{}.json".format(repetition)
+            setup_run_json_output_fullpath = "{}/{}".format(local_path, setup_run_key)
+            input_file = run_stages_inputs["setup"]
+            benchmark_output_dict["setup"][setup_run_key] = run_ftsb_redisearch(args.redis_url,
+                                                                                ftsb_redisearch_path,
+                                                                                setup_run_json_output_fullpath,
+                                                                                options, input_file, workers)
+            progress.update()
+
+        ######################
+        # Benchmark commands #
+        ######################
+        benchmark_run_key = "benchmark-run-{}.json".format(repetition)
+        benchmark_run_json_output_fullpath = "{}/{}".format(local_path, benchmark_run_key)
+        input_file = run_stages_inputs["benchmark"]
+
+        benchmark_output_dict["benchmark"][benchmark_run_key] = run_ftsb_redisearch(args.redis_url,
+                                                                                    ftsb_redisearch_path,
+                                                                                    benchmark_run_json_output_fullpath,
+                                                                                    options, input_file, workers)
+
+        if benchmark_repetitions_require_teardown is True or repetition == args.repetitions:
+            print("Running tear down steps...")
+            for command in benchmark_config["teardown"]["commands"]:
+                try:
+                    aux_client.execute_command(" ".join(command))
+                except redis.connection.ConnectionError as e:
+                    print(
+                        'Error while issuing teardown command to Redis.Command {}! Error message: {} Exiting..'.format(
+                            command,
+                            e.__str__()))
+                    sys.exit(1)
+
+        progress.update()
+    end_time = dt.datetime.now()
+    progress.close()
+    ##################################
+    # Repetitions Results Comparison #
+    ##################################
+    step_df_dict = generate_comparison_dataframe_configs(benchmark_config, run_stages)
+
+    benchmark_output_dict["results-comparison"] = {}
+    for step in run_stages:
+        for run_name, result_run in benchmark_output_dict[step].items():
+            step_df_dict[step]["df_dict"]["run-name"].append(run_name)
+            for pos, metric_json_path in enumerate(step_df_dict[step]["metric_json_path"]):
+                metric_name = step_df_dict[step]["sorting_metric_names"][pos]
+                metric_value = None
+                try:
+                    metric_value = findJsonPath(metric_json_path, result_run)
+                except KeyError:
+                    print(
+                        "Error retrieving {} metric from JSON PATH {} on file {}".format(metric_name, metric_json_path,
+                                                                                         run_name))
+                    pass
+                step_df_dict[step]["df_dict"][metric_name].append(metric_value)
+        resultsDataFrame = pd.DataFrame(step_df_dict[step]["df_dict"])
+        resultsDataFrame.sort_values(step_df_dict[step]["sorting_metric_names"],
+                                     ascending=step_df_dict[step]["sorting_metric_sorting_direction"], inplace=True)
+        benchmark_output_dict["key-results"][step] = from_resultsDF_to_key_results_dict(resultsDataFrame, step,
+                                                                                        step_df_dict)
+    #####################
+    # Run Info Metadata #
+    #####################
+    run_info, start_time_str = prepare_run_info_metadata_dict(end_time, start_time)
+    benchmark_output_dict["run-info"] = run_info
+    benchmark_output_filename = get_run_ftsb_redisearch_full_filename(args, deployment_type, redisearch_git_sha,
+                                                                      redisearch_version, start_time_str, test_name)
+    with open(benchmark_output_filename, "w") as json_out_file:
+        json.dump(benchmark_output_dict, json_out_file, indent=2)
+
+    if args.upload_results_s3:
+        artifacts = [benchmark_output_filename]
+        upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path)
+
+
+def prepare_run_info_metadata_dict(end_time, start_time):
+    start_time_str = start_time.strftime("%Y-%m-%d-%H-%M-%S")
+    end_time_str = end_time.strftime("%Y-%m-%d-%H-%M-%S")
+    duration_ms = ts_milli(end_time) - ts_milli(start_time)
+    start_time_ms = ts_milli(start_time)
+    end_time_ms = ts_milli(end_time)
+    duration_humanized = humanize.naturaldelta((end_time - start_time))
+    run_info = {"start-time-ms": start_time_ms, "start-time-humanized": start_time_str, "end-time-ms": end_time_ms,
+                "end-time-humanized": end_time_str, "duration-ms": duration_ms,
+                "duration-humanized": duration_humanized}
+    return run_info, start_time_str
+
+
+def check_and_get_inputs(benchmark_inputs_dict, local_path, run_stages):
+    run_stages_inputs = {}
+    for stage, input_description in benchmark_inputs_dict.items():
         remote_url = input_description["remote-url"]
         local_uncompressed_filename = input_description["local-uncompressed-filename"]
         local_compressed_filename = input_description["local-compressed-filename"]
@@ -110,237 +223,14 @@ def run_command_logic(args):
                 sys.exit(1)
 
             run_stages_inputs[stage] = local_uncompressed_filename_path
-    aux_client = None
-    print("Checking RediSearch is reachable at {}".format(args.redis_url))
-    try:
-        found_redisearch = False
-        aux_client = redis.from_url(args.redis_url)
-        module_list_reply = aux_client.execute_command("module list")
-        for module in module_list_reply:
-            module_name = module[1].decode()
-            module_version = module[3]
-            if module_name == "ft":
-                found_redisearch = True
-                redisearch_version = module_version
-                debug_gitsha_reply = aux_client.execute_command("ft.debug git_sha")
-                redisearch_git_sha = debug_gitsha_reply.decode()
-                print(
-                    'Found RediSearch Module at {}! version: {} git_sha: {}'.format(args.redis_url, redisearch_version,
-                                                                                    redisearch_git_sha))
-        if found_redisearch is False:
-            print('Unable to find RediSearch Module at {}! Exiting..'.format(args.redis_url))
-            sys.exit(1)
-        benchmark_output_dict["key-configs"]["redisearch-version"] = redisearch_version
-        benchmark_output_dict["key-configs"]["git_sha"] = redisearch_git_sha
 
-        server_info = aux_client.info("Server")
-        db_machine_1 = {"machine_info": None, "redis_info": server_info}
-        benchmark_infra["db-machines"]["db-machine-1"] = db_machine_1
-        benchmark_infra["total-db-machines"] += 1
-    except redis.connection.ConnectionError as e:
-        print('Error establishing connection to Redis at {}! Message: {} Exiting..'.format(args.redis_url, e.__str__()))
-        sys.exit(1)
-    print("Running setup steps...")
-    for command in benchmark_config["setup"]["commands"]:
-        try:
-            aux_client.execute_command(" ".join(command))
-        except redis.connection.ConnectionError as e:
-            print('Error while issuing setup command to Redis.Command {}! Error message: {} Exiting..'.format(command,
-                                                                                                              e.__str__()))
-            sys.exit(1)
-    ###############################
-    # Go client stage starts here #
-    ###############################
-    environ = os.environ.copy()
-    stdoutPipe = subprocess.PIPE
-    stderrPipe = subprocess.STDOUT
-    stdinPipe = subprocess.PIPE
-    options = {
-        'stderr': stderrPipe,
-        'env': environ,
-    }
-    start_time = dt.datetime.now()
-    benchmark_repetitions_require_teardown = benchmark_config["benchmark"][
-        "repetitions-require-teardown-and-re-setup"]
-    total_steps = args.repetitions
-    if benchmark_repetitions_require_teardown is True:
-        total_steps += total_steps
-    else:
-        total_steps += 1
-    progress = tqdm(unit="bench steps", total=total_steps)
-    for repetition in range(1, args.repetitions + 1):
+    return run_stages_inputs
 
-        if benchmark_repetitions_require_teardown is True or repetition == 1:
-            ##################
-            # Setup commands #
-            ##################
-            setup_run_key = "setup-run-{}.json".format(repetition)
-            setup_run_json_output_fullpath = "{}/{}".format(local_path, setup_run_key)
-            ftsb_args = []
-            ftsb_args += [ftsb_redisearch_path, "--host={}".format(args.redis_url),
-                          "--input={}".format(run_stages_inputs["setup"]), "--workers={}".format(workers),
-                          "--json-out-file={}".format(setup_run_json_output_fullpath)]
 
-            ftsb_process = subprocess.Popen(args=ftsb_args, **options)
-
-            if ftsb_process.poll() is not None:
-                print('Error while issuing setup commands. FTSB process is not alive. Exiting..')
-                sys.exit(1)
-
-            output = ftsb_process.communicate()
-            if ftsb_process.returncode != 0:
-                print('FTSB process returned non-zero exit status {}. Exiting..'.format(ftsb_process.returncode))
-                print('catched output:\n\t{}'.format(output))
-                sys.exit(1)
-            with open(setup_run_json_output_fullpath) as json_result:
-                benchmark_output_dict["setup"][setup_run_key] = json.load(json_result)
-
-            progress.update()
-
-        ######################
-        # Benchmark commands #
-        ######################
-        ftsb_args = []
-        benchmark_run_key = "benchmark-run-{}.json".format(repetition)
-        benchmark_run_json_output_fullpath = "{}/{}".format(local_path, benchmark_run_key)
-        ftsb_args += [ftsb_redisearch_path, "--host={}".format(args.redis_url),
-                      "--input={}".format(run_stages_inputs["benchmark"]), "--workers={}".format(workers),
-                      "--json-out-file={}".format(benchmark_run_json_output_fullpath),
-                      "--requests={}".format(args.benchmark_requests)]
-
-        ftsb_process = subprocess.Popen(args=ftsb_args, **options)
-
-        if ftsb_process.poll() is not None:
-            print('Error while issuing benchmark commands. FTSB process is not alive. Exiting..')
-            sys.exit(1)
-
-        output = ftsb_process.communicate()
-        if ftsb_process.returncode != 0:
-            print('FTSB process returned non-zero exit status {}. Exiting..'.format(ftsb_process.returncode))
-            print('catched output:\n\t{}'.format(output))
-            sys.exit(1)
-        with open(benchmark_run_json_output_fullpath) as json_result:
-            benchmark_output_dict["benchmark"][benchmark_run_key] = json.load(json_result)
-
-        if benchmark_repetitions_require_teardown is True or repetition == args.repetitions:
-            print("Running tear down steps...")
-            for command in benchmark_config["teardown"]["commands"]:
-                try:
-                    aux_client.execute_command(" ".join(command))
-                except redis.connection.ConnectionError as e:
-                    print(
-                        'Error while issuing teardown command to Redis.Command {}! Error message: {} Exiting..'.format(
-                            command,
-                            e.__str__()))
-                    sys.exit(1)
-
-        progress.update()
-    end_time = dt.datetime.now()
-    progress.close()
-    ##################################
-    # Repetitions Results Comparison #
-    ##################################
-    step_df_dict = {}
-    benchmark_output_dict["results-comparison"] = {}
-    for step in ["setup", "benchmark"]:
-        step_df_dict[step] = {}
-        step_df_dict[step]["df_dict"] = {"run-name": []}
-        step_df_dict[step]["sorting_metric_names"] = []
-        step_df_dict[step]["sorting_metric_sorting_direction"] = []
-        step_df_dict[step]["metric_json_path"] = []
-    for metric in benchmark_config["key-metrics"]:
-        step = metric["step"]
-        metric_name = metric["metric-name"]
-        metric_json_path = metric["metric-json-path"]
-        step_df_dict[step]["sorting_metric_names"].append(metric_name)
-        step_df_dict[step]["metric_json_path"].append(metric_json_path)
-        step_df_dict[step]["df_dict"][metric_name] = []
-        step_df_dict[step]["sorting_metric_sorting_direction"].append(
-            False if metric["comparison"] == "higher-better" else True)
-    for step in ["setup", "benchmark"]:
-        for run_name, result_run in benchmark_output_dict[step].items():
-            step_df_dict[step]["df_dict"]["run-name"].append(run_name)
-            for pos, metric_json_path in enumerate(step_df_dict[step]["metric_json_path"]):
-                metric_name = step_df_dict[step]["sorting_metric_names"][pos]
-                metric_value = None
-                try:
-                    metric_value = findJsonPath(metric_json_path, result_run)
-                except KeyError:
-                    print(
-                        "Error retrieving {} metric from JSON PATH {} on file {}".format(metric_name, metric_json_path,
-                                                                                         run_name))
-                    pass
-                step_df_dict[step]["df_dict"][metric_name].append(metric_value)
-        dfObj = pd.DataFrame(step_df_dict[step]["df_dict"])
-        dfObj.sort_values(step_df_dict[step]["sorting_metric_names"],
-                          ascending=step_df_dict[step]["sorting_metric_sorting_direction"], inplace=True)
-        print(dfObj)
-        benchmark_output_dict["key-results"][step] = {}
-        benchmark_output_dict["key-results"][step]["table"] = json.loads(dfObj.to_json(orient='records'))
-        best_result = dfObj.head(n=1)
-        worst_result = dfObj.tail(n=1)
-        first_sorting_col = step_df_dict[step]["sorting_metric_names"][0]
-        first_sorting_median = dfObj[first_sorting_col].median()
-        result_index = dfObj[first_sorting_col].sub(first_sorting_median).abs().idxmin()
-        median_result = dfObj.loc[[result_index]]
-
-        benchmark_output_dict["key-results"][step]["best-result"] = json.loads(best_result.to_json(orient='records'))
-        benchmark_output_dict["key-results"][step]["median-result"] = json.loads(
-            median_result.to_json(orient='records'))
-        benchmark_output_dict["key-results"][step]["worst-result"] = json.loads(worst_result.to_json(orient='records'))
-        benchmark_output_dict["key-results"][step]["reliability-analysis"] = {'var': json.loads(dfObj.var().to_json()),
-                                                                              'stddev': json.loads(
-                                                                                  dfObj.std().to_json())}
-    #####################
-    # Run Info Metadata #
-    #####################
-    start_time_str = start_time.strftime("%Y-%m-%d-%H-%M-%S")
-    end_time_str = end_time.strftime("%Y-%m-%d-%H-%M-%S")
-    duration_ms = ts_milli(end_time) - ts_milli(start_time)
-    start_time_ms = ts_milli(start_time)
-    end_time_ms = ts_milli(end_time)
-    duration_humanized = humanize.naturaldelta((end_time - start_time))
-    run_info = {"start-time-ms": start_time_ms, "start-time-humanized": start_time_str, "end-time-ms": end_time_ms,
-                "end-time-humanized": end_time_str, "duration-ms": duration_ms,
-                "duration-humanized": duration_humanized}
-    benchmark_output_dict["run-info"] = run_info
+def get_run_ftsb_redisearch_full_filename(args, deployment_type, redisearch_git_sha, redisearch_version, start_time_str,
+                                          test_name):
     benchmark_output_filename = "{prefix}{time_str}-{deployment_type}-{use_case}-{version}-{git_sha}.json".format(
         prefix=args.output_file_prefix,
-        time_str=start_time_str, deployment_type=args.deployment_type, use_case=benchmark_config["name"],
+        time_str=start_time_str, deployment_type=deployment_type, use_case=test_name,
         version=redisearch_version, git_sha=redisearch_git_sha)
-    with open(benchmark_output_filename, "w") as json_out_file:
-        json.dump(benchmark_output_dict, json_out_file, indent=2)
-    if args.upload_results_s3:
-        print("-- uploading results to s3 -- ")
-        s3 = boto3.resource('s3')
-        bucket = s3.Bucket(s3_bucket_name)
-        artifacts = [benchmark_output_filename]
-        progress = tqdm(unit="files", total=len(artifacts))
-        for input in artifacts:
-            object_key = '{bucket_path}{filename}'.format(bucket_path=s3_bucket_path, filename=input)
-            bucket.upload_file(input, object_key)
-            object_acl = s3.ObjectAcl(s3_bucket_name, object_key)
-            response = object_acl.put(ACL='public-read')
-            progress.update()
-        progress.close()
-
-
-def create_run_arguments(parser):
-    parser.add_argument('--benchmark-config-file', type=str,
-                        help="benchmark config file to read instructions from. can be a local file or a remote link")
-    parser.add_argument('--workers', type=str, default=0,
-                        help='number of workers to use during the benchark. If set to 0 it will auto adjust based on the machine number of VCPUs')
-    parser.add_argument('--repetitions', type=int, default=1,
-                        help='number of repetitions to run')
-    parser.add_argument('--benchmark-requests', type=int, default=0,
-                        help='Number of total requests to issue (0 = all of the present in input file)')
-    parser.add_argument('--upload-results-s3', default=False, action='store_true',
-                        help="uploads the result files and configuration file to public benchmarks.redislabs bucket. Proper credentials are required")
-    parser.add_argument('--redis-url', type=str, default="redis://localhost:6379", help='The url for Redis connection')
-    parser.add_argument('--local-dir', type=str, default="./", help='local dir to use as storage')
-    parser.add_argument('--deployment-type', type=str, default="docker-oss",
-                        help='one of docker-oss,docker-oss-cluster,docker-enterprise,oss,oss-cluster,enterprise')
-    parser.add_argument('--deployment-shards', type=int, default=1,
-                        help='number of database shards used in the deployment')
-    parser.add_argument('--output-file-prefix', type=str, default="", help='prefix to quickly tag some files')
-    return parser
+    return benchmark_output_filename
