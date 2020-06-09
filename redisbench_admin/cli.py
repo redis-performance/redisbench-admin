@@ -1,7 +1,7 @@
 import argparse
 import sys
-
 import toml
+from redisbench_admin import __version__
 
 from redisbench_admin.compare.args import create_compare_arguments
 from redisbench_admin.compare.compare import compare_command_logic
@@ -12,10 +12,17 @@ from redisbench_admin.run.run import run_command_logic
 
 
 def populate_with_poetry_data():
-    poetry_data = toml.load("pyproject.toml")['tool']['poetry']
-    project_name = poetry_data["name"]
-    project_version = poetry_data["version"]
-    project_description = poetry_data["description"]
+    project_name = 'redisbench-admin'
+    project_version = __version__
+    project_description = None
+    try:
+        poetry_data = toml.load("pyproject.toml")['tool']['poetry']
+        project_name = poetry_data["name"]
+        project_version = poetry_data["version"]
+        project_description = poetry_data["description"]
+    except FileNotFoundError:
+        pass
+
     return project_name, project_description, project_version
 
 

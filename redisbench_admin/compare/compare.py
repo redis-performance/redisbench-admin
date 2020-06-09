@@ -10,11 +10,12 @@ from redisbench_admin.utils.utils import retrieve_local_or_remote_input_json
 def get_key_results_and_values(baseline_json, step, use_result):
     selected_run = None
     metrics = {}
-    for name, value in baseline_json["key-results"][step][use_result][0].items():
-        if name == "run-name":
-            selected_run = value
-        else:
-            metrics[name] = value
+    if "key-results" in baseline_json and use_result in baseline_json["key-results"]:
+        for name, value in baseline_json["key-results"][step][use_result][0].items():
+            if name == "run-name":
+                selected_run = value
+            else:
+                metrics[name] = value
     return selected_run, metrics
 
 
@@ -84,8 +85,6 @@ def compare_command_logic(args):
                 ammount_of_failing_metrics = len (failing_metrics)
                 if ammount_of_failing_metrics > 0:
                     df_keys = df.keys()
-                    # print(df.loc['pct_change'][0])
-                    # print([0])
                     print( "There was a total of {} metrics that presented a regression above {} %".format(ammount_of_failing_metrics,max_pct_change) )
                     for pos,failed in enumerate(failing_metrics_serie):
                         if failed:
