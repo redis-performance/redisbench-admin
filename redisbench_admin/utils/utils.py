@@ -3,7 +3,8 @@ import json
 import operator
 import os
 import os.path
-import os.path
+import subprocess
+import sys
 import tarfile
 from functools import reduce
 from zipfile import ZipFile
@@ -73,6 +74,7 @@ def ts_milli(at_dt):
 
 def retrieve_local_or_remote_input_json(config_filename, local_path, option_name):
     benchmark_config = None
+
     if config_filename.startswith("http"):
         print("retrieving benchmark config file from remote url {}".format(config_filename))
         r = requests.get(config_filename)
@@ -83,6 +85,28 @@ def retrieve_local_or_remote_input_json(config_filename, local_path, option_name
         print("To avoid fetching again the config file use the option {option_name} {filename}".format(
             option_name=option_name,
             filename=local_config_file))
+
+    elif config_filename.startswith("S3://"):
+        print("s3")
+        s3 = boto3.resource('s3')
+        bucket_str = config_filename[5:].split("/")[0]
+
+        bucket_prefix = ""
+        if len(config_filename[5:].split("/")) > 0:
+            bucket_prefix = "/".join(config_filename[5:].split("/")[1:])
+        my_bucket = s3.Bucket(bucket_str)
+
+        print("Retrieving data from s3 bucket: {bucket_str}. Prefix={bucket_prefix}".format(bucket_str=bucket_str,
+                                                                                            bucket_prefix=bucket_prefix))
+        benchmark_config = {}
+        objects = list(my_bucket.objects.filter(Prefix=bucket_prefix))
+        for object_summary in tqdm(objects, total=len(objects)):
+            filename = object_summary.key.split("/")[-1]
+            local_config_file = "{}/{}".format(local_path, filename)
+            my_bucket.download_file(object_summary.key, local_config_file)
+            with open(local_config_file, "r") as json_file:
+                benchmark_config[filename] = json.load(json_file)
+
     else:
         with open(config_filename, "r") as json_file:
             benchmark_config = json.load(json_file)

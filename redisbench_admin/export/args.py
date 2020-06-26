@@ -5,4 +5,7 @@ def create_export_arguments(parser):
                         help="comma separated list of steps to be analyzed given the benchmark result files")
     parser.add_argument('--exporter', type=str, default="csv",
                         help="exporter to be used ( either csv or redistimeseries )")
+    parser.add_argument('--use-result', type=str, default="median-result",
+                        help="for each key-metric, use either worst-result, best-result, or median-result")
+    parser.add_argument('--extra-tags', type=str, default="", help='comma separated extra tags in the format of key1=value,key2=value,...')
     return parser
