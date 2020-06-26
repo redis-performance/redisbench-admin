@@ -2,8 +2,11 @@
 ![Actions](https://github.com/filipecosta90/redisbench-admin/workflows/Run%20Tests/badge.svg?branch=master)
 
 # redisbench-admin
-Redis benchmark run helper. A wrapper around ftsb_redisearch ( future versions will also support redis-benchmark and memtier_benchmark ).
+Redis benchmark run helper. An automation wrapper around:
+- [redisgraph-database-benchmark](https://github.com/RedisGraph/graph-database-benchmark/tree/master/benchmark/redisgraph)
+- [ftsb_redisearch](https://github.com/RediSearch/ftsb)
 
+** future versions will also support redis-benchmark and memtier_benchmark.
 
 ## Installation
 
