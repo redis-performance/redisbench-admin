@@ -18,6 +18,9 @@ redis = "^3.5.3"
 boto3 = "^1.13.24"
 tqdm = "^4.46.1"
 toml = "^0.10.1"
+seaborn = "^0.10.1"
+matplotlib = "^3.2.1"
+redistimeseries = "^0.8.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^4.6"

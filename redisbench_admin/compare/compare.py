@@ -1,22 +1,10 @@
-import json
 import os
 import sys
 
 import pandas as pd
 
+from redisbench_admin.utils.results import get_key_results_and_values
 from redisbench_admin.utils.utils import retrieve_local_or_remote_input_json
-
-
-def get_key_results_and_values(baseline_json, step, use_result):
-    selected_run = None
-    metrics = {}
-    if "key-results" in baseline_json and use_result in baseline_json["key-results"]:
-        for name, value in baseline_json["key-results"][step][use_result][0].items():
-            if name == "run-name":
-                selected_run = value
-            else:
-                metrics[name] = value
-    return selected_run, metrics
 
 
 def compare_command_logic(args):
@@ -82,13 +70,17 @@ def compare_command_logic(args):
             if enabled_fail:
                 failing_metrics_serie = df.loc['pct_change'] <= max_negative_pct_change
                 failing_metrics = df.loc['pct_change'][failing_metrics_serie]
-                ammount_of_failing_metrics = len (failing_metrics)
+                ammount_of_failing_metrics = len(failing_metrics)
                 if ammount_of_failing_metrics > 0:
                     df_keys = df.keys()
-                    print( "There was a total of {} metrics that presented a regression above {} %".format(ammount_of_failing_metrics,max_pct_change) )
-                    for pos,failed in enumerate(failing_metrics_serie):
+                    print("There was a total of {} metrics that presented a regression above {} %".format(
+                        ammount_of_failing_metrics, max_pct_change))
+                    for pos, failed in enumerate(failing_metrics_serie):
                         if failed:
-                            print("\tMetric '{}' failed. with an percentage of change of {:.2f} %".format(df_keys[pos],df.loc['pct_change'][pos]))
+                            print("\tMetric '{}' failed. with an percentage of change of {:.2f} %".format(df_keys[pos],
+                                                                                                          df.loc[
+                                                                                                              'pct_change'][
+                                                                                                              pos]))
                     sys.exit(1)
         else:
             print("Skipping step: {} due to command line argument --steps not containing it ({})".format(step, ",".join(
@@ -116,23 +108,3 @@ def generate_comparison_dataframe_configs(benchmark_config, steps):
         step_df_dict[step]["sorting_metric_sorting_direction_map"][metric_name] = False if metric[
                                                                                                "comparison"] == "higher-better" else True
     return step_df_dict
-
-
-def from_resultsDF_to_key_results_dict(resultsDataFrame, step, step_df_dict):
-    key_results_dict = {}
-    key_results_dict["table"] = json.loads(resultsDataFrame.to_json(orient='records'))
-    best_result = resultsDataFrame.head(n=1)
-    worst_result = resultsDataFrame.tail(n=1)
-    first_sorting_col = step_df_dict[step]["sorting_metric_names"][0]
-    first_sorting_median = resultsDataFrame[first_sorting_col].median()
-    result_index = resultsDataFrame[first_sorting_col].sub(first_sorting_median).abs().idxmin()
-    median_result = resultsDataFrame.loc[[result_index]]
-    key_results_dict["best-result"] = json.loads(best_result.to_json(orient='records'))
-    key_results_dict["median-result"] = json.loads(
-        median_result.to_json(orient='records'))
-    key_results_dict["worst-result"] = json.loads(worst_result.to_json(orient='records'))
-    key_results_dict["reliability-analysis"] = {
-        'var': json.loads(resultsDataFrame.var().to_json()),
-        'stddev': json.loads(
-            resultsDataFrame.std().to_json())}
-    return key_results_dict

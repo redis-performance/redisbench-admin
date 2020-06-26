@@ -1,8 +1,9 @@
 import argparse
 import sys
-import toml
-from redisbench_admin import __version__
 
+import toml
+
+from redisbench_admin import __version__
 from redisbench_admin.compare.args import create_compare_arguments
 from redisbench_admin.compare.compare import compare_command_logic
 from redisbench_admin.export.args import create_export_arguments

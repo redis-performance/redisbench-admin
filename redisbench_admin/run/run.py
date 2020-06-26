@@ -11,9 +11,10 @@ import requests
 from cpuinfo import cpuinfo
 from tqdm import tqdm
 
-from redisbench_admin.compare.compare import generate_comparison_dataframe_configs, from_resultsDF_to_key_results_dict
+from redisbench_admin.compare.compare import generate_comparison_dataframe_configs
 from redisbench_admin.run.ftsb_redisearch.ftsb_redisearch import run_ftsb_redisearch, get_run_options
 from redisbench_admin.utils.redisearch import check_and_extract_redisearch_info
+from redisbench_admin.utils.results import from_resultsDF_to_key_results_dict
 from redisbench_admin.utils.utils import required_utilities, whereis, decompress_file, findJsonPath, ts_milli, \
     retrieve_local_or_remote_input_json, upload_artifacts_to_s3
 
@@ -21,11 +22,7 @@ from redisbench_admin.utils.utils import required_utilities, whereis, decompress
 def run_command_logic(args):
     use_case_specific_arguments = dict(args.__dict__)
     s3_bucket_name = "benchmarks.redislabs"
-    required_utilities_list = ["ftsb_redisearch"]
-    if required_utilities(required_utilities_list) == 0:
-        print('Utilities Missing! Exiting..')
-        sys.exit(1)
-    ftsb_redisearch_path = whereis("ftsb_redisearch")
+
     local_path = os.path.abspath(args.local_dir)
     workers = args.workers
     benchmark_machine_info = cpuinfo.get_cpu_info()
@@ -49,12 +46,26 @@ def run_command_logic(args):
     test_name = benchmark_config["name"]
     print("Preparing to run test: {}.\nDescription: {}.".format(test_name,
                                                                 benchmark_config["description"]))
+
+    deployment_requirements = benchmark_config["deployment-requirements"]
+    required_utilities_list = deployment_requirements["utilities"].keys()
+    print("Checking required utilities are in place ({})".format(" ".join(required_utilities_list)))
+
+    if required_utilities(required_utilities_list) == 0:
+        print('Utilities Missing! Exiting..')
+        sys.exit(1)
+    benchmark_tool = deployment_requirements["benchmark-tool"]
+    print(benchmark_tool)
+    benchmark_tool_path = whereis(benchmark_tool)
+    if benchmark_tool_path is None:
+        benchmark_tool_path = benchmark_tool
+
     s3_bucket_path = "redisearch/results/".format(test_name)
     if args.output_file_prefix != "":
         s3_bucket_path = "{}{}/".format(s3_bucket_path, args.output_file_prefix)
     s3_uri = "https://s3.amazonaws.com/{bucket_name}/{bucket_path}".format(bucket_name=s3_bucket_name,
                                                                            bucket_path=s3_bucket_path)
-    run_stages = ["setup", "benchmark"]
+    run_stages = benchmark_config["run-stages"]
     benchmark_output_dict = {
         "key-configs": {},
         "key-results": {},
@@ -67,14 +78,23 @@ def run_command_logic(args):
     benchmark_inputs_dict = benchmark_config["inputs"]
     run_stages_inputs = check_and_get_inputs(benchmark_inputs_dict, local_path, run_stages)
     aux_client = None
-    redisearch_git_sha, redisearch_version, server_info = check_and_extract_redisearch_info(args.redis_url)
+
+    print("Checking required modules available at {}...".format(args.redis_url))
+    key_configs_git_sha = None
+    key_configs_version = None
+    server_info = None
+    redisearch_benchmark = True if "ft" in deployment_requirements["redis-server"]["modules"] else False
+    if redisearch_benchmark:
+        key_configs_git_sha, key_configs_version, server_info = check_and_extract_redisearch_info(args.redis_url)
+
+    key_configs = {"deployment-type": deployment_type,
+                                            "deployment-shards": args.deployment_shards,
+                                            "version": key_configs_version, "git_sha": key_configs_git_sha}
 
     db_machine_1 = {"machine_info": None, "redis_info": server_info}
     benchmark_infra["db-machines"]["db-machine-1"] = db_machine_1
     benchmark_infra["total-db-machines"] += 1
-    benchmark_output_dict["key-configs"] = {"deployment-type": deployment_type,
-                                            "deployment-shards": args.deployment_shards,
-                                            "redisearch-version": redisearch_version, "git_sha": redisearch_git_sha}
+    benchmark_output_dict["key-configs"] = key_configs
     print("Running setup steps...")
     for command in benchmark_config["setup"]["commands"]:
         try:
@@ -91,23 +111,21 @@ def run_command_logic(args):
     start_time = dt.datetime.now()
     benchmark_repetitions_require_teardown = benchmark_config["benchmark"][
         "repetitions-require-teardown-and-re-setup"]
-    total_steps = args.repetitions
+    total_steps = args.repetitions + len(run_stages) -1
     if benchmark_repetitions_require_teardown is True:
         total_steps += total_steps
-    else:
-        total_steps += 1
     progress = tqdm(unit="bench steps", total=total_steps)
     for repetition in range(1, args.repetitions + 1):
-
-        if benchmark_repetitions_require_teardown is True or repetition == 1:
-            setup_run_key = "setup-run-{}.json".format(repetition)
-            setup_run_json_output_fullpath = "{}/{}".format(local_path, setup_run_key)
-            input_file = run_stages_inputs["setup"]
-            benchmark_output_dict["setup"][setup_run_key] = run_ftsb_redisearch(args.redis_url,
-                                                                                ftsb_redisearch_path,
-                                                                                setup_run_json_output_fullpath,
-                                                                                options, input_file, workers)
-            progress.update()
+        if "setup" in run_stages_inputs:
+            if benchmark_repetitions_require_teardown is True or repetition == 1:
+                setup_run_key = "setup-run-{}.json".format(repetition)
+                setup_run_json_output_fullpath = "{}/{}".format(local_path, setup_run_key)
+                input_file = run_stages_inputs["setup"]
+                benchmark_output_dict["setup"][setup_run_key] = run_ftsb_redisearch(args.redis_url,
+                                                                                    benchmark_tool_path,
+                                                                                    setup_run_json_output_fullpath,
+                                                                                    options, input_file, workers)
+                progress.update()
 
         ######################
         # Benchmark commands #
@@ -117,7 +135,7 @@ def run_command_logic(args):
         input_file = run_stages_inputs["benchmark"]
 
         benchmark_output_dict["benchmark"][benchmark_run_key] = run_ftsb_redisearch(args.redis_url,
-                                                                                    ftsb_redisearch_path,
+                                                                                    benchmark_tool_path,
                                                                                     benchmark_run_json_output_fullpath,
                                                                                     options, input_file, workers)
 
@@ -166,8 +184,8 @@ def run_command_logic(args):
     #####################
     run_info, start_time_str = prepare_run_info_metadata_dict(end_time, start_time)
     benchmark_output_dict["run-info"] = run_info
-    benchmark_output_filename = get_run_ftsb_redisearch_full_filename(args, deployment_type, redisearch_git_sha,
-                                                                      redisearch_version, start_time_str, test_name)
+    benchmark_output_filename = get_run_ftsb_redisearch_full_filename(args, deployment_type, key_configs_git_sha,
+                                                                      key_configs_version, start_time_str, test_name)
     with open(benchmark_output_filename, "w") as json_out_file:
         json.dump(benchmark_output_dict, json_out_file, indent=2)
 
