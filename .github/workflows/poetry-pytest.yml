@@ -51,4 +51,4 @@ jobs:
       - name: Publish to PyPI
         if: github.event_name == 'release'
         run: |
-          poetry publish -u __token__ -p ${{ secrets.PYPI_TOKEN }}
+          poetry publish -u __token__ -p ${{ secrets.PYPI_TOKEN }} --build
