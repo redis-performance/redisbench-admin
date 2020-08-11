@@ -43,9 +43,11 @@ def run_command_logic(args):
         print('Error while retrieving {}! Exiting..'.format(config_filename))
         sys.exit(1)
 
+    project = benchmark_config["project"]
     test_name = benchmark_config["name"]
-    print("Preparing to run test: {}.\nDescription: {}.".format(test_name,
-                                                                benchmark_config["description"]))
+    description = benchmark_config["description"]
+    print("Testing project: {}".format(project))
+    print("Preparing to run test: {}.\nDescription: {}.".format(test_name, description))
 
     deployment_requirements = benchmark_config["deployment-requirements"]
     required_utilities_list = deployment_requirements["utilities"].keys()
@@ -60,7 +62,7 @@ def run_command_logic(args):
     if benchmark_tool_path is None:
         benchmark_tool_path = benchmark_tool
 
-    s3_bucket_path = "redisearch/results/".format(test_name)
+    s3_bucket_path = "{project}/results/{test_name}/".format(project=project,test_name=test_name)
     if args.output_file_prefix != "":
         s3_bucket_path = "{}{}/".format(s3_bucket_path, args.output_file_prefix)
     s3_uri = "https://s3.amazonaws.com/{bucket_name}/{bucket_path}".format(bucket_name=s3_bucket_name,
