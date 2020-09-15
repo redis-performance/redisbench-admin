@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "redisbench-admin"
-version = "0.1.10"
-description = "Redis benchmark run helper. A wrapper around ftsb_redisearch ( future versions will also support redis-benchmark and memtier_benchmark )."
+version = "0.1.11"
+description = "Redis benchmark run helper. A wrapper around Redis and Redis Modules benchmark tools ( ftsb_redisearch, memtier_benchmark, redis-benchmark, aibench, etc... )."
 authors = ["filipecosta90 <filipecosta.90@gmail.com>"]
 readme = "README.md"
 

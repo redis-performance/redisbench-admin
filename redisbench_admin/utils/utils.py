@@ -73,12 +73,12 @@ def ts_milli(at_dt):
 
 
 def retrieve_local_or_remote_input_json(config_filename, local_path, option_name):
-    benchmark_config = None
+    benchmark_config = {}
 
     if config_filename.startswith("http"):
         print("retrieving benchmark config file from remote url {}".format(config_filename))
         r = requests.get(config_filename)
-        benchmark_config = r.json()
+        benchmark_config[config_filename] = r.json()
         remote_filename = config_filename[config_filename.rfind('/') + 1:]
         local_config_file = "{}/{}".format(local_path, remote_filename)
         open(local_config_file, 'wb').write(r.content)
@@ -86,7 +86,7 @@ def retrieve_local_or_remote_input_json(config_filename, local_path, option_name
             option_name=option_name,
             filename=local_config_file))
 
-    elif config_filename.startswith("S3://"):
+    elif config_filename.startswith("S3://") or config_filename.startswith("s3://"):
         print("s3")
         s3 = boto3.resource('s3')
         bucket_str = config_filename[5:].split("/")[0]
