@@ -43,6 +43,7 @@ def run_command_logic(args):
         print('Error while retrieving {}! Exiting..'.format(config_filename))
         sys.exit(1)
 
+    benchmark_config = list(benchmark_config.values())[0]
     project = benchmark_config["project"]
     test_name = benchmark_config["name"]
     description = benchmark_config["description"]
