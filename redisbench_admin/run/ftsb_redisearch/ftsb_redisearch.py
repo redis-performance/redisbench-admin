@@ -1,3 +1,19 @@
+# Copyright (C) 2020 Redis Labs Ltd.
+#
+# This file is part of redisbench-admin.
+#
+# redisbench-admin is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, version 2.
+#
+# redisbench-admin is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with redisbench-admin.  If not, see <http://www.gnu.org/licenses/>.
+
 import json
 import os
 import subprocess
@@ -17,7 +33,7 @@ def get_run_options():
 
 
 def run_ftsb_redisearch(redis_url, ftsb_redisearch_path, setup_run_json_output_fullpath, options, input_file,
-                        workers):
+                        workers=1,args=[]):
     ##################
     # Setup commands #
     ##################

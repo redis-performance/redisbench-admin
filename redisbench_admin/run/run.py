@@ -97,15 +97,7 @@ def run_command_logic(args):
     benchmark_infra["db-machines"]["db-machine-1"] = db_machine_1
     benchmark_infra["total-db-machines"] += 1
     benchmark_output_dict["key-configs"] = key_configs
-    print("Running setup steps...")
-    for command in benchmark_config["setup"]["commands"]:
-        try:
-            aux_client = redis.from_url(args.redis_url)
-            aux_client.execute_command(" ".join(command))
-        except redis.connection.ConnectionError as e:
-            print('Error while issuing setup command to Redis.Command {}! Error message: {} Exiting..'.format(command,
-                                                                                                              e.__str__()))
-            sys.exit(1)
+
     ###############################
     # Go client stage starts here #
     ###############################
@@ -118,8 +110,9 @@ def run_command_logic(args):
         total_steps += total_steps
     progress = tqdm(unit="bench steps", total=total_steps)
     for repetition in range(1, args.repetitions + 1):
-        if "setup" in run_stages_inputs:
-            if benchmark_repetitions_require_teardown is True or repetition == 1:
+        if benchmark_repetitions_require_teardown is True or repetition == 1:
+            aux_client = run_setup_commands(args, aux_client, benchmark_config)
+            if "setup" in run_stages_inputs:
                 setup_run_key = "setup-run-{}.json".format(repetition)
                 setup_run_json_output_fullpath = "{}/{}".format(local_path, setup_run_key)
                 input_file = run_stages_inputs["setup"]
@@ -127,7 +120,7 @@ def run_command_logic(args):
                                                                                     benchmark_tool_path,
                                                                                     setup_run_json_output_fullpath,
                                                                                     options, input_file, workers)
-                progress.update()
+            progress.update()
 
         ######################
         # Benchmark commands #
@@ -194,6 +187,19 @@ def run_command_logic(args):
     if args.upload_results_s3:
         artifacts = [benchmark_output_filename]
         upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path)
+
+
+def run_setup_commands(args, aux_client, benchmark_config):
+    print("Running setup steps...")
+    for command in benchmark_config["setup"]["commands"]:
+        try:
+            aux_client = redis.from_url(args.redis_url)
+            aux_client.execute_command(" ".join(command))
+        except redis.connection.ConnectionError as e:
+            print('Error while issuing setup command to Redis.Command {}! Error message: {} Exiting..'.format(command,
+                                                                                                              e.__str__()))
+            sys.exit(1)
+    return aux_client
 
 
 def prepare_run_info_metadata_dict(end_time, start_time):
