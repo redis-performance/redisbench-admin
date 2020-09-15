@@ -109,5 +109,5 @@ def retrieve_local_or_remote_input_json(config_filename, local_path, option_name
 
     else:
         with open(config_filename, "r") as json_file:
-            benchmark_config = json.load(json_file)
+            benchmark_config[config_filename] = json.load(json_file)
     return benchmark_config
