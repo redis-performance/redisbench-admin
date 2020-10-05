@@ -14,5 +14,7 @@ def create_run_arguments(parser):
                         help='one of docker-oss,docker-oss-cluster,docker-enterprise,oss,oss-cluster,enterprise')
     parser.add_argument('--deployment-shards', type=int, default=1,
                         help='number of database shards used in the deployment')
+    parser.add_argument('--pipeline', type=int, default=1,
+                        help='pipeline requests to Redis')
     parser.add_argument('--output-file-prefix', type=str, default="", help='prefix to quickly tag some files')
     return parser
