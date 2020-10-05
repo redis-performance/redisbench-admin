@@ -25,6 +25,7 @@ def run_command_logic(args):
 
     local_path = os.path.abspath(args.local_dir)
     workers = args.workers
+    pipeline = args.pipeline
     benchmark_machine_info = cpuinfo.get_cpu_info()
     total_cores = benchmark_machine_info['count']
     benchmark_infra = {"total-benchmark-machines": 0, "benchmark-machines": {}, "total-db-machines": 0,
@@ -35,6 +36,10 @@ def run_command_logic(args):
     if workers == 0:
         print('Setting number of workers equal to machine VCPUs {}'.format(total_cores))
         workers = total_cores
+    else:
+        print('Setting number of workers to {}'.format(workers))
+
+    print('Setting pipeline to {}'.format(pipeline))
 
     deployment_type = args.deployment_type
     config_filename = args.benchmark_config_file
@@ -120,7 +125,7 @@ def run_command_logic(args):
                 benchmark_output_dict["setup"][setup_run_key] = run_ftsb_redisearch(args.redis_url,
                                                                                     benchmark_tool_path,
                                                                                     setup_run_json_output_fullpath,
-                                                                                    options, input_file, workers)
+                                                                                    options, input_file, workers, pipeline)
             progress.update()
 
         ######################
@@ -133,7 +138,7 @@ def run_command_logic(args):
         benchmark_output_dict["benchmark"][benchmark_run_key] = run_ftsb_redisearch(args.redis_url,
                                                                                     benchmark_tool_path,
                                                                                     benchmark_run_json_output_fullpath,
-                                                                                    options, input_file, workers)
+                                                                                    options, input_file, workers, pipeline)
 
         if benchmark_repetitions_require_teardown is True or repetition == args.repetitions:
             print("Running tear down steps...")

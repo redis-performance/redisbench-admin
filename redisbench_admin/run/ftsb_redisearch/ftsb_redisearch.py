@@ -33,7 +33,7 @@ def get_run_options():
 
 
 def run_ftsb_redisearch(redis_url, ftsb_redisearch_path, setup_run_json_output_fullpath, options, input_file,
-                        workers=1,args=[]):
+                        workers=1,pipeline=1,args=[]):
     ##################
     # Setup commands #
     ##################
@@ -41,6 +41,7 @@ def run_ftsb_redisearch(redis_url, ftsb_redisearch_path, setup_run_json_output_f
     ftsb_args = []
     ftsb_args += [ftsb_redisearch_path, "--host={}".format(redis_url),
                   "--input={}".format(input_file), "--workers={}".format(workers),
+                  "--pipeline={}".format(pipeline),
                   "--json-out-file={}".format(setup_run_json_output_fullpath)]
     ftsb_process = subprocess.Popen(args=ftsb_args, **options)
     if ftsb_process.poll() is not None:
