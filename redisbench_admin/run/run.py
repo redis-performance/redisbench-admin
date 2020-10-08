@@ -126,8 +126,12 @@ def run_command_logic(args):
                 input_file = run_stages_inputs["setup"]
                 benchmark_output_dict["setup"][setup_run_key] = run_ftsb_redisearch(args.redis_url, benchmark_tool_path,
                                                                                     setup_run_json_output_fullpath,
+<<<<<<< HEAD
                                                                                     options, input_file, workers,
                                                                                     pipeline, oss_cluster_mode)
+=======
+                                                                                    options, input_file, workers, pipeline)
+>>>>>>> master
             progress.update()
 
         ######################
@@ -139,8 +143,12 @@ def run_command_logic(args):
 
         benchmark_output_dict["benchmark"][benchmark_run_key] = run_ftsb_redisearch(args.redis_url, benchmark_tool_path,
                                                                                     benchmark_run_json_output_fullpath,
+<<<<<<< HEAD
                                                                                     options, input_file, workers,
                                                                                     pipeline, oss_cluster_mode)
+=======
+                                                                                    options, input_file, workers, pipeline)
+>>>>>>> master
 
         if benchmark_repetitions_require_teardown is True or repetition == args.repetitions:
             print("Running tear down steps...")
