@@ -120,7 +120,7 @@ def run_command_logic(args):
     progress = tqdm(unit="bench steps", total=total_steps)
     for repetition in range(1, args.repetitions + 1):
         if benchmark_repetitions_require_teardown is True or repetition == 1:
-            aux_client = run_setup_commands(args, aux_client, benchmark_config, oss_cluster_mode)
+            aux_client = run_setup_commands(args, "setup", benchmark_config["setup"]["commands"], oss_cluster_mode)
             if "setup" in run_stages_inputs:
                 setup_run_key = "setup-run-{}.json".format(repetition)
                 setup_run_json_output_fullpath = "{}/{}".format(local_path, setup_run_key)
@@ -145,15 +145,7 @@ def run_command_logic(args):
 
         if benchmark_repetitions_require_teardown is True or repetition == args.repetitions:
             print("Running tear down steps...")
-            for command in benchmark_config["teardown"]["commands"]:
-                try:
-                    aux_client.execute_command(" ".join(command))
-                except redis.connection.ConnectionError as e:
-                    print(
-                        'Error while issuing teardown command to Redis.Command {}! Error message: {} Exiting..'.format(
-                            command,
-                            e.__str__()))
-                    sys.exit(1)
+            run_setup_commands(args, "tear down", benchmark_config["teardown"]["commands"], oss_cluster_mode)
 
         progress.update()
     end_time = dt.datetime.now()
@@ -197,9 +189,8 @@ def run_command_logic(args):
         artifacts = [benchmark_output_filename]
         upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path)
 
-
-def run_setup_commands(args, aux_client, benchmark_config, cluster_enabled):
-    print("Running setup steps...")
+def run_setup_commands(args, step_string_description, commands, cluster_enabled):
+    print("Running {} steps...".format(step_string_description))
     try:
         if cluster_enabled:
             host_port_arr = args.redis_url.split(":")
@@ -208,15 +199,15 @@ def run_setup_commands(args, aux_client, benchmark_config, cluster_enabled):
             startup_nodes = [{"host": host, "port": port}]
             aux_client = RedisCluster(startup_nodes=startup_nodes, decode_responses=True)
             cluster_nodes = aux_client.cluster_nodes()
-            for command in benchmark_config["setup"]["commands"]:
+            for command in commands:
                 for master_node in aux_client.connection_pool.nodes.all_masters():
                     redis.from_url("redis://"+master_node["name"]).execute_command(" ".join(command))
         else:
             aux_client = redis.from_url(args.redis_url)
-            for command in benchmark_config["setup"]["commands"]:
+            for command in commands:
                 aux_client.execute_command(" ".join(command))
     except redis.connection.ConnectionError as e:
-        print('Error while issuing setup command to Redis.Command {}! Error message: {} Exiting..'.format(command,
+        print('Error while issuing {} steps command to Redis.Command {}! Error message: {} Exiting..'.format(step_string_description, command,
                                                                                                           e.__str__()))
         sys.exit(1)
     return aux_client
