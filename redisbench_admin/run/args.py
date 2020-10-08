@@ -1,3 +1,4 @@
+
 def create_run_arguments(parser):
     parser.add_argument('--benchmark-config-file', type=str, required=True,
                         help="benchmark config file to read instructions from. can be a local file or a remote link")
@@ -16,5 +17,6 @@ def create_run_arguments(parser):
                         help='number of database shards used in the deployment')
     parser.add_argument('--pipeline', type=int, default=1,
                         help='pipeline requests to Redis')
+    parser.add_argument('--cluster-mode',default=False, action='store_true',help="Run client in cluster mode")
     parser.add_argument('--output-file-prefix', type=str, default="", help='prefix to quickly tag some files')
     return parser

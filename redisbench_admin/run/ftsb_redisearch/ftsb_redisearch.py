@@ -32,8 +32,8 @@ def get_run_options():
     return options
 
 
-def run_ftsb_redisearch(redis_url, ftsb_redisearch_path, setup_run_json_output_fullpath, options, input_file,
-                        workers=1,pipeline=1,args=[]):
+def run_ftsb_redisearch(redis_url, ftsb_redisearch_path, setup_run_json_output_fullpath, options, input_file, workers=1,
+                        pipeline=1, oss_cluster_mode=False, args=[] ):
     ##################
     # Setup commands #
     ##################
@@ -43,6 +43,9 @@ def run_ftsb_redisearch(redis_url, ftsb_redisearch_path, setup_run_json_output_f
                   "--input={}".format(input_file), "--workers={}".format(workers),
                   "--pipeline={}".format(pipeline),
                   "--json-out-file={}".format(setup_run_json_output_fullpath)]
+    if oss_cluster_mode:
+        ftsb_args += ["--cluster-mode"]
+
     ftsb_process = subprocess.Popen(args=ftsb_args, **options)
     if ftsb_process.poll() is not None:
         print('Error while issuing setup commands. FTSB process is not alive. Exiting..')
