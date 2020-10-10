@@ -130,7 +130,7 @@ def run_command_logic(args):
                 benchmark_output_dict["setup"][setup_run_key] = run_ftsb_redisearch(args.redis_url, benchmark_tool_path,
                                                                                     setup_run_json_output_fullpath,
                                                                                     options, input_file, workers,
-                                                                                    pipeline, oss_cluster_mode, max_rps, requests)
+                                                                                    pipeline, oss_cluster_mode, 0, 0)
             progress.update()
 
         ######################
