@@ -20,4 +20,6 @@ def create_run_arguments(parser):
     parser.add_argument('--max-rps', type=int, default=0,
                         help="enable limiting the rate of queries per second, 0 = no limit. " + "By default no limit is specified and the binaries will stress the DB up to the maximum.")
     parser.add_argument('--output-file-prefix', type=str, default="", help='prefix to quickly tag some files')
+    parser.add_argument('--requests', type=int, default=0,
+                        help='Number of total requests to issue (0 = all of the present in input file).')
     return parser

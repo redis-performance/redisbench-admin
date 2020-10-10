@@ -29,6 +29,7 @@ def run_command_logic(args):
     pipeline = args.pipeline
     oss_cluster_mode = args.cluster_mode
     max_rps = args.max_rps
+    requests = args.requests
 
     benchmark_machine_info = cpuinfo.get_cpu_info()
     total_cores = benchmark_machine_info['count']
@@ -129,7 +130,7 @@ def run_command_logic(args):
                 benchmark_output_dict["setup"][setup_run_key] = run_ftsb_redisearch(args.redis_url, benchmark_tool_path,
                                                                                     setup_run_json_output_fullpath,
                                                                                     options, input_file, workers,
-                                                                                    pipeline, oss_cluster_mode, max_rps)
+                                                                                    pipeline, oss_cluster_mode, max_rps, requests)
             progress.update()
 
         ######################
@@ -142,11 +143,7 @@ def run_command_logic(args):
         benchmark_output_dict["benchmark"][benchmark_run_key] = run_ftsb_redisearch(args.redis_url, benchmark_tool_path,
                                                                                     benchmark_run_json_output_fullpath,
                                                                                     options, input_file, workers,
-                                                                                    pipeline, oss_cluster_mode, max_rps)
-
-        if benchmark_repetitions_require_teardown is True or repetition == args.repetitions:
-            print("Running tear down steps...")
-            run_setup_commands(args, "tear down", benchmark_config["teardown"]["commands"], oss_cluster_mode)
+                                                                                    pipeline, oss_cluster_mode, max_rps, requests)
 
         progress.update()
     end_time = dt.datetime.now()
