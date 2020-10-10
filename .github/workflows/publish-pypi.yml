@@ -1,9 +1,7 @@
-name: Run Tests
+name: Publish Pypi
 on:
-  pull_request:
-  push:
-    branches:
-      - master
+  release:
+    types: [published]
 
 jobs:
   pytest:
@@ -37,11 +35,7 @@ jobs:
         run: poetry install
         if: steps.cache.outputs.cache-hit != 'true'
 
-      - name: Test with pytest
-        env:
-          DJANGO_SETTINGS_MODULE: project.settings
-          SECRETS_FILE: .confidential/ci.json
-        run: poetry run pytest --cov redisbench_admin
-
-      - name: Upload coverage
-        run: poetry run codecov -t ${{ secrets.CODECOV_TOKEN }}
+      - name: Publish to PyPI
+        if: github.event_name == 'release'
+        run: |
+          poetry publish -u __token__ -p ${{ secrets.PYPI_TOKEN }} --build

@@ -3,7 +3,17 @@
 ![Actions](https://badge.fury.io/py/redisbench-admin.svg)
 
 # redisbench-admin
-Redis benchmark run helper. An automation wrapper around:
+
+Redis benchmark run helper can help you with the following tasks:
+
+- Setup and teardown of an Redis and Redis Modules DBs for benchmarking
+- Management of benchmark data and specifications across different setups
+- Running benchmarks and recording results
+- Comparing performance results
+- Exporting performance results in several formats (CSV, RedisTimeSeries, JSON)
+- [SOON] Finding performance problems by attaching telemetry probes
+
+Current supported benchmark tools:
 - [redisgraph-database-benchmark](https://github.com/RedisGraph/graph-database-benchmark/tree/master/benchmark/redisgraph)
 - [ftsb_redisearch](https://github.com/RediSearch/ftsb)
 
@@ -17,9 +27,7 @@ Installation is done using pip, the package installer for Python, in the followi
 python3 -m pip install redisbench-admin
 ```
 
-## Overview
-
-TBD
+## Development
 
 ### Running tests
 
