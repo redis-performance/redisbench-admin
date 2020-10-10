@@ -33,7 +33,7 @@ def get_run_options():
 
 
 def run_ftsb_redisearch(redis_url, ftsb_redisearch_path, setup_run_json_output_fullpath, options, input_file, workers=1,
-                        pipeline=1, oss_cluster_mode=False, args=[] ):
+                        pipeline=1, oss_cluster_mode=False, max_rps=0, args=[] ):
     ##################
     # Setup commands #
     ##################
@@ -43,6 +43,8 @@ def run_ftsb_redisearch(redis_url, ftsb_redisearch_path, setup_run_json_output_f
                   "--input={}".format(input_file), "--workers={}".format(workers),
                   "--pipeline={}".format(pipeline),
                   "--json-out-file={}".format(setup_run_json_output_fullpath)]
+    if max_rps > 0:
+        ftsb_args += ["--max-rps", max_rps]
     if oss_cluster_mode:
         ftsb_args += ["--cluster-mode"]
 
