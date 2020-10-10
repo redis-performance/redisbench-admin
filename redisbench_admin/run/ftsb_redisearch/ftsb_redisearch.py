@@ -44,9 +44,9 @@ def run_ftsb_redisearch(redis_url, ftsb_redisearch_path, setup_run_json_output_f
                   "--pipeline={}".format(pipeline),
                   "--json-out-file={}".format(setup_run_json_output_fullpath)]
     if max_rps > 0:
-        ftsb_args += ["--max-rps", max_rps]
+        ftsb_args += ["--max-rps={}".format(max_rps)]
     if requests > 0:
-        ftsb_args += ["--requests", requests]
+        ftsb_args += ["--requests={}".format(requests)]
     if oss_cluster_mode:
         ftsb_args += ["--cluster-mode"]
 
