@@ -145,6 +145,10 @@ def run_command_logic(args):
                                                                                     options, input_file, workers,
                                                                                     pipeline, oss_cluster_mode, max_rps, requests)
 
+        if benchmark_repetitions_require_teardown is True or repetition == args.repetitions:
+            print("Running tear down steps...")
+            run_setup_commands(args, "tear down", benchmark_config["teardown"]["commands"], oss_cluster_mode)
+
         progress.update()
     end_time = dt.datetime.now()
     progress.close()
