@@ -49,6 +49,7 @@ def run_ftsb_redisearch(redis_url, ftsb_redisearch_path, setup_run_json_output_f
         ftsb_args += ["--requests={}".format(requests)]
     if oss_cluster_mode:
         ftsb_args += ["--cluster-mode"]
+    ftsb_args += ["--continue-on-error"]
 
     ftsb_process = subprocess.Popen(args=ftsb_args, **options)
     if ftsb_process.poll() is not None:
