@@ -30,6 +30,12 @@ def run_command_logic(args):
     oss_cluster_mode = args.cluster_mode
     max_rps = args.max_rps
     requests = args.requests
+    continue_on_error = args.continue_on_error
+    run_only_steps = None
+    skip_teardown = args.skip_teardown
+    if args.run_only_steps != "":
+        run_only_steps = args.run_only_steps.split(",")
+
 
     benchmark_machine_info = cpuinfo.get_cpu_info()
     total_cores = benchmark_machine_info['count']
@@ -124,30 +130,46 @@ def run_command_logic(args):
         if benchmark_repetitions_require_teardown is True or repetition == 1:
             aux_client = run_setup_commands(args, "setup", benchmark_config["setup"]["commands"], oss_cluster_mode)
             if "setup" in run_stages_inputs:
-                setup_run_key = "setup-run-{}.json".format(repetition)
-                setup_run_json_output_fullpath = "{}/{}".format(local_path, setup_run_key)
-                input_file = run_stages_inputs["setup"]
-                benchmark_output_dict["setup"][setup_run_key] = run_ftsb_redisearch(args.redis_url, benchmark_tool_path,
-                                                                                    setup_run_json_output_fullpath,
-                                                                                    options, input_file, workers,
-                                                                                    pipeline, oss_cluster_mode, 0, 0)
+                run_setup_step = True
+                if run_only_steps is not None and "setup" not in run_only_steps:
+                    run_setup_step = False
+                if run_setup_step:
+                    setup_run_key = "setup-run-{}.json".format(repetition)
+                    setup_run_json_output_fullpath = "{}/{}".format(local_path, setup_run_key)
+                    input_file = run_stages_inputs["setup"]
+                    benchmark_output_dict["setup"][setup_run_key] = run_ftsb_redisearch(args.redis_url, benchmark_tool_path,
+                                                                                        setup_run_json_output_fullpath,
+                                                                                        options, input_file, workers,
+                                                                                        pipeline, oss_cluster_mode, 0, 0, continue_on_error)
+                else:
+                    print("Skipping setup step since it's not present in: {}".format(run_only_steps))
             progress.update()
 
         ######################
         # Benchmark commands #
         ######################
-        benchmark_run_key = "benchmark-run-{}.json".format(repetition)
-        benchmark_run_json_output_fullpath = "{}/{}".format(local_path, benchmark_run_key)
-        input_file = run_stages_inputs["benchmark"]
+        run_benchmark_step = True
+        if run_only_steps is not None and "benchmark" not in run_only_steps:
+            run_benchmark_step = False
 
-        benchmark_output_dict["benchmark"][benchmark_run_key] = run_ftsb_redisearch(args.redis_url, benchmark_tool_path,
-                                                                                    benchmark_run_json_output_fullpath,
-                                                                                    options, input_file, workers,
-                                                                                    pipeline, oss_cluster_mode, max_rps, requests)
+        if run_benchmark_step:
+            benchmark_run_key = "benchmark-run-{}.json".format(repetition)
+            benchmark_run_json_output_fullpath = "{}/{}".format(local_path, benchmark_run_key)
+            input_file = run_stages_inputs["benchmark"]
+
+            benchmark_output_dict["benchmark"][benchmark_run_key] = run_ftsb_redisearch(args.redis_url, benchmark_tool_path,
+                                                                                        benchmark_run_json_output_fullpath,
+                                                                                        options, input_file, workers,
+                                                                                        pipeline, oss_cluster_mode, max_rps, requests, continue_on_error)
+        else:
+            print("Skipping benchmark step since it's not present in: {}".format(run_only_steps))
 
         if benchmark_repetitions_require_teardown is True or repetition == args.repetitions:
-            print("Running tear down steps...")
-            run_setup_commands(args, "tear down", benchmark_config["teardown"]["commands"], oss_cluster_mode)
+            if skip_teardown is False:
+                print("Running tear down steps...")
+                run_setup_commands(args, "tear down", benchmark_config["teardown"]["commands"], oss_cluster_mode)
+            else:
+                print("Implicitly skipping teardown step due to --skip-teardown flag")
 
         progress.update()
     end_time = dt.datetime.now()
