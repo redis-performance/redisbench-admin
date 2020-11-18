@@ -18,8 +18,10 @@ def create_run_arguments(parser):
                         help='number of database shards used in the deployment')
     parser.add_argument('--pipeline', type=int, default=1,
                         help='pipeline requests to Redis')
-    parser.add_argument('--skip-teardown', default=False, action='store_true',
-                        help="If enabled will skip any teardown steps.")
+    parser.add_argument('--skip-teardown-commands', default=False, action='store_true',
+                        help="If enabled will skip any teardown commands.")
+    parser.add_argument('--skip-setup-commands', default=False, action='store_true',
+                        help="If enabled will skip any setup commands.")
     parser.add_argument('--continue-on-error', default=False, action='store_true',
                         help="If enabled will continue on Redis ERR replies and only print the message.")
     parser.add_argument('--cluster-mode', default=False, action='store_true', help="Run client in cluster mode")
