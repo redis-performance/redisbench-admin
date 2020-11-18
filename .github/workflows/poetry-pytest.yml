@@ -9,6 +9,8 @@ jobs:
   pytest:
     name: pytest
     runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
     steps:
       - uses: actions/checkout@master
       - name: Set up Python 3.7
