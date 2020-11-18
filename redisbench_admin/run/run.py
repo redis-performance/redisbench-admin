@@ -32,7 +32,8 @@ def run_command_logic(args):
     requests = args.requests
     continue_on_error = args.continue_on_error
     run_only_steps = None
-    skip_teardown = args.skip_teardown
+    skip_setup = args.skip_setup_commands
+    skip_teardown = args.skip_teardown_commands
     if args.run_only_steps != "":
         run_only_steps = args.run_only_steps.split(",")
 
@@ -128,7 +129,10 @@ def run_command_logic(args):
     progress = tqdm(unit="bench steps", total=total_steps)
     for repetition in range(1, args.repetitions + 1):
         if benchmark_repetitions_require_teardown is True or repetition == 1:
-            aux_client = run_setup_commands(args, "setup", benchmark_config["setup"]["commands"], oss_cluster_mode)
+            if skip_setup is False:
+                aux_client = run_setup_commands(args, "setup", benchmark_config["setup"]["commands"], oss_cluster_mode)
+            else:
+                print("Implicitly skipping setup commands due to --skip-setup-commands flag")
             if "setup" in run_stages_inputs:
                 run_setup_step = True
                 if run_only_steps is not None and "setup" not in run_only_steps:
@@ -169,7 +173,7 @@ def run_command_logic(args):
                 print("Running tear down steps...")
                 run_setup_commands(args, "tear down", benchmark_config["teardown"]["commands"], oss_cluster_mode)
             else:
-                print("Implicitly skipping teardown step due to --skip-teardown flag")
+                print("Implicitly skipping teardown commands due to --skip-teardown-commands flag")
 
         progress.update()
     end_time = dt.datetime.now()
