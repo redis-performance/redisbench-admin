@@ -181,24 +181,25 @@ def run_command_logic(args):
 
     benchmark_output_dict["results-comparison"] = {}
     for step in run_stages:
-        for run_name, result_run in benchmark_output_dict[step].items():
-            step_df_dict[step]["df_dict"]["run-name"].append(run_name)
-            for pos, metric_json_path in enumerate(step_df_dict[step]["metric_json_path"]):
-                metric_name = step_df_dict[step]["sorting_metric_names"][pos]
-                metric_value = None
-                try:
-                    metric_value = findJsonPath(metric_json_path, result_run)
-                except KeyError:
-                    print(
-                        "Error retrieving {} metric from JSON PATH {} on file {}".format(metric_name, metric_json_path,
-                                                                                         run_name))
-                    pass
-                step_df_dict[step]["df_dict"][metric_name].append(metric_value)
-        resultsDataFrame = pd.DataFrame(step_df_dict[step]["df_dict"])
-        resultsDataFrame.sort_values(step_df_dict[step]["sorting_metric_names"],
-                                     ascending=step_df_dict[step]["sorting_metric_sorting_direction"], inplace=True)
-        benchmark_output_dict["key-results"][step] = from_resultsDF_to_key_results_dict(resultsDataFrame, step,
-                                                                                        step_df_dict)
+        if run_only_steps is not None and step not in run_only_steps:
+            for run_name, result_run in benchmark_output_dict[step].items():
+                step_df_dict[step]["df_dict"]["run-name"].append(run_name)
+                for pos, metric_json_path in enumerate(step_df_dict[step]["metric_json_path"]):
+                    metric_name = step_df_dict[step]["sorting_metric_names"][pos]
+                    metric_value = None
+                    try:
+                        metric_value = findJsonPath(metric_json_path, result_run)
+                    except KeyError:
+                        print(
+                            "Error retrieving {} metric from JSON PATH {} on file {}".format(metric_name, metric_json_path,
+                                                                                             run_name))
+                        pass
+                    step_df_dict[step]["df_dict"][metric_name].append(metric_value)
+            resultsDataFrame = pd.DataFrame(step_df_dict[step]["df_dict"])
+            resultsDataFrame.sort_values(step_df_dict[step]["sorting_metric_names"],
+                                         ascending=step_df_dict[step]["sorting_metric_sorting_direction"], inplace=True)
+            benchmark_output_dict["key-results"][step] = from_resultsDF_to_key_results_dict(resultsDataFrame, step,
+                                                                                            step_df_dict)
     #####################
     # Run Info Metadata #
     #####################
