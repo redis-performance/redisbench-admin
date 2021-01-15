@@ -9,6 +9,8 @@ from redisbench_admin.compare.args import create_compare_arguments
 from redisbench_admin.compare.compare import compare_command_logic
 from redisbench_admin.export.args import create_export_arguments
 from redisbench_admin.export.export import export_command_logic
+from redisbench_admin.extract.args import create_extract_arguments
+from redisbench_admin.extract.extract import extract_command_logic
 from redisbench_admin.run.args import create_run_arguments
 from redisbench_admin.run.run import run_command_logic
 
@@ -45,28 +47,21 @@ def main():
 
     if requested_tool == "run":
         parser = create_run_arguments(parser)
+    if requested_tool == "extract":
+        parser = create_extract_arguments(parser)
     elif requested_tool == "compare":
         parser = create_compare_arguments(parser)
     elif requested_tool == "export":
         parser = create_export_arguments(parser)
     elif requested_tool == "--version":
-        print("{project_name} {project_version}".format(project_name=project_name, project_version=project_version))
+        print_version(project_name, project_version)
         sys.exit(0)
     elif requested_tool == "--help":
-        print("{project_name} {project_version}".format(project_name=project_name, project_version=project_version))
-        print("usage: {project_name} <tool> <args>...".format(project_name=project_name))
-        print(
-            "\t-) To know more on how to run benchmarks: {project_name} run --help".format(project_name=project_name))
-        print(
-            "\t-) To know more on how to compare benchmark results: {project_name} compare --help".format(
-                project_name=project_name))
-        print(
-            "\t-) To know more on how to export benchmark results: {project_name} export --help".format(
-                project_name=project_name))
+        print_help(project_name, project_version)
         sys.exit(0)
     else:
-        print("Invalid redisbench-admin <tool>. Requested tool: {}. Available tools: [run,export,compare]".format(
-            requested_tool))
+        valid_tool_options = ["run", "export", "compare", "retrieve"]
+        print_invalid_tool_option(requested_tool, valid_tool_options)
         sys.exit(1)
 
     argv = sys.argv[2:]
@@ -78,3 +73,27 @@ def main():
         compare_command_logic(args)
     if requested_tool == "export":
         export_command_logic(args)
+    if requested_tool == "extract":
+        extract_command_logic(args)
+
+
+def print_invalid_tool_option(requested_tool, valid_tool_options):
+    print("Invalid redisbench-admin <tool>. Requested tool: {}. Available tools: {}".format(
+        requested_tool, ",".join(valid_tool_options)))
+
+
+def print_version(project_name, project_version):
+    print("{project_name} {project_version}".format(project_name=project_name, project_version=project_version))
+
+
+def print_help(project_name, project_version):
+    print("{project_name} {project_version}".format(project_name=project_name, project_version=project_version))
+    print("usage: {project_name} <tool> <args>...".format(project_name=project_name))
+    print(
+        "\t-) To know more on how to run benchmarks: {project_name} run --help".format(project_name=project_name))
+    print(
+        "\t-) To know more on how to compare benchmark results: {project_name} compare --help".format(
+            project_name=project_name))
+    print(
+        "\t-) To know more on how to export benchmark results: {project_name} export --help".format(
+            project_name=project_name))

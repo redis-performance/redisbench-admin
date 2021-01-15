@@ -9,6 +9,8 @@ def create_run_arguments(parser):
                         help='number of repetitions to run')
     parser.add_argument('--benchmark-requests', type=int, default=0,
                         help='Number of total requests to issue (0 = all of the present in input file)')
+    parser.add_argument('--s3-bucket-name', type=str, default="benchmarks.redislabs",
+                        help="S3 bucket name.")
     parser.add_argument('--upload-results-s3', default=False, action='store_true',
                         help="uploads the result files and configuration file to public benchmarks.redislabs bucket. Proper credentials are required")
     parser.add_argument('--redis-url', type=str, default="redis://localhost:6379", help='The url for Redis connection')

@@ -22,8 +22,7 @@ from redisbench_admin.utils.utils import required_utilities, whereis, decompress
 
 def run_command_logic(args):
     use_case_specific_arguments = dict(args.__dict__)
-    s3_bucket_name = "benchmarks.redislabs"
-
+    s3_bucket_name = args.s3_bucket_name
     local_path = os.path.abspath(args.local_dir)
     workers = args.workers
     pipeline = args.pipeline
@@ -36,7 +35,6 @@ def run_command_logic(args):
     skip_teardown = args.skip_teardown_commands
     if args.run_only_steps != "":
         run_only_steps = args.run_only_steps.split(",")
-
 
     benchmark_machine_info = cpuinfo.get_cpu_info()
     total_cores = benchmark_machine_info['count']
@@ -80,7 +78,7 @@ def run_command_logic(args):
     if benchmark_tool_path is None:
         benchmark_tool_path = benchmark_tool
 
-    s3_bucket_path = "{project}/results/{test_name}/".format(project=project,test_name=test_name)
+    s3_bucket_path = "{project}/results/{test_name}/".format(project=project, test_name=test_name)
     if args.output_file_prefix != "":
         s3_bucket_path = "{}{}/".format(s3_bucket_path, args.output_file_prefix)
     s3_uri = "https://s3.amazonaws.com/{bucket_name}/{bucket_path}".format(bucket_name=s3_bucket_name,
@@ -108,8 +106,8 @@ def run_command_logic(args):
         key_configs_git_sha, key_configs_version, server_info = check_and_extract_redisearch_info(args.redis_url)
 
     key_configs = {"deployment-type": deployment_type,
-                                            "deployment-shards": args.deployment_shards,
-                                            "version": key_configs_version, "git_sha": key_configs_git_sha}
+                   "deployment-shards": args.deployment_shards,
+                   "version": key_configs_version, "git_sha": key_configs_git_sha}
 
     db_machine_1 = {"machine_info": None, "redis_info": server_info}
     benchmark_infra["db-machines"]["db-machine-1"] = db_machine_1
@@ -123,7 +121,7 @@ def run_command_logic(args):
     start_time = dt.datetime.now()
     benchmark_repetitions_require_teardown = benchmark_config["benchmark"][
         "repetitions-require-teardown-and-re-setup"]
-    total_steps = args.repetitions + len(run_stages) -1
+    total_steps = args.repetitions + len(run_stages) - 1
     if benchmark_repetitions_require_teardown is True:
         total_steps += total_steps
     progress = tqdm(unit="bench steps", total=total_steps)
@@ -141,10 +139,12 @@ def run_command_logic(args):
                     setup_run_key = "setup-run-{}.json".format(repetition)
                     setup_run_json_output_fullpath = "{}/{}".format(local_path, setup_run_key)
                     input_file = run_stages_inputs["setup"]
-                    benchmark_output_dict["setup"][setup_run_key] = run_ftsb_redisearch(args.redis_url, benchmark_tool_path,
+                    benchmark_output_dict["setup"][setup_run_key] = run_ftsb_redisearch(args.redis_url,
+                                                                                        benchmark_tool_path,
                                                                                         setup_run_json_output_fullpath,
                                                                                         options, input_file, workers,
-                                                                                        pipeline, oss_cluster_mode, 0, 0, continue_on_error)
+                                                                                        pipeline, oss_cluster_mode, 0,
+                                                                                        0, continue_on_error)
                 else:
                     print("Skipping setup step since it's not present in: {}".format(run_only_steps))
             progress.update()
@@ -161,10 +161,13 @@ def run_command_logic(args):
             benchmark_run_json_output_fullpath = "{}/{}".format(local_path, benchmark_run_key)
             input_file = run_stages_inputs["benchmark"]
 
-            benchmark_output_dict["benchmark"][benchmark_run_key] = run_ftsb_redisearch(args.redis_url, benchmark_tool_path,
+            benchmark_output_dict["benchmark"][benchmark_run_key] = run_ftsb_redisearch(args.redis_url,
+                                                                                        benchmark_tool_path,
                                                                                         benchmark_run_json_output_fullpath,
                                                                                         options, input_file, workers,
-                                                                                        pipeline, oss_cluster_mode, max_rps, requests, continue_on_error)
+                                                                                        pipeline, oss_cluster_mode,
+                                                                                        max_rps, requests,
+                                                                                        continue_on_error)
         else:
             print("Skipping benchmark step since it's not present in: {}".format(run_only_steps))
 
@@ -195,7 +198,8 @@ def run_command_logic(args):
                         metric_value = findJsonPath(metric_json_path, result_run)
                     except KeyError:
                         print(
-                            "Error retrieving {} metric from JSON PATH {} on file {}".format(metric_name, metric_json_path,
+                            "Error retrieving {} metric from JSON PATH {} on file {}".format(metric_name,
+                                                                                             metric_json_path,
                                                                                              run_name))
                         pass
                     step_df_dict[step]["df_dict"][metric_name].append(metric_value)
@@ -218,6 +222,7 @@ def run_command_logic(args):
         artifacts = [benchmark_output_filename]
         upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path)
 
+
 def run_setup_commands(args, step_string_description, commands, cluster_enabled):
     print("Running {} steps...".format(step_string_description))
     try:
@@ -230,14 +235,15 @@ def run_setup_commands(args, step_string_description, commands, cluster_enabled)
             cluster_nodes = aux_client.cluster_nodes()
             for command in commands:
                 for master_node in aux_client.connection_pool.nodes.all_masters():
-                    redis.from_url("redis://"+master_node["name"]).execute_command(" ".join(command))
+                    redis.from_url("redis://" + master_node["name"]).execute_command(" ".join(command))
         else:
             aux_client = redis.from_url(args.redis_url)
             for command in commands:
                 aux_client.execute_command(" ".join(command))
     except redis.connection.ConnectionError as e:
-        print('Error while issuing {} steps command to Redis.Command {}! Error message: {} Exiting..'.format(step_string_description, command,
-                                                                                                          e.__str__()))
+        print('Error while issuing {} steps command to Redis.Command {}! Error message: {} Exiting..'.format(
+            step_string_description, command,
+            e.__str__()))
         sys.exit(1)
     return aux_client
 

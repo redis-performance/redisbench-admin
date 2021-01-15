@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from redisbench_admin.export.export import get_timeserie_name
+from redisbench_admin.export.common.common import get_timeserie_name
 
 
 class Test(TestCase):

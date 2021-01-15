@@ -33,7 +33,7 @@ def get_run_options():
 
 
 def run_ftsb_redisearch(redis_url, ftsb_redisearch_path, setup_run_json_output_fullpath, options, input_file, workers=1,
-                        pipeline=1, oss_cluster_mode=False, max_rps=0, requests=0, continue_on_error=False, args=[] ):
+                        pipeline=1, oss_cluster_mode=False, max_rps=0, requests=0, continue_on_error=False, args=[]):
     ##################
     # Setup commands #
     ##################
