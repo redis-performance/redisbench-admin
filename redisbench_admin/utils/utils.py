@@ -1,3 +1,4 @@
+import csv
 import datetime as dt
 import json
 import operator
@@ -72,7 +73,7 @@ def ts_milli(at_dt):
     return int((at_dt - dt.datetime(1970, 1, 1)).total_seconds() * 1000)
 
 
-def retrieve_local_or_remote_input_json(config_filename, local_path, option_name):
+def retrieve_local_or_remote_input_json(config_filename, local_path, option_name, format="json", csv_header=False):
     benchmark_config = {}
 
     if config_filename.startswith("http"):
@@ -104,10 +105,41 @@ def retrieve_local_or_remote_input_json(config_filename, local_path, option_name
             filename = object_summary.key.split("/")[-1]
             local_config_file = "{}/{}".format(local_path, filename)
             my_bucket.download_file(object_summary.key, local_config_file)
-            with open(local_config_file, "r") as json_file:
-                benchmark_config[filename] = json.load(json_file)
+            with open(local_config_file, "r") as local_file:
+                read_json_or_csv(benchmark_config, config_filename, format, local_file, csv_header)
 
     else:
-        with open(config_filename, "r") as json_file:
-            benchmark_config[config_filename] = json.load(json_file)
+        with open(config_filename, "r") as local_file:
+            read_json_or_csv(benchmark_config, config_filename, format, local_file, csv_header)
+
     return benchmark_config
+
+
+def read_json_or_csv(benchmark_config, config_filename, format, local_file, csv_has_header):
+    if format == "json":
+        benchmark_config[config_filename] = json.load(local_file)
+    if format == "csv":
+        reader = csv.reader(local_file)
+        header_array = []
+        dict = {}
+        header_row = next(reader)
+        body_rows = [x for x in reader]
+        if csv_has_header:
+            for col in header_row:
+                dict[col] = []
+                header_array.append(col)
+        else:
+            for pos, _ in enumerate(header_row):
+                col_name = "col_{}".format(pos)
+                dict[col_name] = []
+                header_array.append(col_name)
+            newbd = [header_row]
+            for x in body_rows:
+                newbd.append(x)
+            body_rows = newbd
+
+        for row in body_rows:
+            for col_pos, col in enumerate(row):
+                col_name = header_array[col_pos]
+                dict[col_name].append(col)
+        benchmark_config[config_filename] = dict
