@@ -22,6 +22,12 @@ seaborn = "^0.10.1"
 matplotlib = "^3.2.1"
 redistimeseries = "^0.8.0"
 redis-py-cluster = "^2.1.0"
+paramiko = "^2.7.2"
+jsonpath_ng = "^1.5.2"
+pysftp = "^0.2.9"
+python_terraform = "^0.10.1"
+GitPython = "^3.1.12"
+PyYAML = "^5.4.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^4.6"
