@@ -1,10 +1,14 @@
 import logging
 import os
 import sys
+import tempfile
 
 import boto3
+import git
 import paramiko
 import pysftp
+import redis
+import redistimeseries.client as Client
 from git import Repo
 from jsonpath_ng import parse
 from python_terraform import Terraform
@@ -241,3 +245,134 @@ def upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path, acl="publi
         response = object_acl.put(ACL=acl)
         progress.update()
     progress.close()
+
+
+def checkAndFixPemStr(EC2_PRIVATE_PEM):
+    pem_str = EC2_PRIVATE_PEM.replace("-----BEGIN RSA PRIVATE KEY-----", "")
+    pem_str = pem_str.replace("-----END RSA PRIVATE KEY-----", "")
+    pem_str = pem_str.replace(" ", "\n")
+    pem_str = "-----BEGIN RSA PRIVATE KEY-----\n" + pem_str
+    pem_str = pem_str + "-----END RSA PRIVATE KEY-----\n"
+    # remove any dangling whitespace
+    pem_str = os.linesep.join([s for s in pem_str.splitlines() if s])
+    return pem_str
+
+
+def get_run_full_filename(
+        start_time_str,
+        deployment_type,
+        github_org,
+        github_repo,
+        github_branch,
+        test_name,
+        github_sha,
+):
+    benchmark_output_filename = "{start_time_str}-{github_org}-{github_repo}-{github_branch}-{test_name}-{deployment_type}-{github_sha}.json".format(
+        start_time_str=start_time_str,
+        github_org=github_org,
+        github_repo=github_repo,
+        github_branch=github_branch,
+        test_name=test_name,
+        deployment_type=deployment_type,
+        github_sha=github_sha,
+    )
+    return benchmark_output_filename
+
+
+def fetchRemoteSetupFromConfig(remote_setup_config):
+    branch = 'master'
+    repo = None
+    path = None
+    for remote_setup_property in remote_setup_config:
+        if 'repo' in remote_setup_property:
+            repo = remote_setup_property['repo']
+        if 'branch' in remote_setup_property:
+            branch = remote_setup_property['branch']
+        if 'path' in remote_setup_property:
+            path = remote_setup_property['path']
+    # fetch terraform folder
+    temporary_dir = tempfile.mkdtemp()
+    logging.info(
+        "Fetching infrastructure definition from git repo {}/{} (branch={})".format(
+            repo, path, branch
+        )
+    )
+    git.Repo.clone_from(repo, temporary_dir, branch=branch, depth=1)
+    terraform_working_dir = temporary_dir
+    if path is not None:
+        terraform_working_dir += path
+    return terraform_working_dir
+
+
+def pushDataToRedisTimeSeries(rts: Client, branch_time_series_dict: dict):
+    datapoint_errors = 0
+    datapoint_inserts = 0
+    for timeseries_name, time_series in branch_time_series_dict.items():
+        try:
+            logging.info(
+                "Creating timeseries named {} with labels {}".format(
+                    timeseries_name, time_series["labels"]
+                )
+            )
+            rts.create(timeseries_name, labels=time_series["labels"])
+        except redis.exceptions.ResponseError as e:
+            logging.warning(
+                "Timeseries named {} already exists".format(
+                    timeseries_name
+                )
+            )
+            pass
+        for timestamp, value in time_series["data"].items():
+            try:
+                rts.add(
+                    timeseries_name,
+                    timestamp,
+                    value,
+                    duplicate_policy="last",
+                )
+                datapoint_inserts += 1
+            except redis.exceptions.ResponseError:
+                logging.warning(
+                    "Error while inserting datapoint ({} : {}) in timeseries named {}. ".format(
+                        timestamp, value, timeseries_name
+                    )
+                )
+                datapoint_errors += 1
+                pass
+    return datapoint_errors, datapoint_inserts
+
+
+def extractPerBranchTimeSeriesFromResults(datapoints_timestamp: int, metrics: list, results_dict: dict,
+                                          tf_github_branch: str, tf_github_org: str, tf_github_repo: str,
+                                          deployment_type: str, test_name: str, tf_triggering_env: str):
+    branch_time_series_dict = {}
+    for jsonpath in metrics:
+        jsonpath_expr = parse(jsonpath)
+        metric_name = jsonpath[2:]
+        metric_value = float(jsonpath_expr.find(results_dict)[0].value)
+        # prepare tags
+        # branch tags
+        branch_tags = {
+            "branch": str(tf_github_branch),
+            "github_org": tf_github_org,
+            "github_repo": tf_github_repo,
+            "deployment_type": deployment_type,
+            "test_name": test_name,
+            "triggering_env": tf_triggering_env,
+            "metric": metric_name,
+        }
+        ts_name = "ci.benchmarks.redislabs/{triggering_env}/{github_org}/{github_repo}/{test_name}/{deployment_type}/{branch}/{metric}".format(
+            branch=str(tf_github_branch),
+            github_org=tf_github_org,
+            github_repo=tf_github_repo,
+            deployment_type=deployment_type,
+            test_name=test_name,
+            triggering_env=tf_triggering_env,
+            metric=metric_name,
+        )
+
+        branch_time_series_dict[ts_name] = {
+            "labels": branch_tags.copy(),
+            "data": {datapoints_timestamp: metric_value},
+        }
+    return True, branch_time_series_dict
