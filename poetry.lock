@@ -540,7 +540,7 @@ description = "RedisTimeSeries Python Client"
 name = "redistimeseries"
 optional = false
 python-versions = "*"
-version = "0.8.0"
+version = "1.4.3"
 
 [package.dependencies]
 hiredis = ">=0.2.0"
@@ -692,7 +692,7 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["pytest (>=3.5,<3.7.3 || >3.7.3)", "pytest-checkdocs (>=1.2.3)", "pytest-flake8", "pytest-cov", "jaraco.test (>=3.2.0)", "jaraco.itertools", "func-timeout", "pytest-black (>=0.3.7)", "pytest-mypy"]
 
 [metadata]
-content-hash = "a30fb9694f8f713e605baf3b20b6d0b45703762f505e1fea3152f288c38372c8"
+content-hash = "1464deb2f773da5b9226357c7715fb928cc015f798b56a476ab3f97d06dcd7a9"
 lock-version = "1.0"
 python-versions = "^3.6.1"
 
@@ -1195,7 +1195,8 @@ redis-py-cluster = [
     {file = "redis_py_cluster-2.1.0-py2.py3-none-any.whl", hash = "sha256:22aaa35c145c7a278fea593e94916b6fdf377e49c0af0508d89112f3e79aab06"},
 ]
 redistimeseries = [
-    {file = "redistimeseries-0.8.0.tar.gz", hash = "sha256:374dc2fa4b6ca5c4459a163f86d68862859f57e6abbc4ec9d6eebd2759d95501"},
+    {file = "redistimeseries-1.4.3-py2-none-any.whl", hash = "sha256:f6a828acbdf440ca66caf8ac0193ed122bd5a2e0e936bb9989ccabefb3e5b509"},
+    {file = "redistimeseries-1.4.3.tar.gz", hash = "sha256:ff5298f99a7abb391ac264c9db06b91d39157f921b52199ee3b1e8568f6da4df"},
 ]
 requests = [
     {file = "requests-2.25.1-py2.py3-none-any.whl", hash = "sha256:c210084e36a42ae6b9219e00e48287def368a26d03a048ddad7bfee44f75871e"},

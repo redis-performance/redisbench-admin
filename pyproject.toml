@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "redisbench-admin"
-version = "0.1.31"
+version = "0.1.32"
 description = "Redis benchmark run helper. A wrapper around Redis and Redis Modules benchmark tools ( ftsb_redisearch, memtier_benchmark, redis-benchmark, aibench, etc... )."
 authors = ["filipecosta90 <filipecosta.90@gmail.com>"]
 readme = "README.md"
@@ -20,7 +20,7 @@ tqdm = "^4.46.1"
 toml = "^0.10.1"
 seaborn = "^0.10.1"
 matplotlib = "^3.2.1"
-redistimeseries = "^0.8.0"
+redistimeseries = "^1.4.3"
 redis-py-cluster = "^2.1.0"
 paramiko = "^2.7.2"
 jsonpath_ng = "^1.5.2"
