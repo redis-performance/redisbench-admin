@@ -16,11 +16,11 @@ from redisbench_admin.run.run import run_command_logic
 
 
 def populate_with_poetry_data():
-    project_name = 'redisbench-admin'
+    project_name = "redisbench-admin"
     project_version = __version__
     project_description = None
     try:
-        poetry_data = toml.load("pyproject.toml")['tool']['poetry']
+        poetry_data = toml.load("pyproject.toml")["tool"]["poetry"]
         project_name = poetry_data["name"]
         project_version = poetry_data["version"]
         project_description = poetry_data["description"]
@@ -34,16 +34,22 @@ def main():
     tool = None
     if len(sys.argv) < 2:
         print(
-            "A minimum of 2 arguments is required: redisbench-admin <tool> <arguments>. Use redisbench-admin --help if you need further assistance.")
+            "A minimum of 2 arguments is required: redisbench-admin <tool> <arguments>. Use redisbench-admin --help if you need further assistance."
+        )
         sys.exit(1)
     requested_tool = sys.argv[1]
     project_name, project_description, project_version = populate_with_poetry_data()
     parser = argparse.ArgumentParser(
         description=project_description,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     # common arguments to all tools
-    parser.add_argument('--version', default=False, action='store_true', help='print version and exit')
-    parser.add_argument('--local-dir', type=str, default="./", help='local dir to use as storage')
+    parser.add_argument(
+        "--version", default=False, action="store_true", help="print version and exit"
+    )
+    parser.add_argument(
+        "--local-dir", type=str, default="./", help="local dir to use as storage"
+    )
 
     if requested_tool == "run":
         parser = create_run_arguments(parser)
@@ -78,22 +84,40 @@ def main():
 
 
 def print_invalid_tool_option(requested_tool, valid_tool_options):
-    print("Invalid redisbench-admin <tool>. Requested tool: {}. Available tools: {}".format(
-        requested_tool, ",".join(valid_tool_options)))
+    print(
+        "Invalid redisbench-admin <tool>. Requested tool: {}. Available tools: {}".format(
+            requested_tool, ",".join(valid_tool_options)
+        )
+    )
 
 
 def print_version(project_name, project_version):
-    print("{project_name} {project_version}".format(project_name=project_name, project_version=project_version))
+    print(
+        "{project_name} {project_version}".format(
+            project_name=project_name, project_version=project_version
+        )
+    )
 
 
 def print_help(project_name, project_version):
-    print("{project_name} {project_version}".format(project_name=project_name, project_version=project_version))
+    print(
+        "{project_name} {project_version}".format(
+            project_name=project_name, project_version=project_version
+        )
+    )
     print("usage: {project_name} <tool> <args>...".format(project_name=project_name))
     print(
-        "\t-) To know more on how to run benchmarks: {project_name} run --help".format(project_name=project_name))
+        "\t-) To know more on how to run benchmarks: {project_name} run --help".format(
+            project_name=project_name
+        )
+    )
     print(
         "\t-) To know more on how to compare benchmark results: {project_name} compare --help".format(
-            project_name=project_name))
+            project_name=project_name
+        )
+    )
     print(
         "\t-) To know more on how to export benchmark results: {project_name} export --help".format(
-            project_name=project_name))
+            project_name=project_name
+        )
+    )
