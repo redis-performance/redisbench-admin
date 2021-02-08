@@ -1,14 +1,25 @@
-from redisbench_admin.export.common.common import get_or_None, get_kv_tags, prepare_tags, get_timeserie_name, \
-    add_datapoint
-from redisbench_admin.export.ftsb_redisearch.ftsb_redisearch_json_format import get_metric_detail
-from redisbench_admin.export.redis_benchmark.metrics_definition import redis_benchmark_metrics_definition
+from redisbench_admin.export.common.common import (
+    get_or_None,
+    get_kv_tags,
+    prepare_tags,
+    get_timeserie_name,
+    add_datapoint,
+)
+from redisbench_admin.export.ftsb_redisearch.ftsb_redisearch_json_format import (
+    get_metric_detail,
+)
+from redisbench_admin.export.redis_benchmark.metrics_definition import (
+    redis_benchmark_metrics_definition,
+)
 
 
 def warn_if_tag_none(tagName, tagValue, tool, level="Warning"):
     if tagValue is None:
         print(
-            "{}! The tag \"{}\" is None. Given that {} cannot infer it you should pass it via --extra-tags {}=<value>".format(
-                level, tagName, tool, tagName))
+            '{}! The tag "{}" is None. Given that {} cannot infer it you should pass it via --extra-tags {}=<value>'.format(
+                level, tagName, tool, tagName
+            )
+        )
 
 
 def get_tag_fromextra_tags_array(array, tagName):
@@ -33,25 +44,38 @@ def fill_tags_from_passed_array(extra_tags_array):
     warn_if_tag_none("project", project, "redis-benchmark")
     project_version = get_tag_fromextra_tags_array(extra_tags_array, "project_version")
     if project_version is None:
-        project_version = get_tag_fromextra_tags_array(extra_tags_array, "redis_version")
+        project_version = get_tag_fromextra_tags_array(
+            extra_tags_array, "redis_version"
+        )
     warn_if_tag_none("project_version", project_version, "redis-benchmark")
     return deployment_type, git_sha, project, project_version, "benchmark"
 
 
-def redis_benchmark_export_logic(benchmark_result, extra_tags_array, results_type, time_series_dict, use_result):
+def redis_benchmark_export_logic(
+    benchmark_result, extra_tags_array, results_type, time_series_dict, use_result
+):
     ok = True
     start_time_ms = get_tag_fromextra_tags_array(extra_tags_array, "start_time_ms")
     if start_time_ms is None:
-        start_time_ms = get_tag_fromextra_tags_array(extra_tags_array, "server_time_usec")
+        start_time_ms = get_tag_fromextra_tags_array(
+            extra_tags_array, "server_time_usec"
+        )
     if start_time_ms is None:
-        start_time_ms = get_tag_fromextra_tags_array(extra_tags_array, "extract_milli_time")
+        start_time_ms = get_tag_fromextra_tags_array(
+            extra_tags_array, "extract_milli_time"
+        )
     if start_time_ms is None:
         warn_if_tag_none("start_time_ms", start_time_ms, "redis-benchmark,", "Error")
         ok = False
         return ok, time_series_dict
 
-    deployment_type, git_sha, project, project_version, step = fill_tags_from_passed_array(
-        extra_tags_array)
+    (
+        deployment_type,
+        git_sha,
+        project,
+        project_version,
+        step,
+    ) = fill_tags_from_passed_array(extra_tags_array)
 
     metrics = {}
     col0_row0 = benchmark_result["col_0"][0]
@@ -66,12 +90,20 @@ def redis_benchmark_export_logic(benchmark_result, extra_tags_array, results_typ
     for col_name, col in benchmark_result.items():
         metrics_in_csv[col[0]] = col_name
     for test_pos, testcase_name in enumerate(benchmark_result["col_0"]):
-        common_broader_kv_tags, common_git_sha_kv_tags, common_version_kv_tags = get_kv_tags(deployment_type,
-                                                                                             extra_tags_array, git_sha,
-                                                                                             project, project_version,
-                                                                                             results_type, step,
-                                                                                             prepare_tags(
-                                                                                                 testcase_name))
+        (
+            common_broader_kv_tags,
+            common_git_sha_kv_tags,
+            common_version_kv_tags,
+        ) = get_kv_tags(
+            deployment_type,
+            extra_tags_array,
+            git_sha,
+            project,
+            project_version,
+            results_type,
+            step,
+            prepare_tags(testcase_name),
+        )
 
         if test_pos > 0:
             for metric_def in redis_benchmark_metrics_definition:
@@ -88,10 +120,30 @@ def redis_benchmark_export_logic(benchmark_result, extra_tags_array, results_typ
                     git_sha_kv = common_git_sha_kv_tags.copy()
                     git_sha_kv.append({"metric-name": prepare_tags(metric_name)})
                     git_sha_ts_name = get_timeserie_name(git_sha_kv)
-                    metric_step, metric_family, _, _, metric_unit, _, _, _ = get_metric_detail(metric_def)
+                    (
+                        metric_step,
+                        metric_family,
+                        _,
+                        _,
+                        metric_unit,
+                        _,
+                        _,
+                        _,
+                    ) = get_metric_detail(metric_def)
 
                     git_sha_tags_kv = git_sha_kv.copy()
                     git_sha_tags_kv.extend(
-                        [{"metric-step": metric_step}, {"metric-family": metric_family}, {"metric-unit": metric_unit}])
-                    add_datapoint(time_series_dict, git_sha_ts_name, start_time_ms, metric_value, git_sha_tags_kv)
+                        [
+                            {"metric-step": metric_step},
+                            {"metric-family": metric_family},
+                            {"metric-unit": metric_unit},
+                        ]
+                    )
+                    add_datapoint(
+                        time_series_dict,
+                        git_sha_ts_name,
+                        start_time_ms,
+                        metric_value,
+                        git_sha_tags_kv,
+                    )
     return ok, time_series_dict

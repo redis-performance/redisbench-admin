@@ -22,7 +22,7 @@ def viewBarSimple(a, b):
 
 
 def copyFileToRemoteSetup(
-        server_public_ip, username, private_key, local_file, remote_file
+    server_public_ip, username, private_key, local_file, remote_file
 ):
     logging.info(
         "\tCopying local file {} to remote server {}".format(local_file, remote_file)
@@ -38,7 +38,7 @@ def copyFileToRemoteSetup(
 
 
 def getFileFromRemoteSetup(
-        server_public_ip, username, private_key, local_file, remote_file
+    server_public_ip, username, private_key, local_file, remote_file
 ):
     logging.info(
         "\Retrieving remote file {} from remote server {} ".format(
@@ -74,7 +74,7 @@ def executeRemoteCommands(server_public_ip, username, private_key, commands):
 
 
 def checkDatasetRemoteRequirements(
-        benchmark_config, server_public_ip, username, private_key, remote_dataset_file
+    benchmark_config, server_public_ip, username, private_key, remote_dataset_file
 ):
     for k in benchmark_config["dbconfig"]:
         if "dataset" in k:
@@ -90,13 +90,13 @@ def checkDatasetRemoteRequirements(
 
 
 def setupRemoteEnviroment(
-        tf: Terraform,
-        tf_github_sha,
-        tf_github_actor,
-        tf_setup_name,
-        tf_github_org,
-        tf_github_repo,
-        tf_triggering_env,
+    tf: Terraform,
+    tf_github_sha,
+    tf_github_actor,
+    tf_setup_name,
+    tf_github_org,
+    tf_github_repo,
+    tf_triggering_env,
 ):
     # key    = "benchmarks/infrastructure/tf-oss-redisgraph-standalone-r5.tfstate"
     return_code, stdout, stderr = tf.init(
@@ -112,10 +112,10 @@ def setupRemoteEnviroment(
     client_private_ip = tf_output["client_private_ip"]["value"][0]
     client_public_ip = tf_output["client_public_ip"]["value"][0]
     if (
-            server_private_ip is not None
-            or server_public_ip is not None
-            or client_private_ip is not None
-            or client_public_ip is not None
+        server_private_ip is not None
+        or server_public_ip is not None
+        or client_private_ip is not None
+        or client_public_ip is not None
     ):
         logging.warning("Destroying previous setup")
         tf.destroy()
@@ -161,7 +161,9 @@ def extract_git_vars():
     return github_org_name, github_repo_name, github_sha, github_actor, github_branch
 
 
-def validateResultExpectations(benchmark_config, results_dict, result, expectations_key="expectations"):
+def validateResultExpectations(
+    benchmark_config, results_dict, result, expectations_key="expectations"
+):
     for expectation in benchmark_config[expectations_key]:
         for comparison_mode, rules in expectation.items():
             for jsonpath, expected_value in rules.items():
@@ -231,7 +233,9 @@ def validateResultExpectations(benchmark_config, results_dict, result, expectati
     return result
 
 
-def upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path, acl="public-read"):
+def upload_artifacts_to_s3(
+    artifacts, s3_bucket_name, s3_bucket_path, acl="public-read"
+):
     logging.info("Uploading results to s3")
     s3 = boto3.resource("s3")
     bucket = s3.Bucket(s3_bucket_name)
@@ -259,13 +263,13 @@ def checkAndFixPemStr(EC2_PRIVATE_PEM):
 
 
 def get_run_full_filename(
-        start_time_str,
-        deployment_type,
-        github_org,
-        github_repo,
-        github_branch,
-        test_name,
-        github_sha,
+    start_time_str,
+    deployment_type,
+    github_org,
+    github_repo,
+    github_branch,
+    test_name,
+    github_sha,
 ):
     benchmark_output_filename = "{start_time_str}-{github_org}-{github_repo}-{github_branch}-{test_name}-{deployment_type}-{github_sha}.json".format(
         start_time_str=start_time_str,
@@ -280,16 +284,16 @@ def get_run_full_filename(
 
 
 def fetchRemoteSetupFromConfig(remote_setup_config):
-    branch = 'master'
+    branch = "master"
     repo = None
     path = None
     for remote_setup_property in remote_setup_config:
-        if 'repo' in remote_setup_property:
-            repo = remote_setup_property['repo']
-        if 'branch' in remote_setup_property:
-            branch = remote_setup_property['branch']
-        if 'path' in remote_setup_property:
-            path = remote_setup_property['path']
+        if "repo" in remote_setup_property:
+            repo = remote_setup_property["repo"]
+        if "branch" in remote_setup_property:
+            branch = remote_setup_property["branch"]
+        if "path" in remote_setup_property:
+            path = remote_setup_property["path"]
     # fetch terraform folder
     temporary_dir = tempfile.mkdtemp()
     logging.info(
@@ -317,9 +321,7 @@ def pushDataToRedisTimeSeries(rts: Client, branch_time_series_dict: dict):
             rts.create(timeseries_name, labels=time_series["labels"])
         except redis.exceptions.ResponseError as e:
             logging.warning(
-                "Timeseries named {} already exists".format(
-                    timeseries_name
-                )
+                "Timeseries named {} already exists".format(timeseries_name)
             )
             pass
         for timestamp, value in time_series["data"].items():
@@ -342,9 +344,17 @@ def pushDataToRedisTimeSeries(rts: Client, branch_time_series_dict: dict):
     return datapoint_errors, datapoint_inserts
 
 
-def extractPerBranchTimeSeriesFromResults(datapoints_timestamp: int, metrics: list, results_dict: dict,
-                                          tf_github_branch: str, tf_github_org: str, tf_github_repo: str,
-                                          deployment_type: str, test_name: str, tf_triggering_env: str):
+def extractPerBranchTimeSeriesFromResults(
+    datapoints_timestamp: int,
+    metrics: list,
+    results_dict: dict,
+    tf_github_branch: str,
+    tf_github_org: str,
+    tf_github_repo: str,
+    deployment_type: str,
+    test_name: str,
+    tf_triggering_env: str,
+):
     branch_time_series_dict = {}
     for jsonpath in metrics:
         jsonpath_expr = parse(jsonpath)

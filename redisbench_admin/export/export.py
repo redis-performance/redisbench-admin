@@ -2,8 +2,12 @@ import json
 import os
 import redis
 from redisbench_admin.export.common.common import split_tags_string
-from redisbench_admin.export.ftsb_redisearch.ftsb_redisearch_json_format import ftsb_export_logic
-from redisbench_admin.export.redis_benchmark.redis_benchmark_csv_format import redis_benchmark_export_logic
+from redisbench_admin.export.ftsb_redisearch.ftsb_redisearch_json_format import (
+    ftsb_export_logic,
+)
+from redisbench_admin.export.redis_benchmark.redis_benchmark_csv_format import (
+    redis_benchmark_export_logic,
+)
 from redisbench_admin.utils.utils import retrieve_local_or_remote_input_json
 
 from redistimeseries.client import Client
@@ -31,19 +35,30 @@ def export_command_logic(args):
     results_type = "key-results"
     time_series_dict = {}
     if results_format == "ftsb_redisearch":
-        benchmark_results = retrieve_local_or_remote_input_json(benchmark_files, local_path, "--benchmark-result-files",
-                                                                "json")
+        benchmark_results = retrieve_local_or_remote_input_json(
+            benchmark_files, local_path, "--benchmark-result-files", "json"
+        )
         for filename, benchmark_result in benchmark_results.items():
-            time_series_dict = ftsb_export_logic(benchmark_result, extra_tags_array, included_steps, results_type,
-                                                 time_series_dict,
-                                                 use_result)
+            time_series_dict = ftsb_export_logic(
+                benchmark_result,
+                extra_tags_array,
+                included_steps,
+                results_type,
+                time_series_dict,
+                use_result,
+            )
     elif results_format == "redis-benchmark":
-        benchmark_results = retrieve_local_or_remote_input_json(benchmark_files, local_path, "--benchmark-result-files",
-                                                                "csv")
+        benchmark_results = retrieve_local_or_remote_input_json(
+            benchmark_files, local_path, "--benchmark-result-files", "csv"
+        )
         for filename, benchmark_result in benchmark_results.items():
-            ok, time_series_dict = redis_benchmark_export_logic(benchmark_result, extra_tags_array, results_type,
-                                                                time_series_dict,
-                                                                use_result)
+            ok, time_series_dict = redis_benchmark_export_logic(
+                benchmark_result,
+                extra_tags_array,
+                results_type,
+                time_series_dict,
+                use_result,
+            )
 
     elif results_format == "memtier_benchmark":
         print("TBD...")
@@ -56,12 +71,12 @@ def export_command_logic(args):
 
     for timeseries_name, time_series in time_series_dict.items():
         try:
-            rts.create(timeseries_name, labels=time_series['tags'])
+            rts.create(timeseries_name, labels=time_series["tags"])
         except redis.exceptions.ResponseError as e:
             # if ts already exists continue
             pass
-        for pos, timestamp in enumerate(time_series['index']):
-            value = time_series['data'][pos]
+        for pos, timestamp in enumerate(time_series["index"]):
+            value = time_series["data"][pos]
             try:
                 rts.add(timeseries_name, timestamp, value)
             except redis.exceptions.ResponseError:

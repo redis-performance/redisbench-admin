@@ -13,9 +13,7 @@ def checkDatasetLocalRequirements(benchmark_config, redis_tmp_dir):
         if "dataset" in k:
             dataset = k["dataset"]
     if dataset is not None:
-        logging.info(
-            "Copying rdb {} to {}/dump.rdb".format(dataset, redis_tmp_dir)
-        )
+        logging.info("Copying rdb {} to {}/dump.rdb".format(dataset, redis_tmp_dir))
         copyfile(dataset, "{}/dump.rdb".format(redis_tmp_dir))
 
 
@@ -42,9 +40,9 @@ def waitForConn(conn, retries=20, command="PING", shouldBe=True):
 
 
 def spinUpLocalRedis(
-        benchmark_config,
-        port,
-        local_module_file,
+    benchmark_config,
+    port,
+    local_module_file,
 ):
     # copy the rdb to DB machine
     dataset = None
@@ -57,8 +55,17 @@ def spinUpLocalRedis(
     checkDatasetLocalRequirements(benchmark_config, temporary_dir)
 
     # start redis-server
-    command = ['redis-server', '--save', '""', '--port', '{}'.format(port), '--dir', temporary_dir, '--loadmodule',
-               os.path.abspath(local_module_file)]
+    command = [
+        "redis-server",
+        "--save",
+        '""',
+        "--port",
+        "{}".format(port),
+        "--dir",
+        temporary_dir,
+        "--loadmodule",
+        os.path.abspath(local_module_file),
+    ]
     logging.info(
         "Running local redis-server with the following args: {}".format(
             " ".join(command)
@@ -71,10 +78,20 @@ def spinUpLocalRedis(
     return redis_process
 
 
-def get_local_run_full_filename(
-        start_time_str,
-        github_branch,
-        test_name,
+def isProcessAlive(process):
+    if not process:
+        return False
+    # Check if child process has terminated. Set and return returncode
+    # attribute
+    if process.poll() is None:
+        return True
+    return False
+
+
+def getLocalRunFullFilename(
+    start_time_str,
+    github_branch,
+    test_name,
 ):
     benchmark_output_filename = (
         "{start_time_str}-{github_branch}-{test_name}.json".format(
@@ -87,11 +104,11 @@ def get_local_run_full_filename(
 
 
 def prepareSingleBenchmarkCommand(
-        executable_path: str,
-        server_private_ip: object,
-        server_plaintext_port: object,
-        benchmark_config: object,
-        results_file: object,
+    executable_path: str,
+    server_private_ip: object,
+    server_plaintext_port: object,
+    benchmark_config: object,
+    results_file: object,
 ) -> str:
     """
     Prepares redisgraph-benchmark-go command parameters

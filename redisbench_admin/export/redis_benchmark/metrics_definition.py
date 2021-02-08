@@ -68,5 +68,5 @@ redis_benchmark_metrics_definition = [
         "metric-type": "numeric",
         "comparison": "lower-better",
         "per-step-comparison-metric-priority": None,
-    }
+    },
 ]

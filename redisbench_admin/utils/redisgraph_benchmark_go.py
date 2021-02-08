@@ -1,11 +1,18 @@
 import logging
 
-from redisbench_admin.utils.remote import checkDatasetRemoteRequirements, copyFileToRemoteSetup, executeRemoteCommands, \
-    getFileFromRemoteSetup
+from redisbench_admin.utils.remote import (
+    checkDatasetRemoteRequirements,
+    copyFileToRemoteSetup,
+    executeRemoteCommands,
+    getFileFromRemoteSetup,
+)
 
 
 def prepareBenchmarkCommand(
-        server_private_ip: object, server_plaintext_port: object, benchmark_config: object, results_file: object
+    server_private_ip: object,
+    server_plaintext_port: object,
+    benchmark_config: object,
+    results_file: object,
 ) -> str:
     """
     Prepares redisgraph-benchmark-go command parameters
@@ -41,13 +48,13 @@ def prepareBenchmarkCommand(
 
 
 def spinUpRemoteRedis(
-        benchmark_config,
-        server_public_ip,
-        username,
-        private_key,
-        local_module_file,
-        remote_module_file,
-        remote_dataset_file,
+    benchmark_config,
+    server_public_ip,
+    username,
+    private_key,
+    local_module_file,
+    remote_module_file,
+    remote_dataset_file,
 ):
     # copy the rdb to DB machine
     dataset = None
@@ -83,7 +90,7 @@ def spinUpRemoteRedis(
 
 
 def setupRemoteBenchmark(
-        client_public_ip, username, private_key, redisbenchmark_go_link
+    client_public_ip, username, private_key, redisbenchmark_go_link
 ):
     commands = [
         "wget {} -q -O /tmp/redisgraph-benchmark-go".format(redisbenchmark_go_link),
@@ -93,14 +100,14 @@ def setupRemoteBenchmark(
 
 
 def runRemoteBenchmark(
-        client_public_ip,
-        username,
-        private_key,
-        server_private_ip,
-        server_plaintext_port,
-        benchmark_config,
-        remote_results_file,
-        local_results_file,
+    client_public_ip,
+    username,
+    private_key,
+    server_private_ip,
+    server_plaintext_port,
+    benchmark_config,
+    remote_results_file,
+    local_results_file,
 ):
     queries_str = prepareBenchmarkCommand(
         server_private_ip, server_plaintext_port, benchmark_config, remote_results_file
