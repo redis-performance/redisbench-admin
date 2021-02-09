@@ -283,18 +283,16 @@ def get_run_full_filename(
     return benchmark_output_filename
 
 
-def fetchRemoteSetupFromConfig(remote_setup_config):
-    branch = "master"
-    repo = None
-    path = None
+def fetchRemoteSetupFromConfig(remote_setup_config, repo="https://github.com/RedisLabsModules/testing-infrastructure.git",branch="master"):
+    type = None
+    setup = None
     for remote_setup_property in remote_setup_config:
-        if "repo" in remote_setup_property:
-            repo = remote_setup_property["repo"]
-        if "branch" in remote_setup_property:
-            branch = remote_setup_property["branch"]
-        if "path" in remote_setup_property:
-            path = remote_setup_property["path"]
+        if "type" in remote_setup_property:
+            type = remote_setup_property["type"]
+        if "setup" in remote_setup_property:
+            setup = remote_setup_property["setup"]
     # fetch terraform folder
+    path = "/terraform/{}-{}".format(type,setup)
     temporary_dir = tempfile.mkdtemp()
     logging.info(
         "Fetching infrastructure definition from git repo {}/{} (branch={})".format(
@@ -302,10 +300,8 @@ def fetchRemoteSetupFromConfig(remote_setup_config):
         )
     )
     git.Repo.clone_from(repo, temporary_dir, branch=branch, depth=1)
-    terraform_working_dir = temporary_dir
-    if path is not None:
-        terraform_working_dir += path
-    return terraform_working_dir
+    terraform_working_dir = temporary_dir + path
+    return terraform_working_dir, type
 
 
 def pushDataToRedisTimeSeries(rts: Client, branch_time_series_dict: dict):
