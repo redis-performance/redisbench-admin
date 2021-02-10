@@ -4,6 +4,16 @@ from redisbench_admin.utils.utils import retrieve_local_or_remote_input_json
 
 
 class Test(TestCase):
+    def test_benchmark_config_parseExporterMetricsDefinition(self):
+        benchmark_config = {}
+        pass
+
+    def test_benchmark_config_parseExporterTimeMetricDefinition(self):
+        pass
+
+    def test_benchmark_config_parseExporterTimeMetric(self):
+        pass
+
     def test_retrieve_local_or_remote_input_json(self):
         benchmark_config = retrieve_local_or_remote_input_json(
             "./tests/test_data/redis-benchmark.6.2.results.csv",

@@ -283,7 +283,11 @@ def get_run_full_filename(
     return benchmark_output_filename
 
 
-def fetchRemoteSetupFromConfig(remote_setup_config, repo="https://github.com/RedisLabsModules/testing-infrastructure.git",branch="master"):
+def fetchRemoteSetupFromConfig(
+    remote_setup_config,
+    repo="https://github.com/RedisLabsModules/testing-infrastructure.git",
+    branch="master",
+):
     type = None
     setup = None
     for remote_setup_property in remote_setup_config:
@@ -292,7 +296,7 @@ def fetchRemoteSetupFromConfig(remote_setup_config, repo="https://github.com/Red
         if "setup" in remote_setup_property:
             setup = remote_setup_property["setup"]
     # fetch terraform folder
-    path = "/terraform/{}-{}".format(type,setup)
+    path = "/terraform/{}-{}".format(type, setup)
     temporary_dir = tempfile.mkdtemp()
     logging.info(
         "Fetching infrastructure definition from git repo {}/{} (branch={})".format(
