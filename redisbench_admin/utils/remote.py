@@ -343,6 +343,56 @@ def pushDataToRedisTimeSeries(rts: Client, branch_time_series_dict: dict):
                 pass
     return datapoint_errors, datapoint_inserts
 
+def extractRedisGraphVersion(results_dict: dict):
+    version = None
+    if "DBSpecificConfigs" in results_dict:
+        if "RedisGraphVersion" in results_dict["DBSpecificConfigs"]:
+            version = results_dict["DBSpecificConfigs"]["RedisGraphVersion"]
+    return version
+
+
+def extractPerVersionTimeSeriesFromResults(
+    datapoints_timestamp: int,
+    metrics: list,
+    results_dict: dict,
+    project_version: str,
+    tf_github_org: str,
+    tf_github_repo: str,
+    deployment_type: str,
+    test_name: str,
+    tf_triggering_env: str,
+):
+    branch_time_series_dict = {}
+    for jsonpath in metrics:
+        jsonpath_expr = parse(jsonpath)
+        metric_name = jsonpath[2:]
+        metric_value = float(jsonpath_expr.find(results_dict)[0].value)
+        # prepare tags
+        # branch tags
+        version_tags = {
+            "version": project_version,
+            "github_org": tf_github_org,
+            "github_repo": tf_github_repo,
+            "deployment_type": deployment_type,
+            "test_name": test_name,
+            "triggering_env": tf_triggering_env,
+            "metric": metric_name,
+        }
+        ts_name = "ci.benchmarks.redislabs/by.version/{triggering_env}/{github_org}/{github_repo}/{test_name}/{deployment_type}/{version}/{metric}".format(
+            version=project_version,
+            github_org=tf_github_org,
+            github_repo=tf_github_repo,
+            deployment_type=deployment_type,
+            test_name=test_name,
+            triggering_env=tf_triggering_env,
+            metric=metric_name,
+        )
+
+        branch_time_series_dict[ts_name] = {
+            "labels": version_tags.copy(),
+            "data": {datapoints_timestamp: metric_value},
+        }
+    return True, branch_time_series_dict
 
 def extractPerBranchTimeSeriesFromResults(
     datapoints_timestamp: int,
@@ -371,7 +421,7 @@ def extractPerBranchTimeSeriesFromResults(
             "triggering_env": tf_triggering_env,
             "metric": metric_name,
         }
-        ts_name = "ci.benchmarks.redislabs/{triggering_env}/{github_org}/{github_repo}/{test_name}/{deployment_type}/{branch}/{metric}".format(
+        ts_name = "ci.benchmarks.redislabs/by.branch/{triggering_env}/{github_org}/{github_repo}/{test_name}/{deployment_type}/{branch}/{metric}".format(
             branch=str(tf_github_branch),
             github_org=tf_github_org,
             github_repo=tf_github_repo,
