@@ -53,7 +53,7 @@ def main():
 
     if requested_tool == "run":
         parser = create_run_arguments(parser)
-    if requested_tool == "extract":
+    elif requested_tool == "extract":
         parser = create_extract_arguments(parser)
     elif requested_tool == "compare":
         parser = create_compare_arguments(parser)
