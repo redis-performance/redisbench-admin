@@ -149,9 +149,8 @@ def setupRemoteEnviroment(
         client_public_ip,
     )
 
-
-def extract_git_vars():
-    github_repo = Repo("{}/../..".format(os.getcwd()))
+def extract_git_vars(path=os.getcwd()):
+    github_repo = Repo(path)
     github_url = github_repo.remotes[0].config_reader.get("url")
     github_org_name = github_url.split("/")[-2]
     github_repo_name = github_url.split("/")[-1].split(".")[0]

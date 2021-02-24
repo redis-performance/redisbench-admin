@@ -1,4 +1,5 @@
 import argparse
+import logging
 import sys
 
 # import toml
@@ -13,6 +14,8 @@ from redisbench_admin.extract.args import create_extract_arguments
 from redisbench_admin.extract.extract import extract_command_logic
 from redisbench_admin.run.args import create_run_arguments
 from redisbench_admin.run.run import run_command_logic
+from redisbench_admin.run_local.args import create_run_local_arguments
+from redisbench_admin.run_local.run_local import run_local_command_logic
 
 
 def populate_with_poetry_data():
@@ -29,6 +32,12 @@ def populate_with_poetry_data():
 
     return project_name, project_description, project_version
 
+# logging settings
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-4s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 def main():
     tool = None
@@ -53,6 +62,8 @@ def main():
 
     if requested_tool == "run":
         parser = create_run_arguments(parser)
+    elif requested_tool == "run-local":
+        parser = create_run_local_arguments(parser)
     elif requested_tool == "extract":
         parser = create_extract_arguments(parser)
     elif requested_tool == "compare":
@@ -66,7 +77,7 @@ def main():
         print_help(project_name, project_version)
         sys.exit(0)
     else:
-        valid_tool_options = ["run", "export", "compare", "retrieve"]
+        valid_tool_options = ["run", "run-local", "export", "compare", "retrieve"]
         print_invalid_tool_option(requested_tool, valid_tool_options)
         sys.exit(1)
 
@@ -75,6 +86,8 @@ def main():
 
     if requested_tool == "run":
         run_command_logic(args)
+    if requested_tool == "run-local":
+        run_local_command_logic(args)
     if requested_tool == "compare":
         compare_command_logic(args)
     if requested_tool == "export":

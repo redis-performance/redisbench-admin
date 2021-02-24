@@ -8,13 +8,13 @@ from shutil import copyfile
 import redis
 
 
-def checkDatasetLocalRequirements(benchmark_config, redis_tmp_dir):
+def checkDatasetLocalRequirements(benchmark_config, redis_tmp_dir, dirname = "."):
     for k in benchmark_config["dbconfig"]:
         if "dataset" in k:
             dataset = k["dataset"]
     if dataset is not None:
-        logging.info("Copying rdb {} to {}/dump.rdb".format(dataset, redis_tmp_dir))
-        copyfile(dataset, "{}/dump.rdb".format(redis_tmp_dir))
+        logging.info("Copying rdb {}/{} to {}/dump.rdb".format(dirname,dataset, redis_tmp_dir))
+        copyfile("{}/{}".format(dirname,dataset), "{}/dump.rdb".format(redis_tmp_dir))
 
 
 def waitForConn(conn, retries=20, command="PING", shouldBe=True):
@@ -43,6 +43,7 @@ def spinUpLocalRedis(
     benchmark_config,
     port,
     local_module_file,
+        dirname=".",
 ):
     # copy the rdb to DB machine
     dataset = None
@@ -52,7 +53,7 @@ def spinUpLocalRedis(
             temporary_dir
         )
     )
-    checkDatasetLocalRequirements(benchmark_config, temporary_dir)
+    checkDatasetLocalRequirements(benchmark_config, temporary_dir,dirname)
 
     # start redis-server
     command = [
@@ -103,7 +104,7 @@ def getLocalRunFullFilename(
     return benchmark_output_filename
 
 
-def prepareSingleBenchmarkCommand(
+def prepareRedisGraphBenchmarkGoCommand(
     executable_path: str,
     server_private_ip: object,
     server_plaintext_port: object,
