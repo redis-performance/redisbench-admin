@@ -9,9 +9,9 @@ import sys
 
 import yaml
 
-from redisbench_admin.run.run import redis_benchmark_ensure_min_version
 from redisbench_admin.run.redis_benchmark.redis_benchmark import prepareRedisBenchmarkCommand, \
     redis_benchmark_from_stdout_csv_to_json
+from redisbench_admin.run.run import redis_benchmark_ensure_min_version
 from redisbench_admin.utils.local import (
     spinUpLocalRedis,
     getLocalRunFullFilename,
@@ -111,7 +111,9 @@ def run_local_command_logic(args):
                     raise Exception("Unable to detect benchmark tool within 'clientconfig' section. Aborting...")
 
                 if benchmark_tool not in args.allowed_tools.split(","):
-                    raise Exception("Benchmark tool {} not in the allowed tools list [{}]. Aborting...".format(benchmark_tool,args.allowed_tools))
+                    raise Exception(
+                        "Benchmark tool {} not in the allowed tools list [{}]. Aborting...".format(benchmark_tool,
+                                                                                                   args.allowed_tools))
 
                 if benchmark_min_tool_version is not None and benchmark_tool == "redis-benchmark":
                     redis_benchmark_ensure_min_version(benchmark_tool, benchmark_min_tool_version,

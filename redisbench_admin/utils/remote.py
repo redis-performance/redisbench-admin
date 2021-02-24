@@ -15,6 +15,11 @@ from python_terraform import Terraform
 from tqdm import tqdm
 
 
+def get_git_root(path):
+    git_repo = git.Repo(path, search_parent_directories=True)
+    git_root = git_repo.git.rev_parse("--show-toplevel")
+    return git_root
+
 def viewBarSimple(a, b):
     res = a / int(b) * 100
     sys.stdout.write("\r    Complete precent: %.2f %%" % (res))
@@ -149,7 +154,7 @@ def setupRemoteEnviroment(
         client_public_ip,
     )
 
-def extract_git_vars(path=os.getcwd()):
+def extract_git_vars(path=get_git_root(".")):
     github_repo = Repo(path)
     github_url = github_repo.remotes[0].config_reader.get("url")
     github_org_name = github_url.split("/")[-2]
