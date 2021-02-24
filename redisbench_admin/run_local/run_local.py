@@ -131,17 +131,21 @@ def run_local_command_logic(args):
                                 entry
                             )
                         if benchmark_tool == 'redisgraph-benchmark-go':
+                            print(entry)
                             command = prepareRedisGraphBenchmarkGoCommand(
                                 "redisgraph-benchmark-go",
                                 "localhost",
-                                args.redisgraph_port,
-                                benchmark_config,
+                                args.port,
+                                entry,
                                 local_benchmark_output_filename,
                             )
 
                 # run the benchmark
-                benchmark_client_process = subprocess.Popen(args=command, stdout=subprocess.PIPE,
-                                                            stderr=subprocess.STDOUT)
+                if benchmark_tool == 'redis-benchmark':
+                    benchmark_client_process = subprocess.Popen(args=command, stdout=subprocess.PIPE,
+                                                                stderr=subprocess.STDOUT)
+                else:
+                    benchmark_client_process = subprocess.Popen(args=command)
                 (stdout, sterr) = benchmark_client_process.communicate()
                 logging.info("Extracting the benchmark results")
 

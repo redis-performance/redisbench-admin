@@ -1,10 +1,9 @@
 import logging
-import os
-import os.path
 import re
 import subprocess
 
 from cpuinfo import cpuinfo
+
 
 def run_command_logic(args):
     use_case_specific_arguments = dict(args.__dict__)

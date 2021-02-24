@@ -55,6 +55,7 @@ def spinUpRemoteRedis(
     local_module_file,
     remote_module_file,
     remote_dataset_file,
+dirname = ".",
 ):
     # copy the rdb to DB machine
     dataset = None
@@ -64,6 +65,7 @@ def spinUpRemoteRedis(
         username,
         private_key,
         remote_dataset_file,
+        dirname
     )
 
     # copy the module to the DB machine
@@ -73,6 +75,7 @@ def spinUpRemoteRedis(
         private_key,
         local_module_file,
         remote_module_file,
+        dirname
     )
     executeRemoteCommands(
         server_public_ip,
