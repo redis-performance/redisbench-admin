@@ -16,6 +16,8 @@ from redisbench_admin.run.args import create_run_arguments
 from redisbench_admin.run.run import run_command_logic
 from redisbench_admin.run_local.args import create_run_local_arguments
 from redisbench_admin.run_local.run_local import run_local_command_logic
+from redisbench_admin.run_remote.args import create_run_remote_arguments
+from redisbench_admin.run_remote.run_remote import run_remote_command_logic
 
 
 def populate_with_poetry_data():
@@ -60,8 +62,8 @@ def main():
         "--local-dir", type=str, default="./", help="local dir to use as storage"
     )
 
-    if requested_tool == "run":
-        parser = create_run_arguments(parser)
+    if requested_tool == "run-remote":
+        parser = create_run_remote_arguments(parser)
     elif requested_tool == "run-local":
         parser = create_run_local_arguments(parser)
     elif requested_tool == "extract":
@@ -77,17 +79,16 @@ def main():
         print_help(project_name, project_version)
         sys.exit(0)
     else:
-        valid_tool_options = ["run", "run-local", "export", "compare", "retrieve"]
+        valid_tool_options = ["run-local", "run-remote", "export", "compare", "retrieve"]
         print_invalid_tool_option(requested_tool, valid_tool_options)
         sys.exit(1)
 
     argv = sys.argv[2:]
     args = parser.parse_args(args=argv)
-
-    if requested_tool == "run":
-        run_command_logic(args)
     if requested_tool == "run-local":
         run_local_command_logic(args)
+    if requested_tool == "run-remote":
+        run_remote_command_logic(args)
     if requested_tool == "compare":
         compare_command_logic(args)
     if requested_tool == "export":
@@ -120,7 +121,7 @@ def print_help(project_name, project_version):
     )
     print("usage: {project_name} <tool> <args>...".format(project_name=project_name))
     print(
-        "\t-) To know more on how to run benchmarks: {project_name} run --help".format(
+        "\t-) To know more on how to run benchmarks: {project_name} run-remote/run-local --help".format(
             project_name=project_name
         )
     )

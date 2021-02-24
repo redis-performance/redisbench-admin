@@ -27,7 +27,7 @@ def viewBarSimple(a, b):
 
 
 def copyFileToRemoteSetup(
-    server_public_ip, username, private_key, local_file, remote_file
+    server_public_ip, username, private_key, local_file, remote_file, dirname="."
 ):
     logging.info(
         "\tCopying local file {} to remote server {}".format(local_file, remote_file)
@@ -37,7 +37,7 @@ def copyFileToRemoteSetup(
     srv = pysftp.Connection(
         host=server_public_ip, username=username, private_key=private_key, cnopts=cnopts
     )
-    srv.put(local_file, remote_file, callback=viewBarSimple)
+    srv.put("{}/{}".format(dirname,local_file), remote_file, callback=viewBarSimple)
     srv.close()
     logging.info("")
 
@@ -79,7 +79,7 @@ def executeRemoteCommands(server_public_ip, username, private_key, commands):
 
 
 def checkDatasetRemoteRequirements(
-    benchmark_config, server_public_ip, username, private_key, remote_dataset_file
+    benchmark_config, server_public_ip, username, private_key, remote_dataset_file, dirname
 ):
     for k in benchmark_config["dbconfig"]:
         if "dataset" in k:
@@ -91,6 +91,7 @@ def checkDatasetRemoteRequirements(
             private_key,
             dataset,
             remote_dataset_file,
+            dirname,
         )
 
 
