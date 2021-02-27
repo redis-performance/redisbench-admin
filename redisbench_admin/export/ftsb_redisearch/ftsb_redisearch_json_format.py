@@ -60,13 +60,13 @@ def extract_key_configs(benchmark_result):
 
 
 def ftsb_export_logic(
-    benchmark_result,
-    extra_tags_array,
-    filename,
-    included_steps,
-    results_type,
-    time_series_dict,
-    use_result,
+        benchmark_result,
+        extra_tags_array,
+        filename,
+        included_steps,
+        results_type,
+        time_series_dict,
+        use_result,
 ):
     key_result_steps = benchmark_result[results_type].keys()
     (

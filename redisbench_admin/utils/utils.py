@@ -4,8 +4,6 @@ import json
 import operator
 import os
 import os.path
-import subprocess
-import sys
 import tarfile
 from functools import reduce
 from zipfile import ZipFile
@@ -36,7 +34,7 @@ def upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path):
 def whereis(program):
     for path in os.environ.get("PATH", "").split(":"):
         if os.path.exists(os.path.join(path, program)) and not os.path.isdir(
-            os.path.join(path, program)
+                os.path.join(path, program)
         ):
             return os.path.join(path, program)
     return None
@@ -77,7 +75,7 @@ def ts_milli(at_dt):
 
 
 def retrieve_local_or_remote_input_json(
-    config_filename, local_path, option_name, format="json", csv_header=False
+        config_filename, local_path, option_name, format="json", csv_header=False
 ):
     benchmark_config = {}
 
@@ -89,7 +87,7 @@ def retrieve_local_or_remote_input_json(
         )
         r = requests.get(config_filename)
         benchmark_config[config_filename] = r.json()
-        remote_filename = config_filename[config_filename.rfind("/") + 1 :]
+        remote_filename = config_filename[config_filename.rfind("/") + 1:]
         local_config_file = "{}/{}".format(local_path, remote_filename)
         open(local_config_file, "wb").write(r.content)
         print(
@@ -134,7 +132,7 @@ def retrieve_local_or_remote_input_json(
 
 
 def read_json_or_csv(
-    benchmark_config, config_filename, format, local_file, csv_has_header
+        benchmark_config, config_filename, format, local_file, csv_has_header
 ):
     if format == "json":
         benchmark_config[config_filename] = json.load(local_file)
