@@ -131,6 +131,14 @@ def run_remote_command_logic(args):
         logging.error("missing required EC2_PRIVATE_PEM env variable")
         exit(1)
 
+    logging.info("Using the following module artifact: {}".format(local_module_file))
+    logging.info("Checking if module artifact exists...")
+    if os.path.exists(local_module_file) is False:
+        logging.error("Specified module artifact does not exist: {}".format(local_module_file))
+        exit(1)
+    else:
+        logging.info("Confirmed that module artifact: '{}' exists!".format(local_module_file))
+
     logging.info("Using the following vars on terraform deployment:")
     logging.info("\tterraform bin path: {}".format(tf_bin_path))
     logging.info("\tgithub_actor: {}".format(tf_github_actor))
