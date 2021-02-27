@@ -1,6 +1,9 @@
 import json
 import os
+
 import redis
+from redistimeseries.client import Client
+
 from redisbench_admin.export.common.common import split_tags_string
 from redisbench_admin.export.ftsb_redisearch.ftsb_redisearch_json_format import (
     ftsb_export_logic,
@@ -9,8 +12,6 @@ from redisbench_admin.export.redis_benchmark.redis_benchmark_csv_format import (
     redis_benchmark_export_logic,
 )
 from redisbench_admin.utils.utils import retrieve_local_or_remote_input_json
-
-from redistimeseries.client import Client
 
 
 def export_command_logic(args):

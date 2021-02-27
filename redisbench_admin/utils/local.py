@@ -8,13 +8,13 @@ from shutil import copyfile
 import redis
 
 
-def checkDatasetLocalRequirements(benchmark_config, redis_tmp_dir, dirname = "."):
+def checkDatasetLocalRequirements(benchmark_config, redis_tmp_dir, dirname="."):
     for k in benchmark_config["dbconfig"]:
         if "dataset" in k:
             dataset = k["dataset"]
     if dataset is not None:
-        logging.info("Copying rdb {}/{} to {}/dump.rdb".format(dirname,dataset, redis_tmp_dir))
-        copyfile("{}/{}".format(dirname,dataset), "{}/dump.rdb".format(redis_tmp_dir))
+        logging.info("Copying rdb {}/{} to {}/dump.rdb".format(dirname, dataset, redis_tmp_dir))
+        copyfile("{}/{}".format(dirname, dataset), "{}/dump.rdb".format(redis_tmp_dir))
 
 
 def waitForConn(conn, retries=20, command="PING", shouldBe=True):
@@ -40,9 +40,9 @@ def waitForConn(conn, retries=20, command="PING", shouldBe=True):
 
 
 def spinUpLocalRedis(
-    benchmark_config,
-    port,
-    local_module_file,
+        benchmark_config,
+        port,
+        local_module_file,
         dirname=".",
 ):
     # copy the rdb to DB machine
@@ -53,7 +53,7 @@ def spinUpLocalRedis(
             temporary_dir
         )
     )
-    checkDatasetLocalRequirements(benchmark_config, temporary_dir,dirname)
+    checkDatasetLocalRequirements(benchmark_config, temporary_dir, dirname)
 
     # start redis-server
     command = [
@@ -90,9 +90,9 @@ def isProcessAlive(process):
 
 
 def getLocalRunFullFilename(
-    start_time_str,
-    github_branch,
-    test_name,
+        start_time_str,
+        github_branch,
+        test_name,
 ):
     benchmark_output_filename = (
         "{start_time_str}-{github_branch}-{test_name}.json".format(
@@ -105,12 +105,12 @@ def getLocalRunFullFilename(
 
 
 def prepareRedisGraphBenchmarkGoCommand(
-    executable_path: str,
-    server_private_ip: object,
-    server_plaintext_port: object,
-    benchmark_config: object,
-    results_file: object,
-) -> str:
+        executable_path: str,
+        server_private_ip: object,
+        server_plaintext_port: object,
+        benchmark_config: object,
+        results_file: object,
+):
     """
     Prepares redisgraph-benchmark-go command parameters
     :param server_private_ip:
@@ -122,7 +122,7 @@ def prepareRedisGraphBenchmarkGoCommand(
     queries_str = [executable_path]
     for k in benchmark_config["parameters"]:
         if "graph" in k:
-            queries_str.extend(["-graph-key", "{}".format(k["graph"])])
+            queries_str.extend(["-graph-key", "'{}'".format(k["graph"])])
         if "clients" in k:
             queries_str.extend(["-c", "{}".format(k["clients"])])
         if "requests" in k:
@@ -132,7 +132,7 @@ def prepareRedisGraphBenchmarkGoCommand(
         if "queries" in k:
             for kk in k["queries"]:
                 query = kk["q"]
-                queries_str.extend(["-query", "{}".format(query)])
+                queries_str.extend(["-query", "'{}'".format(query)])
                 if "ratio" in kk:
                     queries_str.extend(["-query-ratio", "{}".format(kk["ratio"])])
     queries_str.extend(["-h", "{}".format(server_private_ip)])

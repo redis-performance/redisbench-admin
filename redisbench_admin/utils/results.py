@@ -5,8 +5,8 @@ def get_key_results_and_values(results_json, step, use_result):
     selected_run = None
     metrics = {}
     if (
-        "key-results" in results_json
-        and use_result in results_json["key-results"][step]
+            "key-results" in results_json
+            and use_result in results_json["key-results"][step]
     ):
         for name, value in results_json["key-results"][step][use_result][0].items():
             if name == "run-name":

@@ -8,55 +8,17 @@ from redisbench_admin.utils.remote import (
 )
 
 
-def prepareBenchmarkCommand(
-    server_private_ip: object,
-    server_plaintext_port: object,
-    benchmark_config: object,
-    results_file: object,
-) -> str:
-    """
-    Prepares redisgraph-benchmark-go command parameters
-    :param server_private_ip:
-    :param server_plaintext_port:
-    :param benchmark_config:
-    :param results_file:
-    :return: string containing the required command to run the benchmark given the configurations
-    """
-    queries_str = ""
-    for k in benchmark_config["queries"]:
-        query = k["q"]
-        queries_str += ' -query "{}"'.format(query)
-        if "ratio" in k:
-            queries_str += " -query-ratio {}".format(k["ratio"])
-    for k in benchmark_config["clientconfig"]:
-        if "graph" in k:
-            queries_str += " -graph-key {}".format(k["graph"])
-        if "clients" in k:
-            queries_str += " -c {}".format(k["clients"])
-        if "requests" in k:
-            queries_str += " -n {}".format(k["requests"])
-        if "rps" in k:
-            queries_str += " -rps {}".format(k["rps"])
-    queries_str += " -h {}".format(server_private_ip)
-    queries_str += " -p {}".format(server_plaintext_port)
-
-    queries_str += " -json-out-file {}".format(results_file)
-    logging.info(
-        "Running the benchmark with the following parameters: {}".format(queries_str)
-    )
-    return queries_str
-
-
 def spinUpRemoteRedis(
-    benchmark_config,
-    server_public_ip,
-    username,
-    private_key,
-    local_module_file,
-    remote_module_file,
-    remote_dataset_file,
-dirname = ".",
+        benchmark_config,
+        server_public_ip,
+        username,
+        private_key,
+        local_module_file,
+        remote_module_file,
+        remote_dataset_file,
+        dirname=".",
 ):
+    res = False
     # copy the rdb to DB machine
     dataset = None
     checkDatasetRemoteRequirements(
@@ -75,7 +37,7 @@ dirname = ".",
         private_key,
         local_module_file,
         remote_module_file,
-        dirname
+        "."
     )
     executeRemoteCommands(
         server_public_ip,
@@ -93,7 +55,7 @@ dirname = ".",
 
 
 def setupRemoteBenchmark(
-    client_public_ip, username, private_key, redisbenchmark_go_link
+        client_public_ip, username, private_key, redisbenchmark_go_link
 ):
     commands = [
         "wget {} -q -O /tmp/redisgraph-benchmark-go".format(redisbenchmark_go_link),
@@ -103,25 +65,31 @@ def setupRemoteBenchmark(
 
 
 def runRemoteBenchmark(
-    client_public_ip,
-    username,
-    private_key,
-    server_private_ip,
-    server_plaintext_port,
-    benchmark_config,
-    remote_results_file,
-    local_results_file,
-):
-    queries_str = prepareBenchmarkCommand(
-        server_private_ip, server_plaintext_port, benchmark_config, remote_results_file
-    )
-    commands = ["/tmp/redisgraph-benchmark-go {}".format(queries_str)]
-    executeRemoteCommands(client_public_ip, username, private_key, commands)
-    logging.info("Extracting the benchmark results")
-    getFileFromRemoteSetup(
         client_public_ip,
         username,
         private_key,
-        local_results_file,
         remote_results_file,
-    )
+        local_results_file,
+        command
+):
+    remote_run_result = False
+    res = executeRemoteCommands(client_public_ip, username, private_key, [" ".join(command)])
+    recv_exit_status, stdout, stderr = res[0]
+
+    if recv_exit_status != 0:
+        logging.error("Exit status of remote command execution {}. Printing stdout and stderr".format(recv_exit_status))
+        logging.error("remote process stdout: ".format(stdout))
+        logging.error("remote process stderr: ".format(stderr))
+    else:
+        logging.info("Remote process exited normally. Exit code {}. Printing stdout.".format(recv_exit_status))
+        logging.info("remote process stdout: ".format(stdout))
+        logging.info("Extracting the benchmark results")
+        remote_run_result = True
+        getFileFromRemoteSetup(
+            client_public_ip,
+            username,
+            private_key,
+            local_results_file,
+            remote_results_file,
+        )
+    return remote_run_result

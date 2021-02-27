@@ -12,8 +12,6 @@ from redisbench_admin.export.args import create_export_arguments
 from redisbench_admin.export.export import export_command_logic
 from redisbench_admin.extract.args import create_extract_arguments
 from redisbench_admin.extract.extract import extract_command_logic
-from redisbench_admin.run.args import create_run_arguments
-from redisbench_admin.run.run import run_command_logic
 from redisbench_admin.run_local.args import create_run_local_arguments
 from redisbench_admin.run_local.run_local import run_local_command_logic
 from redisbench_admin.run_remote.args import create_run_remote_arguments
@@ -34,12 +32,14 @@ def populate_with_poetry_data():
 
     return project_name, project_description, project_version
 
+
 # logging settings
 logging.basicConfig(
     format="%(asctime)s %(levelname)-4s %(message)s",
     level=logging.INFO,
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
 
 def main():
     tool = None

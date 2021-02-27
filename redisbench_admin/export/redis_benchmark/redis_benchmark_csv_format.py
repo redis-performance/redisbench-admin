@@ -52,7 +52,7 @@ def fill_tags_from_passed_array(extra_tags_array):
 
 
 def redis_benchmark_export_logic(
-    benchmark_result, extra_tags_array, results_type, time_series_dict, use_result
+        benchmark_result, extra_tags_array, results_type, time_series_dict, use_result
 ):
     ok = True
     start_time_ms = get_tag_fromextra_tags_array(extra_tags_array, "start_time_ms")

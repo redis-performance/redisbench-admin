@@ -22,7 +22,7 @@ def prepare_tags(k):
 
 
 def add_datapoint(
-    time_series_dict, broader_ts_name, start_time_ms, metric_value, tags_array
+        time_series_dict, broader_ts_name, start_time_ms, metric_value, tags_array
 ):
     if broader_ts_name not in time_series_dict:
         tags_dict = {}
@@ -74,14 +74,14 @@ def get_or_None(dict, property):
 
 
 def get_kv_tags(
-    deployment_type,
-    extra_tags_array,
-    git_sha,
-    project,
-    project_version,
-    results_type,
-    step,
-    testcase_name,
+        deployment_type,
+        extra_tags_array,
+        git_sha,
+        project,
+        project_version,
+        results_type,
+        step,
+        testcase_name,
 ):
     common_broader_kv_tags = [
         {"project": project},

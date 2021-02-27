@@ -3,17 +3,22 @@ import json
 import logging
 import os
 import pathlib
+import re
 import sys
+import traceback
 
 import yaml
 from python_terraform import Terraform
 from redistimeseries.client import Client
 
+from redisbench_admin.run.redis_benchmark.redis_benchmark import prepareRedisBenchmarkCommand
+from redisbench_admin.run.run import redis_benchmark_ensure_min_version
 from redisbench_admin.utils.benchmark_config import (
     parseExporterMetricsDefinition,
     parseExporterTimeMetricDefinition,
     parseExporterTimeMetric,
 )
+from redisbench_admin.utils.local import prepareRedisGraphBenchmarkGoCommand
 from redisbench_admin.utils.redisgraph_benchmark_go import (
     spinUpRemoteRedis,
     setupRemoteBenchmark,
@@ -261,16 +266,59 @@ def run_remote_command_logic(args):
                             local_benchmark_output_filename
                         )
                     )
+
+                    benchmark_tool = None
+                    benchmark_min_tool_version = None
+                    benchmark_min_tool_version_major = None
+                    benchmark_min_tool_version_minor = None
+                    benchmark_min_tool_version_patch = None
+                    for entry in benchmark_config["clientconfig"]:
+                        benchmark_min_tool_version, benchmark_min_tool_version_major, benchmark_min_tool_version_minor, benchmark_min_tool_version_patch, benchmark_tool = extract_tool_info(
+                            benchmark_min_tool_version, benchmark_min_tool_version_major,
+                            benchmark_min_tool_version_minor, benchmark_min_tool_version_patch, benchmark_tool, entry)
+                    if benchmark_tool is not None:
+                        logging.info("Detected benchmark config tool {}".format(benchmark_tool))
+                    else:
+                        raise Exception("Unable to detect benchmark tool within 'clientconfig' section. Aborting...")
+
+                    if benchmark_tool not in args.allowed_tools.split(","):
+                        raise Exception(
+                            "Benchmark tool {} not in the allowed tools list [{}]. Aborting...".format(benchmark_tool,
+                                                                                                       args.allowed_tools))
+
+                    if benchmark_min_tool_version is not None and benchmark_tool == "redis-benchmark":
+                        redis_benchmark_ensure_min_version(benchmark_tool, benchmark_min_tool_version,
+                                                           benchmark_min_tool_version_major,
+                                                           benchmark_min_tool_version_minor,
+                                                           benchmark_min_tool_version_patch)
+
+                    for entry in benchmark_config["clientconfig"]:
+                        if 'parameters' in entry:
+                            if benchmark_tool == 'redis-benchmark':
+                                command = prepareRedisBenchmarkCommand(
+                                    "redis-benchmark",
+                                    server_private_ip,
+                                    server_plaintext_port,
+                                    entry
+                                )
+                            if benchmark_tool == 'redisgraph-benchmark-go':
+                                print(entry)
+                                command = prepareRedisGraphBenchmarkGoCommand(
+                                    "/tmp/redisgraph-benchmark-go",
+                                    server_private_ip,
+                                    server_plaintext_port,
+                                    entry,
+                                    remote_results_file,
+                                )
+
                     # run the benchmark
                     runRemoteBenchmark(
                         client_public_ip,
                         username,
                         private_key,
-                        server_private_ip,
-                        server_plaintext_port,
-                        benchmark_config,
                         remote_results_file,
                         local_benchmark_output_filename,
+                        command
                     )
 
                     # check KPIs
@@ -362,6 +410,9 @@ def run_remote_command_logic(args):
                         "Some unexpected exception was caught during remote work. Failing test...."
                     )
                     logging.critical(sys.exc_info()[0])
+                    print("-" * 60)
+                    traceback.print_exc(file=sys.stdout)
+                    print("-" * 60)
                 finally:
                     # tear-down
                     logging.info("Tearing down setup")
@@ -369,3 +420,22 @@ def run_remote_command_logic(args):
                     logging.info("Tear-down completed")
 
     exit(return_code)
+
+
+def extract_tool_info(benchmark_min_tool_version, benchmark_min_tool_version_major, benchmark_min_tool_version_minor,
+                      benchmark_min_tool_version_patch, benchmark_tool, entry):
+    if 'tool' in entry:
+        benchmark_tool = entry['tool']
+    if 'min-tool-version' in entry:
+        benchmark_min_tool_version = entry['min-tool-version']
+        p = re.compile("(\d+)\.(\d+)\.(\d+)")
+        m = p.match(benchmark_min_tool_version)
+        if m is None:
+            logging.error(
+                "Unable to extract semversion from 'min-tool-version'. Will not enforce version")
+            benchmark_min_tool_version = None
+        else:
+            benchmark_min_tool_version_major = m.group(1)
+            benchmark_min_tool_version_minor = m.group(2)
+            benchmark_min_tool_version_patch = m.group(3)
+    return benchmark_min_tool_version, benchmark_min_tool_version_major, benchmark_min_tool_version_minor, benchmark_min_tool_version_patch, benchmark_tool

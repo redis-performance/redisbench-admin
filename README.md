@@ -1,8 +1,8 @@
-[![codecov](https://codecov.io/gh/filipecosta90/redisbench-admin/branch/master/graph/badge.svg)](https://codecov.io/gh/filipecosta90/redisbench-admin)
-![Actions](https://github.com/filipecosta90/redisbench-admin/workflows/Run%20Tests/badge.svg?branch=master)
+[![codecov](https://codecov.io/gh/RedisLabsModules/redisbench-admin/branch/master/graph/badge.svg)](https://codecov.io/gh/RedisLabsModules/redisbench-admin)
+![Actions](https://github.com/RedisLabsModules/redisbench-admin/workflows/Run%20Tests/badge.svg?branch=master)
 ![Actions](https://badge.fury.io/py/redisbench-admin.svg)
 
-# redisbench-admin
+# [redisbench-admin](https://github.com/RedisLabsModules/redisbench-admin) 
 
 Redis benchmark run helper can help you with the following tasks:
 - Setup abd teardown of benchmarking infrastructure specified on [RedisLabsModules/testing-infrastructure](https://github.com/RedisLabsModules/testing-infrastructure)

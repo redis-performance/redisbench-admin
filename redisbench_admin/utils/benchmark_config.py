@@ -2,7 +2,7 @@ from jsonpath_ng import parse
 
 
 def parseExporterMetricsDefinition(
-    benchmark_config: dict, configkey: str = "redistimeseries"
+        benchmark_config: dict, configkey: str = "redistimeseries"
 ):
     metrics = []
     if configkey in benchmark_config:
@@ -13,7 +13,7 @@ def parseExporterMetricsDefinition(
 
 
 def parseExporterTimeMetricDefinition(
-    benchmark_config: dict, configkey: str = "redistimeseries"
+        benchmark_config: dict, configkey: str = "redistimeseries"
 ):
     metricPath = None
     if "timemetric" in benchmark_config[configkey]:
