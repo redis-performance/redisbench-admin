@@ -36,8 +36,7 @@ def spinUpRemoteRedis(
         username,
         private_key,
         local_module_file,
-        remote_module_file,
-        "."
+        remote_module_file
     )
     executeRemoteCommands(
         server_public_ip,

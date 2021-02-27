@@ -302,7 +302,6 @@ def run_remote_command_logic(args):
                                     entry
                                 )
                             if benchmark_tool == 'redisgraph-benchmark-go':
-                                print(entry)
                                 command = prepareRedisGraphBenchmarkGoCommand(
                                     "/tmp/redisgraph-benchmark-go",
                                     server_private_ip,

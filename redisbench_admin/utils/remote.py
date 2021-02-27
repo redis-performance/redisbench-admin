@@ -28,10 +28,12 @@ def viewBarSimple(a, b):
 
 
 def copyFileToRemoteSetup(
-        server_public_ip, username, private_key, local_file, remote_file, dirname="."
+        server_public_ip, username, private_key, local_file, remote_file, dirname=None
 ):
     res = False
-    full_local_path = "{}/{}".format(dirname, local_file)
+    full_localpath = local_file
+    if dirname is not None:
+        full_local_path = "{}/{}".format(dirname, local_file)
     logging.info(
         "Copying local file {} to remote server {}".format(full_local_path, remote_file)
     )
@@ -51,9 +53,11 @@ def copyFileToRemoteSetup(
         ))
         res = True
     else:
-        logging.info(
+        logging.error(
             "Local file {} does not exists. aborting...".format(full_local_path)
         )
+        raise Exception(
+            "Local file {} does not exists. aborting...".format(full_local_path))
         res = False
     return res
 
