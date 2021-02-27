@@ -31,7 +31,7 @@ def copyFileToRemoteSetup(
         server_public_ip, username, private_key, local_file, remote_file, dirname=None
 ):
     res = False
-    full_localpath = local_file
+    full_local_path = local_file
     if dirname is not None:
         full_local_path = "{}/{}".format(dirname, local_file)
     logging.info(
