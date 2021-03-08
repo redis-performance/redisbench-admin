@@ -28,7 +28,7 @@ pysftp = "^0.2.9"
 python_terraform = "^0.10.1"
 GitPython = "^3.1.12"
 PyYAML = "^5.4.1"
-numpy = "1.15"
+numpy = "^1.15.4"
 
 [tool.poetry.dev-dependencies]
 pytest = "^4.6"
