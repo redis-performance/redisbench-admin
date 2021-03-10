@@ -11,7 +11,7 @@ from python_terraform import Terraform
 from redistimeseries.client import Client
 
 from redisbench_admin.run.redis_benchmark.redis_benchmark import redis_benchmark_ensure_min_version_local, \
-    redis_benchmark_from_stdout_csv_to_json
+    redis_benchmark_from_stdout_csv_to_json, redis_benchmark_ensure_min_version_remote
 from redisbench_admin.run.common import extract_benchmark_tool_settings, prepare_benchmark_parameters, \
     runRemoteBenchmark
 from redisbench_admin.utils.benchmark_config import (
@@ -271,10 +271,11 @@ def run_remote_command_logic(args):
                         )
 
                     if benchmark_min_tool_version is not None and benchmark_tool == "redis-benchmark":
-                        redis_benchmark_ensure_min_version_local(benchmark_tool, benchmark_min_tool_version,
-                                                                 benchmark_min_tool_version_major,
-                                                                 benchmark_min_tool_version_minor,
-                                                                 benchmark_min_tool_version_patch)
+                        redis_benchmark_ensure_min_version_remote(benchmark_tool, benchmark_min_tool_version,
+                                                                  benchmark_min_tool_version_major,
+                                                                  benchmark_min_tool_version_minor,
+                                                                  benchmark_min_tool_version_patch,
+                                                                  client_public_ip, username, private_key)
 
                     command, command_str = prepare_benchmark_parameters(benchmark_config, benchmark_tool,
                                                                         server_plaintext_port,
