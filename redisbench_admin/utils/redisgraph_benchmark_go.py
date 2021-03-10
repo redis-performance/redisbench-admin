@@ -1,10 +1,7 @@
-import logging
-
 from redisbench_admin.utils.remote import (
     checkDatasetRemoteRequirements,
     copyFileToRemoteSetup,
     executeRemoteCommands,
-    getFileFromRemoteSetup,
 )
 
 
@@ -53,7 +50,7 @@ def spinUpRemoteRedis(
     executeRemoteCommands(server_public_ip, username, private_key, commands)
 
 
-def setupRemoteBenchmark(
+def setupRemoteBenchmarkTool_redisgraph_benchmark_go(
         client_public_ip, username, private_key, redisbenchmark_go_link
 ):
     commands = [
@@ -61,34 +58,3 @@ def setupRemoteBenchmark(
         "chmod 755 /tmp/redisgraph-benchmark-go",
     ]
     executeRemoteCommands(client_public_ip, username, private_key, commands)
-
-
-def runRemoteBenchmark(
-        client_public_ip,
-        username,
-        private_key,
-        remote_results_file,
-        local_results_file,
-        command
-):
-    remote_run_result = False
-    res = executeRemoteCommands(client_public_ip, username, private_key, [" ".join(command)])
-    recv_exit_status, stdout, stderr = res[0]
-
-    if recv_exit_status != 0:
-        logging.error("Exit status of remote command execution {}. Printing stdout and stderr".format(recv_exit_status))
-        logging.error("remote process stdout: ".format(stdout))
-        logging.error("remote process stderr: ".format(stderr))
-    else:
-        logging.info("Remote process exited normally. Exit code {}. Printing stdout.".format(recv_exit_status))
-        logging.info("remote process stdout: ".format(stdout))
-        logging.info("Extracting the benchmark results")
-        remote_run_result = True
-        getFileFromRemoteSetup(
-            client_public_ip,
-            username,
-            private_key,
-            local_results_file,
-            remote_results_file,
-        )
-    return remote_run_result

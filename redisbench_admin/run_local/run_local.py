@@ -3,20 +3,18 @@ import json
 import logging
 import os
 import pathlib
-import re
 import subprocess
 import sys
 
 import yaml
 
-from redisbench_admin.run.redis_benchmark.redis_benchmark import prepareRedisBenchmarkCommand, \
-    redis_benchmark_from_stdout_csv_to_json
-from redisbench_admin.run.run import redis_benchmark_ensure_min_version
+from redisbench_admin.run.common import extract_benchmark_tool_settings, prepare_benchmark_parameters
+from redisbench_admin.run.redis_benchmark.redis_benchmark import redis_benchmark_from_stdout_csv_to_json, \
+    redis_benchmark_ensure_min_version_local
 from redisbench_admin.utils.local import (
     spinUpLocalRedis,
     getLocalRunFullFilename,
-    isProcessAlive, prepareRedisGraphBenchmarkGoCommand,
-)
+    isProcessAlive, )
 from redisbench_admin.utils.remote import (
     extract_git_vars,
     validateResultExpectations,
@@ -85,26 +83,9 @@ def run_local_command_logic(args):
                         local_benchmark_output_filename
                     )
                 )
-                benchmark_tool = None
-                benchmark_min_tool_version = None
-                benchmark_min_tool_version_major = None
-                benchmark_min_tool_version_minor = None
-                benchmark_min_tool_version_patch = None
-                for entry in benchmark_config["clientconfig"]:
-                    if 'tool' in entry:
-                        benchmark_tool = entry['tool']
-                    if 'min-tool-version' in entry:
-                        benchmark_min_tool_version = entry['min-tool-version']
-                        p = re.compile("(\d+)\.(\d+)\.(\d+)")
-                        m = p.match(benchmark_min_tool_version)
-                        if m is None:
-                            logging.error(
-                                "Unable to extract semversion from 'min-tool-version'. Will not enforce version")
-                            benchmark_min_tool_version = None
-                        else:
-                            benchmark_min_tool_version_major = m.group(1)
-                            benchmark_min_tool_version_minor = m.group(2)
-                            benchmark_min_tool_version_patch = m.group(3)
+
+                benchmark_min_tool_version, benchmark_min_tool_version_major, benchmark_min_tool_version_minor, benchmark_min_tool_version_patch, benchmark_tool = extract_benchmark_tool_settings(
+                    benchmark_config)
                 if benchmark_tool is not None:
                     logging.info("Detected benchmark config tool {}".format(benchmark_tool))
                 else:
@@ -116,28 +97,12 @@ def run_local_command_logic(args):
                                                                                                    args.allowed_tools))
 
                 if benchmark_min_tool_version is not None and benchmark_tool == "redis-benchmark":
-                    redis_benchmark_ensure_min_version(benchmark_tool, benchmark_min_tool_version,
-                                                       benchmark_min_tool_version_major,
-                                                       benchmark_min_tool_version_minor,
-                                                       benchmark_min_tool_version_patch)
-
-                for entry in benchmark_config["clientconfig"]:
-                    if 'parameters' in entry:
-                        if benchmark_tool == 'redis-benchmark':
-                            command = prepareRedisBenchmarkCommand(
-                                "redis-benchmark",
-                                "localhost",
-                                args.port,
-                                entry
-                            )
-                        if benchmark_tool == 'redisgraph-benchmark-go':
-                            command = prepareRedisGraphBenchmarkGoCommand(
-                                "redisgraph-benchmark-go",
-                                "localhost",
-                                args.port,
-                                entry,
-                                local_benchmark_output_filename,
-                            )
+                    redis_benchmark_ensure_min_version_local(benchmark_tool, benchmark_min_tool_version,
+                                                             benchmark_min_tool_version_major,
+                                                             benchmark_min_tool_version_minor,
+                                                             benchmark_min_tool_version_patch)
+                command, command_str = prepare_benchmark_parameters(benchmark_config, benchmark_tool, args.port,
+                                                                    "localhost", local_benchmark_output_filename)
 
                 # run the benchmark
                 if benchmark_tool == 'redis-benchmark':
@@ -151,7 +116,9 @@ def run_local_command_logic(args):
                 if benchmark_tool == 'redis-benchmark':
                     logging.info("Converting redis-benchmark output to json. Storing it in: {}".format(
                         local_benchmark_output_filename))
-                    results_dict = redis_benchmark_from_stdout_csv_to_json(stdout, start_time, start_time_str)
+                    results_dict = redis_benchmark_from_stdout_csv_to_json(stdout.decode('ascii'), start_time,
+                                                                           start_time_str,
+                                                                           overloadTestName="Overall")
                     with open(local_benchmark_output_filename, "w") as json_file:
                         json.dump(results_dict, json_file, indent=True)
 
