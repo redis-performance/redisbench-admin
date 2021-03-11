@@ -364,47 +364,53 @@ def run_remote_command_logic(args):
                             if extra_timemetric_path is not None:
                                 exporter_timemetric_path = extra_timemetric_path
 
-                        # extract timestamp
-                        datapoints_timestamp = parseExporterTimeMetric(
-                            exporter_timemetric_path, results_dict
-                        )
+                            # extract timestamp
+                            datapoints_timestamp = parseExporterTimeMetric(
+                                exporter_timemetric_path, results_dict
+                            )
 
-                        rg_version = extractRedisGraphVersion(results_dict)
+                            rg_version = extractRedisGraphVersion(results_dict)
+                            if rg_version is None:
+                                rg_version = "N/A"
 
-                        # extract per branch datapoints
-                        (
-                            ok,
-                            per_version_time_series_dict,
-                        ) = extractPerVersionTimeSeriesFromResults(
-                            datapoints_timestamp,
-                            metrics,
-                            results_dict,
-                            rg_version,
-                            tf_github_org,
-                            tf_github_repo,
-                            deployment_type,
-                            test_name,
-                            tf_triggering_env,
-                        )
+                            # extract per branch datapoints
+                            (
+                                ok,
+                                per_version_time_series_dict,
+                            ) = extractPerVersionTimeSeriesFromResults(
+                                datapoints_timestamp,
+                                metrics,
+                                results_dict,
+                                rg_version,
+                                tf_github_org,
+                                tf_github_repo,
+                                deployment_type,
+                                test_name,
+                                tf_triggering_env,
+                            )
 
-                        # push per-branch data
-                        pushDataToRedisTimeSeries(rts, per_version_time_series_dict)
+                            # push per-branch data
+                            pushDataToRedisTimeSeries(rts, per_version_time_series_dict)
 
-                        # extract per branch datapoints
-                        ok, branch_time_series_dict = extractPerBranchTimeSeriesFromResults(
-                            datapoints_timestamp,
-                            metrics,
-                            results_dict,
-                            str(tf_github_branch),
-                            tf_github_org,
-                            tf_github_repo,
-                            deployment_type,
-                            test_name,
-                            tf_triggering_env,
-                        )
+                            # extract per branch datapoints
+                            ok, branch_time_series_dict = extractPerBranchTimeSeriesFromResults(
+                                datapoints_timestamp,
+                                metrics,
+                                results_dict,
+                                str(tf_github_branch),
+                                tf_github_org,
+                                tf_github_repo,
+                                deployment_type,
+                                test_name,
+                                tf_triggering_env,
+                            )
 
-                        # push per-branch data
-                        pushDataToRedisTimeSeries(rts, branch_time_series_dict)
+                            # push per-branch data
+                            pushDataToRedisTimeSeries(rts, branch_time_series_dict)
+                        else:
+                            logging.error(
+                                "Requested to push data to RedisTimeSeries but no exporter definition was found. Missing \"exporter\" config."
+                            )
                 except:
                     return_code |= 1
                     logging.critical(
