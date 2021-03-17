@@ -4,17 +4,39 @@ import subprocess
 import tempfile
 import time
 from shutil import copyfile
-
+import wget
 import redis
 
 
-def checkDatasetLocalRequirements(benchmark_config, redis_tmp_dir, dirname="."):
-    for k in benchmark_config["dbconfig"]:
-        if "dataset" in k:
-            dataset = k["dataset"]
-    if dataset is not None:
-        logging.info("Copying rdb {}/{} to {}/dump.rdb".format(dirname, dataset, redis_tmp_dir))
-        copyfile("{}/{}".format(dirname, dataset), "{}/dump.rdb".format(redis_tmp_dir))
+def checkDatasetLocalRequirements(benchmark_config, redis_dbdir, dirname=None, datasets_localtemp_dir="./datasets",dbconfig_keyname="dbconfig"):
+    dataset = None
+    full_path = None
+    tmp_path = None
+    if dbconfig_keyname in benchmark_config:
+        for k in benchmark_config[dbconfig_keyname]:
+            if "dataset" in k:
+                dataset = k["dataset"]
+        if dataset is not None:
+            if dataset.startswith("http"):
+                if not os.path.isdir(datasets_localtemp_dir):
+                    os.mkdir(datasets_localtemp_dir)
+                filename = dataset.split("/")[-1]
+                full_path = '{}/{}'.format(datasets_localtemp_dir, filename)
+                if not os.path.exists(full_path):
+                    logging.info("Retrieving remote file from {} to {}. Using the dir {} as a cache for next time.".format(dataset,full_path, datasets_localtemp_dir))
+                    wget.download(dataset,full_path)
+                else:
+                    logging.info(
+                        "Reusing cached remote file (located at {} ).".format(
+                            full_path))
+            else:
+                full_path = dataset
+                if dirname is not None:
+                    full_path = "{}/{}".format(dirname,full_path)
+                logging.info("Copying rdb from {} to {}/dump.rdb".format(full_path, redis_dbdir))
+            tmp_path = "{}/dump.rdb".format(redis_dbdir)
+            copyfile(full_path,tmp_path )
+    return dataset,full_path,tmp_path
 
 
 def waitForConn(conn, retries=20, command="PING", shouldBe=True):
@@ -40,33 +62,12 @@ def waitForConn(conn, retries=20, command="PING", shouldBe=True):
 
 
 def spinUpLocalRedis(
-        benchmark_config,
+        dbdir,
         port,
         local_module_file,
-        dirname=".",
 ):
-    # copy the rdb to DB machine
-    dataset = None
-    temporary_dir = tempfile.mkdtemp()
-    logging.info(
-        "Using local temporary dir to spin up Redis Instance. Path: {}".format(
-            temporary_dir
-        )
-    )
-    checkDatasetLocalRequirements(benchmark_config, temporary_dir, dirname)
+    command = generateStandaloneRedisServerArgs(dbdir, local_module_file, port)
 
-    # start redis-server
-    command = [
-        "redis-server",
-        "--save",
-        '""',
-        "--port",
-        "{}".format(port),
-        "--dir",
-        temporary_dir,
-        "--loadmodule",
-        os.path.abspath(local_module_file),
-    ]
     logging.info(
         "Running local redis-server with the following args: {}".format(
             " ".join(command)
@@ -77,6 +78,23 @@ def spinUpLocalRedis(
     if result is True:
         logging.info("Redis available")
     return redis_process
+
+
+def generateStandaloneRedisServerArgs(dbdir, local_module_file, port):
+    # start redis-server
+    command = [
+        "redis-server",
+        "--save",
+        '""',
+        "--port",
+        "{}".format(port),
+        "--dir",
+        dbdir]
+    if local_module_file is not None:
+        command.extend(["--loadmodule",
+                        os.path.abspath(local_module_file),
+                        ])
+    return command
 
 
 def isProcessAlive(process):

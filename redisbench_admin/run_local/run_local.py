@@ -6,6 +6,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+import tempfile
 
 import yaml
 
@@ -16,7 +17,7 @@ from redisbench_admin.run.redis_benchmark.redis_benchmark import redis_benchmark
 from redisbench_admin.utils.local import (
     spinUpLocalRedis,
     getLocalRunFullFilename,
-    isProcessAlive, )
+    isProcessAlive, checkDatasetLocalRequirements, )
 from redisbench_admin.utils.remote import (
     extract_git_vars,
     validateResultExpectations,
@@ -85,11 +86,22 @@ def run_local_command_logic(args):
             # after we've spinned Redis, even on error we should always teardown
             # in case of some unexpected error we fail the test
             try:
+                dirname = ".",
                 # setup Redis
+                # copy the rdb to DB machine
+                dataset = None
+                temporary_dir = tempfile.mkdtemp()
+                logging.info(
+                    "Using local temporary dir to spin up Redis Instance. Path: {}".format(
+                        temporary_dir
+                    )
+                )
+                checkDatasetLocalRequirements(benchmark_config, temporary_dir, dirname)
+
                 redis_process = spinUpLocalRedis(
-                    benchmark_config,
+                    temporary_dir,
                     args.port,
-                    local_module_file, dirname,
+                    local_module_file
                 )
                 if isProcessAlive(redis_process) is False:
                     raise Exception("Redis process is not alive. Failing test.")
