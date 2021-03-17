@@ -182,11 +182,19 @@ def setupRemoteEnviroment(
     )
 
 
-def extract_git_vars(path=get_git_root(".")):
+def extract_git_vars(path=get_git_root("."),github_url=None):
     github_repo = Repo(path)
-    github_url = github_repo.remotes[0].config_reader.get("url")
-    github_org_name = github_url.split("/")[-2]
-    github_repo_name = github_url.split("/")[-1].split(".")[0]
+    if github_url is None:
+        github_url = github_repo.remotes[0].config_reader.get("url")
+    if "/" in github_url[-1:]:
+        github_url = github_url[:-1]
+    if "http" in github_url:
+        github_org_name = github_url.split("/")[-2]
+        github_repo_name = github_url.split("/")[-1].split(".")[0]
+    else:
+        github_url = github_url.replace('.git', '')
+        github_org_name = github_url.split(":")[1].split("/")[0]
+        github_repo_name = github_url.split(":")[1].split("/")[1]
     github_sha = github_repo.head.object.hexsha
     github_branch = github_repo.active_branch
     github_actor = github_repo.config_reader().get_value("user", "name")
@@ -194,7 +202,7 @@ def extract_git_vars(path=get_git_root(".")):
 
 
 def validateResultExpectations(
-        benchmark_config, results_dict, result, expectations_key="expectations"
+        benchmark_config, results_dict, result, expectations_key="kpis"
 ):
     for expectation in benchmark_config[expectations_key]:
         for comparison_mode, rules in expectation.items():

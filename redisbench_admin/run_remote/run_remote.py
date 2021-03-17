@@ -10,14 +10,14 @@ import yaml
 from python_terraform import Terraform
 from redistimeseries.client import Client
 
-from redisbench_admin.run.redis_benchmark.redis_benchmark import redis_benchmark_ensure_min_version_local, \
-    redis_benchmark_from_stdout_csv_to_json, redis_benchmark_ensure_min_version_remote
+from redisbench_admin.run.redis_benchmark.redis_benchmark import redis_benchmark_from_stdout_csv_to_json, \
+    redis_benchmark_ensure_min_version_remote
 from redisbench_admin.run.common import extract_benchmark_tool_settings, prepare_benchmark_parameters, \
-    runRemoteBenchmark
+    runRemoteBenchmark, merge_default_and_specific_properties_dictType, process_default_yaml_properties_file, \
+    common_exporter_logic
 from redisbench_admin.utils.benchmark_config import (
     parseExporterMetricsDefinition,
     parseExporterTimeMetricDefinition,
-    parseExporterTimeMetric,
 )
 from redisbench_admin.utils.redisgraph_benchmark_go import (
     spinUpRemoteRedis,
@@ -31,10 +31,6 @@ from redisbench_admin.utils.remote import (
     checkAndFixPemStr,
     get_run_full_filename,
     fetchRemoteSetupFromConfig,
-    pushDataToRedisTimeSeries,
-    extractPerBranchTimeSeriesFromResults,
-    extractRedisGraphVersion,
-    extractPerVersionTimeSeriesFromResults,
 )
 
 # internal aux vars
@@ -64,7 +60,7 @@ def run_remote_command_logic(args):
     tf_github_sha = args.github_sha
     tf_github_branch = args.github_branch
 
-    if tf_github_actor is None:
+    if tf_github_org is None:
         (
             github_org_name,
             github_repo_name,
@@ -72,6 +68,8 @@ def run_remote_command_logic(args):
             github_actor,
             github_branch,
         ) = extract_git_vars()
+        logging.info(
+            "Extracting tf_github_org given args.github_org was none. Extracte value {}".format(github_org_name))
         tf_github_org = github_org_name
     if tf_github_actor is None:
         (
@@ -81,6 +79,8 @@ def run_remote_command_logic(args):
             github_actor,
             github_branch,
         ) = extract_git_vars()
+        logging.info(
+            "Extracting tf_github_actor given args.github_actor was none. Extracte value {}".format(github_actor))
         tf_github_actor = github_actor
     if tf_github_repo is None:
         (
@@ -90,6 +90,8 @@ def run_remote_command_logic(args):
             github_actor,
             github_branch,
         ) = extract_git_vars()
+        logging.info(
+            "Extracting tf_github_repo given args.github_repo was none. Extracte value {}".format(github_repo_name))
         tf_github_repo = github_repo_name
     if tf_github_sha is None:
         (
@@ -99,6 +101,8 @@ def run_remote_command_logic(args):
             github_actor,
             github_branch,
         ) = extract_git_vars()
+        logging.info(
+            "Extracting tf_github_sha given args.github_sha was none. Extracte value {}".format(github_sha))
         tf_github_sha = github_sha
     if tf_github_branch is None:
         (
@@ -108,6 +112,8 @@ def run_remote_command_logic(args):
             github_actor,
             github_branch,
         ) = extract_git_vars()
+        logging.info(
+            "Extracting tf_github_branch given args.github_branch was none. Extracte value {}".format(github_branch))
         tf_github_branch = github_branch
 
     tf_triggering_env = args.triggering_env
@@ -144,6 +150,9 @@ def run_remote_command_logic(args):
     logging.info("\tgithub_org: {}".format(tf_github_org))
     logging.info("\tgithub_repo: {}".format(tf_github_repo))
     logging.info("\tgithub_branch: {}".format(tf_github_branch))
+    if tf_github_branch is None or tf_github_branch == '':
+        logging.error(
+            "The github branch information is not present! This implies that per-branch data is not pushed to the exporters!")
     logging.info("\tgithub_sha: {}".format(tf_github_sha))
     logging.info("\ttriggering env: {}".format(tf_triggering_env))
     logging.info("\tprivate_key path: {}".format(private_key))
@@ -152,6 +161,12 @@ def run_remote_command_logic(args):
     with open(private_key, "w") as tmp_private_key_file:
         pem_str = checkAndFixPemStr(EC2_PRIVATE_PEM)
         tmp_private_key_file.write(pem_str)
+
+    if os.path.exists(private_key) is False:
+        logging.error("Specified private key path does not exist: {}".format(private_key))
+        exit(1)
+    else:
+        logging.info("Confirmed that private key path artifact: '{}' exists!".format(private_key))
 
     return_code = 0
 
@@ -171,35 +186,26 @@ def run_remote_command_logic(args):
     default_metrics = []
     exporter_timemetric_path = None
     defaults_filename = "defaults.yml"
+    default_kpis = None
     if os.path.exists(defaults_filename):
         with open(defaults_filename, "r") as stream:
             logging.info(
                 "Loading default specifications from file: {}".format(defaults_filename)
             )
-            default_config = yaml.safe_load(stream)
-            if "exporter" in default_config:
-                default_metrics = parseExporterMetricsDefinition(default_config["exporter"])
-                if len(default_metrics) > 0:
-                    logging.info(
-                        "Found RedisTimeSeries default metrics specification. Will include the following metrics on all benchmarks {}".format(
-                            " ".join(default_metrics)
-                        )
-                    )
-                exporter_timemetric_path = parseExporterTimeMetricDefinition(
-                    default_config["exporter"]
-                )
-                if exporter_timemetric_path is not None:
-                    logging.info(
-                        "Found RedisTimeSeries default time metric specification. Will use the following JSON path to retrieve the test time {}".format(
-                            exporter_timemetric_path
-                        )
-                    )
+            default_kpis, default_metrics, exporter_timemetric_path = process_default_yaml_properties_file(default_kpis,
+                                                                                                           default_metrics,
+                                                                                                           defaults_filename,
+                                                                                                           exporter_timemetric_path,
+                                                                                                           stream)
 
-    for f in files:
-        with open(f, "r") as stream:
-            dirname = os.path.dirname(os.path.abspath(f))
+    for usecase_filename in files:
+        with open(usecase_filename, "r") as stream:
+            dirname = os.path.dirname(os.path.abspath(usecase_filename))
             benchmark_config = yaml.safe_load(stream)
             test_name = benchmark_config["name"]
+
+            if default_kpis != None:
+                merge_default_and_specific_properties_dictType(benchmark_config, default_kpis, "kpis", usecase_filename)
             s3_bucket_path = "{github_org}/{github_repo}/results/{test_name}/".format(
                 github_org=tf_github_org, github_repo=tf_github_repo, test_name=test_name
             )
@@ -212,7 +218,7 @@ def run_remote_command_logic(args):
                     benchmark_config["remote"]
                 )
                 logging.info(
-                    "Deploying test defined in {} on AWS using {}".format(f, remote_setup)
+                    "Deploying test defined in {} on AWS using {}".format(usecase_filename, remote_setup)
                 )
                 tf_setup_name = "{}{}".format(remote_setup, tf_setup_name_sufix)
                 logging.info("Using full setup name: {}".format(tf_setup_name))
@@ -364,53 +370,9 @@ def run_remote_command_logic(args):
                             if extra_timemetric_path is not None:
                                 exporter_timemetric_path = extra_timemetric_path
 
-                            # extract timestamp
-                            datapoints_timestamp = parseExporterTimeMetric(
-                                exporter_timemetric_path, results_dict
-                            )
-
-                            rg_version = extractRedisGraphVersion(results_dict)
-                            if rg_version is None:
-                                rg_version = "N/A"
-
-                            # extract per branch datapoints
-                            (
-                                ok,
-                                per_version_time_series_dict,
-                            ) = extractPerVersionTimeSeriesFromResults(
-                                datapoints_timestamp,
-                                metrics,
-                                results_dict,
-                                rg_version,
-                                tf_github_org,
-                                tf_github_repo,
-                                deployment_type,
-                                test_name,
-                                tf_triggering_env,
-                            )
-
-                            # push per-branch data
-                            pushDataToRedisTimeSeries(rts, per_version_time_series_dict)
-
-                            # extract per branch datapoints
-                            ok, branch_time_series_dict = extractPerBranchTimeSeriesFromResults(
-                                datapoints_timestamp,
-                                metrics,
-                                results_dict,
-                                str(tf_github_branch),
-                                tf_github_org,
-                                tf_github_repo,
-                                deployment_type,
-                                test_name,
-                                tf_triggering_env,
-                            )
-
-                            # push per-branch data
-                            pushDataToRedisTimeSeries(rts, branch_time_series_dict)
-                        else:
-                            logging.error(
-                                "Requested to push data to RedisTimeSeries but no exporter definition was found. Missing \"exporter\" config."
-                            )
+                        common_exporter_logic(deployment_type, exporter_timemetric_path, metrics, results_dict, rts,
+                                              test_name, tf_github_branch, tf_github_org, tf_github_repo,
+                                              tf_triggering_env)
                 except:
                     return_code |= 1
                     logging.critical(

@@ -1,9 +1,14 @@
 import logging
 import re
 
+import yaml
+
 from redisbench_admin.run.redis_benchmark.redis_benchmark import prepareRedisBenchmarkCommand
 from redisbench_admin.run.redisgraph_benchmark_go.redisgraph_benchmark_go import prepareRedisGraphBenchmarkGoCommand
-from redisbench_admin.utils.remote import executeRemoteCommands, getFileFromRemoteSetup
+from redisbench_admin.utils.benchmark_config import parseExporterMetricsDefinition, parseExporterTimeMetricDefinition, \
+    parseExporterTimeMetric
+from redisbench_admin.utils.remote import executeRemoteCommands, getFileFromRemoteSetup, extractRedisGraphVersion, \
+    extractPerVersionTimeSeriesFromResults, pushDataToRedisTimeSeries, extractPerBranchTimeSeriesFromResults
 
 
 def extract_benchmark_tool_settings(benchmark_config):
@@ -35,9 +40,9 @@ def prepare_benchmark_parameters(benchmark_config, benchmark_tool, server_plaint
                                  remote_results_file, isremote=False):
     for entry in benchmark_config["clientconfig"]:
         if 'parameters' in entry:
-            if benchmark_tool == 'redis-benchmark':
+            if 'redis-benchmark' in benchmark_tool:
                 command_arr, command_str = prepareRedisBenchmarkCommand(
-                    "redis-benchmark",
+                    benchmark_tool,
                     server_private_ip,
                     server_plaintext_port,
                     entry
@@ -46,13 +51,16 @@ def prepare_benchmark_parameters(benchmark_config, benchmark_tool, server_plaint
                 command_arr.append(redirect_file)
                 command_str = command_str + " " + redirect_file
 
-            if benchmark_tool == 'redisgraph-benchmark-go':
+            if 'redisgraph-benchmark-go' in benchmark_tool:
+                if isremote is True:
+                    benchmark_tool = "/tmp/redisgraph-benchmark-go"
                 command_arr = prepareRedisGraphBenchmarkGoCommand(
-                    "/tmp/redisgraph-benchmark-go",
+                    benchmark_tool,
                     server_private_ip,
                     server_plaintext_port,
                     entry,
                     remote_results_file,
+                    isremote
                 )
                 command_str = " ".join(command_arr)
     return command_arr, command_str
@@ -87,3 +95,125 @@ def runRemoteBenchmark(
             remote_results_file,
         )
     return remote_run_result
+
+
+def merge_default_and_specific_properties_dictType(benchmark_config, default_properties, propertygroup_keyname,
+                                                   usecase_filename):
+    if propertygroup_keyname not in benchmark_config:
+        benchmark_config[propertygroup_keyname] = default_properties
+        logging.info(
+            "Using exclusively default '{}' properties (total={}) given the file {} had no '{}' property group".format(
+                propertygroup_keyname, len(benchmark_config[propertygroup_keyname].keys()), usecase_filename,
+                propertygroup_keyname)
+        )
+    else:
+        use_case_specific_properties = benchmark_config[propertygroup_keyname]
+        for default_property in default_properties:
+            default_rule, default_details = list(default_property.items())[0]
+            default_condition = list(default_details.values())[0]
+            comparison_key = "{}{}".format(default_rule, default_condition)
+            found = False
+            found_details = None
+            for usecase_kpi in use_case_specific_properties:
+                usecase_rule, usecase_details = list(usecase_kpi.items())[0]
+                usecase_condition = list(usecase_details.values())[0]
+                usecase_comparison_key = "{}{}".format(usecase_rule, usecase_condition)
+                if comparison_key == usecase_comparison_key:
+                    found = True
+                    found_details = usecase_details
+            if found:
+                logging.info(
+                    "Skipping to add default '{}' property ({}) given the file {} had the same specific property ({})".format(
+                        propertygroup_keyname,
+                        default_property, usecase_filename, usecase_kpi)
+                )
+            else:
+                use_case_specific_properties.append(default_property)
+                logging.info(
+                    "Adding a default '{}' property ({}) given the file {} did not had the specific property".format(
+                        propertygroup_keyname, default_property, usecase_filename)
+                )
+
+
+def process_default_yaml_properties_file(default_kpis, default_metrics, defaults_filename, exporter_timemetric_path,
+                                         stream):
+    default_config = yaml.safe_load(stream)
+    if "exporter" in default_config:
+        default_metrics = parseExporterMetricsDefinition(default_config["exporter"])
+        if len(default_metrics) > 0:
+            logging.info(
+                "Found RedisTimeSeries default metrics specification. Will include the following metrics on all benchmarks {}".format(
+                    " ".join(default_metrics)
+                )
+            )
+        exporter_timemetric_path = parseExporterTimeMetricDefinition(
+            default_config["exporter"]
+        )
+        if exporter_timemetric_path is not None:
+            logging.info(
+                "Found RedisTimeSeries default time metric specification. Will use the following JSON path to retrieve the test time {}".format(
+                    exporter_timemetric_path
+                )
+            )
+    if "kpis" in default_config:
+        logging.info(
+            "Loading default KPIs specifications from file: {}".format(defaults_filename)
+        )
+        default_kpis = default_config["kpis"]
+    return default_kpis, default_metrics, exporter_timemetric_path
+
+
+def common_exporter_logic(deployment_type, exporter_timemetric_path, metrics, results_dict, rts, test_name,
+                          tf_github_branch, tf_github_org, tf_github_repo, tf_triggering_env):
+    if exporter_timemetric_path is not None and len(metrics) > 0:
+        # extract timestamp
+        datapoints_timestamp = parseExporterTimeMetric(
+            exporter_timemetric_path, results_dict
+        )
+
+        rg_version = extractRedisGraphVersion(results_dict)
+        if rg_version is None:
+            rg_version = "N/A"
+
+        # extract per branch datapoints
+        (
+            ok,
+            per_version_time_series_dict,
+        ) = extractPerVersionTimeSeriesFromResults(
+            datapoints_timestamp,
+            metrics,
+            results_dict,
+            rg_version,
+            tf_github_org,
+            tf_github_repo,
+            deployment_type,
+            test_name,
+            tf_triggering_env,
+        )
+
+        # push per-branch data
+        pushDataToRedisTimeSeries(rts, per_version_time_series_dict)
+        if tf_github_branch != None and tf_github_branch != '':
+            # extract per branch datapoints
+            ok, branch_time_series_dict = extractPerBranchTimeSeriesFromResults(
+                datapoints_timestamp,
+                metrics,
+                results_dict,
+                str(tf_github_branch),
+                tf_github_org,
+                tf_github_repo,
+                deployment_type,
+                test_name,
+                tf_triggering_env,
+            )
+            # push per-branch data
+            pushDataToRedisTimeSeries(rts, branch_time_series_dict)
+        else:
+            logging.warning(
+                "Requested to push data to RedisTimeSeries but no git branch definition was found. git branch value {}".format(
+                    tf_github_branch)
+            )
+    else:
+        logging.error(
+            "Requested to push data to RedisTimeSeries but no exporter definition was found. Missing \"exporter\" config."
+        )
