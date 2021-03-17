@@ -7,6 +7,7 @@ def prepareRedisGraphBenchmarkGoCommand(
         server_plaintext_port: object,
         benchmark_config: object,
         results_file: object,
+        is_remote: bool = False,
 ):
     """
     Prepares redisgraph-benchmark-go command parameters
@@ -19,7 +20,11 @@ def prepareRedisGraphBenchmarkGoCommand(
     queries_str = [executable_path]
     for k in benchmark_config["parameters"]:
         if "graph" in k:
-            queries_str.extend(["-graph-key", "'{}'".format(k["graph"])])
+            if is_remote:
+                graph_key = "'{}'".format(k["graph"])
+            else:
+                graph_key = k["graph"]
+            queries_str.extend(["-graph-key", graph_key])
         if "clients" in k:
             queries_str.extend(["-c", "{}".format(k["clients"])])
         if "requests" in k:
@@ -28,8 +33,11 @@ def prepareRedisGraphBenchmarkGoCommand(
             queries_str.extend(["-rps", "{}".format(k["rps"])])
         if "queries" in k:
             for kk in k["queries"]:
-                query = kk["q"]
-                queries_str.extend(["-query", "'{}'".format(query)])
+                if is_remote:
+                    query = "'{}'".format(kk["q"])
+                else:
+                    query = kk["q"]
+                queries_str.extend(["-query", query])
                 if "ratio" in kk:
                     queries_str.extend(["-query-ratio", "{}".format(kk["ratio"])])
     queries_str.extend(["-h", "{}".format(server_private_ip)])
