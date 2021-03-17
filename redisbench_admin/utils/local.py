@@ -9,8 +9,10 @@ import redis
 
 
 def checkDatasetLocalRequirements(benchmark_config, redis_dbdir, dirname=None, datasets_localtemp_dir="./datasets",dbconfig_keyname="dbconfig"):
+    dataset = None
+    full_path = None
+    tmp_path = None
     if dbconfig_keyname in benchmark_config:
-        dataset = None
         for k in benchmark_config[dbconfig_keyname]:
             if "dataset" in k:
                 dataset = k["dataset"]
@@ -32,8 +34,9 @@ def checkDatasetLocalRequirements(benchmark_config, redis_dbdir, dirname=None, d
                 if dirname is not None:
                     full_path = "{}/{}".format(dirname,full_path)
                 logging.info("Copying rdb from {} to {}/dump.rdb".format(full_path, redis_dbdir))
-
-            copyfile(full_path, "{}/dump.rdb".format(redis_dbdir))
+            tmp_path = "{}/dump.rdb".format(redis_dbdir)
+            copyfile(full_path,tmp_path )
+    return dataset,full_path,tmp_path
 
 
 def waitForConn(conn, retries=20, command="PING", shouldBe=True):

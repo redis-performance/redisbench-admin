@@ -14,6 +14,8 @@ from jsonpath_ng import parse
 from python_terraform import Terraform
 from tqdm import tqdm
 
+from redisbench_admin.utils.local import checkDatasetLocalRequirements
+
 
 def get_git_root(path):
     git_repo = git.Repo(path, search_parent_directories=True)
@@ -105,18 +107,16 @@ def checkDatasetRemoteRequirements(
         benchmark_config, server_public_ip, username, private_key, remote_dataset_file, dirname
 ):
     res = True
-    for k in benchmark_config["dbconfig"]:
-        if "dataset" in k:
-            dataset = k["dataset"]
+    dataset, fullpath, tmppath = checkDatasetLocalRequirements(benchmark_config, ".", dirname)
     if dataset is not None:
         logging.info('Detected dataset config. Will copy file to remote setup... "{}"'.format(dataset))
         res = copyFileToRemoteSetup(
             server_public_ip,
             username,
             private_key,
-            dataset,
+            fullpath,
             remote_dataset_file,
-            dirname,
+            None,
         )
     return res
 
