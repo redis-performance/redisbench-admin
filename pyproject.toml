@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "redisbench-admin"
-version = "0.1.54"
+version = "0.1.55"
 description = "Redis benchmark run helper. A wrapper around Redis and Redis Modules benchmark tools ( ftsb_redisearch, memtier_benchmark, redis-benchmark, aibench, etc... )."
 authors = ["filipecosta90 <filipecosta.90@gmail.com>"]
 readme = "README.md"
@@ -29,6 +29,7 @@ python_terraform = "^0.10.1"
 GitPython = "^3.1.12"
 PyYAML = "^5.4.0"
 numpy = "^1.15.4"
+wget = "^3.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^4.6"
