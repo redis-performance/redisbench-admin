@@ -1,3 +1,4 @@
+import configparser
 import logging
 import os
 import sys
@@ -50,7 +51,7 @@ def copyFileToRemoteSetup(
         )
         srv.put(full_local_path, remote_file, callback=viewBarSimple)
         srv.close()
-        logging.info("\Finished Copying file {} to remote server {} ".format(
+        logging.info("Finished Copying file {} to remote server {} ".format(
             full_local_path, remote_file
         ))
         res = True
@@ -182,7 +183,7 @@ def setupRemoteEnviroment(
     )
 
 
-def extract_git_vars(path=get_git_root("."),github_url=None):
+def extract_git_vars(path=get_git_root("."), github_url=None):
     github_repo = Repo(path)
     if github_url is None:
         github_url = github_repo.remotes[0].config_reader.get("url")
@@ -196,9 +197,21 @@ def extract_git_vars(path=get_git_root("."),github_url=None):
         github_org_name = github_url.split(":")[1].split("/")[0]
         github_repo_name = github_url.split(":")[1].split("/")[1]
     github_sha = github_repo.head.object.hexsha
-    github_branch = github_repo.active_branch
-    github_actor = github_repo.config_reader().get_value("user", "name")
-    return github_org_name, github_repo_name, github_sha, github_actor, github_branch
+    github_branch = None
+    github_branch_detached = False
+    try:
+        github_branch = github_repo.active_branch
+    except TypeError as e:
+        logging.warning("Unable to detected github_branch. caught the following error: {}".format(e.__str__()))
+        github_branch_detached = True
+
+    github_actor = None
+    try:
+        github_actor = github_repo.config_reader().get_value("user", "name")
+    except configparser.NoSectionError as e:
+        logging.warning("Unable to detected github_actor. caught the following error: {}".format(e.__str__()))
+        github_branch_detached = True
+    return github_org_name, github_repo_name, github_sha, github_actor, github_branch, github_branch_detached
 
 
 def validateResultExpectations(

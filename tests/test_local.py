@@ -28,12 +28,13 @@ def test_check_dataset_local_requirements():
         shutil.rmtree(tests_remote_tmp_datasets)
 
     directory_to = tempfile.mkdtemp()
-    checkDatasetLocalRequirements({"dbconfig": [{"dataset": url}]}, directory_to.__str__(), None, tests_remote_tmp_datasets)
+    checkDatasetLocalRequirements({"dbconfig": [{"dataset": url}]}, directory_to.__str__(), None,
+                                  tests_remote_tmp_datasets)
     assert os.path.exists("{}/{}".format(directory_to.__str__(), "dump.rdb"))
     assert os.path.exists("{}/{}".format(tests_remote_tmp_datasets, "scale-100-redistimeseries_data.rdb"))
-    checkDatasetLocalRequirements({"dbconfig": [{"dataset": url}]}, directory_to.__str__(),  None, tests_remote_tmp_datasets)
+    checkDatasetLocalRequirements({"dbconfig": [{"dataset": url}]}, directory_to.__str__(), None,
+                                  tests_remote_tmp_datasets)
     assert os.path.exists("{}/{}".format(directory_to.__str__(), "dump.rdb"))
     shutil.rmtree(directory_to)
     if os.path.isdir(tests_remote_tmp_datasets):
         shutil.rmtree(tests_remote_tmp_datasets)
-

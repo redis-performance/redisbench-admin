@@ -1,3 +1,4 @@
+import datetime as dt
 import logging
 import re
 
@@ -217,3 +218,10 @@ def common_exporter_logic(deployment_type, exporter_timemetric_path, metrics, re
         logging.error(
             "Requested to push data to RedisTimeSeries but no exporter definition was found. Missing \"exporter\" config."
         )
+
+
+def get_start_time_vars():
+    start_time = dt.datetime.utcnow()
+    start_time_ms = int((start_time.total_seconds() * 1000))
+    start_time_str = start_time.strftime("%Y-%m-%d-%H-%M-%S")
+    return start_time, start_time_ms, start_time_str
