@@ -7,8 +7,8 @@ import subprocess
 from redisbench_admin.utils.remote import executeRemoteCommands
 
 
-def redis_benchmark_from_stdout_csv_to_json(csv_data, start_time, start_time_str, overloadTestName=None):
-    results_dict = {"Tests": {}, "StartTime": int(start_time.strftime("%s")),
+def redis_benchmark_from_stdout_csv_to_json(csv_data, start_time_ms, start_time_str, overloadTestName=None):
+    results_dict = {"Tests": {}, "StartTime": start_time_ms,
                     "StartTimeHuman": start_time_str}
     csv_data = list(csv.reader(csv_data.splitlines(), delimiter=","))
     header = csv_data[0]

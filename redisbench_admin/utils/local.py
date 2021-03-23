@@ -8,7 +8,8 @@ import wget
 import redis
 
 
-def checkDatasetLocalRequirements(benchmark_config, redis_dbdir, dirname=None, datasets_localtemp_dir="./datasets",dbconfig_keyname="dbconfig"):
+def checkDatasetLocalRequirements(benchmark_config, redis_dbdir, dirname=None, datasets_localtemp_dir="./datasets",
+                                  dbconfig_keyname="dbconfig"):
     dataset = None
     full_path = None
     tmp_path = None
@@ -23,8 +24,10 @@ def checkDatasetLocalRequirements(benchmark_config, redis_dbdir, dirname=None, d
                 filename = dataset.split("/")[-1]
                 full_path = '{}/{}'.format(datasets_localtemp_dir, filename)
                 if not os.path.exists(full_path):
-                    logging.info("Retrieving remote file from {} to {}. Using the dir {} as a cache for next time.".format(dataset,full_path, datasets_localtemp_dir))
-                    wget.download(dataset,full_path)
+                    logging.info(
+                        "Retrieving remote file from {} to {}. Using the dir {} as a cache for next time.".format(
+                            dataset, full_path, datasets_localtemp_dir))
+                    wget.download(dataset, full_path)
                 else:
                     logging.info(
                         "Reusing cached remote file (located at {} ).".format(
@@ -32,11 +35,11 @@ def checkDatasetLocalRequirements(benchmark_config, redis_dbdir, dirname=None, d
             else:
                 full_path = dataset
                 if dirname is not None:
-                    full_path = "{}/{}".format(dirname,full_path)
+                    full_path = "{}/{}".format(dirname, full_path)
                 logging.info("Copying rdb from {} to {}/dump.rdb".format(full_path, redis_dbdir))
             tmp_path = "{}/dump.rdb".format(redis_dbdir)
-            copyfile(full_path,tmp_path )
-    return dataset,full_path,tmp_path
+            copyfile(full_path, tmp_path)
+    return dataset, full_path, tmp_path
 
 
 def waitForConn(conn, retries=20, command="PING", shouldBe=True):

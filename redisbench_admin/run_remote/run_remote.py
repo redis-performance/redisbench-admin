@@ -1,4 +1,3 @@
-import datetime as dt
 import json
 import logging
 import os
@@ -14,7 +13,7 @@ from redisbench_admin.run.redis_benchmark.redis_benchmark import redis_benchmark
     redis_benchmark_ensure_min_version_remote
 from redisbench_admin.run.common import extract_benchmark_tool_settings, prepare_benchmark_parameters, \
     runRemoteBenchmark, merge_default_and_specific_properties_dictType, process_default_yaml_properties_file, \
-    common_exporter_logic
+    common_exporter_logic, get_start_time_vars
 from redisbench_admin.utils.benchmark_config import (
     parseExporterMetricsDefinition,
     parseExporterTimeMetricDefinition,
@@ -67,7 +66,7 @@ def run_remote_command_logic(args):
             github_sha,
             github_actor,
             github_branch,
-        ) = extract_git_vars()
+            github_branch_detached,) = extract_git_vars()
         logging.info(
             "Extracting tf_github_org given args.github_org was none. Extracte value {}".format(github_org_name))
         tf_github_org = github_org_name
@@ -78,7 +77,7 @@ def run_remote_command_logic(args):
             github_sha,
             github_actor,
             github_branch,
-        ) = extract_git_vars()
+            github_branch_detached,) = extract_git_vars()
         logging.info(
             "Extracting tf_github_actor given args.github_actor was none. Extracte value {}".format(github_actor))
         tf_github_actor = github_actor
@@ -89,7 +88,7 @@ def run_remote_command_logic(args):
             github_sha,
             github_actor,
             github_branch,
-        ) = extract_git_vars()
+            github_branch_detached,) = extract_git_vars()
         logging.info(
             "Extracting tf_github_repo given args.github_repo was none. Extracte value {}".format(github_repo_name))
         tf_github_repo = github_repo_name
@@ -100,7 +99,7 @@ def run_remote_command_logic(args):
             github_sha,
             github_actor,
             github_branch,
-        ) = extract_git_vars()
+            github_branch_detached,) = extract_git_vars()
         logging.info(
             "Extracting tf_github_sha given args.github_sha was none. Extracte value {}".format(github_sha))
         tf_github_sha = github_sha
@@ -111,7 +110,7 @@ def run_remote_command_logic(args):
             github_sha,
             github_actor,
             github_branch,
-        ) = extract_git_vars()
+            github_branch_detached,) = extract_git_vars()
         logging.info(
             "Extracting tf_github_branch given args.github_branch was none. Extracte value {}".format(github_branch))
         tf_github_branch = github_branch
@@ -287,8 +286,7 @@ def run_remote_command_logic(args):
                                                                         server_plaintext_port,
                                                                         server_private_ip, remote_results_file, True)
 
-                    start_time = dt.datetime.now()
-                    start_time_str = start_time.strftime("%Y-%m-%d-%H-%M-%S")
+                    start_time, start_time_ms, start_time_str = get_start_time_vars()
                     local_benchmark_output_filename = get_run_full_filename(
                         start_time_str,
                         deployment_type,
@@ -323,7 +321,8 @@ def run_remote_command_logic(args):
                         with open("result.csv", "r") as txt_file:
                             csv_data = txt_file.read()
                             logging.info(csv_data)
-                            results_dict = redis_benchmark_from_stdout_csv_to_json(csv_data, start_time, start_time_str,
+                            results_dict = redis_benchmark_from_stdout_csv_to_json(csv_data, start_time_ms,
+                                                                                   start_time_str,
                                                                                    overloadTestName="Overall")
                         with open(local_benchmark_output_filename, "w") as json_file:
                             json.dump(results_dict, json_file, indent=True)

@@ -11,7 +11,7 @@ import tempfile
 import yaml
 
 from redisbench_admin.run.common import extract_benchmark_tool_settings, prepare_benchmark_parameters, \
-    merge_default_and_specific_properties_dictType, process_default_yaml_properties_file
+    merge_default_and_specific_properties_dictType, process_default_yaml_properties_file, get_start_time_vars
 from redisbench_admin.run.redis_benchmark.redis_benchmark import redis_benchmark_from_stdout_csv_to_json, \
     redis_benchmark_ensure_min_version_local
 from redisbench_admin.utils.local import (
@@ -31,7 +31,7 @@ def run_local_command_logic(args):
         github_sha,
         github_actor,
         github_branch,
-    ) = extract_git_vars()
+        github_branch_detached,) = extract_git_vars()
 
     local_module_file = args.module_path
 
@@ -106,8 +106,7 @@ def run_local_command_logic(args):
                 if isProcessAlive(redis_process) is False:
                     raise Exception("Redis process is not alive. Failing test.")
                 # setup the benchmark
-                start_time = dt.datetime.now()
-                start_time_str = start_time.strftime("%Y-%m-%d-%H-%M-%S")
+                start_time, start_time_ms, start_time_str = get_start_time_vars()
                 local_benchmark_output_filename = getLocalRunFullFilename(
                     start_time_str,
                     github_branch,
@@ -161,7 +160,7 @@ def run_local_command_logic(args):
                 if benchmark_tool == 'redis-benchmark':
                     logging.info("Converting redis-benchmark output to json. Storing it in: {}".format(
                         local_benchmark_output_filename))
-                    results_dict = redis_benchmark_from_stdout_csv_to_json(stdout.decode('ascii'), start_time,
+                    results_dict = redis_benchmark_from_stdout_csv_to_json(stdout.decode('ascii'), start_time_ms,
                                                                            start_time_str,
                                                                            overloadTestName="Overall")
                     with open(local_benchmark_output_filename, "w") as json_file:
