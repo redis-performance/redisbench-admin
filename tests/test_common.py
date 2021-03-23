@@ -5,6 +5,7 @@ from redisbench_admin.export.common.common import (
     split_tags_string,
     get_or_None,
 )
+from redisbench_admin.run.common import get_start_time_vars
 
 
 class Test(TestCase):
@@ -33,3 +34,10 @@ class Test(TestCase):
         assert res == None
         res = get_or_None({"k": "v"}, "k")
         assert res == "v"
+
+
+def test_get_start_time_vars():
+    start_time, start_time_ms, start_time_str = get_start_time_vars()
+    assert type(start_time_ms) == int
+    assert start_time_ms > 0
+    assert type(start_time_str) == str
