@@ -1,3 +1,4 @@
+import datetime as dt
 from unittest import TestCase
 
 from redisbench_admin.export.common.common import (
@@ -40,4 +41,9 @@ def test_get_start_time_vars():
     start_time, start_time_ms, start_time_str = get_start_time_vars()
     assert type(start_time_ms) == int
     assert start_time_ms > 0
+    assert type(start_time_str) == str
+    start_time = dt.datetime.utcnow()
+    start_time, start_time_ms, start_time_str = get_start_time_vars(start_time)
+    assert type(start_time_ms) == int
+    assert int((start_time - dt.datetime(1970, 1, 1)).total_seconds() * 1000) == start_time_ms
     assert type(start_time_str) == str
