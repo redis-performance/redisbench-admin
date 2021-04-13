@@ -1,6 +1,7 @@
 import csv
 import datetime as dt
 import json
+import logging
 import operator
 import os
 import os.path
@@ -50,7 +51,9 @@ def required_utilities(utility_list):
     return result
 
 
-def decompress_file(compressed_filename, uncompressed_filename):
+def decompress_file(compressed_filename, uncompressed_filename=None):
+    logging.warning(
+        "Decompressing {}...".format(compressed_filename))
     if compressed_filename.endswith(".zip"):
         with ZipFile(compressed_filename, "r") as zipObj:
             zipObj.extractall()
@@ -64,6 +67,9 @@ def decompress_file(compressed_filename, uncompressed_filename):
         tar = tarfile.open(compressed_filename, "r:")
         tar.extractall()
         tar.close()
+    else:
+        logging.warning(
+            "Filename {} was not in a supported compression extension [zip|tar.gz|tar]".format(compressed_filename))
 
 
 def findJsonPath(element, json):

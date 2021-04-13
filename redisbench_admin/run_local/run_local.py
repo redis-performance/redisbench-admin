@@ -1,4 +1,4 @@
-import datetime as dt
+import json
 import json
 import logging
 import os
@@ -118,7 +118,7 @@ def run_local_command_logic(args):
                     )
                 )
 
-                benchmark_min_tool_version, benchmark_min_tool_version_major, benchmark_min_tool_version_minor, benchmark_min_tool_version_patch, benchmark_tool = extract_benchmark_tool_settings(
+                benchmark_min_tool_version, benchmark_min_tool_version_major, benchmark_min_tool_version_minor, benchmark_min_tool_version_patch, benchmark_tool, benchmark_tool_source = extract_benchmark_tool_settings(
                     benchmark_config)
                 if benchmark_tool is not None:
                     logging.info("Detected benchmark config tool {}".format(benchmark_tool))
@@ -129,7 +129,12 @@ def run_local_command_logic(args):
                     logging.info("Checking benchmark tool {} is accessible".format(benchmark_tool))
                     which_benchmark_tool = shutil.which(benchmark_tool)
                     if which_benchmark_tool is None:
-                        raise Exception("Benchmark tool was not accesible. Aborting...")
+                        if benchmark_tool_source is not None:
+                            logging.info(
+                                "Tool {} was not detected on path. Using remote source to retrieve it: {}".format(
+                                    benchmark_tool, benchmark_tool_source))
+                        else:
+                            raise Exception("Benchmark tool {} was not acessible. Aborting...".format(benchmark_tool))
                     else:
                         logging.info("Tool {} was detected at {}".format(benchmark_tool, which_benchmark_tool))
 

@@ -1,11 +1,11 @@
 import logging
 import os
 import subprocess
-import tempfile
 import time
 from shutil import copyfile
-import wget
+
 import redis
+import wget
 
 
 def checkDatasetLocalRequirements(benchmark_config, redis_dbdir, dirname=None, datasets_localtemp_dir="./datasets",
