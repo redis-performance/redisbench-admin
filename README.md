@@ -20,8 +20,10 @@ Current supported benchmark tools:
 - [redisgraph-benchmark-go](https://github.com/RedisGraph/redisgraph-benchmark-go)
 - [ftsb_redisearch](https://github.com/RediSearch/ftsb)
 - [redis-benchmark](https://github.com/redis/redis)
+- [YCSB](https://github.com/RediSearch/YCSB)
 - [SOON][memtier_benchmark](https://github.com/RedisLabs/memtier_benchmark)
 - [SOON][aibench](https://github.com/RedisAI/aibench)
+- [SOON][redis-benchmark-go](https://github.com/filipecosta90/redis-benchmark-go)
 
 ## Installation
 
