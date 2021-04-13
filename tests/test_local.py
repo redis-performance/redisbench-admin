@@ -2,7 +2,10 @@ import os
 import shutil
 import tempfile
 
-from redisbench_admin.utils.local import checkDatasetLocalRequirements
+import redis
+
+from redisbench_admin.utils.local import checkDatasetLocalRequirements, generateStandaloneRedisServerArgs, \
+    spinUpLocalRedis
 
 
 def test_check_dataset_local_requirements():
@@ -38,3 +41,19 @@ def test_check_dataset_local_requirements():
     shutil.rmtree(directory_to)
     if os.path.isdir(tests_remote_tmp_datasets):
         shutil.rmtree(tests_remote_tmp_datasets)
+
+
+def test_generate_standalone_redis_server_args():
+    cmd = generateStandaloneRedisServerArgs(".", None, "9999")
+    assert cmd == ["redis-server", "--save", "\"\"", "--port", "9999", "--dir", "."]
+    local_module_file = "m1.so"
+    cmd = generateStandaloneRedisServerArgs(".", local_module_file, "1010")
+    assert cmd == ["redis-server", "--save", "\"\"", "--port", "1010" ,"--dir", ".", "--loadmodule", os.path.abspath(local_module_file)]
+
+
+def test_spin_up_local_redis():
+    if shutil.which("redis-server"):
+        port=9999
+        spinUpLocalRedis(".",port,None)
+        r = redis.Redis(host='localhost', port=port)
+        assert r.ping() == True

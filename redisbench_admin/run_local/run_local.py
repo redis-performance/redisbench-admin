@@ -154,7 +154,7 @@ def run_local_command_logic(args):
                                                                     "localhost", local_benchmark_output_filename, False)
 
                 # run the benchmark
-                if benchmark_tool == 'redis-benchmark':
+                if benchmark_tool == 'redis-benchmark' or benchmark_tool == "ycsb":
                     benchmark_client_process = subprocess.Popen(args=command, stdout=subprocess.PIPE,
                                                                 stderr=subprocess.STDOUT)
                 else:
