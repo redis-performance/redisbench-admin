@@ -118,58 +118,18 @@ def run_local_command_logic(args):
                     )
                 )
 
-                benchmark_min_tool_version, benchmark_min_tool_version_major, benchmark_min_tool_version_minor, benchmark_min_tool_version_patch, benchmark_tool, benchmark_tool_source = extract_benchmark_tool_settings(
-                    benchmark_config)
-                if benchmark_tool is not None:
-                    logging.info("Detected benchmark config tool {}".format(benchmark_tool))
-                else:
-                    raise Exception("Unable to detect benchmark tool within 'clientconfig' section. Aborting...")
-
-                if benchmark_tool is not None:
-                    logging.info("Checking benchmark tool {} is accessible".format(benchmark_tool))
-                    which_benchmark_tool = shutil.which(benchmark_tool)
-                    if which_benchmark_tool is None:
-                        if benchmark_tool_source is not None:
-                            logging.info(
-                                "Tool {} was not detected on path. Using remote source to retrieve it: {}".format(
-                                    benchmark_tool, benchmark_tool_source))
-                        else:
-                            raise Exception("Benchmark tool {} was not acessible. Aborting...".format(benchmark_tool))
-                    else:
-                        logging.info("Tool {} was detected at {}".format(benchmark_tool, which_benchmark_tool))
-
-                if benchmark_tool not in args.allowed_tools.split(","):
-                    raise Exception(
-                        "Benchmark tool {} not in the allowed tools list [{}]. Aborting...".format(benchmark_tool,
-                                                                                                   args.allowed_tools))
-
-                if benchmark_min_tool_version is not None and benchmark_tool == "redis-benchmark":
-                    redis_benchmark_ensure_min_version_local(benchmark_tool, benchmark_min_tool_version,
-                                                             benchmark_min_tool_version_major,
-                                                             benchmark_min_tool_version_minor,
-                                                             benchmark_min_tool_version_patch)
+                benchmark_tool = checkBenchmarkBinariesLocalRequirements(benchmark_config,args.allowed_tools)
 
                 # prepare the benchmark command
                 command, command_str = prepare_benchmark_parameters(benchmark_config, benchmark_tool, args.port,
                                                                     "localhost", local_benchmark_output_filename, False)
 
                 # run the benchmark
-                if benchmark_tool == 'redis-benchmark' or benchmark_tool == "ycsb":
-                    benchmark_client_process = subprocess.Popen(args=command, stdout=subprocess.PIPE,
-                                                                stderr=subprocess.STDOUT)
-                else:
-                    benchmark_client_process = subprocess.Popen(args=command)
-                (stdout, sterr) = benchmark_client_process.communicate()
+                stdout, stderr = runLocalBenchmark(benchmark_tool, command)
                 logging.info("Extracting the benchmark results")
 
-                if benchmark_tool == 'redis-benchmark':
-                    logging.info("Converting redis-benchmark output to json. Storing it in: {}".format(
-                        local_benchmark_output_filename))
-                    results_dict = redis_benchmark_from_stdout_csv_to_json(stdout.decode('ascii'), start_time_ms,
-                                                                           start_time_str,
-                                                                           overloadTestName="Overall")
-                    with open(local_benchmark_output_filename, "w") as json_file:
-                        json.dump(results_dict, json_file, indent=True)
+                postProcessBenchmarkResults(benchmark_tool, local_benchmark_output_filename, start_time_ms,
+                                            start_time_str, stdout)
 
                 # check KPIs
                 result = True
@@ -195,3 +155,58 @@ def run_local_command_logic(args):
         logging.info("Tear-down completed")
 
     exit(return_code)
+
+
+def runLocalBenchmark(benchmark_tool, command):
+    if benchmark_tool == 'redis-benchmark' or benchmark_tool == "ycsb":
+        benchmark_client_process = subprocess.Popen(args=command, stdout=subprocess.PIPE,
+                                                    stderr=subprocess.STDOUT)
+    else:
+        benchmark_client_process = subprocess.Popen(args=command)
+    (stdout, sterr) = benchmark_client_process.communicate()
+    return stdout, sterr
+
+
+def postProcessBenchmarkResults(benchmark_tool, local_benchmark_output_filename, start_time_ms, start_time_str, stdout):
+    if benchmark_tool == 'redis-benchmark':
+        logging.info("Converting redis-benchmark output to json. Storing it in: {}".format(
+            local_benchmark_output_filename))
+        results_dict = redis_benchmark_from_stdout_csv_to_json(stdout.decode('ascii'), start_time_ms,
+                                                               start_time_str,
+                                                               overloadTestName="Overall")
+        with open(local_benchmark_output_filename, "w") as json_file:
+            json.dump(results_dict, json_file, indent=True)
+
+
+def checkBenchmarkBinariesLocalRequirements(benchmark_config, allowed_tools):
+    benchmark_min_tool_version, benchmark_min_tool_version_major, benchmark_min_tool_version_minor, benchmark_min_tool_version_patch, benchmark_tool, benchmark_tool_source = extract_benchmark_tool_settings(
+        benchmark_config)
+    if benchmark_tool is not None:
+        logging.info("Detected benchmark config tool {}".format(benchmark_tool))
+    else:
+        raise Exception("Unable to detect benchmark tool within 'clientconfig' section. Aborting...")
+
+    if benchmark_tool is not None:
+        logging.info("Checking benchmark tool {} is accessible".format(benchmark_tool))
+        which_benchmark_tool = shutil.which(benchmark_tool)
+        if which_benchmark_tool is None:
+            if benchmark_tool_source is not None:
+                logging.info(
+                    "Tool {} was not detected on path. Using remote source to retrieve it: {}".format(
+                        benchmark_tool, benchmark_tool_source))
+            else:
+                raise Exception("Benchmark tool {} was not acessible. Aborting...".format(benchmark_tool))
+        else:
+            logging.info("Tool {} was detected at {}".format(benchmark_tool, which_benchmark_tool))
+
+    if benchmark_tool not in allowed_tools.split(","):
+        raise Exception(
+            "Benchmark tool {} not in the allowed tools list [{}]. Aborting...".format(benchmark_tool,
+                                                                                       allowed_tools))
+
+    if benchmark_min_tool_version is not None and benchmark_tool == "redis-benchmark":
+        redis_benchmark_ensure_min_version_local(benchmark_tool, benchmark_min_tool_version,
+                                                 benchmark_min_tool_version_major,
+                                                 benchmark_min_tool_version_minor,
+                                                 benchmark_min_tool_version_patch)
+    return benchmark_tool
