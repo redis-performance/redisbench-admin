@@ -5,6 +5,7 @@ def prepareYCSBBenchmarkCommand(
         server_private_ip: object,
         server_plaintext_port: object,
         benchmark_config: object,
+        current_workdir,
 ):
     """
     Prepares ycsb command parameters
@@ -28,6 +29,8 @@ def prepareYCSBBenchmarkCommand(
             step = k["step"]
         if "workload" in k:
             workload = k["workload"]
+            if workload.startswith("./"):
+                workload = "{}{}".format(current_workdir,workload[1:])
         if "threads" in k:
             threads = k["threads"]
         if "override_workload_properties" in k:
@@ -46,12 +49,9 @@ def prepareYCSBBenchmarkCommand(
 
     for property in override_workload_properties:
         for k, v in property.items():
+            if type(v)==str and v.startswith("./"):
+                v = "{}{}".format(current_workdir,v[1:])
             command_arr.extend(["-p", "\"{}={}\"".format(k, v)])
 
     command_str = " ".join(command_arr)
-    logging.info(
-        "Running the benchmark with the following parameters:\n\tArgs array: {}\n\tArgs str: {}".format(
-            command_arr, command_str
-        )
-    )
     return command_arr, command_str

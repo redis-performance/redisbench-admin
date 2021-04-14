@@ -42,7 +42,7 @@ def extract_benchmark_tool_settings(benchmark_config):
 
 
 def prepare_benchmark_parameters(benchmark_config, benchmark_tool, server_plaintext_port, server_private_ip,
-                                 remote_results_file, isremote=False):
+                                 remote_results_file, isremote=False, current_workdir=None):
     for entry in benchmark_config["clientconfig"]:
         if 'parameters' in entry:
             if 'redis-benchmark' in benchmark_tool:
@@ -74,12 +74,14 @@ def prepare_benchmark_parameters(benchmark_config, benchmark_tool, server_plaint
                     benchmark_tool,
                     server_private_ip,
                     server_plaintext_port,
-                    entry
+                    entry,
+                    current_workdir
                 )
-                redirect_file = ">{}".format(remote_results_file)
-                command_arr.append(redirect_file)
-                command_str = command_str + " " + redirect_file
-
+    logging.info(
+        "Running the benchmark with the following parameters:\n\tArgs array: {}\n\tArgs str: {}".format(
+            command_arr, command_str
+        )
+    )
     return command_arr, command_str
 
 

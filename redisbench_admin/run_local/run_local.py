@@ -37,6 +37,7 @@ def run_local_command_logic(args):
         github_branch_detached,) = extract_git_vars()
 
     local_module_file = args.module_path
+    current_workdir = os.path.abspath(".")
 
     logging.info("Retrieved the following local info:")
     logging.info("\tgithub_actor: {}".format(github_actor))
@@ -121,15 +122,17 @@ def run_local_command_logic(args):
                     )
                 )
 
-                benchmark_tool, full_benchmark_path = checkBenchmarkBinariesLocalRequirements(benchmark_config,args.allowed_tools)
+                benchmark_tool, full_benchmark_path, benchmark_tool_workdir = checkBenchmarkBinariesLocalRequirements(benchmark_config,args.allowed_tools)
 
                 # prepare the benchmark command
                 command, command_str = prepare_benchmark_parameters(benchmark_config, full_benchmark_path, args.port,
-                                                                    "localhost", local_benchmark_output_filename, False)
+                                                                    "localhost", local_benchmark_output_filename, False, benchmark_tool_workdir)
 
                 # run the benchmark
                 stdout, stderr = runLocalBenchmark(benchmark_tool, command)
                 logging.info("Extracting the benchmark results")
+                logging.info("stdout: {}".format(stdout))
+                logging.info("stderr: {}".format(stderr))
 
                 postProcessBenchmarkResults(benchmark_tool, local_benchmark_output_filename, start_time_ms,
                                             start_time_str, stdout)
@@ -189,7 +192,7 @@ def checkBenchmarkBinariesLocalRequirements(benchmark_config, allowed_tools, bin
         logging.info("Detected benchmark config tool {}".format(benchmark_tool))
     else:
         raise Exception("Unable to detect benchmark tool within 'clientconfig' section. Aborting...")
-
+    benchmark_tool_workdir = os.path.abspath(".")
     if benchmark_tool is not None:
         logging.info("Checking benchmark tool {} is accessible".format(benchmark_tool))
         which_benchmark_tool = shutil.which(benchmark_tool)
@@ -212,6 +215,7 @@ def checkBenchmarkBinariesLocalRequirements(benchmark_config, allowed_tools, bin
                         "Decompressing {} into {}.".format(
                             full_path, binaries_localtemp_dir))
                     full_path = decompress_file(full_path,binaries_localtemp_dir)
+                    benchmark_tool_workdir = os.path.abspath(full_path)
                     executable = stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
                     which_benchmark_tool = whichLocal(benchmark_tool, executable, full_path, which_benchmark_tool)
                     if which_benchmark_tool is None:
@@ -236,7 +240,8 @@ def checkBenchmarkBinariesLocalRequirements(benchmark_config, allowed_tools, bin
                                                  benchmark_min_tool_version_major,
                                                  benchmark_min_tool_version_minor,
                                                  benchmark_min_tool_version_patch)
-    return benchmark_tool,which_benchmark_tool
+    which_benchmark_tool = os.path.abspath(which_benchmark_tool)
+    return benchmark_tool,which_benchmark_tool, benchmark_tool_workdir
 
 
 def whichLocal(benchmark_tool, executable, full_path, which_benchmark_tool):
