@@ -48,4 +48,5 @@ def prepareRedisGraphBenchmarkGoCommand(
             " ".join(queries_str)
         )
     )
-    return queries_str
+    command_str = " ".join(queries_str)
+    return queries_str, command_str
