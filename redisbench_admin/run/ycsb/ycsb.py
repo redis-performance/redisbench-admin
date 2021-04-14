@@ -1,28 +1,4 @@
 import logging
-import shutil
-
-import wget
-
-from redisbench_admin.utils.utils import decompress_file
-
-
-def ensure_ycsb_on_path(toolname, toolremotepath, storepath):
-    """
-    Helper method to ensure ycsb is on path
-    Args:
-        toolname: name of the tool ( should be ycsb most of times )
-        toolremotepath: remote path to retrieve tool from
-        storepath: store path
-    """
-    which_benchmark_tool = shutil.which(toolname)
-    if which_benchmark_tool is None:
-        logging.warning(
-            "Benchmark tool {} was not detected on path. Retrieving it from {} and storing it at {}".format(toolname,
-                                                                                                            toolremotepath,
-                                                                                                            storepath))
-        wget.download(toolremotepath, storepath)
-        decompress_file(storepath)
-
 
 def prepareYCSBBenchmarkCommand(
         executable_path: str,

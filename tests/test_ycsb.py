@@ -3,14 +3,6 @@ import yaml
 from redisbench_admin.run.ycsb.ycsb import prepareYCSBBenchmarkCommand
 
 
-#
-# def test_ensure_ycsb_on_path():
-#     directory_to = tempfile.mkdtemp()
-#     ensure_ycsb_on_path("ycsb",
-#                         "https://s3.amazonaws.com/benchmarks.redislabs/redisearch/ycsb/ycsb-redisearch-binding-0.18.0-SNAPSHOT.tar.gz",
-#                         directory_to)
-
-
 def test_prepare_ycsbbenchmark_command():
     with open("./tests/test_data/ycsb-config.yml", "r") as yml_file:
         benchmark_config = yaml.safe_load(yml_file)

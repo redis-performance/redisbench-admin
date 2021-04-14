@@ -4,10 +4,12 @@ import logging
 import os
 import pathlib
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 
+import wget
 import yaml
 
 from redisbench_admin.run.common import extract_benchmark_tool_settings, prepare_benchmark_parameters, \
@@ -22,6 +24,7 @@ from redisbench_admin.utils.remote import (
     extract_git_vars,
     validateResultExpectations,
 )
+from redisbench_admin.utils.utils import decompress_file
 
 
 def run_local_command_logic(args):
@@ -118,10 +121,10 @@ def run_local_command_logic(args):
                     )
                 )
 
-                benchmark_tool = checkBenchmarkBinariesLocalRequirements(benchmark_config,args.allowed_tools)
+                benchmark_tool, full_benchmark_path = checkBenchmarkBinariesLocalRequirements(benchmark_config,args.allowed_tools)
 
                 # prepare the benchmark command
-                command, command_str = prepare_benchmark_parameters(benchmark_config, benchmark_tool, args.port,
+                command, command_str = prepare_benchmark_parameters(benchmark_config, full_benchmark_path, args.port,
                                                                     "localhost", local_benchmark_output_filename, False)
 
                 # run the benchmark
@@ -178,9 +181,10 @@ def postProcessBenchmarkResults(benchmark_tool, local_benchmark_output_filename,
             json.dump(results_dict, json_file, indent=True)
 
 
-def checkBenchmarkBinariesLocalRequirements(benchmark_config, allowed_tools):
-    benchmark_min_tool_version, benchmark_min_tool_version_major, benchmark_min_tool_version_minor, benchmark_min_tool_version_patch, benchmark_tool, benchmark_tool_source = extract_benchmark_tool_settings(
+def checkBenchmarkBinariesLocalRequirements(benchmark_config, allowed_tools, binaries_localtemp_dir="./binaries"):
+    benchmark_min_tool_version, benchmark_min_tool_version_major, benchmark_min_tool_version_minor, benchmark_min_tool_version_patch, benchmark_tool, tool_source = extract_benchmark_tool_settings(
         benchmark_config)
+    which_benchmark_tool = None
     if benchmark_tool is not None:
         logging.info("Detected benchmark config tool {}".format(benchmark_tool))
     else:
@@ -190,10 +194,33 @@ def checkBenchmarkBinariesLocalRequirements(benchmark_config, allowed_tools):
         logging.info("Checking benchmark tool {} is accessible".format(benchmark_tool))
         which_benchmark_tool = shutil.which(benchmark_tool)
         if which_benchmark_tool is None:
-            if benchmark_tool_source is not None:
+            if tool_source is not None:
                 logging.info(
                     "Tool {} was not detected on path. Using remote source to retrieve it: {}".format(
-                        benchmark_tool, benchmark_tool_source))
+                        benchmark_tool, tool_source))
+                if tool_source.startswith("http"):
+                    if not os.path.isdir(binaries_localtemp_dir):
+                        os.mkdir(binaries_localtemp_dir)
+                    filename = tool_source.split("/")[-1]
+                    full_path = '{}/{}'.format(binaries_localtemp_dir, filename)
+                    if not os.path.exists(full_path):
+                        logging.info(
+                            "Retrieving remote file from {} to {}. Using the dir {} as a cache for next time.".format(
+                                tool_source, full_path, binaries_localtemp_dir))
+                        wget.download(tool_source, full_path)
+                    logging.info(
+                        "Decompressing {} into {}.".format(
+                            full_path, binaries_localtemp_dir))
+                    full_path = decompress_file(full_path,binaries_localtemp_dir)
+                    executable = stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
+                    which_benchmark_tool = whichLocal(benchmark_tool, executable, full_path, which_benchmark_tool)
+                    if which_benchmark_tool is None:
+                        raise Exception("Benchmark tool {} was not acessible at {}. Aborting...".format(benchmark_tool,full_path))
+                    else:
+                        logging.info(
+                            "Reusing cached remote file (located at {} ).".format(
+                                full_path))
+
             else:
                 raise Exception("Benchmark tool {} was not acessible. Aborting...".format(benchmark_tool))
         else:
@@ -209,4 +236,21 @@ def checkBenchmarkBinariesLocalRequirements(benchmark_config, allowed_tools):
                                                  benchmark_min_tool_version_major,
                                                  benchmark_min_tool_version_minor,
                                                  benchmark_min_tool_version_patch)
-    return benchmark_tool
+    return benchmark_tool,which_benchmark_tool
+
+
+def whichLocal(benchmark_tool, executable, full_path, which_benchmark_tool):
+    if which_benchmark_tool:
+        return which_benchmark_tool
+    for dirFileTriple in os.walk(full_path):
+        currentDir = dirFileTriple[0]
+        innerDirs = dirFileTriple[1]
+        innerFiles = dirFileTriple[2]
+        for filename in innerFiles:
+            fullPathFilename = "{}/{}".format(currentDir,filename)
+            st = os.stat(fullPathFilename)
+            mode = st.st_mode
+            if mode & executable and benchmark_tool == filename:
+                which_benchmark_tool = fullPathFilename
+                break
+    return which_benchmark_tool
