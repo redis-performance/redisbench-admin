@@ -1,13 +1,15 @@
-import datetime as dt
+import json
 import json
 import logging
 import os
 import pathlib
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 
+import wget
 import yaml
 
 from redisbench_admin.run.common import extract_benchmark_tool_settings, prepare_benchmark_parameters, \
@@ -22,6 +24,7 @@ from redisbench_admin.utils.remote import (
     extract_git_vars,
     validateResultExpectations,
 )
+from redisbench_admin.utils.utils import decompress_file
 
 
 def run_local_command_logic(args):
@@ -34,6 +37,7 @@ def run_local_command_logic(args):
         github_branch_detached,) = extract_git_vars()
 
     local_module_file = args.module_path
+    current_workdir = os.path.abspath(".")
 
     logging.info("Retrieved the following local info:")
     logging.info("\tgithub_actor: {}".format(github_actor))
@@ -118,53 +122,20 @@ def run_local_command_logic(args):
                     )
                 )
 
-                benchmark_min_tool_version, benchmark_min_tool_version_major, benchmark_min_tool_version_minor, benchmark_min_tool_version_patch, benchmark_tool = extract_benchmark_tool_settings(
-                    benchmark_config)
-                if benchmark_tool is not None:
-                    logging.info("Detected benchmark config tool {}".format(benchmark_tool))
-                else:
-                    raise Exception("Unable to detect benchmark tool within 'clientconfig' section. Aborting...")
-
-                if benchmark_tool is not None:
-                    logging.info("Checking benchmark tool {} is accessible".format(benchmark_tool))
-                    which_benchmark_tool = shutil.which(benchmark_tool)
-                    if which_benchmark_tool is None:
-                        raise Exception("Benchmark tool was not accesible. Aborting...")
-                    else:
-                        logging.info("Tool {} was detected at {}".format(benchmark_tool, which_benchmark_tool))
-
-                if benchmark_tool not in args.allowed_tools.split(","):
-                    raise Exception(
-                        "Benchmark tool {} not in the allowed tools list [{}]. Aborting...".format(benchmark_tool,
-                                                                                                   args.allowed_tools))
-
-                if benchmark_min_tool_version is not None and benchmark_tool == "redis-benchmark":
-                    redis_benchmark_ensure_min_version_local(benchmark_tool, benchmark_min_tool_version,
-                                                             benchmark_min_tool_version_major,
-                                                             benchmark_min_tool_version_minor,
-                                                             benchmark_min_tool_version_patch)
+                benchmark_tool, full_benchmark_path, benchmark_tool_workdir = checkBenchmarkBinariesLocalRequirements(benchmark_config,args.allowed_tools)
 
                 # prepare the benchmark command
-                command, command_str = prepare_benchmark_parameters(benchmark_config, benchmark_tool, args.port,
-                                                                    "localhost", local_benchmark_output_filename, False)
+                command, command_str = prepare_benchmark_parameters(benchmark_config, full_benchmark_path, args.port,
+                                                                    "localhost", local_benchmark_output_filename, False, benchmark_tool_workdir)
 
                 # run the benchmark
-                if benchmark_tool == 'redis-benchmark':
-                    benchmark_client_process = subprocess.Popen(args=command, stdout=subprocess.PIPE,
-                                                                stderr=subprocess.STDOUT)
-                else:
-                    benchmark_client_process = subprocess.Popen(args=command)
-                (stdout, sterr) = benchmark_client_process.communicate()
+                stdout, stderr = runLocalBenchmark(benchmark_tool, command)
                 logging.info("Extracting the benchmark results")
+                logging.info("stdout: {}".format(stdout))
+                logging.info("stderr: {}".format(stderr))
 
-                if benchmark_tool == 'redis-benchmark':
-                    logging.info("Converting redis-benchmark output to json. Storing it in: {}".format(
-                        local_benchmark_output_filename))
-                    results_dict = redis_benchmark_from_stdout_csv_to_json(stdout.decode('ascii'), start_time_ms,
-                                                                           start_time_str,
-                                                                           overloadTestName="Overall")
-                    with open(local_benchmark_output_filename, "w") as json_file:
-                        json.dump(results_dict, json_file, indent=True)
+                postProcessBenchmarkResults(benchmark_tool, local_benchmark_output_filename, start_time_ms,
+                                            start_time_str, stdout)
 
                 # check KPIs
                 result = True
@@ -190,3 +161,101 @@ def run_local_command_logic(args):
         logging.info("Tear-down completed")
 
     exit(return_code)
+
+
+def runLocalBenchmark(benchmark_tool, command):
+    if benchmark_tool == 'redis-benchmark' or benchmark_tool == "ycsb":
+        benchmark_client_process = subprocess.Popen(args=command, stdout=subprocess.PIPE,
+                                                    stderr=subprocess.STDOUT)
+    else:
+        benchmark_client_process = subprocess.Popen(args=command)
+    (stdout, sterr) = benchmark_client_process.communicate()
+    return stdout, sterr
+
+
+def postProcessBenchmarkResults(benchmark_tool, local_benchmark_output_filename, start_time_ms, start_time_str, stdout):
+    if benchmark_tool == 'redis-benchmark':
+        logging.info("Converting redis-benchmark output to json. Storing it in: {}".format(
+            local_benchmark_output_filename))
+        results_dict = redis_benchmark_from_stdout_csv_to_json(stdout.decode('ascii'), start_time_ms,
+                                                               start_time_str,
+                                                               overloadTestName="Overall")
+        with open(local_benchmark_output_filename, "w") as json_file:
+            json.dump(results_dict, json_file, indent=True)
+
+
+def checkBenchmarkBinariesLocalRequirements(benchmark_config, allowed_tools, binaries_localtemp_dir="./binaries"):
+    benchmark_min_tool_version, benchmark_min_tool_version_major, benchmark_min_tool_version_minor, benchmark_min_tool_version_patch, benchmark_tool, tool_source = extract_benchmark_tool_settings(
+        benchmark_config)
+    which_benchmark_tool = None
+    if benchmark_tool is not None:
+        logging.info("Detected benchmark config tool {}".format(benchmark_tool))
+    else:
+        raise Exception("Unable to detect benchmark tool within 'clientconfig' section. Aborting...")
+    benchmark_tool_workdir = os.path.abspath(".")
+    if benchmark_tool is not None:
+        logging.info("Checking benchmark tool {} is accessible".format(benchmark_tool))
+        which_benchmark_tool = shutil.which(benchmark_tool)
+        if which_benchmark_tool is None:
+            if tool_source is not None:
+                logging.info(
+                    "Tool {} was not detected on path. Using remote source to retrieve it: {}".format(
+                        benchmark_tool, tool_source))
+                if tool_source.startswith("http"):
+                    if not os.path.isdir(binaries_localtemp_dir):
+                        os.mkdir(binaries_localtemp_dir)
+                    filename = tool_source.split("/")[-1]
+                    full_path = '{}/{}'.format(binaries_localtemp_dir, filename)
+                    if not os.path.exists(full_path):
+                        logging.info(
+                            "Retrieving remote file from {} to {}. Using the dir {} as a cache for next time.".format(
+                                tool_source, full_path, binaries_localtemp_dir))
+                        wget.download(tool_source, full_path)
+                    logging.info(
+                        "Decompressing {} into {}.".format(
+                            full_path, binaries_localtemp_dir))
+                    full_path = decompress_file(full_path,binaries_localtemp_dir)
+                    benchmark_tool_workdir = os.path.abspath(full_path)
+                    executable = stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
+                    which_benchmark_tool = whichLocal(benchmark_tool, executable, full_path, which_benchmark_tool)
+                    if which_benchmark_tool is None:
+                        raise Exception("Benchmark tool {} was not acessible at {}. Aborting...".format(benchmark_tool,full_path))
+                    else:
+                        logging.info(
+                            "Reusing cached remote file (located at {} ).".format(
+                                full_path))
+
+            else:
+                raise Exception("Benchmark tool {} was not acessible. Aborting...".format(benchmark_tool))
+        else:
+            logging.info("Tool {} was detected at {}".format(benchmark_tool, which_benchmark_tool))
+
+    if benchmark_tool not in allowed_tools.split(","):
+        raise Exception(
+            "Benchmark tool {} not in the allowed tools list [{}]. Aborting...".format(benchmark_tool,
+                                                                                       allowed_tools))
+
+    if benchmark_min_tool_version is not None and benchmark_tool == "redis-benchmark":
+        redis_benchmark_ensure_min_version_local(benchmark_tool, benchmark_min_tool_version,
+                                                 benchmark_min_tool_version_major,
+                                                 benchmark_min_tool_version_minor,
+                                                 benchmark_min_tool_version_patch)
+    which_benchmark_tool = os.path.abspath(which_benchmark_tool)
+    return benchmark_tool,which_benchmark_tool, benchmark_tool_workdir
+
+
+def whichLocal(benchmark_tool, executable, full_path, which_benchmark_tool):
+    if which_benchmark_tool:
+        return which_benchmark_tool
+    for dirFileTriple in os.walk(full_path):
+        currentDir = dirFileTriple[0]
+        innerDirs = dirFileTriple[1]
+        innerFiles = dirFileTriple[2]
+        for filename in innerFiles:
+            fullPathFilename = "{}/{}".format(currentDir,filename)
+            st = os.stat(fullPathFilename)
+            mode = st.st_mode
+            if mode & executable and benchmark_tool == filename:
+                which_benchmark_tool = fullPathFilename
+                break
+    return which_benchmark_tool

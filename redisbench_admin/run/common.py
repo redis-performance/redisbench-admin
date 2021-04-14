@@ -6,6 +6,7 @@ import yaml
 
 from redisbench_admin.run.redis_benchmark.redis_benchmark import prepareRedisBenchmarkCommand
 from redisbench_admin.run.redisgraph_benchmark_go.redisgraph_benchmark_go import prepareRedisGraphBenchmarkGoCommand
+from redisbench_admin.run.ycsb.ycsb import prepareYCSBBenchmarkCommand
 from redisbench_admin.utils.benchmark_config import parseExporterMetricsDefinition, parseExporterTimeMetricDefinition, \
     parseExporterTimeMetric
 from redisbench_admin.utils.remote import executeRemoteCommands, getFileFromRemoteSetup, extractRedisGraphVersion, \
@@ -14,6 +15,7 @@ from redisbench_admin.utils.remote import executeRemoteCommands, getFileFromRemo
 
 def extract_benchmark_tool_settings(benchmark_config):
     benchmark_tool = None
+    benchmark_tool_source = None
     benchmark_min_tool_version = None
     benchmark_min_tool_version_major = None
     benchmark_min_tool_version_minor = None
@@ -22,6 +24,8 @@ def extract_benchmark_tool_settings(benchmark_config):
     for entry in benchmark_config["clientconfig"]:
         if 'tool' in entry:
             benchmark_tool = entry['tool']
+        if 'tool_source' in entry:
+            benchmark_tool_source = entry['tool_source']
         if 'min-tool-version' in entry:
             benchmark_min_tool_version = entry['min-tool-version']
             p = re.compile("(\d+)\.(\d+)\.(\d+)")
@@ -34,11 +38,11 @@ def extract_benchmark_tool_settings(benchmark_config):
                 benchmark_min_tool_version_major = m.group(1)
                 benchmark_min_tool_version_minor = m.group(2)
                 benchmark_min_tool_version_patch = m.group(3)
-    return benchmark_min_tool_version, benchmark_min_tool_version_major, benchmark_min_tool_version_minor, benchmark_min_tool_version_patch, benchmark_tool
+    return benchmark_min_tool_version, benchmark_min_tool_version_major, benchmark_min_tool_version_minor, benchmark_min_tool_version_patch, benchmark_tool, benchmark_tool_source
 
 
 def prepare_benchmark_parameters(benchmark_config, benchmark_tool, server_plaintext_port, server_private_ip,
-                                 remote_results_file, isremote=False):
+                                 remote_results_file, isremote=False, current_workdir=None):
     for entry in benchmark_config["clientconfig"]:
         if 'parameters' in entry:
             if 'redis-benchmark' in benchmark_tool:
@@ -64,6 +68,20 @@ def prepare_benchmark_parameters(benchmark_config, benchmark_tool, server_plaint
                     isremote
                 )
                 command_str = " ".join(command_arr)
+
+            if 'ycsb' in benchmark_tool:
+                command_arr, command_str = prepareYCSBBenchmarkCommand(
+                    benchmark_tool,
+                    server_private_ip,
+                    server_plaintext_port,
+                    entry,
+                    current_workdir
+                )
+    logging.info(
+        "Running the benchmark with the following parameters:\n\tArgs array: {}\n\tArgs str: {}".format(
+            command_arr, command_str
+        )
+    )
     return command_arr, command_str
 
 
@@ -219,7 +237,8 @@ def common_exporter_logic(deployment_type, exporter_timemetric_path, metrics, re
             "Requested to push data to RedisTimeSeries but no exporter definition was found. Missing \"exporter\" config."
         )
 
-def get_start_time_vars(start_time = dt.datetime.utcnow()):
+
+def get_start_time_vars(start_time=dt.datetime.utcnow()):
     start_time_ms = int((start_time - dt.datetime(1970, 1, 1)).total_seconds() * 1000)
     start_time_str = start_time.strftime("%Y-%m-%d-%H-%M-%S")
     return start_time, start_time_ms, start_time_str

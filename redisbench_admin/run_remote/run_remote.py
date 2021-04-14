@@ -9,11 +9,11 @@ import yaml
 from python_terraform import Terraform
 from redistimeseries.client import Client
 
-from redisbench_admin.run.redis_benchmark.redis_benchmark import redis_benchmark_from_stdout_csv_to_json, \
-    redis_benchmark_ensure_min_version_remote
 from redisbench_admin.run.common import extract_benchmark_tool_settings, prepare_benchmark_parameters, \
     runRemoteBenchmark, merge_default_and_specific_properties_dictType, process_default_yaml_properties_file, \
     common_exporter_logic, get_start_time_vars
+from redisbench_admin.run.redis_benchmark.redis_benchmark import redis_benchmark_from_stdout_csv_to_json, \
+    redis_benchmark_ensure_min_version_remote
 from redisbench_admin.utils.benchmark_config import (
     parseExporterMetricsDefinition,
     parseExporterTimeMetricDefinition,

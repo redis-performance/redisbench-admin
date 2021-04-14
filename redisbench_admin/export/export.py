@@ -5,9 +5,7 @@ import redis
 from redistimeseries.client import Client
 
 from redisbench_admin.export.common.common import split_tags_string
-from redisbench_admin.export.ftsb_redisearch.ftsb_redisearch_json_format import (
-    ftsb_export_logic,
-)
+
 from redisbench_admin.export.redis_benchmark.redis_benchmark_csv_format import (
     redis_benchmark_export_logic,
 )
@@ -35,20 +33,7 @@ def export_command_logic(args):
     print("Using the following extra tags: {}".format(extra_tags_array))
     results_type = "key-results"
     time_series_dict = {}
-    if results_format == "ftsb_redisearch":
-        benchmark_results = retrieve_local_or_remote_input_json(
-            benchmark_files, local_path, "--benchmark-result-files", "json"
-        )
-        for filename, benchmark_result in benchmark_results.items():
-            time_series_dict = ftsb_export_logic(
-                benchmark_result,
-                extra_tags_array,
-                included_steps,
-                results_type,
-                time_series_dict,
-                use_result,
-            )
-    elif results_format == "redis-benchmark":
+    if results_format == "redis-benchmark":
         benchmark_results = retrieve_local_or_remote_input_json(
             benchmark_files, local_path, "--benchmark-result-files", "csv"
         )

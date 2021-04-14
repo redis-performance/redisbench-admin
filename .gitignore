@@ -4,6 +4,8 @@
 *.tar.gz
 *.csv
 *.txt
+binaries
+datasets
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
