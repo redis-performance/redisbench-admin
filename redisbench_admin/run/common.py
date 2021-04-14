@@ -59,7 +59,7 @@ def prepare_benchmark_parameters(benchmark_config, benchmark_tool, server_plaint
             if 'redisgraph-benchmark-go' in benchmark_tool:
                 if isremote is True:
                     benchmark_tool = "/tmp/redisgraph-benchmark-go"
-                command_arr = prepareRedisGraphBenchmarkGoCommand(
+                command_arr, command_str = prepareRedisGraphBenchmarkGoCommand(
                     benchmark_tool,
                     server_private_ip,
                     server_plaintext_port,
@@ -67,7 +67,6 @@ def prepare_benchmark_parameters(benchmark_config, benchmark_tool, server_plaint
                     remote_results_file,
                     isremote
                 )
-                command_str = " ".join(command_arr)
 
             if 'ycsb' in benchmark_tool:
                 command_arr, command_str = prepareYCSBBenchmarkCommand(

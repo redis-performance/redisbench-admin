@@ -1,4 +1,4 @@
-from redisbench_admin.utils.remote import extract_git_vars
+from redisbench_admin.utils.remote import extract_git_vars, fetchRemoteSetupFromConfig
 
 
 def test_extract_git_vars():
@@ -46,3 +46,8 @@ def test_extract_git_vars_passing_repo3():
     if github_branch_detached is False:
         assert github_actor != None and github_branch != ""
         assert github_branch != None and github_branch != ""
+
+
+def test_fetch_remote_setup_from_config():
+    terraform_working_dir, type = fetchRemoteSetupFromConfig([{"type":"oss-standalone"},{"setup":"redistimeseries-m5d"}])
+    assert type == "oss-standalone"
