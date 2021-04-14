@@ -3,10 +3,7 @@ from redisbench_admin.export.common.common import (
     get_kv_tags,
     prepare_tags,
     get_timeserie_name,
-    add_datapoint,
-)
-from redisbench_admin.export.ftsb_redisearch.ftsb_redisearch_json_format import (
-    get_metric_detail,
+    add_datapoint, get_metric_detail,
 )
 from redisbench_admin.export.redis_benchmark.metrics_definition import (
     redis_benchmark_metrics_definition,

@@ -110,3 +110,26 @@ def get_kv_tags(
         {"git_sha": git_sha},
     ]
     return common_broader_kv_tags, common_git_sha_kv_tags, common_version_kv_tags
+
+
+def get_metric_detail(key_metric_spec):
+    metric_step = get_or_None(key_metric_spec, "step")
+    metric_family = get_or_None(key_metric_spec, "metric-family")
+    metric_json_path = get_or_None(key_metric_spec, "metric-json-path")
+    metric_name = get_or_None(key_metric_spec, "metric-name")
+    metric_unit = get_or_None(key_metric_spec, "unit")
+    metric_type = get_or_None(key_metric_spec, "metric-type")
+    metric_comparison = get_or_None(key_metric_spec, "comparison")
+    metric_per_step_comparison_priority = get_or_None(
+        key_metric_spec, "per-step-comparison-metric-priority"
+    )
+    return (
+        metric_step,
+        metric_family,
+        metric_json_path,
+        metric_name,
+        metric_unit,
+        metric_type,
+        metric_comparison,
+        metric_per_step_comparison_priority,
+    )

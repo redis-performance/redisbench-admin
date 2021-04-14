@@ -6,8 +6,6 @@ import sys
 import toml
 
 from redisbench_admin import __version__
-from redisbench_admin.compare.args import create_compare_arguments
-from redisbench_admin.compare.compare import compare_command_logic
 from redisbench_admin.export.args import create_export_arguments
 from redisbench_admin.export.export import export_command_logic
 from redisbench_admin.extract.args import create_extract_arguments
@@ -68,8 +66,6 @@ def main():
         parser = create_run_local_arguments(parser)
     elif requested_tool == "extract":
         parser = create_extract_arguments(parser)
-    elif requested_tool == "compare":
-        parser = create_compare_arguments(parser)
     elif requested_tool == "export":
         parser = create_export_arguments(parser)
     elif requested_tool == "--version":
@@ -79,7 +75,7 @@ def main():
         print_help(project_name, project_version)
         sys.exit(0)
     else:
-        valid_tool_options = ["run-local", "run-remote", "export", "compare", "retrieve"]
+        valid_tool_options = ["run-local", "run-remote", "export", "extract"]
         print_invalid_tool_option(requested_tool, valid_tool_options)
         sys.exit(1)
 
@@ -89,8 +85,6 @@ def main():
         run_local_command_logic(args)
     if requested_tool == "run-remote":
         run_remote_command_logic(args)
-    if requested_tool == "compare":
-        compare_command_logic(args)
     if requested_tool == "export":
         export_command_logic(args)
     if requested_tool == "extract":
