@@ -51,6 +51,14 @@ def required_utilities(utility_list):
     return result
 
 
+def get_decompressed_filename(compressed_filename:str):
+    uncompressed_filename = None
+    for suffix in [".zip",".tar.gz","tar"]:
+        if compressed_filename.endswith(suffix):
+            uncompressed_filename = compressed_filename[:-len(suffix)]
+    return uncompressed_filename
+
+
 def decompress_file(compressed_filename:str, path=None):
     uncompressed_filename = compressed_filename
     logging.warning(

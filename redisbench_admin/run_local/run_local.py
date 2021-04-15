@@ -24,7 +24,7 @@ from redisbench_admin.utils.remote import (
     extract_git_vars,
     validateResultExpectations,
 )
-from redisbench_admin.utils.utils import decompress_file
+from redisbench_admin.utils.utils import decompress_file, get_decompressed_filename
 
 
 def run_local_command_logic(args):
@@ -214,7 +214,10 @@ def checkBenchmarkBinariesLocalRequirements(benchmark_config, allowed_tools, bin
                     logging.info(
                         "Decompressing {} into {}.".format(
                             full_path, binaries_localtemp_dir))
-                    full_path = decompress_file(full_path,binaries_localtemp_dir)
+                    if not os.path.exists(get_decompressed_filename(full_path)):
+                        full_path = decompress_file(full_path,binaries_localtemp_dir)
+                    else:
+                        full_path = get_decompressed_filename(full_path)
                     benchmark_tool_workdir = os.path.abspath(full_path)
                     executable = stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
                     which_benchmark_tool = whichLocal(benchmark_tool, executable, full_path, which_benchmark_tool)
