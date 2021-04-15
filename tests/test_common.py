@@ -82,7 +82,7 @@ def test_common_exporter_logic():
 
 def test_process_default_yaml_properties_file():
     with open("./tests/test_data/common-properties-v0.1.yml", "r") as yml_file:
-        default_kpis, default_metrics, exporter_timemetric_path = process_default_yaml_properties_file({},{},"1.yml",None,yml_file)
+        default_kpis, default_metrics, exporter_timemetric_path = process_default_yaml_properties_file(None,None,"1.yml",None,yml_file)
         assert exporter_timemetric_path == "$.StartTime"
         assert default_kpis is None
 
