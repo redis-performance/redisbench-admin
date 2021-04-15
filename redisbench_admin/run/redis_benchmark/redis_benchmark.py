@@ -7,9 +7,14 @@ import subprocess
 from redisbench_admin.utils.remote import executeRemoteCommands
 
 
-def redis_benchmark_from_stdout_csv_to_json(csv_data, start_time_ms, start_time_str, overloadTestName=None):
-    results_dict = {"Tests": {}, "StartTime": start_time_ms,
-                    "StartTimeHuman": start_time_str}
+def redis_benchmark_from_stdout_csv_to_json(
+    csv_data, start_time_ms, start_time_str, overloadTestName=None
+):
+    results_dict = {
+        "Tests": {},
+        "StartTime": start_time_ms,
+        "StartTimeHuman": start_time_str,
+    }
     csv_data = list(csv.reader(csv_data.splitlines(), delimiter=","))
     header = csv_data[0]
     for row in csv_data[1:]:
@@ -23,10 +28,10 @@ def redis_benchmark_from_stdout_csv_to_json(csv_data, start_time_ms, start_time_
 
 
 def prepareRedisBenchmarkCommand(
-        executable_path: str,
-        server_private_ip: object,
-        server_plaintext_port: object,
-        benchmark_config: object,
+    executable_path: str,
+    server_private_ip: object,
+    server_plaintext_port: object,
+    benchmark_config: object,
 ):
     """
     Prepares redis-benchmark command parameters
@@ -68,47 +73,92 @@ def prepareRedisBenchmarkCommand(
     return command_arr, command_str
 
 
-def ensure_redis_benchmark_version_from_input(benchmark_min_tool_version, benchmark_min_tool_version_major,
-                                              benchmark_min_tool_version_minor, benchmark_min_tool_version_patch,
-                                              benchmark_tool, stdout):
+def ensure_redis_benchmark_version_from_input(
+    benchmark_min_tool_version,
+    benchmark_min_tool_version_major,
+    benchmark_min_tool_version_minor,
+    benchmark_min_tool_version_patch,
+    benchmark_tool,
+    stdout,
+):
     version_output = stdout.split("\n")[0]
     logging.info(
-        "Detected benchmark config tool {} with version {}".format(benchmark_tool, version_output))
+        "Detected benchmark config tool {} with version {}".format(
+            benchmark_tool, version_output
+        )
+    )
     p = re.compile("redis-benchmark (\d+)\.(\d+)\.(\d+) ")
     m = p.match(version_output)
     if m is None:
         raise Exception(
             "Unable to detect benchmark tool version, and the benchmark requires a min version: {}".format(
-                benchmark_min_tool_version))
+                benchmark_min_tool_version
+            )
+        )
     major = m.group(1)
     minor = m.group(2)
     patch = m.group(3)
-    if major < benchmark_min_tool_version_major or (
-            major == benchmark_min_tool_version_major and minor < benchmark_min_tool_version_minor) or (
-            major == benchmark_min_tool_version_major and minor == benchmark_min_tool_version_minor and patch < benchmark_min_tool_version_patch):
+    if (
+        major < benchmark_min_tool_version_major
+        or (
+            major == benchmark_min_tool_version_major
+            and minor < benchmark_min_tool_version_minor
+        )
+        or (
+            major == benchmark_min_tool_version_major
+            and minor == benchmark_min_tool_version_minor
+            and patch < benchmark_min_tool_version_patch
+        )
+    ):
         raise Exception(
             "Detected benchmark version that is inferior than the minimum required. {} < {}".format(
-                version_output, benchmark_min_tool_version))
+                version_output, benchmark_min_tool_version
+            )
+        )
 
 
-def redis_benchmark_ensure_min_version_local(benchmark_tool, benchmark_min_tool_version,
-                                             benchmark_min_tool_version_major,
-                                             benchmark_min_tool_version_minor, benchmark_min_tool_version_patch):
-    benchmark_client_process = subprocess.Popen(args=[benchmark_tool, "--version"],
-                                                stdout=subprocess.PIPE,
-                                                stderr=subprocess.STDOUT)
+def redis_benchmark_ensure_min_version_local(
+    benchmark_tool,
+    benchmark_min_tool_version,
+    benchmark_min_tool_version_major,
+    benchmark_min_tool_version_minor,
+    benchmark_min_tool_version_patch,
+):
+    benchmark_client_process = subprocess.Popen(
+        args=[benchmark_tool, "--version"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
     (stdout, sterr) = benchmark_client_process.communicate()
-    ensure_redis_benchmark_version_from_input(benchmark_min_tool_version, benchmark_min_tool_version_major,
-                                              benchmark_min_tool_version_minor, benchmark_min_tool_version_patch,
-                                              benchmark_tool, stdout.decode('ascii'))
+    ensure_redis_benchmark_version_from_input(
+        benchmark_min_tool_version,
+        benchmark_min_tool_version_major,
+        benchmark_min_tool_version_minor,
+        benchmark_min_tool_version_patch,
+        benchmark_tool,
+        stdout.decode("ascii"),
+    )
 
 
-def redis_benchmark_ensure_min_version_remote(benchmark_tool, benchmark_min_tool_version,
-                                              benchmark_min_tool_version_major,
-                                              benchmark_min_tool_version_minor, benchmark_min_tool_version_patch,
-                                              client_public_ip, username, private_key):
-    res = executeRemoteCommands(client_public_ip, username, private_key, ["{} --version".format(benchmark_tool)])
+def redis_benchmark_ensure_min_version_remote(
+    benchmark_tool,
+    benchmark_min_tool_version,
+    benchmark_min_tool_version_major,
+    benchmark_min_tool_version_minor,
+    benchmark_min_tool_version_patch,
+    client_public_ip,
+    username,
+    private_key,
+):
+    res = executeRemoteCommands(
+        client_public_ip, username, private_key, ["{} --version".format(benchmark_tool)]
+    )
     recv_exit_status, stdout, stderr = res[0]
-    ensure_redis_benchmark_version_from_input(benchmark_min_tool_version, benchmark_min_tool_version_major,
-                                              benchmark_min_tool_version_minor, benchmark_min_tool_version_patch,
-                                              benchmark_tool, stdout[0])
+    ensure_redis_benchmark_version_from_input(
+        benchmark_min_tool_version,
+        benchmark_min_tool_version_major,
+        benchmark_min_tool_version_minor,
+        benchmark_min_tool_version_patch,
+        benchmark_tool,
+        stdout[0],
+    )

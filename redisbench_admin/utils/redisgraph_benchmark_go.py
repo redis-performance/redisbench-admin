@@ -6,14 +6,14 @@ from redisbench_admin.utils.remote import (
 
 
 def spinUpRemoteRedis(
-        benchmark_config,
-        server_public_ip,
-        username,
-        private_key,
-        local_module_file,
-        remote_module_file,
-        remote_dataset_file,
-        dirname=".",
+    benchmark_config,
+    server_public_ip,
+    username,
+    private_key,
+    local_module_file,
+    remote_module_file,
+    remote_dataset_file,
+    dirname=".",
 ):
     res = False
     # copy the rdb to DB machine
@@ -24,16 +24,12 @@ def spinUpRemoteRedis(
         username,
         private_key,
         remote_dataset_file,
-        dirname
+        dirname,
     )
 
     # copy the module to the DB machine
     copyFileToRemoteSetup(
-        server_public_ip,
-        username,
-        private_key,
-        local_module_file,
-        remote_module_file
+        server_public_ip, username, private_key, local_module_file, remote_module_file
     )
     executeRemoteCommands(
         server_public_ip,
@@ -51,7 +47,7 @@ def spinUpRemoteRedis(
 
 
 def setupRemoteBenchmarkTool_redisgraph_benchmark_go(
-        client_public_ip, username, private_key, redisbenchmark_go_link
+    client_public_ip, username, private_key, redisbenchmark_go_link
 ):
     commands = [
         "wget {} -q -O /tmp/redisgraph-benchmark-go".format(redisbenchmark_go_link),

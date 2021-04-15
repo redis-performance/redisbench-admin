@@ -10,8 +10,12 @@ TERRAFORM_BIN_PATH = os.getenv("TERRAFORM_BIN_PATH", "terraform")
 
 def create_run_remote_arguments(parser):
     parser.add_argument("--module_path", type=str, required=True)
-    parser.add_argument("--allowed-tools", type=str, default="redis-benchmark,redisgraph-benchmark-go",
-                        help="comma separated list of allowed tools for this module. By default all the supported are allowed.")
+    parser.add_argument(
+        "--allowed-tools",
+        type=str,
+        default="redis-benchmark,redisgraph-benchmark-go",
+        help="comma separated list of allowed tools for this module. By default all the supported are allowed.",
+    )
     parser.add_argument(
         "--test",
         type=str,
@@ -22,7 +26,7 @@ def create_run_remote_arguments(parser):
     parser.add_argument("--github_repo", type=str, default=None)
     parser.add_argument("--github_org", type=str, default=None)
     parser.add_argument("--github_sha", type=str, default=None)
-    parser.add_argument("--github_branch", type=str, default=None, nargs='?', const='')
+    parser.add_argument("--github_branch", type=str, default=None, nargs="?", const="")
     parser.add_argument("--triggering_env", type=str, default=socket.gethostname())
     parser.add_argument("--terraform_bin_path", type=str, default=TERRAFORM_BIN_PATH)
     parser.add_argument("--setup_name_sufix", type=str, default="")

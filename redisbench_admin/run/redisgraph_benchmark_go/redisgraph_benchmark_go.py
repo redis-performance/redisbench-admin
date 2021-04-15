@@ -2,12 +2,12 @@ import logging
 
 
 def prepareRedisGraphBenchmarkGoCommand(
-        executable_path: str,
-        server_private_ip: object,
-        server_plaintext_port: object,
-        benchmark_config: object,
-        results_file: object,
-        is_remote: bool = False,
+    executable_path: str,
+    server_private_ip: object,
+    server_plaintext_port: object,
+    benchmark_config: object,
+    results_file: object,
+    is_remote: bool = False,
 ):
     """
     Prepares redisgraph-benchmark-go command parameters
