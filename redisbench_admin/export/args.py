@@ -21,7 +21,8 @@ def create_export_arguments(parser):
         "--results-format",
         type=str,
         default="redis-benchmark",
-        help="results format of the the benchmark results files to read results from ( either memtier_benchmark, redis-benchmark, or ftsb_redisearch )",
+        help="results format of the the benchmark results files to read "
+        "results from ( either memtier_benchmark, redis-benchmark, or ftsb_redisearch )",
     )
     parser.add_argument(
         "--use-result",

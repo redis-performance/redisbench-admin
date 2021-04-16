@@ -54,7 +54,6 @@ def check_dataset_local_requirements(
 def wait_for_conn(conn, retries=20, command="PING", should_be=True):
     """Wait until a given Redis connection is ready"""
     result = False
-    err1 = ""
     while retries > 0 and result is False:
         try:
             if conn.execute_command(command) == should_be:
@@ -62,7 +61,7 @@ def wait_for_conn(conn, retries=20, command="PING", should_be=True):
         except redis.exceptions.BusyLoadingError:
             time.sleep(0.1)  # give extra 100msec in case of RDB loading
         except redis.ConnectionError as err:
-            err1 = str(err)
+            str(err)
         except redis.ResponseError as err:
             err1 = str(err)
             if not err1.startswith("DENIED"):

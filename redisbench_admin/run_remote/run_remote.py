@@ -27,21 +27,25 @@ from redisbench_admin.utils.benchmark_config import (
     parse_exporter_timemetric_definition,
 )
 from redisbench_admin.utils.redisgraph_benchmark_go import (
-    spinUpRemoteRedis,
-    setupRemoteBenchmarkTool_redisgraph_benchmark_go,
+    spin_up_standalone_remote_redis,
+    setup_remote_benchmark_tool_redisgraph_benchmark_go,
 )
 from redisbench_admin.utils.remote import (
     extract_git_vars,
-    validateResultExpectations,
+    validate_result_expectations,
     upload_artifacts_to_s3,
-    setupRemoteEnviroment,
-    checkAndFixPemStr,
+    setup_remote_environment,
+    check_and_fix_pem_str,
     get_run_full_filename,
-    fetchRemoteSetupFromConfig,
+    fetch_remote_setup_from_config,
 )
 
 # internal aux vars
-redisbenchmark_go_link = "https://s3.amazonaws.com/benchmarks.redislabs/redisgraph/redisgraph-benchmark-go/unstable/redisgraph-benchmark-go_linux_amd64"
+redisbenchmark_go_link = (
+    "https://s3.amazonaws.com/benchmarks.redislabs/"
+    "redisgraph/redisgraph-benchmark-go/unstable/"
+    "redisgraph-benchmark-go_linux_amd64"
+)
 remote_dataset_file = "/tmp/dump.rdb"
 remote_module_file = "/tmp/module.so"
 local_results_file = "./benchmark-result.out"
@@ -59,6 +63,7 @@ EC2_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", None)
 EC2_PRIVATE_PEM = os.getenv("EC2_PRIVATE_PEM", None)
 
 
+# noinspection PyBroadException
 def run_remote_command_logic(args):
     tf_bin_path = args.terraform_bin_path
     tf_github_org = args.github_org
@@ -183,7 +188,8 @@ def run_remote_command_logic(args):
     logging.info("\tgithub_branch: {}".format(tf_github_branch))
     if tf_github_branch is None or tf_github_branch == "":
         logging.error(
-            "The github branch information is not present! This implies that per-branch data is not pushed to the exporters!"
+            "The github branch information is not present!"
+            " This implies that per-branch data is not pushed to the exporters!"
         )
     logging.info("\tgithub_sha: {}".format(tf_github_sha))
     logging.info("\ttriggering env: {}".format(tf_triggering_env))
@@ -191,7 +197,7 @@ def run_remote_command_logic(args):
     logging.info("\tsetup_name sufix: {}".format(tf_setup_name_sufix))
 
     with open(private_key, "w") as tmp_private_key_file:
-        pem_str = checkAndFixPemStr(EC2_PRIVATE_PEM)
+        pem_str = check_and_fix_pem_str(EC2_PRIVATE_PEM)
         tmp_private_key_file.write(pem_str)
 
     if os.path.exists(private_key) is False:
@@ -205,8 +211,6 @@ def run_remote_command_logic(args):
         )
 
     return_code = 0
-
-    files = []
     if args.test == "":
         files = pathlib.Path().glob("*.yml")
         files = [str(x) for x in files]
@@ -257,12 +261,12 @@ def run_remote_command_logic(args):
                 github_repo=tf_github_repo,
                 test_name=test_name,
             )
-            s3_uri = "https://s3.amazonaws.com/{bucket_name}/{bucket_path}".format(
+            "https://s3.amazonaws.com/{bucket_name}/{bucket_path}".format(
                 bucket_name=s3_bucket_name, bucket_path=s3_bucket_path
             )
 
             if "remote" in benchmark_config:
-                remote_setup, deployment_type = fetchRemoteSetupFromConfig(
+                remote_setup, deployment_type = fetch_remote_setup_from_config(
                     benchmark_config["remote"]
                 )
                 logging.info(
@@ -285,7 +289,7 @@ def run_remote_command_logic(args):
                     server_plaintext_port,
                     client_private_ip,
                     client_public_ip,
-                ) = setupRemoteEnviroment(
+                ) = setup_remote_environment(
                     tf,
                     tf_github_sha,
                     tf_github_actor,
@@ -298,7 +302,7 @@ def run_remote_command_logic(args):
                 # in case of some unexpected error we fail the test
                 try:
                     # setup Redis
-                    spinUpRemoteRedis(
+                    spin_up_standalone_remote_redis(
                         benchmark_config,
                         server_public_ip,
                         username,
@@ -333,7 +337,7 @@ def run_remote_command_logic(args):
                         )
                     # setup the benchmark tool
                     if benchmark_tool == "redisgraph-benchmark-go":
-                        setupRemoteBenchmarkTool_redisgraph_benchmark_go(
+                        setup_remote_benchmark_tool_redisgraph_benchmark_go(
                             client_public_ip,
                             username,
                             private_key,
@@ -406,19 +410,18 @@ def run_remote_command_logic(args):
                                 csv_data,
                                 start_time_ms,
                                 start_time_str,
-                                overloadTestName="Overall",
+                                overload_test_name="Overall",
                             )
                         with open(local_benchmark_output_filename, "w") as json_file:
                             json.dump(results_dict, json_file, indent=True)
 
                     # check KPIs
                     result = True
-                    results_dict = None
                     with open(local_benchmark_output_filename, "r") as json_file:
                         results_dict = json.load(json_file)
 
                     if "kpis" in benchmark_config:
-                        result = validateResultExpectations(
+                        result = validate_result_expectations(
                             benchmark_config,
                             results_dict,
                             result,
@@ -475,7 +478,8 @@ def run_remote_command_logic(args):
                 except:
                     return_code |= 1
                     logging.critical(
-                        "Some unexpected exception was caught during remote work. Failing test...."
+                        "Some unexpected exception was caught "
+                        "during remote work. Failing test...."
                     )
                     logging.critical(sys.exc_info()[0])
                     print("-" * 60)
@@ -484,7 +488,7 @@ def run_remote_command_logic(args):
                 finally:
                     # tear-down
                     logging.info("Tearing down setup")
-                    tf_output = tf.destroy()
+                    tf.destroy()
                     logging.info("Tear-down completed")
 
     exit(return_code)

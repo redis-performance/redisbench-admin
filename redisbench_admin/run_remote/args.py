@@ -40,7 +40,8 @@ def create_run_remote_arguments(parser):
         "--upload_results_s3",
         default=False,
         action="store_true",
-        help="uploads the result files and configuration file to public ci.benchmarks.redislabs bucket. Proper credentials are required",
+        help="uploads the result files and configuration file to public "
+        "'ci.benchmarks.redislabs' bucket. Proper credentials are required",
     )
     parser.add_argument("--redistimesies_host", type=str, default=PERFORMANCE_RTS_HOST)
     parser.add_argument("--redistimesies_port", type=int, default=PERFORMANCE_RTS_PORT)

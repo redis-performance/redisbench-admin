@@ -9,7 +9,7 @@ import git
 import paramiko
 import pysftp
 import redis
-import redistimeseries.client as Client
+import redistimeseries.client as client
 from git import Repo
 from jsonpath_ng import parse
 from python_terraform import Terraform
@@ -24,16 +24,15 @@ def get_git_root(path):
     return git_root
 
 
-def viewBarSimple(a, b):
+def view_bar_simple(a, b):
     res = a / int(b) * 100
     sys.stdout.write("\r    Complete precent: %.2f %%" % res)
     sys.stdout.flush()
 
 
-def copyFileToRemoteSetup(
+def copy_file_to_remote_setup(
     server_public_ip, username, private_key, local_file, remote_file, dirname=None
 ):
-    res = False
     full_local_path = local_file
     if dirname is not None:
         full_local_path = "{}/{}".format(dirname, local_file)
@@ -54,7 +53,7 @@ def copyFileToRemoteSetup(
             private_key=private_key,
             cnopts=cnopts,
         )
-        srv.put(full_local_path, remote_file, callback=viewBarSimple)
+        srv.put(full_local_path, remote_file, callback=view_bar_simple)
         srv.close()
         logging.info(
             "Finished Copying file {} to remote server {} ".format(
@@ -69,11 +68,10 @@ def copyFileToRemoteSetup(
         raise Exception(
             "Local file {} does not exists. aborting...".format(full_local_path)
         )
-        res = False
     return res
 
 
-def getFileFromRemoteSetup(
+def fetch_file_from_remote_setup(
     server_public_ip, username, private_key, local_file, remote_file
 ):
     logging.info(
@@ -86,7 +84,7 @@ def getFileFromRemoteSetup(
     srv = pysftp.Connection(
         host=server_public_ip, username=username, private_key=private_key, cnopts=cnopts
     )
-    srv.get(remote_file, local_file, callback=viewBarSimple)
+    srv.get(remote_file, local_file, callback=view_bar_simple)
     srv.close()
     logging.info(
         "Finished retrieving remote file {} from remote server {} ".format(
@@ -95,7 +93,7 @@ def getFileFromRemoteSetup(
     )
 
 
-def executeRemoteCommands(server_public_ip, username, private_key, commands):
+def execute_remote_commands(server_public_ip, username, private_key, commands):
     res = []
     k = paramiko.RSAKey.from_private_key_file(private_key)
     c = paramiko.SSHClient()
@@ -114,7 +112,7 @@ def executeRemoteCommands(server_public_ip, username, private_key, commands):
     return res
 
 
-def checkDatasetRemoteRequirements(
+def check_dataset_remote_requirements(
     benchmark_config,
     server_public_ip,
     username,
@@ -132,7 +130,7 @@ def checkDatasetRemoteRequirements(
                 dataset
             )
         )
-        res = copyFileToRemoteSetup(
+        res = copy_file_to_remote_setup(
             server_public_ip,
             username,
             private_key,
@@ -143,7 +141,7 @@ def checkDatasetRemoteRequirements(
     return res
 
 
-def setupRemoteEnviroment(
+def setup_remote_environment(
     tf: Terraform,
     tf_github_sha,
     tf_github_actor,
@@ -153,13 +151,13 @@ def setupRemoteEnviroment(
     tf_triggering_env,
 ):
     # key    = "benchmarks/infrastructure/tf-oss-redisgraph-standalone-r5.tfstate"
-    return_code, stdout, stderr = tf.init(
+    _, _, _ = tf.init(
         capture_output=True,
         backend_config={
             "key": "benchmarks/infrastructure/{}.tfstate".format(tf_setup_name)
         },
     )
-    return_code, stdout, stderr = tf.refresh()
+    _, _, _ = tf.refresh()
     tf_output = tf.output()
     server_private_ip = tf_output["server_private_ip"]["value"][0]
     server_public_ip = tf_output["server_public_ip"]["value"][0]
@@ -204,7 +202,9 @@ def setupRemoteEnviroment(
     )
 
 
-def extract_git_vars(path=get_git_root("."), github_url=None):
+def extract_git_vars(path=None, github_url=None):
+    if path is None:
+        path = get_git_root(".")
     github_repo = Repo(path)
     if github_url is None:
         github_url = github_repo.remotes[0].config_reader.get("url")
@@ -250,7 +250,7 @@ def extract_git_vars(path=get_git_root("."), github_url=None):
     )
 
 
-def validateResultExpectations(
+def validate_result_expectations(
     benchmark_config, results_dict, result, expectations_key="kpis"
 ):
     for expectation in benchmark_config[expectations_key]:
@@ -329,19 +329,19 @@ def upload_artifacts_to_s3(
     s3 = boto3.resource("s3")
     bucket = s3.Bucket(s3_bucket_name)
     progress = tqdm(unit="files", total=len(artifacts))
-    for input in artifacts:
+    for artifact in artifacts:
         object_key = "{bucket_path}{filename}".format(
-            bucket_path=s3_bucket_path, filename=input
+            bucket_path=s3_bucket_path, filename=artifact
         )
-        bucket.upload_file(input, object_key)
+        bucket.upload_file(artifact, object_key)
         object_acl = s3.ObjectAcl(s3_bucket_name, object_key)
-        response = object_acl.put(ACL=acl)
+        object_acl.put(ACL=acl)
         progress.update()
     progress.close()
 
 
-def checkAndFixPemStr(EC2_PRIVATE_PEM):
-    pem_str = EC2_PRIVATE_PEM.replace("-----BEGIN RSA PRIVATE KEY-----", "")
+def check_and_fix_pem_str(ec2_private_pem: str):
+    pem_str = ec2_private_pem.replace("-----BEGIN RSA PRIVATE KEY-----", "")
     pem_str = pem_str.replace("-----END RSA PRIVATE KEY-----", "")
     pem_str = pem_str.replace(" ", "\n")
     pem_str = "-----BEGIN RSA PRIVATE KEY-----\n" + pem_str
@@ -360,32 +360,35 @@ def get_run_full_filename(
     test_name,
     github_sha,
 ):
-    benchmark_output_filename = "{start_time_str}-{github_org}-{github_repo}-{github_branch}-{test_name}-{deployment_type}-{github_sha}.json".format(
-        start_time_str=start_time_str,
-        github_org=github_org,
-        github_repo=github_repo,
-        github_branch=github_branch,
-        test_name=test_name,
-        deployment_type=deployment_type,
-        github_sha=github_sha,
+    benchmark_output_filename = (
+        "{start_time_str}-{github_org}-{github_repo}-{github_branch}"
+        "-{test_name}-{deployment_type}-{github_sha}.json".format(
+            start_time_str=start_time_str,
+            github_org=github_org,
+            github_repo=github_repo,
+            github_branch=github_branch,
+            test_name=test_name,
+            deployment_type=deployment_type,
+            github_sha=github_sha,
+        )
     )
     return benchmark_output_filename
 
 
-def fetchRemoteSetupFromConfig(
+def fetch_remote_setup_from_config(
     remote_setup_config,
     repo="https://github.com/RedisLabsModules/testing-infrastructure.git",
     branch="master",
 ):
-    type = None
+    setup_type = None
     setup = None
     for remote_setup_property in remote_setup_config:
         if "type" in remote_setup_property:
-            type = remote_setup_property["type"]
+            setup_type = remote_setup_property["type"]
         if "setup" in remote_setup_property:
             setup = remote_setup_property["setup"]
     # fetch terraform folder
-    path = "/terraform/{}-{}".format(type, setup)
+    path = "/terraform/{}-{}".format(setup_type, setup)
     temporary_dir = tempfile.mkdtemp()
     logging.info(
         "Fetching infrastructure definition from git repo {}/{} (branch={})".format(
@@ -394,10 +397,10 @@ def fetchRemoteSetupFromConfig(
     )
     git.Repo.clone_from(repo, temporary_dir, branch=branch, depth=1)
     terraform_working_dir = temporary_dir + path
-    return terraform_working_dir, type
+    return terraform_working_dir, setup_type
 
 
-def pushDataToRedisTimeSeries(rts: Client, branch_time_series_dict: dict):
+def push_data_to_redistimeseries(rts: client, branch_time_series_dict: dict):
     datapoint_errors = 0
     datapoint_inserts = 0
     for timeseries_name, time_series in branch_time_series_dict.items():
@@ -408,7 +411,7 @@ def pushDataToRedisTimeSeries(rts: Client, branch_time_series_dict: dict):
                 )
             )
             rts.create(timeseries_name, labels=time_series["labels"])
-        except redis.exceptions.ResponseError as e:
+        except redis.exceptions.ResponseError:
             logging.warning(
                 "Timeseries named {} already exists".format(timeseries_name)
             )
@@ -433,7 +436,7 @@ def pushDataToRedisTimeSeries(rts: Client, branch_time_series_dict: dict):
     return datapoint_errors, datapoint_inserts
 
 
-def extractRedisGraphVersion(results_dict: dict):
+def extract_redisgraph_version_from_resultdict(results_dict: dict):
     version = None
     if "DBSpecificConfigs" in results_dict:
         if "RedisGraphVersion" in results_dict["DBSpecificConfigs"]:
@@ -441,7 +444,7 @@ def extractRedisGraphVersion(results_dict: dict):
     return version
 
 
-def extractPerVersionTimeSeriesFromResults(
+def extract_perversion_timeseries_from_results(
     datapoints_timestamp: int,
     metrics: list,
     results_dict: dict,
@@ -468,14 +471,18 @@ def extractPerVersionTimeSeriesFromResults(
             "triggering_env": tf_triggering_env,
             "metric": metric_name,
         }
-        ts_name = "ci.benchmarks.redislabs/by.version/{triggering_env}/{github_org}/{github_repo}/{test_name}/{deployment_type}/{version}/{metric}".format(
-            version=project_version,
-            github_org=tf_github_org,
-            github_repo=tf_github_repo,
-            deployment_type=deployment_type,
-            test_name=test_name,
-            triggering_env=tf_triggering_env,
-            metric=metric_name,
+        ts_name = (
+            "ci.benchmarks.redislabs/by.version/"
+            "{triggering_env}/{github_org}/{github_repo}/"
+            "{test_name}/{deployment_type}/{version}/{metric}".format(
+                version=project_version,
+                github_org=tf_github_org,
+                github_repo=tf_github_repo,
+                deployment_type=deployment_type,
+                test_name=test_name,
+                triggering_env=tf_triggering_env,
+                metric=metric_name,
+            )
         )
 
         branch_time_series_dict[ts_name] = {
@@ -485,7 +492,7 @@ def extractPerVersionTimeSeriesFromResults(
     return True, branch_time_series_dict
 
 
-def extractPerBranchTimeSeriesFromResults(
+def extract_perbranch_timeseries_from_results(
     datapoints_timestamp: int,
     metrics: list,
     results_dict: dict,
@@ -512,14 +519,18 @@ def extractPerBranchTimeSeriesFromResults(
             "triggering_env": tf_triggering_env,
             "metric": metric_name,
         }
-        ts_name = "ci.benchmarks.redislabs/by.branch/{triggering_env}/{github_org}/{github_repo}/{test_name}/{deployment_type}/{branch}/{metric}".format(
-            branch=str(tf_github_branch),
-            github_org=tf_github_org,
-            github_repo=tf_github_repo,
-            deployment_type=deployment_type,
-            test_name=test_name,
-            triggering_env=tf_triggering_env,
-            metric=metric_name,
+        ts_name = (
+            "ci.benchmarks.redislabs/by.branch/"
+            "{triggering_env}/{github_org}/{github_repo}/"
+            "{test_name}/{deployment_type}/{branch}/{metric}".format(
+                branch=str(tf_github_branch),
+                github_org=tf_github_org,
+                github_repo=tf_github_repo,
+                deployment_type=deployment_type,
+                test_name=test_name,
+                triggering_env=tf_triggering_env,
+                metric=metric_name,
+            )
         )
 
         branch_time_series_dict[ts_name] = {

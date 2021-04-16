@@ -1,7 +1,7 @@
 import yaml
 
 from redisbench_admin.run.redisgraph_benchmark_go.redisgraph_benchmark_go import (
-    prepareRedisGraphBenchmarkGoCommand,
+    prepare_redisgraph_benchmark_go_command,
 )
 
 
@@ -10,7 +10,7 @@ def test_prepare_redis_graph_benchmark_go_command():
         benchmark_config = yaml.safe_load(yml_file)
         for k in benchmark_config["clientconfig"]:
             if "parameters" in k:
-                command_arr, command_str = prepareRedisGraphBenchmarkGoCommand(
+                command_arr, command_str = prepare_redisgraph_benchmark_go_command(
                     "redisgraph-benchmark-go", "localhost", "6380", k, "result.txt"
                 )
                 assert (

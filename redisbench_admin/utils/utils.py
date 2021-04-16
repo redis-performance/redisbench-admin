@@ -21,13 +21,13 @@ def upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path):
     s3 = boto3.resource("s3")
     bucket = s3.Bucket(s3_bucket_name)
     progress = tqdm(unit="files", total=len(artifacts))
-    for input in artifacts:
+    for artifact in artifacts:
         object_key = "{bucket_path}{filename}".format(
-            bucket_path=s3_bucket_path, filename=input
+            bucket_path=s3_bucket_path, filename=artifact
         )
-        bucket.upload_file(input, object_key)
+        bucket.upload_file(artifact, object_key)
         object_acl = s3.ObjectAcl(s3_bucket_name, object_key)
-        response = object_acl.put(ACL="public-read")
+        object_acl.put(ACL="public-read")
         progress.update()
     progress.close()
 
@@ -90,8 +90,8 @@ def decompress_file(compressed_filename: str, path=None):
     return uncompressed_filename
 
 
-def find_json_path(element, json):
-    return reduce(operator.getitem, element.split("."), json)
+def find_json_path(element, json_dict):
+    return reduce(operator.getitem, element.split("."), json_dict)
 
 
 def ts_milli(at_dt):
@@ -99,10 +99,9 @@ def ts_milli(at_dt):
 
 
 def retrieve_local_or_remote_input_json(
-    config_filename, local_path, option_name, format="json", csv_header=False
+    config_filename, local_path, option_name, input_format="json", csv_header=False
 ):
     benchmark_config = {}
-
     if config_filename.startswith("http"):
         print(
             "retrieving benchmark config file from remote url {}".format(
@@ -111,7 +110,8 @@ def retrieve_local_or_remote_input_json(
         )
         r = requests.get(config_filename)
         benchmark_config[config_filename] = r.json()
-        remote_filename = config_filename[config_filename.rfind("/") + 1 :]
+        filename_start_pos = config_filename.rfind("/") + 1
+        remote_filename = config_filename[filename_start_pos:]
         local_config_file = "{}/{}".format(local_path, remote_filename)
         open(local_config_file, "wb").write(r.content)
         print(
@@ -143,37 +143,41 @@ def retrieve_local_or_remote_input_json(
             my_bucket.download_file(object_summary.key, local_config_file)
             with open(local_config_file, "r") as local_file:
                 read_json_or_csv(
-                    benchmark_config, config_filename, format, local_file, csv_header
+                    benchmark_config,
+                    config_filename,
+                    input_format,
+                    local_file,
+                    csv_header,
                 )
 
     else:
         with open(config_filename, "r") as local_file:
             read_json_or_csv(
-                benchmark_config, config_filename, format, local_file, csv_header
+                benchmark_config, config_filename, input_format, local_file, csv_header
             )
 
     return benchmark_config
 
 
 def read_json_or_csv(
-    benchmark_config, config_filename, format, local_file, csv_has_header
+    benchmark_config, config_filename, read_format, local_file, csv_has_header
 ):
-    if format == "json":
+    if read_format == "json":
         benchmark_config[config_filename] = json.load(local_file)
-    if format == "csv":
+    if read_format == "csv":
         reader = csv.reader(local_file)
         header_array = []
-        dict = {}
+        res_dict = {}
         header_row = next(reader)
         body_rows = [x for x in reader]
         if csv_has_header:
             for col in header_row:
-                dict[col] = []
+                res_dict[col] = []
                 header_array.append(col)
         else:
             for pos, _ in enumerate(header_row):
                 col_name = "col_{}".format(pos)
-                dict[col_name] = []
+                res_dict[col_name] = []
                 header_array.append(col_name)
             newbd = [header_row]
             for x in body_rows:
@@ -183,5 +187,5 @@ def read_json_or_csv(
         for row in body_rows:
             for col_pos, col in enumerate(row):
                 col_name = header_array[col_pos]
-                dict[col_name].append(col)
-        benchmark_config[config_filename] = dict
+                res_dict[col_name].append(col)
+        benchmark_config[config_filename] = res_dict

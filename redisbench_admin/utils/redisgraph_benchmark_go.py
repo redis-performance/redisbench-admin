@@ -1,11 +1,11 @@
 from redisbench_admin.utils.remote import (
-    checkDatasetRemoteRequirements,
-    copyFileToRemoteSetup,
-    executeRemoteCommands,
+    check_dataset_remote_requirements,
+    copy_file_to_remote_setup,
+    execute_remote_commands,
 )
 
 
-def spinUpRemoteRedis(
+def spin_up_standalone_remote_redis(
     benchmark_config,
     server_public_ip,
     username,
@@ -15,10 +15,8 @@ def spinUpRemoteRedis(
     remote_dataset_file,
     dirname=".",
 ):
-    res = False
     # copy the rdb to DB machine
-    dataset = None
-    checkDatasetRemoteRequirements(
+    check_dataset_remote_requirements(
         benchmark_config,
         server_public_ip,
         username,
@@ -28,10 +26,10 @@ def spinUpRemoteRedis(
     )
 
     # copy the module to the DB machine
-    copyFileToRemoteSetup(
+    copy_file_to_remote_setup(
         server_public_ip, username, private_key, local_module_file, remote_module_file
     )
-    executeRemoteCommands(
+    execute_remote_commands(
         server_public_ip,
         username,
         private_key,
@@ -43,14 +41,14 @@ def spinUpRemoteRedis(
             remote_module_file
         )
     ]
-    executeRemoteCommands(server_public_ip, username, private_key, commands)
+    execute_remote_commands(server_public_ip, username, private_key, commands)
 
 
-def setupRemoteBenchmarkTool_redisgraph_benchmark_go(
+def setup_remote_benchmark_tool_redisgraph_benchmark_go(
     client_public_ip, username, private_key, redisbenchmark_go_link
 ):
     commands = [
         "wget {} -q -O /tmp/redisgraph-benchmark-go".format(redisbenchmark_go_link),
         "chmod 755 /tmp/redisgraph-benchmark-go",
     ]
-    executeRemoteCommands(client_public_ip, username, private_key, commands)
+    execute_remote_commands(client_public_ip, username, private_key, commands)

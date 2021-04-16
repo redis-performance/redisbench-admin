@@ -56,7 +56,6 @@ def split_tags_string(extra_tags):
 def split_key_metrics_by_step(key_metrics_specs):
     key_metrics_by_step = {}
     for key_metric_spec in key_metrics_specs:
-        step = None
         if "step" in key_metric_spec and "metric-name" in key_metric_spec:
             step = key_metric_spec["step"]
             metric_name = key_metric_spec["metric-name"]
@@ -66,10 +65,10 @@ def split_key_metrics_by_step(key_metrics_specs):
     return key_metrics_by_step
 
 
-def get_or_none(dict, property):
+def get_or_none(dictionary, prop: str):
     result = None
-    if property in dict:
-        result = dict[property]
+    if prop in dictionary:
+        result = dictionary[prop]
     return result
 
 

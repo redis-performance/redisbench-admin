@@ -21,7 +21,8 @@ def create_extract_arguments(parser):
         "--upload-results-s3",
         default=False,
         action="store_true",
-        help="uploads the result files and configuration file to public benchmarks.redislabs bucket. Proper credentials are required",
+        help="uploads the result files and configuration file to public "
+        "'benchmarks.redislabs' bucket. Proper credentials are required",
     )
     parser.add_argument(
         "--cluster-mode",
