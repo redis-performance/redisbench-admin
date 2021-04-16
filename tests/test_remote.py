@@ -1,4 +1,7 @@
-from redisbench_admin.utils.remote import extract_git_vars, fetchRemoteSetupFromConfig
+from redisbench_admin.utils.remote import (
+    extract_git_vars,
+    fetch_remote_setup_from_config,
+)
 
 
 def test_extract_git_vars():
@@ -76,7 +79,7 @@ def test_extract_git_vars_passing_repo3():
 
 
 def test_fetch_remote_setup_from_config():
-    terraform_working_dir, type = fetchRemoteSetupFromConfig(
+    terraform_working_dir, type = fetch_remote_setup_from_config(
         [{"type": "oss-standalone"}, {"setup": "redistimeseries-m5d"}]
     )
     assert type == "oss-standalone"

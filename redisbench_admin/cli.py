@@ -39,10 +39,10 @@ logging.basicConfig(
 
 
 def main():
-    tool = None
     if len(sys.argv) < 2:
         print(
-            "A minimum of 2 arguments is required: redisbench-admin <tool> <arguments>. Use redisbench-admin --help if you need further assistance."
+            "A minimum of 2 arguments is required: redisbench-admin <tool> <arguments>."
+            " Use redisbench-admin --help if you need further assistance."
         )
         sys.exit(1)
     requested_tool = sys.argv[1]

@@ -1,6 +1,3 @@
-import logging
-
-
 def prepare_ycsb_benchmark_command(
     executable_path: str,
     server_private_ip: object,
@@ -10,9 +7,11 @@ def prepare_ycsb_benchmark_command(
 ):
     """
     Prepares ycsb command parameters
+    :param executable_path:
     :param server_private_ip:
     :param server_plaintext_port:
     :param benchmark_config:
+    :param current_workdir:
     :return: [string] containing the required command to run the benchmark given the configurations
     """
     command_arr = [executable_path]
@@ -48,8 +47,8 @@ def prepare_ycsb_benchmark_command(
 
     command_arr.extend(["-p", '"redis.port={}"'.format(server_plaintext_port)])
 
-    for property in override_workload_properties:
-        for k, v in property.items():
+    for prop in override_workload_properties:
+        for k, v in prop.items():
             if type(v) == str and v.startswith("./"):
                 v = "{}{}".format(current_workdir, v[1:])
             command_arr.extend(["-p", '"{}={}"'.format(k, v)])

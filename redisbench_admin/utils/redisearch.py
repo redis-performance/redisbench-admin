@@ -4,7 +4,8 @@ import redis
 
 
 def check_and_extract_redisearch_info(redis_url):
-    server_info = None
+    redisearch_git_sha = None
+    redisearch_version = None
     print("Checking RediSearch is reachable at {}".format(redis_url))
     try:
         found_redisearch = False

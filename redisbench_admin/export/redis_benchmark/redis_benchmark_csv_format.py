@@ -11,21 +11,22 @@ from redisbench_admin.export.redis_benchmark.metrics_definition import (
 )
 
 
-def warn_if_tag_none(tagName, tagValue, tool, level="Warning"):
-    if tagValue is None:
+def warn_if_tag_none(tag_name, tag_value, tool, level="Warning"):
+    if tag_value is None:
         print(
-            '{}! The tag "{}" is None. Given that {} cannot infer it you should pass it via --extra-tags {}=<value>'.format(
-                level, tagName, tool, tagName
+            '{}! The tag "{}" is None. Given that {} cannot infer'
+            " it you should pass it via --extra-tags {}=<value>".format(
+                level, tag_name, tool, tag_name
             )
         )
 
 
-def get_tag_fromextra_tags_array(array, tagName):
+def get_tag_fromextra_tags_array(array, tag_name):
     result = None
-    for innerDict in array:
-        inneResult = get_or_none(innerDict, tagName)
-        if inneResult is not None:
-            result = inneResult
+    for inner_dict in array:
+        inne_result = get_or_none(inner_dict, tag_name)
+        if inne_result is not None:
+            result = inne_result
     return result
 
 
@@ -50,7 +51,7 @@ def fill_tags_from_passed_array(extra_tags_array):
 
 
 def redis_benchmark_export_logic(
-    benchmark_result, extra_tags_array, results_type, time_series_dict, use_result
+    benchmark_result, extra_tags_array, results_type, time_series_dict
 ):
     ok = True
     start_time_ms = get_tag_fromextra_tags_array(extra_tags_array, "start_time_ms")
@@ -75,7 +76,6 @@ def redis_benchmark_export_logic(
         step,
     ) = fill_tags_from_passed_array(extra_tags_array)
 
-    metrics = {}
     col0_row0 = benchmark_result["col_0"][0]
     # new format
     # "test","rps","avg_latency_ms","min_latency_ms","p50_latency_ms","p95_latency_ms","p99_latency_ms","max_latency_ms"

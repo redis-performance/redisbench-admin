@@ -4,11 +4,11 @@ import re
 import shlex
 import subprocess
 
-from redisbench_admin.utils.remote import executeRemoteCommands
+from redisbench_admin.utils.remote import execute_remote_commands
 
 
 def redis_benchmark_from_stdout_csv_to_json(
-    csv_data, start_time_ms, start_time_str, overloadTestName=None
+    csv_data, start_time_ms, start_time_str, overload_test_name=None
 ):
     results_dict = {
         "Tests": {},
@@ -19,15 +19,15 @@ def redis_benchmark_from_stdout_csv_to_json(
     header = csv_data[0]
     for row in csv_data[1:]:
         test_name = row[0]
-        if overloadTestName is not None:
-            test_name = overloadTestName
+        if overload_test_name is not None:
+            test_name = overload_test_name
         results_dict["Tests"][test_name] = {}
         for pos, value in enumerate(row[1:]):
             results_dict["Tests"][test_name][header[pos + 1]] = value
     return results_dict
 
 
-def prepareRedisBenchmarkCommand(
+def prepare_redis_benchmark_command(
     executable_path: str,
     server_private_ip: object,
     server_plaintext_port: object,
@@ -35,12 +35,13 @@ def prepareRedisBenchmarkCommand(
 ):
     """
     Prepares redis-benchmark command parameters
+    :param executable_path:
     :param server_private_ip:
     :param server_plaintext_port:
     :param benchmark_config:
-    :return: [string] containing the required command to run the benchmark given the configurations
+    :return: [string] containing the required command to run
+        the benchmark given the configurations
     """
-    command_str = ""
     command_arr = [executable_path]
     command_arr.extend(["-h", "{}".format(server_private_ip)])
     command_arr.extend(["-p", "{}".format(server_plaintext_port)])
@@ -48,6 +49,7 @@ def prepareRedisBenchmarkCommand(
     # we need the csv output
     command_arr.extend(["--csv", "-e"])
     last_append = None
+    last_str = ""
     for k in benchmark_config["parameters"]:
         if "clients" in k:
             command_arr.extend(["-c", "{}".format(k["clients"])])
@@ -66,9 +68,8 @@ def prepareRedisBenchmarkCommand(
         command_arr.extend(last_append)
         command_str = command_str + " " + last_str
     logging.info(
-        "Running the benchmark with the following parameters:\n\tArgs array: {}\n\tArgs str: {}".format(
-            command_arr, command_str
-        )
+        "Running the benchmark with the following parameters:"
+        "\n\tArgs array: {}\n\tArgs str: {}".format(command_arr, command_str)
     )
     return command_arr, command_str
 
@@ -87,7 +88,7 @@ def ensure_redis_benchmark_version_from_input(
             benchmark_tool, version_output
         )
     )
-    p = re.compile("redis-benchmark (\d+)\.(\d+)\.(\d+) ")
+    p = re.compile(r"redis-benchmark (\d+)\.(\d+)\.(\d+)")
     m = p.match(version_output)
     if m is None:
         raise Exception(
@@ -150,7 +151,7 @@ def redis_benchmark_ensure_min_version_remote(
     username,
     private_key,
 ):
-    res = executeRemoteCommands(
+    res = execute_remote_commands(
         client_public_ip, username, private_key, ["{} --version".format(benchmark_tool)]
     )
     recv_exit_status, stdout, stderr = res[0]

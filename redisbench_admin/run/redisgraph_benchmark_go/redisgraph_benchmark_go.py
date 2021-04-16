@@ -1,7 +1,7 @@
 import logging
 
 
-def prepareRedisGraphBenchmarkGoCommand(
+def prepare_redisgraph_benchmark_go_command(
     executable_path: str,
     server_private_ip: object,
     server_plaintext_port: object,
@@ -11,10 +11,12 @@ def prepareRedisGraphBenchmarkGoCommand(
 ):
     """
     Prepares redisgraph-benchmark-go command parameters
+    :param executable_path:
     :param server_private_ip:
     :param server_plaintext_port:
     :param benchmark_config:
     :param results_file:
+    :param is_remote:
     :return: string containing the required command to run the benchmark given the configurations
     """
     queries_str = [executable_path]

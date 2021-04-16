@@ -1,5 +1,4 @@
 import json
-import json
 import logging
 import os
 import pathlib
@@ -31,7 +30,7 @@ from redisbench_admin.utils.local import (
 )
 from redisbench_admin.utils.remote import (
     extract_git_vars,
-    validateResultExpectations,
+    validate_result_expectations,
 )
 from redisbench_admin.utils.utils import decompress_file, get_decompressed_filename
 
@@ -47,7 +46,7 @@ def run_local_command_logic(args):
     ) = extract_git_vars()
 
     local_module_file = args.module_path
-    current_workdir = os.path.abspath(".")
+    os.path.abspath(".")
 
     logging.info("Retrieved the following local info:")
     logging.info("\tgithub_actor: {}".format(github_actor))
@@ -57,7 +56,6 @@ def run_local_command_logic(args):
     logging.info("\tgithub_sha: {}".format(github_sha))
 
     return_code = 0
-    files = []
     default_metrics = []
     exporter_timemetric_path = None
     defaults_filename = "defaults.yml"
@@ -96,7 +94,7 @@ def run_local_command_logic(args):
 
     for usecase_filename in files:
         with open(usecase_filename, "r") as stream:
-            dirname = os.path.dirname(os.path.abspath(usecase_filename))
+            os.path.dirname(os.path.abspath(usecase_filename))
             redis_process = None
             benchmark_config = yaml.safe_load(stream)
             kpis_keyname = "kpis"
@@ -108,11 +106,11 @@ def run_local_command_logic(args):
             test_name = benchmark_config["name"]
             # after we've spinned Redis, even on error we should always teardown
             # in case of some unexpected error we fail the test
+            # noinspection PyBroadException
             try:
                 dirname = (".",)
                 # setup Redis
                 # copy the rdb to DB machine
-                dataset = None
                 temporary_dir = tempfile.mkdtemp()
                 logging.info(
                     "Using local temporary dir to spin up Redis Instance. Path: {}".format(
@@ -180,7 +178,7 @@ def run_local_command_logic(args):
                     results_dict = json.load(json_file)
 
                 if "kpis" in benchmark_config:
-                    result = validateResultExpectations(
+                    result = validate_result_expectations(
                         benchmark_config, results_dict, result, expectations_key="kpis"
                     )
                     if result is not True:
@@ -228,7 +226,7 @@ def post_process_benchmark_results(
             stdout.decode("ascii"),
             start_time_ms,
             start_time_str,
-            overloadTestName="Overall",
+            overload_test_name="Overall",
         )
         with open(local_benchmark_output_filename, "w") as json_file:
             json.dump(results_dict, json_file, indent=True)
@@ -339,7 +337,6 @@ def which_local(benchmark_tool, executable, full_path, which_benchmark_tool):
         return which_benchmark_tool
     for dir_file_triple in os.walk(full_path):
         current_dir = dir_file_triple[0]
-        inner_dirs = dir_file_triple[1]
         inner_files = dir_file_triple[2]
         for filename in inner_files:
             full_path_filename = "{}/{}".format(current_dir, filename)

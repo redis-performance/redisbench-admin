@@ -16,10 +16,7 @@ def export_command_logic(args):
     benchmark_files = args.benchmark_result_files
     local_path = os.path.abspath(args.local_dir)
     results_format = args.results_format
-    use_result = args.use_result
-    included_steps = args.steps.split(",")
     input_tags_json = args.input_tags_json
-    start_time_ms = None
     extra_tags_array = split_tags_string(args.extra_tags)
 
     if input_tags_json != "":
@@ -37,13 +34,9 @@ def export_command_logic(args):
         benchmark_results = retrieve_local_or_remote_input_json(
             benchmark_files, local_path, "--benchmark-result-files", "csv"
         )
-        for filename, benchmark_result in benchmark_results.items():
+        for _, benchmark_result in benchmark_results.items():
             ok, time_series_dict = redis_benchmark_export_logic(
-                benchmark_result,
-                extra_tags_array,
-                results_type,
-                time_series_dict,
-                use_result,
+                benchmark_result, extra_tags_array, results_type, time_series_dict
             )
 
     elif results_format == "memtier_benchmark":
@@ -58,7 +51,7 @@ def export_command_logic(args):
     for timeseries_name, time_series in time_series_dict.items():
         try:
             rts.create(timeseries_name, labels=time_series["tags"])
-        except redis.exceptions.ResponseError as e:
+        except redis.exceptions.ResponseError:
             # if ts already exists continue
             pass
         for pos, timestamp in enumerate(time_series["index"]):

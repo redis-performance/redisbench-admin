@@ -3,7 +3,7 @@ import shutil
 import yaml
 
 from redisbench_admin.run.redis_benchmark.redis_benchmark import (
-    prepareRedisBenchmarkCommand,
+    prepare_redis_benchmark_command,
     redis_benchmark_ensure_min_version_local,
     redis_benchmark_from_stdout_csv_to_json,
 )
@@ -14,7 +14,7 @@ def test_prepare_redis_benchmark_command():
         benchmark_config = yaml.safe_load(yml_file)
         for k in benchmark_config["clientconfig"]:
             if "parameters" in k:
-                command_arr, command_str = prepareRedisBenchmarkCommand(
+                command_arr, command_str = prepare_redis_benchmark_command(
                     "redis-benchmark", "localhost", "6380", k
                 )
                 assert (
