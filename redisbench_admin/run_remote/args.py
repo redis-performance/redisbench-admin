@@ -22,10 +22,10 @@ def create_run_remote_arguments(parser):
         default="",
         help="specify a test to run. By default will run all of them.",
     )
-    parser.add_argument("--github_actor", type=str, default=None)
+    parser.add_argument("--github_actor", type=str, default=None, nargs="?", const="")
     parser.add_argument("--github_repo", type=str, default=None)
     parser.add_argument("--github_org", type=str, default=None)
-    parser.add_argument("--github_sha", type=str, default=None)
+    parser.add_argument("--github_sha", type=str, default=None, nargs="?", const="")
     parser.add_argument("--github_branch", type=str, default=None, nargs="?", const="")
     parser.add_argument("--triggering_env", type=str, default=socket.gethostname())
     parser.add_argument("--terraform_bin_path", type=str, default=TERRAFORM_BIN_PATH)
