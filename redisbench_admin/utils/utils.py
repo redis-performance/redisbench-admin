@@ -35,7 +35,7 @@ def upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path):
 def whereis(program):
     for path in os.environ.get("PATH", "").split(":"):
         if os.path.exists(os.path.join(path, program)) and not os.path.isdir(
-                os.path.join(path, program)
+            os.path.join(path, program)
         ):
             return os.path.join(path, program)
     return None
@@ -45,50 +45,52 @@ def whereis(program):
 def required_utilities(utility_list):
     result = 1
     for index in utility_list:
-        if whereis(index) == None:
+        if whereis(index) is None:
             print("Cannot locate " + index + " in path!")
             result = 0
     return result
 
 
-def get_decompressed_filename(compressed_filename:str):
+def get_decompressed_filename(compressed_filename: str):
     uncompressed_filename = None
-    for suffix in [".zip",".tar.gz","tar"]:
+    for suffix in [".zip", ".tar.gz", "tar"]:
         if compressed_filename.endswith(suffix):
-            uncompressed_filename = compressed_filename[:-len(suffix)]
+            uncompressed_filename = compressed_filename[: -len(suffix)]
     return uncompressed_filename
 
 
-def decompress_file(compressed_filename:str, path=None):
+def decompress_file(compressed_filename: str, path=None):
     uncompressed_filename = compressed_filename
-    logging.warning(
-        "Decompressing {}...".format(compressed_filename))
+    logging.warning("Decompressing {}...".format(compressed_filename))
     if compressed_filename.endswith(".zip"):
         with ZipFile(compressed_filename, "r") as zipObj:
             zipObj.extractall(path)
-            suffix=".zip"
-        uncompressed_filename = compressed_filename[:-len(suffix)]
+            suffix = ".zip"
+        uncompressed_filename = compressed_filename[: -len(suffix)]
 
     elif compressed_filename.endswith(".tar.gz"):
         tar = tarfile.open(compressed_filename, "r:gz")
         tar.extractall(path)
         tar.close()
         suffix = ".tar.gz"
-        uncompressed_filename = compressed_filename[:-len(suffix)]
+        uncompressed_filename = compressed_filename[: -len(suffix)]
 
     elif compressed_filename.endswith(".tar"):
         tar = tarfile.open(compressed_filename, "r:")
         tar.extractall(path)
         tar.close()
         suffix = ".tar"
-        uncompressed_filename = compressed_filename[:-len(suffix)]
+        uncompressed_filename = compressed_filename[: -len(suffix)]
     else:
         logging.warning(
-            "Filename {} was not in a supported compression extension [zip|tar.gz|tar]".format(compressed_filename))
+            "Filename {} was not in a supported compression extension [zip|tar.gz|tar]".format(
+                compressed_filename
+            )
+        )
     return uncompressed_filename
 
 
-def findJsonPath(element, json):
+def find_json_path(element, json):
     return reduce(operator.getitem, element.split("."), json)
 
 
@@ -97,7 +99,7 @@ def ts_milli(at_dt):
 
 
 def retrieve_local_or_remote_input_json(
-        config_filename, local_path, option_name, format="json", csv_header=False
+    config_filename, local_path, option_name, format="json", csv_header=False
 ):
     benchmark_config = {}
 
@@ -109,7 +111,7 @@ def retrieve_local_or_remote_input_json(
         )
         r = requests.get(config_filename)
         benchmark_config[config_filename] = r.json()
-        remote_filename = config_filename[config_filename.rfind("/") + 1:]
+        remote_filename = config_filename[config_filename.rfind("/") + 1 :]
         local_config_file = "{}/{}".format(local_path, remote_filename)
         open(local_config_file, "wb").write(r.content)
         print(
@@ -154,7 +156,7 @@ def retrieve_local_or_remote_input_json(
 
 
 def read_json_or_csv(
-        benchmark_config, config_filename, format, local_file, csv_has_header
+    benchmark_config, config_filename, format, local_file, csv_has_header
 ):
     if format == "json":
         benchmark_config[config_filename] = json.load(local_file)

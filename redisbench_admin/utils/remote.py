@@ -15,7 +15,7 @@ from jsonpath_ng import parse
 from python_terraform import Terraform
 from tqdm import tqdm
 
-from redisbench_admin.utils.local import checkDatasetLocalRequirements
+from redisbench_admin.utils.local import check_dataset_local_requirements
 
 
 def get_git_root(path):
@@ -26,12 +26,12 @@ def get_git_root(path):
 
 def viewBarSimple(a, b):
     res = a / int(b) * 100
-    sys.stdout.write("\r    Complete precent: %.2f %%" % (res))
+    sys.stdout.write("\r    Complete precent: %.2f %%" % res)
     sys.stdout.flush()
 
 
 def copyFileToRemoteSetup(
-        server_public_ip, username, private_key, local_file, remote_file, dirname=None
+    server_public_ip, username, private_key, local_file, remote_file, dirname=None
 ):
     res = False
     full_local_path = local_file
@@ -41,32 +41,40 @@ def copyFileToRemoteSetup(
         "Copying local file {} to remote server {}".format(full_local_path, remote_file)
     )
     logging.info(
-        "Checking if local file {} exists: {}.".format(full_local_path, os.path.exists(full_local_path))
+        "Checking if local file {} exists: {}.".format(
+            full_local_path, os.path.exists(full_local_path)
+        )
     )
     if os.path.exists(full_local_path):
         cnopts = pysftp.CnOpts()
         cnopts.hostkeys = None
         srv = pysftp.Connection(
-            host=server_public_ip, username=username, private_key=private_key, cnopts=cnopts
+            host=server_public_ip,
+            username=username,
+            private_key=private_key,
+            cnopts=cnopts,
         )
         srv.put(full_local_path, remote_file, callback=viewBarSimple)
         srv.close()
-        logging.info("Finished Copying file {} to remote server {} ".format(
-            full_local_path, remote_file
-        ))
+        logging.info(
+            "Finished Copying file {} to remote server {} ".format(
+                full_local_path, remote_file
+            )
+        )
         res = True
     else:
         logging.error(
             "Local file {} does not exists. aborting...".format(full_local_path)
         )
         raise Exception(
-            "Local file {} does not exists. aborting...".format(full_local_path))
+            "Local file {} does not exists. aborting...".format(full_local_path)
+        )
         res = False
     return res
 
 
 def getFileFromRemoteSetup(
-        server_public_ip, username, private_key, local_file, remote_file
+    server_public_ip, username, private_key, local_file, remote_file
 ):
     logging.info(
         "Retrieving remote file {} from remote server {} ".format(
@@ -80,9 +88,11 @@ def getFileFromRemoteSetup(
     )
     srv.get(remote_file, local_file, callback=viewBarSimple)
     srv.close()
-    logging.info("Finished retrieving remote file {} from remote server {} ".format(
-        remote_file, server_public_ip
-    ))
+    logging.info(
+        "Finished retrieving remote file {} from remote server {} ".format(
+            remote_file, server_public_ip
+        )
+    )
 
 
 def executeRemoteCommands(server_public_ip, username, private_key, commands):
@@ -105,12 +115,23 @@ def executeRemoteCommands(server_public_ip, username, private_key, commands):
 
 
 def checkDatasetRemoteRequirements(
-        benchmark_config, server_public_ip, username, private_key, remote_dataset_file, dirname
+    benchmark_config,
+    server_public_ip,
+    username,
+    private_key,
+    remote_dataset_file,
+    dirname,
 ):
     res = True
-    dataset, fullpath, tmppath = checkDatasetLocalRequirements(benchmark_config, ".", dirname)
+    dataset, fullpath, tmppath = check_dataset_local_requirements(
+        benchmark_config, ".", dirname
+    )
     if dataset is not None:
-        logging.info('Detected dataset config. Will copy file to remote setup... "{}"'.format(dataset))
+        logging.info(
+            'Detected dataset config. Will copy file to remote setup... "{}"'.format(
+                dataset
+            )
+        )
         res = copyFileToRemoteSetup(
             server_public_ip,
             username,
@@ -123,13 +144,13 @@ def checkDatasetRemoteRequirements(
 
 
 def setupRemoteEnviroment(
-        tf: Terraform,
-        tf_github_sha,
-        tf_github_actor,
-        tf_setup_name,
-        tf_github_org,
-        tf_github_repo,
-        tf_triggering_env,
+    tf: Terraform,
+    tf_github_sha,
+    tf_github_actor,
+    tf_setup_name,
+    tf_github_org,
+    tf_github_repo,
+    tf_triggering_env,
 ):
     # key    = "benchmarks/infrastructure/tf-oss-redisgraph-standalone-r5.tfstate"
     return_code, stdout, stderr = tf.init(
@@ -145,10 +166,10 @@ def setupRemoteEnviroment(
     client_private_ip = tf_output["client_private_ip"]["value"][0]
     client_public_ip = tf_output["client_public_ip"]["value"][0]
     if (
-            server_private_ip is not None
-            or server_public_ip is not None
-            or client_private_ip is not None
-            or client_public_ip is not None
+        server_private_ip is not None
+        or server_public_ip is not None
+        or client_private_ip is not None
+        or client_public_ip is not None
     ):
         logging.warning("Destroying previous setup")
         tf.destroy()
@@ -193,7 +214,7 @@ def extract_git_vars(path=get_git_root("."), github_url=None):
         github_org_name = github_url.split("/")[-2]
         github_repo_name = github_url.split("/")[-1].split(".")[0]
     else:
-        github_url = github_url.replace('.git', '')
+        github_url = github_url.replace(".git", "")
         github_org_name = github_url.split(":")[1].split("/")[0]
         github_repo_name = github_url.split(":")[1].split("/")[1]
     github_sha = github_repo.head.object.hexsha
@@ -202,20 +223,35 @@ def extract_git_vars(path=get_git_root("."), github_url=None):
     try:
         github_branch = github_repo.active_branch
     except TypeError as e:
-        logging.warning("Unable to detected github_branch. caught the following error: {}".format(e.__str__()))
+        logging.warning(
+            "Unable to detected github_branch. caught the following error: {}".format(
+                e.__str__()
+            )
+        )
         github_branch_detached = True
 
     github_actor = None
     try:
         github_actor = github_repo.config_reader().get_value("user", "name")
     except configparser.NoSectionError as e:
-        logging.warning("Unable to detected github_actor. caught the following error: {}".format(e.__str__()))
+        logging.warning(
+            "Unable to detected github_actor. caught the following error: {}".format(
+                e.__str__()
+            )
+        )
         github_branch_detached = True
-    return github_org_name, github_repo_name, github_sha, github_actor, github_branch, github_branch_detached
+    return (
+        github_org_name,
+        github_repo_name,
+        github_sha,
+        github_actor,
+        github_branch,
+        github_branch_detached,
+    )
 
 
 def validateResultExpectations(
-        benchmark_config, results_dict, result, expectations_key="kpis"
+    benchmark_config, results_dict, result, expectations_key="kpis"
 ):
     for expectation in benchmark_config[expectations_key]:
         for comparison_mode, rules in expectation.items():
@@ -287,7 +323,7 @@ def validateResultExpectations(
 
 
 def upload_artifacts_to_s3(
-        artifacts, s3_bucket_name, s3_bucket_path, acl="public-read"
+    artifacts, s3_bucket_name, s3_bucket_path, acl="public-read"
 ):
     logging.info("Uploading results to s3")
     s3 = boto3.resource("s3")
@@ -316,13 +352,13 @@ def checkAndFixPemStr(EC2_PRIVATE_PEM):
 
 
 def get_run_full_filename(
-        start_time_str,
-        deployment_type,
-        github_org,
-        github_repo,
-        github_branch,
-        test_name,
-        github_sha,
+    start_time_str,
+    deployment_type,
+    github_org,
+    github_repo,
+    github_branch,
+    test_name,
+    github_sha,
 ):
     benchmark_output_filename = "{start_time_str}-{github_org}-{github_repo}-{github_branch}-{test_name}-{deployment_type}-{github_sha}.json".format(
         start_time_str=start_time_str,
@@ -337,9 +373,9 @@ def get_run_full_filename(
 
 
 def fetchRemoteSetupFromConfig(
-        remote_setup_config,
-        repo="https://github.com/RedisLabsModules/testing-infrastructure.git",
-        branch="master",
+    remote_setup_config,
+    repo="https://github.com/RedisLabsModules/testing-infrastructure.git",
+    branch="master",
 ):
     type = None
     setup = None
@@ -406,15 +442,15 @@ def extractRedisGraphVersion(results_dict: dict):
 
 
 def extractPerVersionTimeSeriesFromResults(
-        datapoints_timestamp: int,
-        metrics: list,
-        results_dict: dict,
-        project_version: str,
-        tf_github_org: str,
-        tf_github_repo: str,
-        deployment_type: str,
-        test_name: str,
-        tf_triggering_env: str,
+    datapoints_timestamp: int,
+    metrics: list,
+    results_dict: dict,
+    project_version: str,
+    tf_github_org: str,
+    tf_github_repo: str,
+    deployment_type: str,
+    test_name: str,
+    tf_triggering_env: str,
 ):
     branch_time_series_dict = {}
     for jsonpath in metrics:
@@ -450,15 +486,15 @@ def extractPerVersionTimeSeriesFromResults(
 
 
 def extractPerBranchTimeSeriesFromResults(
-        datapoints_timestamp: int,
-        metrics: list,
-        results_dict: dict,
-        tf_github_branch: str,
-        tf_github_org: str,
-        tf_github_repo: str,
-        deployment_type: str,
-        test_name: str,
-        tf_triggering_env: str,
+    datapoints_timestamp: int,
+    metrics: list,
+    results_dict: dict,
+    tf_github_branch: str,
+    tf_github_org: str,
+    tf_github_repo: str,
+    deployment_type: str,
+    test_name: str,
+    tf_triggering_env: str,
 ):
     branch_time_series_dict = {}
     for jsonpath in metrics:

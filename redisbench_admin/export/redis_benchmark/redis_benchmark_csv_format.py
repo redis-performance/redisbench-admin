@@ -1,9 +1,10 @@
 from redisbench_admin.export.common.common import (
-    get_or_None,
+    get_or_none,
     get_kv_tags,
     prepare_tags,
     get_timeserie_name,
-    add_datapoint, get_metric_detail,
+    add_datapoint,
+    get_metric_detail,
 )
 from redisbench_admin.export.redis_benchmark.metrics_definition import (
     redis_benchmark_metrics_definition,
@@ -22,7 +23,7 @@ def warn_if_tag_none(tagName, tagValue, tool, level="Warning"):
 def get_tag_fromextra_tags_array(array, tagName):
     result = None
     for innerDict in array:
-        inneResult = get_or_None(innerDict, tagName)
+        inneResult = get_or_none(innerDict, tagName)
         if inneResult is not None:
             result = inneResult
     return result
@@ -49,7 +50,7 @@ def fill_tags_from_passed_array(extra_tags_array):
 
 
 def redis_benchmark_export_logic(
-        benchmark_result, extra_tags_array, results_type, time_series_dict, use_result
+    benchmark_result, extra_tags_array, results_type, time_series_dict, use_result
 ):
     ok = True
     start_time_ms = get_tag_fromextra_tags_array(extra_tags_array, "start_time_ms")

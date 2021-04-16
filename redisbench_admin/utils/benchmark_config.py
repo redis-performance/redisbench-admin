@@ -1,8 +1,8 @@
 from jsonpath_ng import parse
 
 
-def parseExporterMetricsDefinition(
-        benchmark_config: dict, configkey: str = "redistimeseries"
+def parse_exporter_metrics_definition(
+    benchmark_config: dict, configkey: str = "redistimeseries"
 ):
     metrics = []
     if configkey in benchmark_config:
@@ -12,16 +12,16 @@ def parseExporterMetricsDefinition(
     return metrics
 
 
-def parseExporterTimeMetricDefinition(
-        benchmark_config: dict, configkey: str = "redistimeseries"
+def parse_exporter_timemetric_definition(
+    benchmark_config: dict, configkey: str = "redistimeseries"
 ):
-    metricPath = None
+    metric_path = None
     if "timemetric" in benchmark_config[configkey]:
-        metricPath = benchmark_config[configkey]["timemetric"]
-    return metricPath
+        metric_path = benchmark_config[configkey]["timemetric"]
+    return metric_path
 
 
-def parseExporterTimeMetric(metricPath: str, results_dict: dict):
-    jsonpath_expr = parse(metricPath)
+def parse_exporter_timemetric(metric_path: str, results_dict: dict):
+    jsonpath_expr = parse(metric_path)
     datapoints_timestamp = int(jsonpath_expr.find(results_dict)[0].value)
     return datapoints_timestamp

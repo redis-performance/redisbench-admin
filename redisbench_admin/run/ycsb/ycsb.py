@@ -1,11 +1,12 @@
 import logging
 
-def prepareYCSBBenchmarkCommand(
-        executable_path: str,
-        server_private_ip: object,
-        server_plaintext_port: object,
-        benchmark_config: object,
-        current_workdir,
+
+def prepare_ycsb_benchmark_command(
+    executable_path: str,
+    server_private_ip: object,
+    server_plaintext_port: object,
+    benchmark_config: object,
+    current_workdir,
 ):
     """
     Prepares ycsb command parameters
@@ -30,7 +31,7 @@ def prepareYCSBBenchmarkCommand(
         if "workload" in k:
             workload = k["workload"]
             if workload.startswith("./"):
-                workload = "{}{}".format(current_workdir,workload[1:])
+                workload = "{}{}".format(current_workdir, workload[1:])
         if "threads" in k:
             threads = k["threads"]
         if "override_workload_properties" in k:
@@ -41,17 +42,17 @@ def prepareYCSBBenchmarkCommand(
 
     command_arr.extend(["-P", "{}".format(workload)])
     if threads:
-        command_arr.extend(["-p", "\"threadcount={}\"".format(threads)])
+        command_arr.extend(["-p", '"threadcount={}"'.format(threads)])
 
-    command_arr.extend(["-p", "\"redis.host={}\"".format(server_private_ip)])
+    command_arr.extend(["-p", '"redis.host={}"'.format(server_private_ip)])
 
-    command_arr.extend(["-p", "\"redis.port={}\"".format(server_plaintext_port)])
+    command_arr.extend(["-p", '"redis.port={}"'.format(server_plaintext_port)])
 
     for property in override_workload_properties:
         for k, v in property.items():
-            if type(v)==str and v.startswith("./"):
-                v = "{}{}".format(current_workdir,v[1:])
-            command_arr.extend(["-p", "\"{}={}\"".format(k, v)])
+            if type(v) == str and v.startswith("./"):
+                v = "{}{}".format(current_workdir, v[1:])
+            command_arr.extend(["-p", '"{}={}"'.format(k, v)])
 
     command_str = " ".join(command_arr)
     return command_arr, command_str

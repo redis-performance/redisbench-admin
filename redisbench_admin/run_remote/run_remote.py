@@ -9,14 +9,22 @@ import yaml
 from python_terraform import Terraform
 from redistimeseries.client import Client
 
-from redisbench_admin.run.common import extract_benchmark_tool_settings, prepare_benchmark_parameters, \
-    runRemoteBenchmark, merge_default_and_specific_properties_dictType, process_default_yaml_properties_file, \
-    common_exporter_logic, get_start_time_vars
-from redisbench_admin.run.redis_benchmark.redis_benchmark import redis_benchmark_from_stdout_csv_to_json, \
-    redis_benchmark_ensure_min_version_remote
+from redisbench_admin.run.common import (
+    extract_benchmark_tool_settings,
+    prepare_benchmark_parameters,
+    run_remote_benchmark,
+    merge_default_and_specific_properties_dict_type,
+    process_default_yaml_properties_file,
+    common_exporter_logic,
+    get_start_time_vars,
+)
+from redisbench_admin.run.redis_benchmark.redis_benchmark import (
+    redis_benchmark_from_stdout_csv_to_json,
+    redis_benchmark_ensure_min_version_remote,
+)
 from redisbench_admin.utils.benchmark_config import (
-    parseExporterMetricsDefinition,
-    parseExporterTimeMetricDefinition,
+    parse_exporter_metrics_definition,
+    parse_exporter_timemetric_definition,
 )
 from redisbench_admin.utils.redisgraph_benchmark_go import (
     spinUpRemoteRedis,
@@ -66,9 +74,13 @@ def run_remote_command_logic(args):
             github_sha,
             github_actor,
             github_branch,
-            github_branch_detached,) = extract_git_vars()
+            github_branch_detached,
+        ) = extract_git_vars()
         logging.info(
-            "Extracting tf_github_org given args.github_org was none. Extracte value {}".format(github_org_name))
+            "Extracting tf_github_org given args.github_org was none. Extracte value {}".format(
+                github_org_name
+            )
+        )
         tf_github_org = github_org_name
     if tf_github_actor is None:
         (
@@ -77,9 +89,13 @@ def run_remote_command_logic(args):
             github_sha,
             github_actor,
             github_branch,
-            github_branch_detached,) = extract_git_vars()
+            github_branch_detached,
+        ) = extract_git_vars()
         logging.info(
-            "Extracting tf_github_actor given args.github_actor was none. Extracte value {}".format(github_actor))
+            "Extracting tf_github_actor given args.github_actor was none. Extracte value {}".format(
+                github_actor
+            )
+        )
         tf_github_actor = github_actor
     if tf_github_repo is None:
         (
@@ -88,9 +104,13 @@ def run_remote_command_logic(args):
             github_sha,
             github_actor,
             github_branch,
-            github_branch_detached,) = extract_git_vars()
+            github_branch_detached,
+        ) = extract_git_vars()
         logging.info(
-            "Extracting tf_github_repo given args.github_repo was none. Extracte value {}".format(github_repo_name))
+            "Extracting tf_github_repo given args.github_repo was none. Extracte value {}".format(
+                github_repo_name
+            )
+        )
         tf_github_repo = github_repo_name
     if tf_github_sha is None:
         (
@@ -99,9 +119,13 @@ def run_remote_command_logic(args):
             github_sha,
             github_actor,
             github_branch,
-            github_branch_detached,) = extract_git_vars()
+            github_branch_detached,
+        ) = extract_git_vars()
         logging.info(
-            "Extracting tf_github_sha given args.github_sha was none. Extracte value {}".format(github_sha))
+            "Extracting tf_github_sha given args.github_sha was none. Extracte value {}".format(
+                github_sha
+            )
+        )
         tf_github_sha = github_sha
     if tf_github_branch is None:
         (
@@ -110,9 +134,13 @@ def run_remote_command_logic(args):
             github_sha,
             github_actor,
             github_branch,
-            github_branch_detached,) = extract_git_vars()
+            github_branch_detached,
+        ) = extract_git_vars()
         logging.info(
-            "Extracting tf_github_branch given args.github_branch was none. Extracte value {}".format(github_branch))
+            "Extracting tf_github_branch given args.github_branch was none. Extracte value {}".format(
+                github_branch
+            )
+        )
         tf_github_branch = github_branch
 
     tf_triggering_env = args.triggering_env
@@ -138,10 +166,14 @@ def run_remote_command_logic(args):
     logging.info("Using the following module artifact: {}".format(local_module_file))
     logging.info("Checking if module artifact exists...")
     if os.path.exists(local_module_file) is False:
-        logging.error("Specified module artifact does not exist: {}".format(local_module_file))
+        logging.error(
+            "Specified module artifact does not exist: {}".format(local_module_file)
+        )
         exit(1)
     else:
-        logging.info("Confirmed that module artifact: '{}' exists!".format(local_module_file))
+        logging.info(
+            "Confirmed that module artifact: '{}' exists!".format(local_module_file)
+        )
 
     logging.info("Using the following vars on terraform deployment:")
     logging.info("\tterraform bin path: {}".format(tf_bin_path))
@@ -149,9 +181,10 @@ def run_remote_command_logic(args):
     logging.info("\tgithub_org: {}".format(tf_github_org))
     logging.info("\tgithub_repo: {}".format(tf_github_repo))
     logging.info("\tgithub_branch: {}".format(tf_github_branch))
-    if tf_github_branch is None or tf_github_branch == '':
+    if tf_github_branch is None or tf_github_branch == "":
         logging.error(
-            "The github branch information is not present! This implies that per-branch data is not pushed to the exporters!")
+            "The github branch information is not present! This implies that per-branch data is not pushed to the exporters!"
+        )
     logging.info("\tgithub_sha: {}".format(tf_github_sha))
     logging.info("\ttriggering env: {}".format(tf_triggering_env))
     logging.info("\tprivate_key path: {}".format(private_key))
@@ -162,10 +195,14 @@ def run_remote_command_logic(args):
         tmp_private_key_file.write(pem_str)
 
     if os.path.exists(private_key) is False:
-        logging.error("Specified private key path does not exist: {}".format(private_key))
+        logging.error(
+            "Specified private key path does not exist: {}".format(private_key)
+        )
         exit(1)
     else:
-        logging.info("Confirmed that private key path artifact: '{}' exists!".format(private_key))
+        logging.info(
+            "Confirmed that private key path artifact: '{}' exists!".format(private_key)
+        )
 
     return_code = 0
 
@@ -176,7 +213,9 @@ def run_remote_command_logic(args):
         if "defaults.yml" in files:
             files.remove("defaults.yml")
         logging.info(
-            "Running all specified benchmarks: {}".format(" ".join([str(x) for x in files]))
+            "Running all specified benchmarks: {}".format(
+                " ".join([str(x) for x in files])
+            )
         )
     else:
         logging.info("Running specific benchmark in file: {}".format(args.test))
@@ -191,11 +230,17 @@ def run_remote_command_logic(args):
             logging.info(
                 "Loading default specifications from file: {}".format(defaults_filename)
             )
-            default_kpis, default_metrics, exporter_timemetric_path = process_default_yaml_properties_file(default_kpis,
-                                                                                                           default_metrics,
-                                                                                                           defaults_filename,
-                                                                                                           exporter_timemetric_path,
-                                                                                                           stream)
+            (
+                default_kpis,
+                default_metrics,
+                exporter_timemetric_path,
+            ) = process_default_yaml_properties_file(
+                default_kpis,
+                default_metrics,
+                defaults_filename,
+                exporter_timemetric_path,
+                stream,
+            )
 
     for usecase_filename in files:
         with open(usecase_filename, "r") as stream:
@@ -203,10 +248,14 @@ def run_remote_command_logic(args):
             benchmark_config = yaml.safe_load(stream)
             test_name = benchmark_config["name"]
 
-            if default_kpis != None:
-                merge_default_and_specific_properties_dictType(benchmark_config, default_kpis, "kpis", usecase_filename)
+            if default_kpis is not None:
+                merge_default_and_specific_properties_dict_type(
+                    benchmark_config, default_kpis, "kpis", usecase_filename
+                )
             s3_bucket_path = "{github_org}/{github_repo}/results/{test_name}/".format(
-                github_org=tf_github_org, github_repo=tf_github_repo, test_name=test_name
+                github_org=tf_github_org,
+                github_repo=tf_github_repo,
+                test_name=test_name,
             )
             s3_uri = "https://s3.amazonaws.com/{bucket_name}/{bucket_path}".format(
                 bucket_name=s3_bucket_name, bucket_path=s3_bucket_path
@@ -217,7 +266,9 @@ def run_remote_command_logic(args):
                     benchmark_config["remote"]
                 )
                 logging.info(
-                    "Deploying test defined in {} on AWS using {}".format(usecase_filename, remote_setup)
+                    "Deploying test defined in {} on AWS using {}".format(
+                        usecase_filename, remote_setup
+                    )
                 )
                 tf_setup_name = "{}{}".format(remote_setup, tf_setup_name_sufix)
                 logging.info("Using full setup name: {}".format(tf_setup_name))
@@ -258,33 +309,60 @@ def run_remote_command_logic(args):
                         dirname,
                     )
 
-                    benchmark_min_tool_version, benchmark_min_tool_version_major, benchmark_min_tool_version_minor, benchmark_min_tool_version_patch, benchmark_tool = extract_benchmark_tool_settings(
-                        benchmark_config)
+                    (
+                        benchmark_min_tool_version,
+                        benchmark_min_tool_version_major,
+                        benchmark_min_tool_version_minor,
+                        benchmark_min_tool_version_patch,
+                        benchmark_tool,
+                    ) = extract_benchmark_tool_settings(benchmark_config)
                     if benchmark_tool is not None:
-                        logging.info("Detected benchmark config tool {}".format(benchmark_tool))
+                        logging.info(
+                            "Detected benchmark config tool {}".format(benchmark_tool)
+                        )
                     else:
-                        raise Exception("Unable to detect benchmark tool within 'clientconfig' section. Aborting...")
+                        raise Exception(
+                            "Unable to detect benchmark tool within 'clientconfig' section. Aborting..."
+                        )
 
                     if benchmark_tool not in args.allowed_tools.split(","):
                         raise Exception(
-                            "Benchmark tool {} not in the allowed tools list [{}]. Aborting...".format(benchmark_tool,
-                                                                                                       args.allowed_tools))
+                            "Benchmark tool {} not in the allowed tools list [{}]. Aborting...".format(
+                                benchmark_tool, args.allowed_tools
+                            )
+                        )
                     # setup the benchmark tool
-                    if benchmark_tool == 'redisgraph-benchmark-go':
+                    if benchmark_tool == "redisgraph-benchmark-go":
                         setupRemoteBenchmarkTool_redisgraph_benchmark_go(
-                            client_public_ip, username, private_key, redisbenchmark_go_link
+                            client_public_ip,
+                            username,
+                            private_key,
+                            redisbenchmark_go_link,
                         )
 
-                    if benchmark_min_tool_version is not None and benchmark_tool == "redis-benchmark":
-                        redis_benchmark_ensure_min_version_remote(benchmark_tool, benchmark_min_tool_version,
-                                                                  benchmark_min_tool_version_major,
-                                                                  benchmark_min_tool_version_minor,
-                                                                  benchmark_min_tool_version_patch,
-                                                                  client_public_ip, username, private_key)
+                    if (
+                        benchmark_min_tool_version is not None
+                        and benchmark_tool == "redis-benchmark"
+                    ):
+                        redis_benchmark_ensure_min_version_remote(
+                            benchmark_tool,
+                            benchmark_min_tool_version,
+                            benchmark_min_tool_version_major,
+                            benchmark_min_tool_version_minor,
+                            benchmark_min_tool_version_patch,
+                            client_public_ip,
+                            username,
+                            private_key,
+                        )
 
-                    command, command_str = prepare_benchmark_parameters(benchmark_config, benchmark_tool,
-                                                                        server_plaintext_port,
-                                                                        server_private_ip, remote_results_file, True)
+                    command, command_str = prepare_benchmark_parameters(
+                        benchmark_config,
+                        benchmark_tool,
+                        server_plaintext_port,
+                        server_private_ip,
+                        remote_results_file,
+                        True,
+                    )
 
                     start_time, start_time_ms, start_time_str = get_start_time_vars()
                     local_benchmark_output_filename = get_run_full_filename(
@@ -302,28 +380,34 @@ def run_remote_command_logic(args):
                         )
                     )
                     tmp = None
-                    if benchmark_tool == 'redis-benchmark':
+                    if benchmark_tool == "redis-benchmark":
                         tmp = local_benchmark_output_filename
                         local_benchmark_output_filename = "result.csv"
                     # run the benchmark
-                    runRemoteBenchmark(
+                    run_remote_benchmark(
                         client_public_ip,
                         username,
                         private_key,
                         remote_results_file,
                         local_benchmark_output_filename,
-                        command_str
+                        command_str,
                     )
-                    if benchmark_tool == 'redis-benchmark':
+                    if benchmark_tool == "redis-benchmark":
                         local_benchmark_output_filename = tmp
-                        logging.info("Converting redis-benchmark output to json. Storing it in: {}".format(
-                            local_benchmark_output_filename))
+                        logging.info(
+                            "Converting redis-benchmark output to json. Storing it in: {}".format(
+                                local_benchmark_output_filename
+                            )
+                        )
                         with open("result.csv", "r") as txt_file:
                             csv_data = txt_file.read()
                             logging.info(csv_data)
-                            results_dict = redis_benchmark_from_stdout_csv_to_json(csv_data, start_time_ms,
-                                                                                   start_time_str,
-                                                                                   overloadTestName="Overall")
+                            results_dict = redis_benchmark_from_stdout_csv_to_json(
+                                csv_data,
+                                start_time_ms,
+                                start_time_str,
+                                overloadTestName="Overall",
+                            )
                         with open(local_benchmark_output_filename, "w") as json_file:
                             json.dump(results_dict, json_file, indent=True)
 
@@ -335,7 +419,10 @@ def run_remote_command_logic(args):
 
                     if "kpis" in benchmark_config:
                         result = validateResultExpectations(
-                            benchmark_config, results_dict, result, expectations_key="kpis"
+                            benchmark_config,
+                            results_dict,
+                            result,
+                            expectations_key="kpis",
                         )
                         if result is not True:
                             return_code |= 1
@@ -347,7 +434,9 @@ def run_remote_command_logic(args):
                             )
                         )
                         artifacts = [local_benchmark_output_filename]
-                        upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path)
+                        upload_artifacts_to_s3(
+                            artifacts, s3_bucket_name, s3_bucket_path
+                        )
 
                     if args.push_results_redistimeseries:
                         logging.info("Pushing results to RedisTimeSeries.")
@@ -359,19 +448,30 @@ def run_remote_command_logic(args):
                         # check which metrics to extract
                         metrics = default_metrics
                         if "exporter" in benchmark_config:
-                            extra_metrics = parseExporterMetricsDefinition(
+                            extra_metrics = parse_exporter_metrics_definition(
                                 benchmark_config["exporter"]
                             )
                             metrics.extend(extra_metrics)
-                            extra_timemetric_path = parseExporterTimeMetricDefinition(
-                                benchmark_config["exporter"]
+                            extra_timemetric_path = (
+                                parse_exporter_timemetric_definition(
+                                    benchmark_config["exporter"]
+                                )
                             )
                             if extra_timemetric_path is not None:
                                 exporter_timemetric_path = extra_timemetric_path
 
-                        common_exporter_logic(deployment_type, exporter_timemetric_path, metrics, results_dict, rts,
-                                              test_name, tf_github_branch, tf_github_org, tf_github_repo,
-                                              tf_triggering_env)
+                        common_exporter_logic(
+                            deployment_type,
+                            exporter_timemetric_path,
+                            metrics,
+                            results_dict,
+                            rts,
+                            test_name,
+                            tf_github_branch,
+                            tf_github_org,
+                            tf_github_repo,
+                            tf_triggering_env,
+                        )
                 except:
                     return_code |= 1
                     logging.critical(

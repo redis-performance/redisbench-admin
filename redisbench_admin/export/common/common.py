@@ -22,7 +22,7 @@ def prepare_tags(k):
 
 
 def add_datapoint(
-        time_series_dict, broader_ts_name, start_time_ms, metric_value, tags_array
+    time_series_dict, broader_ts_name, start_time_ms, metric_value, tags_array
 ):
     if broader_ts_name not in time_series_dict:
         tags_dict = {}
@@ -66,7 +66,7 @@ def split_key_metrics_by_step(key_metrics_specs):
     return key_metrics_by_step
 
 
-def get_or_None(dict, property):
+def get_or_none(dict, property):
     result = None
     if property in dict:
         result = dict[property]
@@ -74,14 +74,14 @@ def get_or_None(dict, property):
 
 
 def get_kv_tags(
-        deployment_type,
-        extra_tags_array,
-        git_sha,
-        project,
-        project_version,
-        results_type,
-        step,
-        testcase_name,
+    deployment_type,
+    extra_tags_array,
+    git_sha,
+    project,
+    project_version,
+    results_type,
+    step,
+    testcase_name,
 ):
     common_broader_kv_tags = [
         {"project": project},
@@ -113,14 +113,14 @@ def get_kv_tags(
 
 
 def get_metric_detail(key_metric_spec):
-    metric_step = get_or_None(key_metric_spec, "step")
-    metric_family = get_or_None(key_metric_spec, "metric-family")
-    metric_json_path = get_or_None(key_metric_spec, "metric-json-path")
-    metric_name = get_or_None(key_metric_spec, "metric-name")
-    metric_unit = get_or_None(key_metric_spec, "unit")
-    metric_type = get_or_None(key_metric_spec, "metric-type")
-    metric_comparison = get_or_None(key_metric_spec, "comparison")
-    metric_per_step_comparison_priority = get_or_None(
+    metric_step = get_or_none(key_metric_spec, "step")
+    metric_family = get_or_none(key_metric_spec, "metric-family")
+    metric_json_path = get_or_none(key_metric_spec, "metric-json-path")
+    metric_name = get_or_none(key_metric_spec, "metric-name")
+    metric_unit = get_or_none(key_metric_spec, "unit")
+    metric_type = get_or_none(key_metric_spec, "metric-type")
+    metric_comparison = get_or_none(key_metric_spec, "comparison")
+    metric_per_step_comparison_priority = get_or_none(
         key_metric_spec, "per-step-comparison-metric-priority"
     )
     return (
