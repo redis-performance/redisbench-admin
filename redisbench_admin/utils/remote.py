@@ -159,10 +159,10 @@ def setup_remote_environment(
     )
     _, _, _ = tf.refresh()
     tf_output = tf.output()
-    server_private_ip = tf_output_or_none(tf_output,"server_private_ip")
-    server_public_ip = tf_output_or_none(tf_output,"server_public_ip")
-    client_private_ip = tf_output_or_none(tf_output,"client_private_ip")
-    client_public_ip = tf_output_or_none(tf_output,"client_public_ip")
+    server_private_ip = tf_output_or_none(tf_output, "server_private_ip")
+    server_public_ip = tf_output_or_none(tf_output, "server_public_ip")
+    client_private_ip = tf_output_or_none(tf_output, "client_private_ip")
+    client_public_ip = tf_output_or_none(tf_output, "client_public_ip")
     if (
         server_private_ip is not None
         or server_public_ip is not None
