@@ -319,6 +319,7 @@ def run_remote_command_logic(args):
                         benchmark_min_tool_version_minor,
                         benchmark_min_tool_version_patch,
                         benchmark_tool,
+                        benchmark_tool_source,
                     ) = extract_benchmark_tool_settings(benchmark_config)
                     if benchmark_tool is not None:
                         logging.info(
