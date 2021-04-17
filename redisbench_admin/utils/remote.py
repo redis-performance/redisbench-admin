@@ -159,10 +159,10 @@ def setup_remote_environment(
     )
     _, _, _ = tf.refresh()
     tf_output = tf.output()
-    server_private_ip = tf_output["server_private_ip"]["value"][0]
-    server_public_ip = tf_output["server_public_ip"]["value"][0]
-    client_private_ip = tf_output["client_private_ip"]["value"][0]
-    client_public_ip = tf_output["client_public_ip"]["value"][0]
+    server_private_ip = tf_output_or_none(tf_output,"server_private_ip")
+    server_public_ip = tf_output_or_none(tf_output,"server_public_ip")
+    client_private_ip = tf_output_or_none(tf_output,"client_private_ip")
+    client_public_ip = tf_output_or_none(tf_output,"client_public_ip")
     if (
         server_private_ip is not None
         or server_public_ip is not None
@@ -200,6 +200,13 @@ def setup_remote_environment(
         client_private_ip,
         client_public_ip,
     )
+
+
+def tf_output_or_none(tf_output, output_prop):
+    res = None
+    if output_prop in tf_output:
+        res = tf_output[output_prop]["value"][0]
+    return res
 
 
 def extract_git_vars(path=None, github_url=None):
