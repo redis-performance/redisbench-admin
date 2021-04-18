@@ -51,7 +51,7 @@ def prepare_ycsb_benchmark_command(
         for k, v in prop.items():
             if type(v) == str and v.startswith("./"):
                 v = "{}{}".format(current_workdir, v[1:])
-            command_arr.extend(["-p", '"{}={}"'.format(k, v)])
+            command_arr.extend(["-p", "{}={}".format(k, v)])
 
     command_str = " ".join(command_arr)
     return command_arr, command_str
