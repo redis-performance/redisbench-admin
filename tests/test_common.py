@@ -70,7 +70,7 @@ def test_prepare_benchmark_parameters():
             command_str
             == 'ycsb load redisearch -P workloads/workload-ecommerce -p "threadcount=64"'
             ' -p "redis.host=localhost" -p "redis.port=6380"'
-            ' -p recordcount=100000 -p operationcount=100000'
+            " -p recordcount=100000 -p operationcount=100000"
         )
 
 

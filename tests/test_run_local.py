@@ -31,6 +31,7 @@ def test_check_benchmark_binaries_local_requirements():
         )
         assert benchmark_tool == "ycsb"
 
+
 #
 # def test_run_local_command_logic():
 #     LD_LIBRARY_PATH = "/usr/lib/redis/modules"
