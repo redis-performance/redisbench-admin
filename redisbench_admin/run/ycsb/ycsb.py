@@ -33,7 +33,7 @@ def prepare_ycsb_benchmark_command(
             step = k["step"]
         if "workload" in k:
             workload = k["workload"]
-            if workload.startswith("./"):
+            if current_workdir is not None and workload.startswith("./"):
                 workload = "{}{}".format(current_workdir, workload[1:])
         if "threads" in k:
             threads = k["threads"]
@@ -53,7 +53,7 @@ def prepare_ycsb_benchmark_command(
 
     for prop in override_workload_properties:
         for k, v in prop.items():
-            if type(v) == str and v.startswith("./"):
+            if current_workdir is not None and type(v) == str and v.startswith("./"):
                 v = "{}{}".format(current_workdir, v[1:])
             command_arr.extend(["-p", "{}={}".format(k, v)])
 

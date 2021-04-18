@@ -320,6 +320,7 @@ def run_remote_command_logic(args):
                         benchmark_min_tool_version_patch,
                         benchmark_tool,
                         benchmark_tool_source,
+                        _,
                     ) = extract_benchmark_tool_settings(benchmark_config)
                     if benchmark_tool is not None:
                         logging.info(
@@ -493,3 +494,9 @@ def run_remote_command_logic(args):
                     logging.info("Tear-down completed")
 
     exit(return_code)
+
+
+def absoluteFilePaths(directory):
+    for dirpath, _, filenames in os.walk(directory):
+        for f in filenames:
+            yield os.path.abspath(os.path.join(dirpath, f))

@@ -29,6 +29,7 @@ from redisbench_admin.utils.remote import (
 def extract_benchmark_tool_settings(benchmark_config):
     benchmark_tool = None
     benchmark_tool_source = None
+    benchmark_tool_source_inner_path = None
     benchmark_min_tool_version = None
     benchmark_min_tool_version_major = None
     benchmark_min_tool_version_minor = None
@@ -38,7 +39,12 @@ def extract_benchmark_tool_settings(benchmark_config):
         if "tool" in entry:
             benchmark_tool = entry["tool"]
         if "tool_source" in entry:
-            benchmark_tool_source = entry["tool_source"]
+            for inner_entry in entry["tool_source"]:
+                if "remote" in inner_entry:
+                    benchmark_tool_source = inner_entry["remote"]
+                if "bin_path" in inner_entry:
+                    benchmark_tool_source_inner_path = inner_entry["bin_path"]
+
         if "min-tool-version" in entry:
             benchmark_min_tool_version = entry["min-tool-version"]
             p = re.compile(r"(\d+)\.(\d+)\.(\d+)")
@@ -60,6 +66,7 @@ def extract_benchmark_tool_settings(benchmark_config):
         benchmark_min_tool_version_patch,
         benchmark_tool,
         benchmark_tool_source,
+        benchmark_tool_source_inner_path,
     )
 
 

@@ -12,12 +12,24 @@ def test_prepare_ycsbbenchmark_command():
         for k in benchmark_config["clientconfig"]:
             if "parameters" in k:
                 command_arr, command_str = prepare_ycsb_benchmark_command(
-                    "ycsb", "localhost", "6380", k, "."
+                    "ycsb", "localhost", "6380", k, "/root"
                 )
                 assert (
                     command_str
-                    == 'ycsb load redisearch -P workloads/workload-ecommerce -p "threadcount=64"'
+                    == 'ycsb load redisearch -P /root/workloads/workload-ecommerce -p "threadcount=64"'
                     ' -p "redis.host=localhost" -p "redis.port=6380"'
+                    " -p dictfile=/root/bin/uci_online_retail.csv"
+                    " -p recordcount=100000 -p operationcount=100000"
+                )
+
+                command_arr, command_str = prepare_ycsb_benchmark_command(
+                    "ycsb", "localhost", "6380", k, None
+                )
+                assert (
+                    command_str
+                    == 'ycsb load redisearch -P ./workloads/workload-ecommerce -p "threadcount=64"'
+                    ' -p "redis.host=localhost" -p "redis.port=6380"'
+                    " -p dictfile=./bin/uci_online_retail.csv"
                     " -p recordcount=100000 -p operationcount=100000"
                 )
 
