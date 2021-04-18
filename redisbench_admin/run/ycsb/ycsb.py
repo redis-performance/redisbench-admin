@@ -1,3 +1,7 @@
+import csv
+import re
+
+
 def prepare_ycsb_benchmark_command(
     executable_path: str,
     server_private_ip: object,
@@ -29,7 +33,7 @@ def prepare_ycsb_benchmark_command(
             step = k["step"]
         if "workload" in k:
             workload = k["workload"]
-            if workload.startswith("./"):
+            if current_workdir is not None and workload.startswith("./"):
                 workload = "{}{}".format(current_workdir, workload[1:])
         if "threads" in k:
             threads = k["threads"]
@@ -49,9 +53,36 @@ def prepare_ycsb_benchmark_command(
 
     for prop in override_workload_properties:
         for k, v in prop.items():
-            if type(v) == str and v.startswith("./"):
+            if current_workdir is not None and type(v) == str and v.startswith("./"):
                 v = "{}{}".format(current_workdir, v[1:])
-            command_arr.extend(["-p", '"{}={}"'.format(k, v)])
+            command_arr.extend(["-p", "{}={}".format(k, v)])
 
     command_str = " ".join(command_arr)
     return command_arr, command_str
+
+
+def post_process_ycsb_results(stdout, start_time_ms, start_time_str):
+    results_dict = {
+        "Tests": {},
+        "StartTime": start_time_ms,
+        "StartTimeHuman": start_time_str,
+    }
+    if type(stdout) == bytes:
+        stdout = stdout.decode("ascii")
+    csv_data = list(csv.reader(stdout.splitlines(), delimiter=","))
+    start_row = 0
+    for row in csv_data:
+        if len(row) >= 1:
+            if "[OVERALL]" in row[0]:
+                break
+        start_row = start_row + 1
+    for row in csv_data[start_row:]:
+        if len(row) >= 3:
+            op_group = row[0].strip()[1:-1]
+            metric_name = row[1].strip()
+            metric_name = re.sub("[^0-9a-zA-Z]+", "_", metric_name)
+            value = row[2].strip()
+            if op_group not in results_dict["Tests"]:
+                results_dict["Tests"][op_group] = {}
+            results_dict["Tests"][op_group][metric_name] = value
+    return results_dict

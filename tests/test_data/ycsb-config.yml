@@ -6,12 +6,15 @@ remote:
   - setup: redisearch-m5d
 clientconfig:
   - tool: ycsb
-  - tool_source: https://s3.amazonaws.com/benchmarks.redislabs/redisearch/ycsb/ycsb-redisearch-binding-0.18.0-SNAPSHOT.tar.gz
+  - tool_source:
+    - remote: https://s3.amazonaws.com/benchmarks.redislabs/redisearch/ycsb/ycsb-redisearch-binding-0.18.0-SNAPSHOT.tar.gz
+    - bin_path: ./bin/ycsb
   - parameters:
     - database: redisearch
     - step: load
-    - workload: "workloads/workload-ecommerce"
+    - workload: "./workloads/workload-ecommerce"
     - override_workload_properties:
+      - dictfile: "./bin/uci_online_retail.csv"
       - recordcount: 100000
       - operationcount: 100000
     - threads: 64
@@ -22,10 +25,13 @@ exporter:
       - commit
     timemetric: "$.StartTime"
     metrics:
-      - "$.Tests.Overall.rps"
-      - "$.Tests.Overall.avg_latency_ms"
-      - "$.Tests.Overall.p50_latency_ms"
-      - "$.Tests.Overall.p95_latency_ms"
-      - "$.Tests.Overall.p99_latency_ms"
-      - "$.Tests.Overall.max_latency_ms"
-      - "$.Tests.Overall.min_latency_ms"
+      - "$.Tests.OVERALL.Throughput_ops_sec_"
+      - "$.Tests.OVERALL.Operations"
+      - "$.Tests.INSERT.AverageLatency_us_"
+      - "$.Tests.INSERT.MinLatency_us_"
+      - "$.Tests.INSERT.95thPercentileLatency_us_"
+      - "$.Tests.INSERT.99thPercentileLatency_us_"
+      - "$.Tests.INSERT.MaxLatency_us_"
+      - "$.Tests.INSERT.Return_OK"
+kpis:
+  - eq: { $.Tests.INSERT.Return_OK: 100000 }

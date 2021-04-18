@@ -68,9 +68,10 @@ def test_prepare_benchmark_parameters():
         )
         assert (
             command_str
-            == 'ycsb load redisearch -P workloads/workload-ecommerce -p "threadcount=64"'
+            == 'ycsb load redisearch -P ./workloads/workload-ecommerce -p "threadcount=64"'
             ' -p "redis.host=localhost" -p "redis.port=6380"'
-            ' -p "recordcount=100000" -p "operationcount=100000"'
+            " -p dictfile=./bin/uci_online_retail.csv"
+            " -p recordcount=100000 -p operationcount=100000"
         )
 
 
@@ -90,11 +91,30 @@ def test_extract_benchmark_tool_settings():
                 benchmark_min_tool_version_patch,
                 benchmark_tool,
                 benchmark_tool_source,
+                benchmark_tool_source_bin_path,
             ) = extract_benchmark_tool_settings(benchmark_config)
             assert benchmark_tool is not None
             prepare_benchmark_parameters(
                 benchmark_config, benchmark_tool, "9999", "localhost", "out.txt", False
             )
+
+
+def test_extract_benchmark_tool_settings_with_remote():
+
+    with open("./tests/test_data/ycsb-config.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        (
+            benchmark_min_tool_version,
+            benchmark_min_tool_version_major,
+            benchmark_min_tool_version_minor,
+            benchmark_min_tool_version_patch,
+            benchmark_tool,
+            benchmark_tool_source,
+            benchmark_tool_source_bin_path,
+        ) = extract_benchmark_tool_settings(benchmark_config)
+        assert benchmark_tool is not None
+        assert benchmark_tool_source is not None
+        assert benchmark_tool_source_bin_path is not None
 
 
 def test_common_exporter_logic():
