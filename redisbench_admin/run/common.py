@@ -87,9 +87,10 @@ def prepare_benchmark_parameters(
                 command_arr, command_str = prepare_redis_benchmark_command(
                     benchmark_tool, server_private_ip, server_plaintext_port, entry
                 )
-                redirect_file = ">{}".format(remote_results_file)
-                command_arr.append(redirect_file)
-                command_str = command_str + " " + redirect_file
+                if isremote is True:
+                    redirect_file = "> {}".format(remote_results_file)
+                    command_arr.append(redirect_file)
+                    command_str = command_str + " " + redirect_file
 
             if "redisgraph-benchmark-go" in benchmark_tool:
                 if isremote is True:
