@@ -112,9 +112,14 @@ def prepare_benchmark_parameters(
                     entry,
                     current_workdir,
                 )
+    printed_command_str = command_str
+    printed_command_arr = command_arr
+    if len(command_str) > 200:
+        printed_command_str = command_str[:200] + "... (trimmed output) ..."
+        printed_command_arr = printed_command_arr[:1] + ["(...) trimmed output...."]
     logging.info(
         "Running the benchmark with the following parameters:\n\tArgs array: {}\n\tArgs str: {}".format(
-            command_arr, command_str
+            printed_command_arr, printed_command_str
         )
     )
     return command_arr, command_str
