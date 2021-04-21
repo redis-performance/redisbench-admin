@@ -15,15 +15,19 @@ def redis_benchmark_from_stdout_csv_to_json(
         "StartTime": start_time_ms,
         "StartTimeHuman": start_time_str,
     }
-    csv_data = list(csv.reader(csv_data.splitlines(), delimiter=","))
-    header = csv_data[0]
-    for row in csv_data[1:]:
-        test_name = row[0]
-        if overload_test_name is not None:
-            test_name = overload_test_name
-        results_dict["Tests"][test_name] = {}
-        for pos, value in enumerate(row[1:]):
-            results_dict["Tests"][test_name][header[pos + 1]] = value
+    csv_data = csv_data.splitlines()
+    full_csv = list(csv.reader(csv_data, delimiter=",", quoting=csv.QUOTE_ALL))
+    if len(full_csv) >= 2:
+        header = full_csv[0]
+        for raw_row in csv_data[1:]:
+            row = raw_row.rsplit(",", len(header) - 1)
+            assert len(row) == len(header)
+            test_name = row[0][1:-1].split(" ")[0]
+            if overload_test_name is not None:
+                test_name = overload_test_name
+            results_dict["Tests"][test_name] = {}
+            for pos, value in enumerate(row[1:]):
+                results_dict["Tests"][test_name][header[pos + 1]] = value
     return results_dict
 
 
@@ -67,10 +71,6 @@ def prepare_redis_benchmark_command(
     if last_append is not None:
         command_arr.extend(last_append)
         command_str = command_str + " " + last_str
-    logging.info(
-        "Running the benchmark with the following parameters:"
-        "\n\tArgs array: {}\n\tArgs str: {}".format(command_arr, command_str)
-    )
     return command_arr, command_str
 
 
