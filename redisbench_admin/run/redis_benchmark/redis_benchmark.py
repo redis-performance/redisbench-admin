@@ -27,6 +27,10 @@ def redis_benchmark_from_stdout_csv_to_json(
                 test_name = overload_test_name
             results_dict["Tests"][test_name] = {}
             for pos, value in enumerate(row[1:]):
+                if '"' == value[0]:
+                    value = value[1:]
+                if '"' == value[-1]:
+                    value = value[:-1]
                 results_dict["Tests"][test_name][header[pos + 1]] = value
     return results_dict
 
