@@ -43,7 +43,6 @@ def test_redis_benchmark_export_logic():
         assert "JSON.SET" in results_dict["Tests"]
         assert "73391.80" == results_dict["Tests"]["JSON.SET"]["rps"]
 
-
     with open("./tests/test_data/redis-benchmark-6.2.0-csv.out.2", "r") as csv_file:
         csv_data = csv_file.read()
         results_dict = redis_benchmark_from_stdout_csv_to_json(
