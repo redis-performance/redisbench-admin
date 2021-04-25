@@ -38,6 +38,7 @@ from redisbench_admin.utils.remote import (
     check_and_fix_pem_str,
     get_run_full_filename,
     fetch_remote_setup_from_config,
+    execute_remote_commands,
 )
 
 # internal aux vars
@@ -64,6 +65,23 @@ EC2_PRIVATE_PEM = os.getenv("EC2_PRIVATE_PEM", None)
 
 
 # noinspection PyBroadException
+def setup_remote_benchmark_tool_requirements_tsbs_run_queries_redistimeseries(
+    client_public_ip,
+    username,
+    private_key,
+    tool_link,
+    queries_file_link,
+    remote_tool_link="/tmp/tsbs_run_queries_redistimeseries",
+    remote_queries_file="/tmp/queries-file.input",
+):
+    commands = [
+        "wget {} -q -O {}".format(tool_link, remote_tool_link),
+        "wget {} -q -O {}".format(queries_file_link, remote_queries_file),
+        "chmod 755 {}".format(remote_tool_link),
+    ]
+    execute_remote_commands(client_public_ip, username, private_key, commands)
+
+
 def run_remote_command_logic(args):
     tf_bin_path = args.terraform_bin_path
     tf_github_org = args.github_org
@@ -344,6 +362,26 @@ def run_remote_command_logic(args):
                             username,
                             private_key,
                             redisbenchmark_go_link,
+                        )
+                    if benchmark_tool == "tsbs_run_queries_redistimeseries":
+                        tool_link = (
+                            "https://s3.amazonaws.com/benchmarks.redislabs/"
+                            + "redistimeseries/tools/tsbs/tsbs_run_queries_redistimeseries_linux_amd64"
+                        )
+
+                        queries_file_link = None
+                        for entry in benchmark_config["clientconfig"]:
+                            if "parameters" in entry:
+                                for parameter in entry["parameters"]:
+                                    if "file" in parameter:
+                                        queries_file_link = parameter["file"]
+
+                        setup_remote_benchmark_tool_requirements_tsbs_run_queries_redistimeseries(
+                            client_public_ip,
+                            username,
+                            private_key,
+                            tool_link,
+                            queries_file_link,
                         )
 
                     if (
