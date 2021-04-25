@@ -23,32 +23,41 @@ def check_dataset_local_requirements(
             if "dataset" in k:
                 dataset = k["dataset"]
         if dataset is not None:
-            if dataset.startswith("http"):
-                if not os.path.isdir(datasets_localtemp_dir):
-                    os.mkdir(datasets_localtemp_dir)
-                filename = dataset.split("/")[-1]
-                full_path = "{}/{}".format(datasets_localtemp_dir, filename)
-                if not os.path.exists(full_path):
-                    logging.info(
-                        "Retrieving remote file from {} to {}. Using the dir {} as a cache for next time.".format(
-                            dataset, full_path, datasets_localtemp_dir
-                        )
-                    )
-                    wget.download(dataset, full_path)
-                else:
-                    logging.info(
-                        "Reusing cached remote file (located at {} ).".format(full_path)
-                    )
-            else:
-                full_path = dataset
-                if dirname is not None:
-                    full_path = "{}/{}".format(dirname, full_path)
-                logging.info(
-                    "Copying rdb from {} to {}/dump.rdb".format(full_path, redis_dbdir)
-                )
+            full_path = check_if_needs_remote_fetch(
+                dataset, datasets_localtemp_dir, dirname
+            )
             tmp_path = "{}/dump.rdb".format(redis_dbdir)
+            logging.info(
+                "Copying rdb from {} to {}/dump.rdb".format(full_path, redis_dbdir)
+            )
             copyfile(full_path, tmp_path)
     return dataset, full_path, tmp_path
+
+
+def check_if_needs_remote_fetch(property, localtemp_dir, dirname, full_path=None):
+    if property.startswith("http"):
+        if not os.path.isdir(localtemp_dir):
+            os.mkdir(localtemp_dir)
+        if full_path is None:
+            filename = property.split("/")[-1]
+            full_path = "{}/{}".format(localtemp_dir, filename)
+        if not os.path.exists(full_path):
+            logging.info(
+                "Retrieving remote file from {} to {}. Using the dir {} as a cache for next time.".format(
+                    property, full_path, localtemp_dir
+                )
+            )
+            wget.download(property, full_path)
+        else:
+            logging.info(
+                "Reusing cached remote file (located at {} ).".format(full_path)
+            )
+    else:
+        full_path = property
+        if dirname is not None:
+            full_path = "{}/{}".format(dirname, full_path)
+
+    return full_path
 
 
 def wait_for_conn(conn, retries=20, command="PING", should_be=True):
