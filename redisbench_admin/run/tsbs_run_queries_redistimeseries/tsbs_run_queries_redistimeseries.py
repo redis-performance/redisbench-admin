@@ -31,6 +31,8 @@ def prepare_tsbs_run_queries_redistimeseries_benchmark_command(
     for k in benchmark_config["parameters"]:
         if "workers" in k:
             command_arr.extend(["--workers", str(k["workers"])])
+        if "max-queries" in k:
+            command_arr.extend(["--max-queries", str(k["max-queries"])])
         if "file" in k:
             input_file = k["file"]
             input_file = check_if_needs_remote_fetch(
