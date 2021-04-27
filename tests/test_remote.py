@@ -79,7 +79,7 @@ def test_extract_git_vars_passing_repo3():
 
 
 def test_fetch_remote_setup_from_config():
-    terraform_working_dir, type = fetch_remote_setup_from_config(
+    terraform_working_dir, type, _ = fetch_remote_setup_from_config(
         [{"type": "oss-standalone"}, {"setup": "redistimeseries-m5d"}]
     )
     assert type == "oss-standalone"

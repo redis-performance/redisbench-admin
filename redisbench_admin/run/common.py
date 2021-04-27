@@ -22,7 +22,6 @@ from redisbench_admin.utils.benchmark_config import (
 from redisbench_admin.utils.remote import (
     execute_remote_commands,
     fetch_file_from_remote_setup,
-    extract_redisgraph_version_from_resultdict,
     extract_perversion_timeseries_from_results,
     push_data_to_redistimeseries,
     extract_perbranch_timeseries_from_results,
@@ -274,16 +273,13 @@ def common_exporter_logic(
     tf_github_org,
     tf_github_repo,
     tf_triggering_env,
+    artifact_version="N/A",
 ):
     if exporter_timemetric_path is not None and len(metrics) > 0:
         # extract timestamp
         datapoints_timestamp = parse_exporter_timemetric(
             exporter_timemetric_path, results_dict
         )
-
-        rg_version = extract_redisgraph_version_from_resultdict(results_dict)
-        if rg_version is None:
-            rg_version = "N/A"
 
         # extract per branch datapoints
         (
@@ -293,7 +289,7 @@ def common_exporter_logic(
             datapoints_timestamp,
             metrics,
             results_dict,
-            rg_version,
+            artifact_version,
             tf_github_org,
             tf_github_repo,
             deployment_type,
