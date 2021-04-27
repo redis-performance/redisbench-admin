@@ -184,6 +184,10 @@ def setup_remote_environment(
             "triggering_env": tf_triggering_env,
         },
     )
+    return retrieve_tf_connection_vars(return_code, tf)
+
+
+def retrieve_tf_connection_vars(return_code, tf):
     tf_output = tf.output()
     server_private_ip = tf_output["server_private_ip"]["value"][0]
     server_public_ip = tf_output["server_public_ip"]["value"][0]
@@ -404,7 +408,7 @@ def fetch_remote_setup_from_config(
     )
     git.Repo.clone_from(repo, temporary_dir, branch=branch, depth=1)
     terraform_working_dir = temporary_dir + path
-    return terraform_working_dir, setup_type
+    return terraform_working_dir, setup_type, setup
 
 
 def push_data_to_redistimeseries(rts: client, branch_time_series_dict: dict):

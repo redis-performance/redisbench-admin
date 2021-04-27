@@ -177,12 +177,15 @@ def run_local_command_logic(args):
                 with open(local_benchmark_output_filename, "r") as json_file:
                     results_dict = json.load(json_file)
 
-                if "kpis" in benchmark_config:
-                    result = validate_result_expectations(
-                        benchmark_config, results_dict, result, expectations_key="kpis"
-                    )
-                    if result is not True:
-                        return_code |= 1
+                    if "kpis" in benchmark_config:
+                        result = validate_result_expectations(
+                            benchmark_config,
+                            results_dict,
+                            result,
+                            expectations_key="kpis",
+                        )
+                        if result is not True:
+                            return_code |= 1
             except:
                 return_code |= 1
                 logging.critical(

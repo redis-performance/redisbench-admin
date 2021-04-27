@@ -39,6 +39,8 @@ from redisbench_admin.utils.remote import (
     get_run_full_filename,
     fetch_remote_setup_from_config,
     execute_remote_commands,
+    extract_redisgraph_version_from_resultdict,
+    retrieve_tf_connection_vars,
 )
 
 # internal aux vars
@@ -80,6 +82,39 @@ def setup_remote_benchmark_tool_requirements_tsbs_run_queries_redistimeseries(
         "chmod 755 {}".format(remote_tool_link),
     ]
     execute_remote_commands(client_public_ip, username, private_key, commands)
+
+
+def extract_artifact_version_remote(
+    server_public_ip, server_public_port, username, private_key
+):
+    commands = [
+        "redis-cli -h {} -p {} info modules".format(
+            server_public_ip, server_public_port
+        ),
+    ]
+    res = execute_remote_commands(server_public_ip, username, private_key, commands)
+    recv_exit_status, stdout, stderr = res[0]
+    print(stdout)
+    version = extract_module_semver_from_info_modules_cmd(stdout)
+    return version
+
+
+def extract_module_semver_from_info_modules_cmd(stdout):
+    version = None
+    if type(stdout) == str:
+        info_modules_output = stdout.split("\n")[1:]
+    else:
+        info_modules_output = stdout[1:]
+    for module_detail_line in info_modules_output:
+        detail_arr = module_detail_line.split(",")
+        if len(detail_arr) > 1:
+            module_name = detail_arr[0].split("=")
+            module_name = module_name[1]
+            version = detail_arr[1].split("=")[1]
+            logging.info(
+                "Detected artifact={}, semver={}.".format(module_name, version)
+            )
+    return version
 
 
 def run_remote_command_logic(args):
@@ -263,7 +298,7 @@ def run_remote_command_logic(args):
                 exporter_timemetric_path,
                 stream,
             )
-
+    remote_envs = {}
     for usecase_filename in files:
         with open(usecase_filename, "r") as stream:
             dirname = os.path.dirname(os.path.abspath(usecase_filename))
@@ -284,9 +319,11 @@ def run_remote_command_logic(args):
             )
 
             if "remote" in benchmark_config:
-                remote_setup, deployment_type = fetch_remote_setup_from_config(
-                    benchmark_config["remote"]
-                )
+                (
+                    remote_setup,
+                    deployment_type,
+                    remote_id,
+                ) = fetch_remote_setup_from_config(benchmark_config["remote"])
                 logging.info(
                     "Deploying test defined in {} on AWS using {}".format(
                         usecase_filename, remote_setup
@@ -294,28 +331,50 @@ def run_remote_command_logic(args):
                 )
                 tf_setup_name = "{}{}".format(remote_setup, tf_setup_name_sufix)
                 logging.info("Using full setup name: {}".format(tf_setup_name))
-                # check if terraform is present
-                tf = Terraform(
-                    working_dir=remote_setup,
-                    terraform_bin_path=tf_bin_path,
-                )
-                (
-                    return_code,
-                    username,
-                    server_private_ip,
-                    server_public_ip,
-                    server_plaintext_port,
-                    client_private_ip,
-                    client_public_ip,
-                ) = setup_remote_environment(
-                    tf,
-                    tf_github_sha,
-                    tf_github_actor,
-                    tf_setup_name,
-                    tf_github_org,
-                    tf_github_repo,
-                    tf_triggering_env,
-                )
+                if remote_id not in remote_envs:
+                    # check if terraform is present
+                    tf = Terraform(
+                        working_dir=remote_setup,
+                        terraform_bin_path=tf_bin_path,
+                    )
+                    (
+                        tf_return_code,
+                        username,
+                        server_private_ip,
+                        server_public_ip,
+                        server_plaintext_port,
+                        client_private_ip,
+                        client_public_ip,
+                    ) = setup_remote_environment(
+                        tf,
+                        tf_github_sha,
+                        tf_github_actor,
+                        tf_setup_name,
+                        tf_github_org,
+                        tf_github_repo,
+                        tf_triggering_env,
+                    )
+                    remote_envs[remote_id] = tf
+                else:
+                    logging.info("Reusing remote setup {}".format(remote_id))
+                    tf = remote_envs[remote_id]
+                    (
+                        tf_return_code,
+                        username,
+                        server_private_ip,
+                        server_public_ip,
+                        server_plaintext_port,
+                        client_private_ip,
+                        client_public_ip,
+                    ) = retrieve_tf_connection_vars(None, tf)
+                    commands = [
+                        "redis-cli -h {} -p {} shutdown".format(
+                            server_private_ip, server_plaintext_port
+                        )
+                    ]
+                    execute_remote_commands(
+                        server_public_ip, username, private_key, commands
+                    )
                 # after we've created the env, even on error we should always teardown
                 # in case of some unexpected error we fail the test
                 try:
@@ -330,7 +389,9 @@ def run_remote_command_logic(args):
                         remote_dataset_file,
                         dirname,
                     )
-
+                    artifact_version = extract_artifact_version_remote(
+                        server_public_ip, server_plaintext_port, username, private_key
+                    )
                     (
                         benchmark_min_tool_version,
                         benchmark_min_tool_version_major,
@@ -460,6 +521,19 @@ def run_remote_command_logic(args):
                     with open(local_benchmark_output_filename, "r") as json_file:
                         results_dict = json.load(json_file)
 
+                    # if the benchmark tool is redisgraph-benchmark-go and
+                    # we still dont have the artifact semver we can extract it from the results dict
+                    if (
+                        benchmark_tool == "redisgraph-benchmark-go"
+                        and artifact_version is None
+                    ):
+                        artifact_version = extract_redisgraph_version_from_resultdict(
+                            results_dict
+                        )
+
+                    if artifact_version is None:
+                        artifact_version = "N/A"
+
                     if "kpis" in benchmark_config:
                         result = validate_result_expectations(
                             benchmark_config,
@@ -514,6 +588,7 @@ def run_remote_command_logic(args):
                             tf_github_org,
                             tf_github_repo,
                             tf_triggering_env,
+                            artifact_version,
                         )
                 except:
                     return_code |= 1
@@ -525,11 +600,12 @@ def run_remote_command_logic(args):
                     print("-" * 60)
                     traceback.print_exc(file=sys.stdout)
                     print("-" * 60)
-                finally:
-                    # tear-down
-                    logging.info("Tearing down setup")
-                    tf.destroy()
-                    logging.info("Tear-down completed")
+
+    for remote_setup_name, tf in remote_envs.items():
+        # tear-down
+        logging.info("Tearing down setup {}".format(remote_setup_name))
+        tf.destroy()
+        logging.info("Tear-down completed")
 
     exit(return_code)
 
