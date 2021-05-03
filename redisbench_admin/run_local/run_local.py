@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 
+import redis
 import wget
 import yaml
 
@@ -22,6 +23,9 @@ from redisbench_admin.run.redis_benchmark.redis_benchmark import (
     redis_benchmark_ensure_min_version_local,
 )
 from redisbench_admin.run.ycsb.ycsb import post_process_ycsb_results
+from redisbench_admin.run_remote.run_remote import (
+    extract_module_semver_from_info_modules_cmd,
+)
 from redisbench_admin.utils.local import (
     spin_up_local_redis,
     get_local_run_full_filename,
@@ -47,6 +51,7 @@ def run_local_command_logic(args):
 
     local_module_file = args.module_path
     os.path.abspath(".")
+    required_modules = args.required_module
 
     logging.info("Retrieved the following local info:")
     logging.info("\tgithub_actor: {}".format(github_actor))
@@ -126,6 +131,29 @@ def run_local_command_logic(args):
                 )
                 if is_process_alive(redis_process) is False:
                     raise Exception("Redis process is not alive. Failing test.")
+
+                r = redis.StrictRedis(port=args.port)
+                stdout = r.execute_command("info modules")
+                print(stdout)
+                (
+                    module_names,
+                    _,
+                ) = extract_module_semver_from_info_modules_cmd(stdout)
+                if len(required_modules) > 0:
+                    logging.info(
+                        "Checking if the following required modules {} are present".format(
+                            required_modules
+                        )
+                    )
+                for required_module in required_modules:
+                    if required_module not in module_names:
+                        raise Exception(
+                            "Unable to detect required module {} in {}. Aborting...".format(
+                                required_module,
+                                module_names,
+                            )
+                        )
+
                 # setup the benchmark
                 start_time, start_time_ms, start_time_str = get_start_time_vars()
                 local_benchmark_output_filename = get_local_run_full_filename(

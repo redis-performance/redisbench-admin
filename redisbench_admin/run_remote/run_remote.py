@@ -95,12 +95,15 @@ def extract_artifact_version_remote(
     res = execute_remote_commands(server_public_ip, username, private_key, commands)
     recv_exit_status, stdout, stderr = res[0]
     print(stdout)
-    version = extract_module_semver_from_info_modules_cmd(stdout)
-    return version
+    module_name, version = extract_module_semver_from_info_modules_cmd(stdout)
+    return module_name, version
 
 
 def extract_module_semver_from_info_modules_cmd(stdout):
-    version = None
+    versions = []
+    module_names = []
+    if type(stdout) == bytes:
+        stdout = stdout.decode()
     if type(stdout) == str:
         info_modules_output = stdout.split("\n")[1:]
     else:
@@ -114,7 +117,9 @@ def extract_module_semver_from_info_modules_cmd(stdout):
             logging.info(
                 "Detected artifact={}, semver={}.".format(module_name, version)
             )
-    return version
+            module_names.append(module_name)
+            versions.append(version)
+    return module_names, versions
 
 
 def run_remote_command_logic(args):
@@ -124,6 +129,7 @@ def run_remote_command_logic(args):
     tf_github_repo = args.github_repo
     tf_github_sha = args.github_sha
     tf_github_branch = args.github_branch
+    required_modules = args.required_module
 
     if tf_github_org is None:
         (
@@ -389,9 +395,27 @@ def run_remote_command_logic(args):
                         remote_dataset_file,
                         dirname,
                     )
-                    artifact_version = extract_artifact_version_remote(
+                    module_names, artifact_versions = extract_artifact_version_remote(
                         server_public_ip, server_plaintext_port, username, private_key
                     )
+                    if len(required_modules) > 0:
+                        logging.info(
+                            "Checking if the following required modules {} are present".format(
+                                required_modules
+                            )
+                        )
+                    for required_module in required_modules:
+                        if required_module not in module_names:
+                            raise Exception(
+                                "Unable to detect required module {} in {}, using remote DB with IP {}, PORT {}. Aborting...".format(
+                                    required_module,
+                                    module_names,
+                                    server_public_ip,
+                                    server_plaintext_port,
+                                )
+                            )
+
+                    artifact_version = artifact_versions[0]
                     (
                         benchmark_min_tool_version,
                         benchmark_min_tool_version_major,
