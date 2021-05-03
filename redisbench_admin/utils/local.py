@@ -94,7 +94,7 @@ def spin_up_local_redis(
         )
     )
     redis_process = subprocess.Popen(command)
-    result = wait_for_conn(redis.StrictRedis())
+    result = wait_for_conn(redis.StrictRedis(port=port))
     if result is True:
         logging.info("Redis available")
     return redis_process

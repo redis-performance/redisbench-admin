@@ -12,5 +12,12 @@ def create_run_local_arguments(parser):
         default="",
         help="specify a test to run. By default will run all of them.",
     )
+    parser.add_argument(
+        "--required-module",
+        default=None,
+        action="append",
+        help="path to the module file. "
+        "You can use `--required-module` more than once",
+    )
     parser.add_argument("--port", type=int, default=6379)
     return parser

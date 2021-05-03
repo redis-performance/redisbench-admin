@@ -26,6 +26,13 @@ def create_run_remote_arguments(parser):
     parser.add_argument("--github_repo", type=str, default=None)
     parser.add_argument("--github_org", type=str, default=None)
     parser.add_argument("--github_sha", type=str, default=None, nargs="?", const="")
+    parser.add_argument(
+        "--required-module",
+        default=None,
+        action="append",
+        help="path to the module file. "
+        "You can use `--required-module` more than once",
+    )
     parser.add_argument("--github_branch", type=str, default=None, nargs="?", const="")
     parser.add_argument("--triggering_env", type=str, default=socket.gethostname())
     parser.add_argument("--terraform_bin_path", type=str, default=TERRAFORM_BIN_PATH)
