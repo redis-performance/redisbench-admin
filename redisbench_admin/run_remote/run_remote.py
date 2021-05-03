@@ -398,22 +398,24 @@ def run_remote_command_logic(args):
                     module_names, artifact_versions = extract_artifact_version_remote(
                         server_public_ip, server_plaintext_port, username, private_key
                     )
-                    if len(required_modules) > 0:
-                        logging.info(
-                            "Checking if the following required modules {} are present".format(
-                                required_modules
-                            )
-                        )
-                    for required_module in required_modules:
-                        if required_module not in module_names:
-                            raise Exception(
-                                "Unable to detect required module {} in {}, using remote DB with IP {}, PORT {}. Aborting...".format(
-                                    required_module,
-                                    module_names,
-                                    server_public_ip,
-                                    server_plaintext_port,
+                    if required_modules is not None:
+                        if len(required_modules) > 0:
+                            logging.info(
+                                "Checking if the following required modules {} are present".format(
+                                    required_modules
                                 )
                             )
+                            for required_module in required_modules:
+                                if required_module not in module_names:
+                                    raise Exception(
+                                        "Unable to detect required module {} in {}"
+                                        ", using remote DB with IP {}, PORT {}. Aborting...".format(
+                                            required_module,
+                                            module_names,
+                                            server_public_ip,
+                                            server_plaintext_port,
+                                        )
+                                    )
 
                     artifact_version = artifact_versions[0]
                     (

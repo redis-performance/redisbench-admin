@@ -139,20 +139,21 @@ def run_local_command_logic(args):
                     module_names,
                     _,
                 ) = extract_module_semver_from_info_modules_cmd(stdout)
-                if len(required_modules) > 0:
-                    logging.info(
-                        "Checking if the following required modules {} are present".format(
-                            required_modules
-                        )
-                    )
-                for required_module in required_modules:
-                    if required_module not in module_names:
-                        raise Exception(
-                            "Unable to detect required module {} in {}. Aborting...".format(
-                                required_module,
-                                module_names,
+                if required_modules is not None:
+                    if len(required_modules) > 0:
+                        logging.info(
+                            "Checking if the following required modules {} are present".format(
+                                required_modules
                             )
                         )
+                        for required_module in required_modules:
+                            if required_module not in module_names:
+                                raise Exception(
+                                    "Unable to detect required module {} in {}. Aborting...".format(
+                                        required_module,
+                                        module_names,
+                                    )
+                                )
 
                 # setup the benchmark
                 start_time, start_time_ms, start_time_str = get_start_time_vars()
