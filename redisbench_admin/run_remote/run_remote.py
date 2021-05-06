@@ -46,7 +46,7 @@ from redisbench_admin.utils.remote import (
 # internal aux vars
 redisbenchmark_go_link = (
     "https://s3.amazonaws.com/benchmarks.redislabs/"
-    "redisgraph/redisgraph-benchmark-go/unstable/"
+    "tools/redisgraph-benchmark-go/unstable/"
     "redisgraph-benchmark-go_linux_amd64"
 )
 remote_dataset_file = "/tmp/dump.rdb"
