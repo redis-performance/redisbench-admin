@@ -1,8 +1,5 @@
 import datetime as dt
 import logging
-import re
-
-import yaml
 
 from redisbench_admin.run.redis_benchmark.redis_benchmark import (
     prepare_redis_benchmark_command,
@@ -15,8 +12,6 @@ from redisbench_admin.run.tsbs_run_queries_redistimeseries.tsbs_run_queries_redi
 )
 from redisbench_admin.run.ycsb.ycsb import prepare_ycsb_benchmark_command
 from redisbench_admin.utils.benchmark_config import (
-    parse_exporter_metrics_definition,
-    parse_exporter_timemetric_definition,
     parse_exporter_timemetric,
 )
 from redisbench_admin.utils.remote import (
@@ -26,50 +21,6 @@ from redisbench_admin.utils.remote import (
     push_data_to_redistimeseries,
     extract_perbranch_timeseries_from_results,
 )
-
-
-def extract_benchmark_tool_settings(benchmark_config):
-    benchmark_tool = None
-    benchmark_tool_source = None
-    benchmark_tool_source_inner_path = None
-    benchmark_min_tool_version = None
-    benchmark_min_tool_version_major = None
-    benchmark_min_tool_version_minor = None
-    benchmark_min_tool_version_patch = None
-
-    for entry in benchmark_config["clientconfig"]:
-        if "tool" in entry:
-            benchmark_tool = entry["tool"]
-        if "tool_source" in entry:
-            for inner_entry in entry["tool_source"]:
-                if "remote" in inner_entry:
-                    benchmark_tool_source = inner_entry["remote"]
-                if "bin_path" in inner_entry:
-                    benchmark_tool_source_inner_path = inner_entry["bin_path"]
-
-        if "min-tool-version" in entry:
-            benchmark_min_tool_version = entry["min-tool-version"]
-            p = re.compile(r"(\d+)\.(\d+)\.(\d+)")
-            m = p.match(benchmark_min_tool_version)
-            if m is None:
-                logging.error(
-                    "Unable to extract semversion from 'min-tool-version'."
-                    " Will not enforce version"
-                )
-                benchmark_min_tool_version = None
-            else:
-                benchmark_min_tool_version_major = m.group(1)
-                benchmark_min_tool_version_minor = m.group(2)
-                benchmark_min_tool_version_patch = m.group(3)
-    return (
-        benchmark_min_tool_version,
-        benchmark_min_tool_version_major,
-        benchmark_min_tool_version_minor,
-        benchmark_min_tool_version_patch,
-        benchmark_tool,
-        benchmark_tool_source,
-        benchmark_tool_source_inner_path,
-    )
 
 
 def prepare_benchmark_parameters(
@@ -181,85 +132,6 @@ def run_remote_benchmark(
             remote_results_file,
         )
     return remote_run_result
-
-
-def merge_default_and_specific_properties_dict_type(
-    benchmark_config, default_properties, propertygroup_keyname, usecase_filename
-):
-    if propertygroup_keyname not in benchmark_config:
-        benchmark_config[propertygroup_keyname] = default_properties
-        logging.info(
-            "Using exclusively default '{}' properties (total={}) given the file {} had no '{}' property group".format(
-                propertygroup_keyname,
-                len(benchmark_config[propertygroup_keyname].keys()),
-                usecase_filename,
-                propertygroup_keyname,
-            )
-        )
-    else:
-        usecase_kpi = None
-        use_case_specific_properties = benchmark_config[propertygroup_keyname]
-        for default_property in default_properties:
-            default_rule, default_details = list(default_property.items())[0]
-            default_condition = list(default_details.values())[0]
-            comparison_key = "{}{}".format(default_rule, default_condition)
-            found = False
-            for usecase_kpi in use_case_specific_properties:
-                usecase_rule, usecase_details = list(usecase_kpi.items())[0]
-                usecase_condition = list(usecase_details.values())[0]
-                usecase_comparison_key = "{}{}".format(usecase_rule, usecase_condition)
-                if comparison_key == usecase_comparison_key:
-                    found = True
-            if found:
-                logging.info(
-                    "Skipping to add default '{}' property ({}) given the file {}"
-                    " had the same specific property ({})".format(
-                        propertygroup_keyname,
-                        default_property,
-                        usecase_filename,
-                        usecase_kpi,
-                    )
-                )
-            else:
-                use_case_specific_properties.append(default_property)
-                logging.info(
-                    "Adding a default '{}' property ({}) given the file {} did not had the specific property".format(
-                        propertygroup_keyname, default_property, usecase_filename
-                    )
-                )
-
-
-def process_default_yaml_properties_file(
-    default_kpis, default_metrics, defaults_filename, exporter_timemetric_path, stream
-):
-    default_config = yaml.safe_load(stream)
-    if "exporter" in default_config:
-        default_metrics = parse_exporter_metrics_definition(default_config["exporter"])
-        if len(default_metrics) > 0:
-            logging.info(
-                "Found RedisTimeSeries default metrics specification."
-                " Will include the following metrics on all benchmarks {}".format(
-                    " ".join(default_metrics)
-                )
-            )
-        exporter_timemetric_path = parse_exporter_timemetric_definition(
-            default_config["exporter"]
-        )
-        if exporter_timemetric_path is not None:
-            logging.info(
-                "Found RedisTimeSeries default time metric specification."
-                " Will use the following JSON path to retrieve the test time {}".format(
-                    exporter_timemetric_path
-                )
-            )
-    if "kpis" in default_config:
-        logging.info(
-            "Loading default KPIs specifications from file: {}".format(
-                defaults_filename
-            )
-        )
-        default_kpis = default_config["kpis"]
-    return default_kpis, default_metrics, exporter_timemetric_path
 
 
 def common_exporter_logic(
