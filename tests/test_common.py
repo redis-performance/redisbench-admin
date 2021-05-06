@@ -9,11 +9,14 @@ from redisbench_admin.export.common.common import (
     get_or_none,
 )
 from redisbench_admin.run.common import (
-    get_start_time_vars,
     prepare_benchmark_parameters,
-    extract_benchmark_tool_settings,
+    get_start_time_vars,
     common_exporter_logic,
+)
+
+from redisbench_admin.utils.benchmark_config import (
     process_default_yaml_properties_file,
+    extract_benchmark_tool_settings,
 )
 
 
