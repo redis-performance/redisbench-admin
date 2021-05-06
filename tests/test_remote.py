@@ -3,7 +3,8 @@ from redistimeseries.client import Client
 
 from redisbench_admin.utils.remote import (
     extract_git_vars,
-    fetch_remote_setup_from_config, push_data_to_redistimeseries,
+    fetch_remote_setup_from_config,
+    push_data_to_redistimeseries,
 )
 
 
@@ -96,6 +97,8 @@ def test_push_data_to_redistimeseries():
     except redis.exceptions.ConnectionError:
         pass
     finally:
-        datapoint_errors, datapoint_inserts = push_data_to_redistimeseries(rts, time_series_dict)
+        datapoint_errors, datapoint_inserts = push_data_to_redistimeseries(
+            rts, time_series_dict
+        )
         assert datapoint_errors == 0
         assert datapoint_inserts == 0
