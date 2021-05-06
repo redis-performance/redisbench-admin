@@ -589,19 +589,9 @@ def run_remote_command_logic(args):
                             password=args.redistimesies_pass,
                         )
                         # check which metrics to extract
-                        metrics = default_metrics
-                        if "exporter" in benchmark_config:
-                            extra_metrics = parse_exporter_metrics_definition(
-                                benchmark_config["exporter"]
-                            )
-                            metrics.extend(extra_metrics)
-                            extra_timemetric_path = (
-                                parse_exporter_timemetric_definition(
-                                    benchmark_config["exporter"]
-                                )
-                            )
-                            if extra_timemetric_path is not None:
-                                exporter_timemetric_path = extra_timemetric_path
+                        exporter_timemetric_path, metrics = merge_metrics_to_extract(
+                            benchmark_config, default_metrics, exporter_timemetric_path
+                        )
 
                         common_exporter_logic(
                             deployment_type,
@@ -634,6 +624,21 @@ def run_remote_command_logic(args):
         logging.info("Tear-down completed")
 
     exit(return_code)
+
+
+def merge_metrics_to_extract(
+    benchmark_config, default_metrics, exporter_timemetric_path
+):
+    metrics = default_metrics
+    if "exporter" in benchmark_config:
+        extra_metrics = parse_exporter_metrics_definition(benchmark_config["exporter"])
+        metrics.extend(extra_metrics)
+        extra_timemetric_path = parse_exporter_timemetric_definition(
+            benchmark_config["exporter"]
+        )
+        if extra_timemetric_path is not None:
+            exporter_timemetric_path = extra_timemetric_path
+    return exporter_timemetric_path, metrics
 
 
 def absoluteFilePaths(directory):
