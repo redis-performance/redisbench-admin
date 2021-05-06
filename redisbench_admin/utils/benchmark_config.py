@@ -6,6 +6,8 @@ import re
 import yaml
 from jsonpath_ng import parse
 
+from redisbench_admin.utils.remote import validate_result_expectations
+
 
 def parse_exporter_metrics_definition(
     benchmark_config: dict, configkey: str = "redistimeseries"
@@ -227,3 +229,17 @@ def check_required_modules(module_names, required_modules):
                             module_names,
                         )
                     )
+
+
+def results_dict_kpi_check(benchmark_config, results_dict, return_code):
+    result = True
+    if "kpis" in benchmark_config:
+        result = validate_result_expectations(
+            benchmark_config,
+            results_dict,
+            result,
+            expectations_key="kpis",
+        )
+        if result is not True:
+            return_code |= 1
+    return return_code

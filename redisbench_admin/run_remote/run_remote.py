@@ -23,6 +23,7 @@ from redisbench_admin.utils.benchmark_config import (
     extract_benchmark_tool_settings,
     prepare_benchmark_definitions,
     check_required_modules,
+    results_dict_kpi_check,
 )
 from redisbench_admin.utils.redisgraph_benchmark_go import (
     spin_up_standalone_remote_redis,
@@ -30,7 +31,6 @@ from redisbench_admin.utils.redisgraph_benchmark_go import (
 )
 from redisbench_admin.utils.remote import (
     extract_git_vars,
-    validate_result_expectations,
     upload_artifacts_to_s3,
     setup_remote_environment,
     check_and_fix_pem_str,
@@ -465,10 +465,13 @@ def run_remote_command_logic(args):
                     stdout,
                 )
 
-                # check KPIs
-                result = True
                 with open(local_benchmark_output_filename, "r") as json_file:
                     results_dict = json.load(json_file)
+
+                # check KPIs
+                return_code = results_dict_kpi_check(
+                    benchmark_config, results_dict, return_code
+                )
 
                 # if the benchmark tool is redisgraph-benchmark-go and
                 # we still dont have the artifact semver we can extract it from the results dict
@@ -482,16 +485,6 @@ def run_remote_command_logic(args):
 
                 if artifact_version is None:
                     artifact_version = "N/A"
-
-                if "kpis" in benchmark_config:
-                    result = validate_result_expectations(
-                        benchmark_config,
-                        results_dict,
-                        result,
-                        expectations_key="kpis",
-                    )
-                    if result is not True:
-                        return_code |= 1
 
                 if args.upload_results_s3:
                     logging.info(

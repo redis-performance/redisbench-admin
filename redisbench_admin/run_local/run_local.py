@@ -17,6 +17,7 @@ from redisbench_admin.utils.benchmark_config import (
     prepare_benchmark_definitions,
     extract_benchmark_tool_settings,
     check_required_modules,
+    results_dict_kpi_check,
 )
 from redisbench_admin.run.redis_benchmark.redis_benchmark import (
     redis_benchmark_ensure_min_version_local,
@@ -32,7 +33,6 @@ from redisbench_admin.utils.local import (
 )
 from redisbench_admin.utils.remote import (
     extract_git_vars,
-    validate_result_expectations,
 )
 from redisbench_admin.utils.results import post_process_benchmark_results
 from redisbench_admin.utils.utils import decompress_file, get_decompressed_filename
@@ -141,20 +141,14 @@ def run_local_command_logic(args):
                 stdout,
             )
 
-            # check KPIs
-            result = True
             with open(local_benchmark_output_filename, "r") as json_file:
                 results_dict = json.load(json_file)
 
-                if "kpis" in benchmark_config:
-                    result = validate_result_expectations(
-                        benchmark_config,
-                        results_dict,
-                        result,
-                        expectations_key="kpis",
-                    )
-                    if result is not True:
-                        return_code |= 1
+                # check KPIs
+                return_code = results_dict_kpi_check(
+                    benchmark_config, results_dict, return_code
+                )
+
         except:
             return_code |= 1
             logging.critical(
