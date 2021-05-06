@@ -502,23 +502,12 @@ def run_remote_command_logic(args):
                         port=args.redistimesies_port,
                         password=args.redistimesies_pass,
                     )
-                    # check which metrics to extract
-                    metrics = default_metrics
-                    if "exporter" in benchmark_config:
-                        extra_metrics = parse_exporter_metrics_definition(
-                            benchmark_config["exporter"]
-                        )
-                        metrics.extend(extra_metrics)
-                        extra_timemetric_path = parse_exporter_timemetric_definition(
-                            benchmark_config["exporter"]
-                        )
-                        if extra_timemetric_path is not None:
-                            exporter_timemetric_path = extra_timemetric_path
-
-                    common_exporter_logic(
+                    redistimeseries_results_logic(
+                        artifact_version,
+                        benchmark_config,
+                        default_metrics,
                         deployment_type,
                         exporter_timemetric_path,
-                        metrics,
                         results_dict,
                         rts,
                         test_name,
@@ -526,7 +515,6 @@ def run_remote_command_logic(args):
                         tf_github_org,
                         tf_github_repo,
                         tf_triggering_env,
-                        artifact_version,
                     )
             except:
                 return_code |= 1
@@ -546,6 +534,45 @@ def run_remote_command_logic(args):
         logging.info("Tear-down completed")
 
     exit(return_code)
+
+
+def redistimeseries_results_logic(
+    artifact_version,
+    benchmark_config,
+    default_metrics,
+    deployment_type,
+    exporter_timemetric_path,
+    results_dict,
+    rts,
+    test_name,
+    tf_github_branch,
+    tf_github_org,
+    tf_github_repo,
+    tf_triggering_env,
+):
+    # check which metrics to extract
+    metrics = default_metrics
+    if "exporter" in benchmark_config:
+        extra_metrics = parse_exporter_metrics_definition(benchmark_config["exporter"])
+        metrics.extend(extra_metrics)
+        extra_timemetric_path = parse_exporter_timemetric_definition(
+            benchmark_config["exporter"]
+        )
+        if extra_timemetric_path is not None:
+            exporter_timemetric_path = extra_timemetric_path
+    common_exporter_logic(
+        deployment_type,
+        exporter_timemetric_path,
+        metrics,
+        results_dict,
+        rts,
+        test_name,
+        tf_github_branch,
+        tf_github_org,
+        tf_github_repo,
+        tf_triggering_env,
+        artifact_version,
+    )
 
 
 def benchmark_tools_sanity_check(args, benchmark_tool):
