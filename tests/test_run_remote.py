@@ -1,7 +1,11 @@
+import yaml
+
 from redisbench_admin.run_remote.run_remote import (
     extract_module_semver_from_info_modules_cmd,
     redistimeseries_results_logic,
+    merge_default_and_config_metrics,
 )
+from redisbench_admin.utils.benchmark_config import process_default_yaml_properties_file
 
 
 def test_extract_module_semver_from_info_modules_cmd():
@@ -30,3 +34,39 @@ def test_redistimeseries_results_logic():
     #     tf_triggering_env,
     # )
     pass
+
+
+def test_merge_default_and_config_metrics():
+    # default metrics only test
+    with open("./tests/test_data/common-properties-v0.1.yml", "r") as yml_file:
+        (
+            default_kpis,
+            default_metrics,
+            exporter_timemetric_path,
+        ) = process_default_yaml_properties_file(None, None, "1.yml", None, yml_file)
+        assert exporter_timemetric_path == "$.StartTime"
+        merged_exporter_timemetric_path, metrics = merge_default_and_config_metrics(
+            {}, default_metrics, exporter_timemetric_path
+        )
+        assert merged_exporter_timemetric_path == exporter_timemetric_path
+        assert default_metrics == metrics
+
+    # default and specific metrics test
+    with open("./tests/test_data/common-properties-v0.1.yml", "r") as yml_file:
+        (
+            default_kpis,
+            default_metrics,
+            exporter_timemetric_path,
+        ) = process_default_yaml_properties_file(None, None, "1.yml", None, yml_file)
+        assert exporter_timemetric_path == "$.StartTime"
+        with open(
+            "./tests/test_data/redis-benchmark-with-exporter.yml", "r"
+        ) as yml_file:
+            benchmark_config = yaml.safe_load(yml_file)
+            merged_exporter_timemetric_path, metrics = merge_default_and_config_metrics(
+                benchmark_config, default_metrics, exporter_timemetric_path
+            )
+            assert merged_exporter_timemetric_path == "$.ST"
+            assert "$.Tests.Overall.METRIC1" in metrics
+            for m in default_metrics:
+                assert m in metrics
