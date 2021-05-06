@@ -113,7 +113,7 @@ def run_local_command_logic(args):
             # in case of some unexpected error we fail the test
             # noinspection PyBroadException
             try:
-                dirname = (".",)
+                dirname = "."
                 # setup Redis
                 # copy the rdb to DB machine
                 temporary_dir = tempfile.mkdtemp()
