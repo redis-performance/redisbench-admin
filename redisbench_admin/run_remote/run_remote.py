@@ -14,9 +14,9 @@ from redisbench_admin.run.common import (
     get_start_time_vars,
 )
 from redisbench_admin.run.redis_benchmark.redis_benchmark import (
-    redis_benchmark_from_stdout_csv_to_json,
     redis_benchmark_ensure_min_version_remote,
 )
+from redisbench_admin.utils.results import post_process_benchmark_results
 from redisbench_admin.utils.benchmark_config import (
     parse_exporter_metrics_definition,
     parse_exporter_timemetric_definition,
@@ -451,24 +451,19 @@ def run_remote_command_logic(args):
                     local_benchmark_output_filename,
                     command_str,
                 )
+
                 if benchmark_tool == "redis-benchmark":
                     local_benchmark_output_filename = tmp
-                    logging.info(
-                        "Converting redis-benchmark output to json. Storing it in: {}".format(
-                            local_benchmark_output_filename
-                        )
-                    )
                     with open("result.csv", "r") as txt_file:
-                        csv_data = txt_file.read()
-                        logging.info(csv_data)
-                        results_dict = redis_benchmark_from_stdout_csv_to_json(
-                            csv_data,
-                            start_time_ms,
-                            start_time_str,
-                            overload_test_name="Overall",
-                        )
-                    with open(local_benchmark_output_filename, "w") as json_file:
-                        json.dump(results_dict, json_file, indent=True)
+                        stdout = txt_file.read()
+
+                post_process_benchmark_results(
+                    benchmark_tool,
+                    local_benchmark_output_filename,
+                    start_time_ms,
+                    start_time_str,
+                    stdout,
+                )
 
                 # check KPIs
                 result = True

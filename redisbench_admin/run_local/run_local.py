@@ -19,10 +19,8 @@ from redisbench_admin.utils.benchmark_config import (
     check_required_modules,
 )
 from redisbench_admin.run.redis_benchmark.redis_benchmark import (
-    redis_benchmark_from_stdout_csv_to_json,
     redis_benchmark_ensure_min_version_local,
 )
-from redisbench_admin.run.ycsb.ycsb import post_process_ycsb_results
 from redisbench_admin.run_remote.run_remote import (
     extract_module_semver_from_info_modules_cmd,
 )
@@ -36,6 +34,7 @@ from redisbench_admin.utils.remote import (
     extract_git_vars,
     validate_result_expectations,
 )
+from redisbench_admin.utils.results import post_process_benchmark_results
 from redisbench_admin.utils.utils import decompress_file, get_decompressed_filename
 
 
@@ -180,42 +179,6 @@ def run_local_benchmark(benchmark_tool, command):
         benchmark_client_process = subprocess.Popen(args=command)
     (stdout, sterr) = benchmark_client_process.communicate()
     return stdout, sterr
-
-
-def post_process_benchmark_results(
-    benchmark_tool,
-    local_benchmark_output_filename,
-    start_time_ms,
-    start_time_str,
-    stdout,
-):
-    if benchmark_tool == "redis-benchmark":
-        logging.info(
-            "Converting redis-benchmark output to json. Storing it in: {}".format(
-                local_benchmark_output_filename
-            )
-        )
-        results_dict = redis_benchmark_from_stdout_csv_to_json(
-            stdout.decode("ascii"),
-            start_time_ms,
-            start_time_str,
-            overload_test_name="Overall",
-        )
-        with open(local_benchmark_output_filename, "w") as json_file:
-            json.dump(results_dict, json_file, indent=True)
-    if benchmark_tool == "ycsb":
-        logging.info(
-            "Converting ycsb output to json. Storing it in: {}".format(
-                local_benchmark_output_filename
-            )
-        )
-        results_dict = post_process_ycsb_results(
-            stdout.decode("ascii"),
-            start_time_ms,
-            start_time_str,
-        )
-        with open(local_benchmark_output_filename, "w") as json_file:
-            json.dump(results_dict, json_file, indent=True)
 
 
 def check_benchmark_binaries_local_requirements(
