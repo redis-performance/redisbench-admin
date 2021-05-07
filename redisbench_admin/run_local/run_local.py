@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import pathlib
 import shutil
 import subprocess
 import sys
@@ -9,20 +8,20 @@ import tempfile
 
 import redis
 import wget
-import yaml
 
 from redisbench_admin.run.common import (
-    extract_benchmark_tool_settings,
     prepare_benchmark_parameters,
-    merge_default_and_specific_properties_dict_type,
-    process_default_yaml_properties_file,
     get_start_time_vars,
 )
+from redisbench_admin.utils.benchmark_config import (
+    prepare_benchmark_definitions,
+    extract_benchmark_tool_settings,
+    check_required_modules,
+    results_dict_kpi_check,
+)
 from redisbench_admin.run.redis_benchmark.redis_benchmark import (
-    redis_benchmark_from_stdout_csv_to_json,
     redis_benchmark_ensure_min_version_local,
 )
-from redisbench_admin.run.ycsb.ycsb import post_process_ycsb_results
 from redisbench_admin.run_remote.run_remote import (
     extract_module_semver_from_info_modules_cmd,
 )
@@ -34,8 +33,8 @@ from redisbench_admin.utils.local import (
 )
 from redisbench_admin.utils.remote import (
     extract_git_vars,
-    validate_result_expectations,
 )
+from redisbench_admin.utils.results import post_process_benchmark_results
 from redisbench_admin.utils.utils import decompress_file, get_decompressed_filename
 
 
@@ -60,172 +59,107 @@ def run_local_command_logic(args):
     logging.info("\tgithub_branch: {}".format(github_branch))
     logging.info("\tgithub_sha: {}".format(github_sha))
 
+    benchmark_definitions, _, _ = prepare_benchmark_definitions(args)
+
     return_code = 0
-    default_metrics = []
-    exporter_timemetric_path = None
-    defaults_filename = "defaults.yml"
-    default_kpis = None
-    if os.path.exists(defaults_filename):
-        with open(defaults_filename, "r") as stream:
+    for test_name, benchmark_config in benchmark_definitions.items():
+        redis_process = None
+        # after we've spinned Redis, even on error we should always teardown
+        # in case of some unexpected error we fail the test
+        # noinspection PyBroadException
+        try:
+            dirname = "."
+            # setup Redis
+            # copy the rdb to DB machine
+            temporary_dir = tempfile.mkdtemp()
             logging.info(
-                "Loading default specifications from file: {}".format(defaults_filename)
+                "Using local temporary dir to spin up Redis Instance. Path: {}".format(
+                    temporary_dir
+                )
             )
+            check_dataset_local_requirements(benchmark_config, temporary_dir, dirname)
+
+            redis_process = spin_up_local_redis(
+                temporary_dir, args.port, local_module_file
+            )
+            if is_process_alive(redis_process) is False:
+                raise Exception("Redis process is not alive. Failing test.")
+
+            r = redis.StrictRedis(port=args.port)
+            stdout = r.execute_command("info modules")
+            print(stdout)
             (
-                default_kpis,
-                default_metrics,
-                exporter_timemetric_path,
-            ) = process_default_yaml_properties_file(
-                default_kpis,
-                default_metrics,
-                defaults_filename,
-                exporter_timemetric_path,
-                stream,
+                module_names,
+                _,
+            ) = extract_module_semver_from_info_modules_cmd(stdout)
+
+            check_required_modules(module_names, required_modules)
+
+            # setup the benchmark
+            start_time, start_time_ms, start_time_str = get_start_time_vars()
+            local_benchmark_output_filename = get_local_run_full_filename(
+                start_time_str,
+                github_branch,
+                test_name,
+            )
+            logging.info(
+                "Will store benchmark json output to local file {}".format(
+                    local_benchmark_output_filename
+                )
             )
 
-    if args.test == "":
-        files = pathlib.Path().glob("*.yml")
-        files = [str(x) for x in files]
-        if defaults_filename in files:
-            files.remove(defaults_filename)
-
-        logging.info(
-            "Running all specified benchmarks: {}".format(
-                " ".join([str(x) for x in files])
+            (
+                benchmark_tool,
+                full_benchmark_path,
+                benchmark_tool_workdir,
+            ) = check_benchmark_binaries_local_requirements(
+                benchmark_config, args.allowed_tools
             )
-        )
-    else:
-        logging.info("Running specific benchmark in file: {}".format(args.test))
-        files = [args.test]
 
-    for usecase_filename in files:
-        with open(usecase_filename, "r") as stream:
-            os.path.dirname(os.path.abspath(usecase_filename))
-            redis_process = None
-            benchmark_config = yaml.safe_load(stream)
-            kpis_keyname = "kpis"
-            if default_kpis is not None:
-                merge_default_and_specific_properties_dict_type(
-                    benchmark_config, default_kpis, kpis_keyname, usecase_filename
-                )
+            # prepare the benchmark command
+            command, command_str = prepare_benchmark_parameters(
+                benchmark_config,
+                full_benchmark_path,
+                args.port,
+                "localhost",
+                local_benchmark_output_filename,
+                False,
+                benchmark_tool_workdir,
+            )
 
-            test_name = benchmark_config["name"]
-            # after we've spinned Redis, even on error we should always teardown
-            # in case of some unexpected error we fail the test
-            # noinspection PyBroadException
-            try:
-                dirname = "."
-                # setup Redis
-                # copy the rdb to DB machine
-                temporary_dir = tempfile.mkdtemp()
-                logging.info(
-                    "Using local temporary dir to spin up Redis Instance. Path: {}".format(
-                        temporary_dir
-                    )
-                )
-                check_dataset_local_requirements(
-                    benchmark_config, temporary_dir, dirname
-                )
+            # run the benchmark
+            stdout, stderr = run_local_benchmark(benchmark_tool, command)
+            logging.info("Extracting the benchmark results")
+            logging.info("stdout: {}".format(stdout))
+            logging.info("stderr: {}".format(stderr))
 
-                redis_process = spin_up_local_redis(
-                    temporary_dir, args.port, local_module_file
-                )
-                if is_process_alive(redis_process) is False:
-                    raise Exception("Redis process is not alive. Failing test.")
+            post_process_benchmark_results(
+                benchmark_tool,
+                local_benchmark_output_filename,
+                start_time_ms,
+                start_time_str,
+                stdout,
+            )
 
-                r = redis.StrictRedis(port=args.port)
-                stdout = r.execute_command("info modules")
-                print(stdout)
-                (
-                    module_names,
-                    _,
-                ) = extract_module_semver_from_info_modules_cmd(stdout)
-                if required_modules is not None:
-                    if len(required_modules) > 0:
-                        logging.info(
-                            "Checking if the following required modules {} are present".format(
-                                required_modules
-                            )
-                        )
-                        for required_module in required_modules:
-                            if required_module not in module_names:
-                                raise Exception(
-                                    "Unable to detect required module {} in {}. Aborting...".format(
-                                        required_module,
-                                        module_names,
-                                    )
-                                )
-
-                # setup the benchmark
-                start_time, start_time_ms, start_time_str = get_start_time_vars()
-                local_benchmark_output_filename = get_local_run_full_filename(
-                    start_time_str,
-                    github_branch,
-                    test_name,
-                )
-                logging.info(
-                    "Will store benchmark json output to local file {}".format(
-                        local_benchmark_output_filename
-                    )
-                )
-
-                (
-                    benchmark_tool,
-                    full_benchmark_path,
-                    benchmark_tool_workdir,
-                ) = check_benchmark_binaries_local_requirements(
-                    benchmark_config, args.allowed_tools
-                )
-
-                # prepare the benchmark command
-                command, command_str = prepare_benchmark_parameters(
-                    benchmark_config,
-                    full_benchmark_path,
-                    args.port,
-                    "localhost",
-                    local_benchmark_output_filename,
-                    False,
-                    benchmark_tool_workdir,
-                )
-
-                # run the benchmark
-                stdout, stderr = run_local_benchmark(benchmark_tool, command)
-                logging.info("Extracting the benchmark results")
-                logging.info("stdout: {}".format(stdout))
-                logging.info("stderr: {}".format(stderr))
-
-                post_process_benchmark_results(
-                    benchmark_tool,
-                    local_benchmark_output_filename,
-                    start_time_ms,
-                    start_time_str,
-                    stdout,
-                )
+            with open(local_benchmark_output_filename, "r") as json_file:
+                results_dict = json.load(json_file)
 
                 # check KPIs
-                result = True
-                with open(local_benchmark_output_filename, "r") as json_file:
-                    results_dict = json.load(json_file)
-
-                    if "kpis" in benchmark_config:
-                        result = validate_result_expectations(
-                            benchmark_config,
-                            results_dict,
-                            result,
-                            expectations_key="kpis",
-                        )
-                        if result is not True:
-                            return_code |= 1
-            except:
-                return_code |= 1
-                logging.critical(
-                    "Some unexpected exception was caught during remote work. Failing test...."
+                return_code = results_dict_kpi_check(
+                    benchmark_config, results_dict, return_code
                 )
-                logging.critical(sys.exc_info())
-        # tear-down
-        logging.info("Tearing down setup")
-        if redis_process is not None:
-            redis_process.kill()
-        logging.info("Tear-down completed")
+
+        except:
+            return_code |= 1
+            logging.critical(
+                "Some unexpected exception was caught during remote work. Failing test...."
+            )
+            logging.critical(sys.exc_info())
+    # tear-down
+    logging.info("Tearing down setup")
+    if redis_process is not None:
+        redis_process.kill()
+    logging.info("Tear-down completed")
 
     exit(return_code)
 
@@ -239,42 +173,6 @@ def run_local_benchmark(benchmark_tool, command):
         benchmark_client_process = subprocess.Popen(args=command)
     (stdout, sterr) = benchmark_client_process.communicate()
     return stdout, sterr
-
-
-def post_process_benchmark_results(
-    benchmark_tool,
-    local_benchmark_output_filename,
-    start_time_ms,
-    start_time_str,
-    stdout,
-):
-    if benchmark_tool == "redis-benchmark":
-        logging.info(
-            "Converting redis-benchmark output to json. Storing it in: {}".format(
-                local_benchmark_output_filename
-            )
-        )
-        results_dict = redis_benchmark_from_stdout_csv_to_json(
-            stdout.decode("ascii"),
-            start_time_ms,
-            start_time_str,
-            overload_test_name="Overall",
-        )
-        with open(local_benchmark_output_filename, "w") as json_file:
-            json.dump(results_dict, json_file, indent=True)
-    if benchmark_tool == "ycsb":
-        logging.info(
-            "Converting ycsb output to json. Storing it in: {}".format(
-                local_benchmark_output_filename
-            )
-        )
-        results_dict = post_process_ycsb_results(
-            stdout.decode("ascii"),
-            start_time_ms,
-            start_time_str,
-        )
-        with open(local_benchmark_output_filename, "w") as json_file:
-            json.dump(results_dict, json_file, indent=True)
 
 
 def check_benchmark_binaries_local_requirements(

@@ -1,0 +1,4 @@
+version: 0.1
+kpis:
+  - eq: { $.Totals.Total.Errors: 1 }
+  - le: { $.OverallClientLatencies.Total.q50: 0 }

@@ -9,6 +9,11 @@ jobs:
   pytest:
     name: Linting, testing, and compliance
     runs-on: ubuntu-latest
+    services:
+      rts-service:
+        image: redislabs/redistimeseries:latest
+        ports:
+          - 6379:6379
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
     steps:

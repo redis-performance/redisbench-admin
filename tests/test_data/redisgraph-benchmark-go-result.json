@@ -1,0 +1,84 @@
+{
+ "Metadata": "",
+ "Clients": 32,
+ "MaxRps": 0,
+ "RandomSeed": 12345,
+ "BenchmarkConfiguredCommandsLimit": 32,
+ "IssuedCommands": 32,
+ "BenchmarkFullyRun": true,
+ "TestDescription": "",
+ "DBSpecificConfigs": {
+  "RedisGraphVersion": 999999
+ },
+ "StartTime": 1620296011937,
+ "EndTime": 1620296013970,
+ "DurationMillis": 2032,
+ "Totals": {
+  "MATCH (a:actor) WITH a MATCH (b:actor) WHERE a.age = b.age AND a \u003c\u003e b RETURN a, collect(b)": {
+   "Errors": 0,
+   "IssuedQueries": 32,
+   "LabelsAdded": 0,
+   "NodesCreated": 0,
+   "NodesDeleted": 0,
+   "PropertiesSet": 0,
+   "RelationshipsCreated": 0,
+   "RelationshipsDeleted": 0
+  },
+  "Total": {
+   "Errors": 0,
+   "IssuedQueries": 32,
+   "LabelsAdded": 0,
+   "NodesCreated": 0,
+   "NodesDeleted": 0,
+   "PropertiesSet": 0,
+   "RelationshipsCreated": 0,
+   "RelationshipsDeleted": 0
+  }
+ },
+ "OverallQueryRates": {
+  "MATCH (a:actor) WITH a MATCH (b:actor) WHERE a.age = b.age AND a \u003c\u003e b RETURN a, collect(b)": 15.74360030789877,
+  "Total": 15.74360030789877
+ },
+ "OverallClientLatencies": {
+  "MATCH (a:actor) WITH a MATCH (b:actor) WHERE a.age = b.age AND a \u003c\u003e b RETURN a, collect(b)": {
+   "avg": 1165.5465,
+   "q0": 0,
+   "q100": 1288.831,
+   "q50": 1200.447,
+   "q95": 1283.583,
+   "q99": 1288.831,
+   "q999": 1288.831
+  },
+  "Total": {
+   "avg": 1165.5465,
+   "q0": 0,
+   "q100": 1288.831,
+   "q50": 1200.447,
+   "q95": 1283.583,
+   "q99": 1288.831,
+   "q999": 1288.831
+  }
+ },
+ "OverallGraphInternalLatencies": {
+  "MATCH (a:actor) WITH a MATCH (b:actor) WHERE a.age = b.age AND a \u003c\u003e b RETURN a, collect(b)": {
+   "avg": 146.2205,
+   "q0": 0,
+   "q100": 226.375,
+   "q50": 132.695,
+   "q95": 198.471,
+   "q99": 226.375,
+   "q999": 226.375
+  },
+  "Total": {
+   "avg": 146.2205,
+   "q0": 0,
+   "q100": 226.375,
+   "q50": 132.695,
+   "q95": 198.471,
+   "q99": 226.375,
+   "q999": 226.375
+  }
+ },
+ "ClientRunTimeStats": null,
+ "ServerRunTimeStats": null
+}

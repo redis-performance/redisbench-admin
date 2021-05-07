@@ -1,4 +1,10 @@
 import json
+import logging
+
+from redisbench_admin.run.redis_benchmark.redis_benchmark import (
+    redis_benchmark_from_stdout_csv_to_json,
+)
+from redisbench_admin.run.ycsb.ycsb import post_process_ycsb_results
 
 
 def get_key_results_and_values(results_json, step, use_result):
@@ -40,3 +46,39 @@ def from_results_dataframe_to_key_results_dict(results_dataframe, step, step_df_
         "stddev": json.loads(results_dataframe.std().to_json()),
     }
     return key_results_dict
+
+
+def post_process_benchmark_results(
+    benchmark_tool,
+    local_benchmark_output_filename,
+    start_time_ms,
+    start_time_str,
+    stdout,
+):
+    if benchmark_tool == "redis-benchmark":
+        logging.info(
+            "Converting redis-benchmark output to json. Storing it in: {}".format(
+                local_benchmark_output_filename
+            )
+        )
+        results_dict = redis_benchmark_from_stdout_csv_to_json(
+            stdout.decode("ascii"),
+            start_time_ms,
+            start_time_str,
+            overload_test_name="Overall",
+        )
+        with open(local_benchmark_output_filename, "w") as json_file:
+            json.dump(results_dict, json_file, indent=True)
+    if benchmark_tool == "ycsb":
+        logging.info(
+            "Converting ycsb output to json. Storing it in: {}".format(
+                local_benchmark_output_filename
+            )
+        )
+        results_dict = post_process_ycsb_results(
+            stdout.decode("ascii"),
+            start_time_ms,
+            start_time_str,
+        )
+        with open(local_benchmark_output_filename, "w") as json_file:
+            json.dump(results_dict, json_file, indent=True)
