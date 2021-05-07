@@ -56,13 +56,15 @@ def post_process_benchmark_results(
     stdout,
 ):
     if benchmark_tool == "redis-benchmark":
+        if type(stdout) == bytes:
+            stdout = stdout.decode("ascii")
         logging.info(
             "Converting redis-benchmark output to json. Storing it in: {}".format(
                 local_benchmark_output_filename
             )
         )
         results_dict = redis_benchmark_from_stdout_csv_to_json(
-            stdout.decode("ascii"),
+            stdout,
             start_time_ms,
             start_time_str,
             overload_test_name="Overall",
