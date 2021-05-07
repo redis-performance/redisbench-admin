@@ -39,6 +39,8 @@ from redisbench_admin.utils.remote import (
     execute_remote_commands,
     extract_redisgraph_version_from_resultdict,
     retrieve_tf_connection_vars,
+    get_project_ts_tags,
+    get_overall_dashboard_keynames,
 )
 
 # internal aux vars
@@ -275,14 +277,24 @@ def run_remote_command_logic(args):
     return_code = 0
     remote_envs = {}
     dirname = "."
-    for test_name, benchmark_config in benchmark_definitions.items():
-        s3_bucket_path = "{github_org}/{github_repo}/results/{test_name}/".format(
-            github_org=tf_github_org,
-            github_repo=tf_github_repo,
-            test_name=test_name,
+    (
+        testcases_setname,
+        tsname_project_total_failures,
+        tsname_project_total_success,
+    ) = get_overall_dashboard_keynames(tf_github_org, tf_github_repo, tf_triggering_env)
+    rts = None
+    if args.push_results_redistimeseries:
+        logging.info("Checking connection to RedisTimeSeries.")
+        rts = Client(
+            host=args.redistimesies_host,
+            port=args.redistimesies_port,
+            password=args.redistimesies_pass,
         )
-        "https://s3.amazonaws.com/{bucket_name}/{bucket_path}".format(
-            bucket_name=s3_bucket_name, bucket_path=s3_bucket_path
+        rts.redis.ping()
+
+    for test_name, benchmark_config in benchmark_definitions.items():
+        s3_bucket_path = get_test_s3_bucket_path(
+            s3_bucket_name, test_name, tf_github_org, tf_github_repo
         )
 
         if "remote" in benchmark_config:
@@ -452,18 +464,18 @@ def run_remote_command_logic(args):
                     command_str,
                 )
 
-                if benchmark_tool == "redis-benchmark":
+                if benchmark_tool == "redis-benchmark" or benchmark_tool == "ycsb":
                     local_benchmark_output_filename = tmp
                     with open("result.csv", "r") as txt_file:
                         stdout = txt_file.read()
 
-                post_process_benchmark_results(
-                    benchmark_tool,
-                    local_benchmark_output_filename,
-                    start_time_ms,
-                    start_time_str,
-                    stdout,
-                )
+                    post_process_benchmark_results(
+                        benchmark_tool,
+                        local_benchmark_output_filename,
+                        start_time_ms,
+                        start_time_str,
+                        stdout,
+                    )
 
                 with open(local_benchmark_output_filename, "r") as json_file:
                     results_dict = json.load(json_file)
@@ -497,11 +509,6 @@ def run_remote_command_logic(args):
 
                 if args.push_results_redistimeseries:
                     logging.info("Pushing results to RedisTimeSeries.")
-                    rts = Client(
-                        host=args.redistimesies_host,
-                        port=args.redistimesies_port,
-                        password=args.redistimesies_pass,
-                    )
                     redistimeseries_results_logic(
                         artifact_version,
                         benchmark_config,
@@ -516,7 +523,31 @@ def run_remote_command_logic(args):
                         tf_github_repo,
                         tf_triggering_env,
                     )
+                    rts.redis.sadd(testcases_setname, test_name)
+                    rts.incrby(
+                        tsname_project_total_success,
+                        1,
+                        timestamp=start_time_ms,
+                        labels=get_project_ts_tags(
+                            tf_github_org,
+                            tf_github_repo,
+                            deployment_type,
+                            tf_triggering_env,
+                        ),
+                    )
             except:
+                if args.push_results_redistimeseries:
+                    rts.incrby(
+                        tsname_project_total_failures,
+                        1,
+                        timestamp=start_time_ms,
+                        labels=get_project_ts_tags(
+                            tf_github_org,
+                            tf_github_repo,
+                            deployment_type,
+                            tf_triggering_env,
+                        ),
+                    )
                 return_code |= 1
                 logging.critical(
                     "Some unexpected exception was caught "
@@ -534,6 +565,15 @@ def run_remote_command_logic(args):
         logging.info("Tear-down completed")
 
     exit(return_code)
+
+
+def get_test_s3_bucket_path(s3_bucket_name, test_name, tf_github_org, tf_github_repo):
+    s3_bucket_path = "{github_org}/{github_repo}/results/{test_name}/".format(
+        github_org=tf_github_org,
+        github_repo=tf_github_repo,
+        test_name=test_name,
+    )
+    return s3_bucket_path
 
 
 def redistimeseries_results_logic(

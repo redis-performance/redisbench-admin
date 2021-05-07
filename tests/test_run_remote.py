@@ -4,8 +4,10 @@ from redisbench_admin.run_remote.run_remote import (
     extract_module_semver_from_info_modules_cmd,
     redistimeseries_results_logic,
     merge_default_and_config_metrics,
+    get_test_s3_bucket_path,
 )
 from redisbench_admin.utils.benchmark_config import process_default_yaml_properties_file
+from redisbench_admin.utils.remote import get_overall_dashboard_keynames
 
 
 def test_extract_module_semver_from_info_modules_cmd():
@@ -70,3 +72,25 @@ def test_merge_default_and_config_metrics():
             assert "$.Tests.Overall.METRIC1" in metrics
             for m in default_metrics:
                 assert m in metrics
+
+
+def test_get_test_s3_bucket_path():
+    bucket_path = get_test_s3_bucket_path("ci.bench", "test1", "org", "repo")
+    assert "org/repo/results/test1/" == bucket_path
+
+
+def test_get_overall_dashboard_keynames():
+    (
+        testcases_setname,
+        tsname_project_total_failures,
+        tsname_project_total_success,
+    ) = get_overall_dashboard_keynames("org", "repo", "env")
+    assert "ci.benchmarks.redislabs/env/org/repo:testcases" == testcases_setname
+    assert (
+        "ci.benchmarks.redislabs/env/org/repo:total_success"
+        == tsname_project_total_success
+    )
+    assert (
+        "ci.benchmarks.redislabs/env/org/repo:total_failures"
+        == tsname_project_total_failures
+    )

@@ -473,15 +473,13 @@ def extract_perversion_timeseries_from_results(
         metric_value = float(jsonpath_expr.find(results_dict)[0].value)
         # prepare tags
         # branch tags
-        version_tags = {
-            "version": project_version,
-            "github_org": tf_github_org,
-            "github_repo": tf_github_repo,
-            "deployment_type": deployment_type,
-            "test_name": test_name,
-            "triggering_env": tf_triggering_env,
-            "metric": metric_name,
-        }
+        version_tags = get_project_ts_tags(
+            tf_github_org, tf_github_repo, deployment_type, tf_triggering_env
+        )
+        version_tags["version"] = project_version
+        version_tags["test_name"] = str(test_name)
+        version_tags["metric"] = str(metric_name)
+
         ts_name = (
             "ci.benchmarks.redislabs/by.version/"
             "{triggering_env}/{github_org}/{github_repo}/"
@@ -503,6 +501,22 @@ def extract_perversion_timeseries_from_results(
     return True, branch_time_series_dict
 
 
+def get_project_ts_tags(
+    tf_github_org: str,
+    tf_github_repo: str,
+    deployment_type: str,
+    tf_triggering_env: str,
+):
+    tags = {
+        "github_org": tf_github_org,
+        "github_repo": tf_github_repo,
+        "github_org/github_repo": "{}/{}".format(tf_github_org, tf_github_repo),
+        "deployment_type": deployment_type,
+        "triggering_env": tf_triggering_env,
+    }
+    return tags
+
+
 def extract_perbranch_timeseries_from_results(
     datapoints_timestamp: int,
     metrics: list,
@@ -521,15 +535,13 @@ def extract_perbranch_timeseries_from_results(
         metric_value = float(jsonpath_expr.find(results_dict)[0].value)
         # prepare tags
         # branch tags
-        branch_tags = {
-            "branch": str(tf_github_branch),
-            "github_org": tf_github_org,
-            "github_repo": tf_github_repo,
-            "deployment_type": deployment_type,
-            "test_name": test_name,
-            "triggering_env": tf_triggering_env,
-            "metric": metric_name,
-        }
+
+        branch_tags = get_project_ts_tags(
+            tf_github_org, tf_github_repo, deployment_type, tf_triggering_env
+        )
+        branch_tags["branch"] = str(tf_github_branch)
+        branch_tags["test_name"] = str(test_name)
+        branch_tags["metric"] = str(metric_name)
         ts_name = (
             "ci.benchmarks.redislabs/by.branch/"
             "{triggering_env}/{github_org}/{github_repo}/"
@@ -549,3 +561,35 @@ def extract_perbranch_timeseries_from_results(
             "data": {datapoints_timestamp: metric_value},
         }
     return True, branch_time_series_dict
+
+
+def get_overall_dashboard_keynames(tf_github_org, tf_github_repo, tf_triggering_env):
+    testcases_setname = (
+        "ci.benchmarks.redislabs/"
+        "{triggering_env}/{github_org}/{github_repo}:testcases".format(
+            triggering_env=tf_triggering_env,
+            github_org=tf_github_org,
+            github_repo=tf_github_repo,
+        )
+    )
+    tsname_project_total_success = (
+        "ci.benchmarks.redislabs/"
+        "{triggering_env}/{github_org}/{github_repo}:total_success".format(
+            triggering_env=tf_triggering_env,
+            github_org=tf_github_org,
+            github_repo=tf_github_repo,
+        )
+    )
+    tsname_project_total_failures = (
+        "ci.benchmarks.redislabs/"
+        "{triggering_env}/{github_org}/{github_repo}:total_failures".format(
+            triggering_env=tf_triggering_env,
+            github_org=tf_github_org,
+            github_repo=tf_github_repo,
+        )
+    )
+    return (
+        testcases_setname,
+        tsname_project_total_failures,
+        tsname_project_total_success,
+    )
