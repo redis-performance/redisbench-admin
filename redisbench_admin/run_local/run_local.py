@@ -155,11 +155,11 @@ def run_local_command_logic(args):
                 "Some unexpected exception was caught during remote work. Failing test...."
             )
             logging.critical(sys.exc_info())
-    # tear-down
-    logging.info("Tearing down setup")
-    if redis_process is not None:
-        redis_process.kill()
-    logging.info("Tear-down completed")
+        # tear-down
+        logging.info("Tearing down setup")
+        if redis_process is not None:
+            redis_process.kill()
+        logging.info("Tear-down completed")
 
     exit(return_code)
 
