@@ -88,9 +88,7 @@ def extract_artifact_version_remote(
     server_public_ip, server_public_port, username, private_key
 ):
     commands = [
-        "redis-cli -h {} -p {} info modules".format(
-            server_public_ip, server_public_port
-        ),
+        "redis-cli -h {} -p {} info modules".format("localhost", server_public_port),
     ]
     res = execute_remote_commands(server_public_ip, username, private_key, commands)
     recv_exit_status, stdout, stderr = res[0]
