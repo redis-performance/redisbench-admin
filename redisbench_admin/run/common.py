@@ -8,7 +8,7 @@ from redisbench_admin.run.redisgraph_benchmark_go.redisgraph_benchmark_go import
     prepare_redisgraph_benchmark_go_command,
 )
 from redisbench_admin.run.tsbs_run_queries_redistimeseries.tsbs_run_queries_redistimeseries import (
-    prepare_tsbs_run_queries_redistimeseries_benchmark_command,
+    prepare_tsbs_benchmark_command,
 )
 from redisbench_admin.run.ycsb.ycsb import prepare_ycsb_benchmark_command
 from redisbench_admin.utils.benchmark_config import (
@@ -65,22 +65,19 @@ def prepare_benchmark_parameters(
                     entry,
                     current_workdir,
                 )
-            if "tsbs_run_queries_redistimeseries" in benchmark_tool:
-                remote_queries_file = None
+            if "tsbs_" in benchmark_tool:
+                input_data_file = None
                 if isremote is True:
-                    benchmark_tool = "/tmp/tsbs_run_queries_redistimeseries"
-                    remote_queries_file = "/tmp/queries-file.input"
-                (
-                    command_arr,
-                    command_str,
-                ) = prepare_tsbs_run_queries_redistimeseries_benchmark_command(
+                    benchmark_tool = "/tmp/{}".format(benchmark_tool)
+                    input_data_file = "/tmp/input.data"
+                (command_arr, command_str,) = prepare_tsbs_benchmark_command(
                     benchmark_tool,
                     server_private_ip,
                     server_plaintext_port,
                     entry,
                     current_workdir,
                     remote_results_file,
-                    remote_queries_file,
+                    input_data_file,
                 )
     printed_command_str = command_str
     printed_command_arr = command_arr

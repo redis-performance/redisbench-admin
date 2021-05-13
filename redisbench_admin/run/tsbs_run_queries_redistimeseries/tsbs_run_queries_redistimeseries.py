@@ -4,7 +4,7 @@ import re
 from redisbench_admin.utils.local import check_if_needs_remote_fetch
 
 
-def prepare_tsbs_run_queries_redistimeseries_benchmark_command(
+def prepare_tsbs_benchmark_command(
     executable_path: str,
     server_private_ip: object,
     server_plaintext_port: object,
@@ -29,19 +29,17 @@ def prepare_tsbs_run_queries_redistimeseries_benchmark_command(
     )
 
     for k in benchmark_config["parameters"]:
-        if "workers" in k:
-            command_arr.extend(["--workers", str(k["workers"])])
-        if "max-queries" in k:
-            command_arr.extend(["--max-queries", str(k["max-queries"])])
         if "file" in k:
             input_file = k["file"]
             input_file = check_if_needs_remote_fetch(
                 input_file, "/tmp", None, remote_queries_file
             )
             command_arr.extend(["--file", input_file])
+        else:
+            for kk in k.keys():
+                command_arr.extend(["--{}".format(kk), str(k[kk])])
 
     command_arr.extend(["--results-file", result_file])
-    command_arr.extend(["--print-interval", "1000"])
 
     command_str = " ".join(command_arr)
     return command_arr, command_str
