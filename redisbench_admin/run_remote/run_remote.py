@@ -67,18 +67,18 @@ EC2_PRIVATE_PEM = os.getenv("EC2_PRIVATE_PEM", None)
 
 
 # noinspection PyBroadException
-def setup_remote_benchmark_tool_requirements_tsbs_run_queries_redistimeseries(
+def setup_remote_benchmark_tool_requirements_tsbs(
     client_public_ip,
     username,
     private_key,
     tool_link,
     queries_file_link,
-    remote_tool_link="/tmp/tsbs_run_queries_redistimeseries",
-    remote_queries_file="/tmp/queries-file.input",
+    remote_tool_link,
+    remote_input_file="/tmp/data.input",
 ):
     commands = [
         "wget {} -q -O {}".format(tool_link, remote_tool_link),
-        "wget {} -q -O {}".format(queries_file_link, remote_queries_file),
+        "wget {} -q -O {}".format(queries_file_link, remote_input_file),
         "chmod 755 {}".format(remote_tool_link),
     ]
     execute_remote_commands(client_public_ip, username, private_key, commands)
@@ -388,10 +388,13 @@ def run_remote_command_logic(args):
                         private_key,
                         redisbenchmark_go_link,
                     )
-                if benchmark_tool == "tsbs_run_queries_redistimeseries":
+                if "tsbs_" in benchmark_tool:
+                    remote_tool_link = "/tmp/{}".format(benchmark_tool)
                     tool_link = (
                         "https://s3.amazonaws.com/benchmarks.redislabs/"
-                        + "redistimeseries/tools/tsbs/tsbs_run_queries_redistimeseries_linux_amd64"
+                        + "redistimeseries/tools/tsbs/{}_linux_amd64".format(
+                            benchmark_tool
+                        )
                     )
 
                     queries_file_link = None
@@ -401,12 +404,13 @@ def run_remote_command_logic(args):
                                 if "file" in parameter:
                                     queries_file_link = parameter["file"]
 
-                    setup_remote_benchmark_tool_requirements_tsbs_run_queries_redistimeseries(
+                    setup_remote_benchmark_tool_requirements_tsbs(
                         client_public_ip,
                         username,
                         private_key,
                         tool_link,
                         queries_file_link,
+                        remote_tool_link,
                     )
 
                 if (
