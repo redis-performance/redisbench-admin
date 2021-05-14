@@ -78,6 +78,7 @@ def prepare_benchmark_parameters(
                     current_workdir,
                     remote_results_file,
                     input_data_file,
+                    isremote,
                 )
     printed_command_str = command_str
     printed_command_arr = command_arr

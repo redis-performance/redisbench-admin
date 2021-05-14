@@ -12,6 +12,7 @@ def prepare_tsbs_benchmark_command(
     current_workdir,
     result_file: str,
     remote_queries_file,
+    is_remote: bool,
 ):
     """
     Prepares tsbs_run_queries_redistimeseries command parameters
@@ -32,7 +33,7 @@ def prepare_tsbs_benchmark_command(
         if "file" in k:
             input_file = k["file"]
             input_file = check_if_needs_remote_fetch(
-                input_file, "/tmp", None, remote_queries_file
+                input_file, "/tmp", None, remote_queries_file, is_remote
             )
             command_arr.extend(["--file", input_file])
         else:

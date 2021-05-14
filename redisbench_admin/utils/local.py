@@ -34,14 +34,16 @@ def check_dataset_local_requirements(
     return dataset, full_path, tmp_path
 
 
-def check_if_needs_remote_fetch(property, localtemp_dir, dirname, full_path=None):
+def check_if_needs_remote_fetch(
+    property, localtemp_dir, dirname, full_path=None, is_remote=False
+):
     if property.startswith("http"):
         if not os.path.isdir(localtemp_dir):
             os.mkdir(localtemp_dir)
         if full_path is None:
             filename = property.split("/")[-1]
             full_path = "{}/{}".format(localtemp_dir, filename)
-        if not os.path.exists(full_path):
+        if not os.path.exists(full_path) and is_remote is False:
             logging.info(
                 "Retrieving remote file from {} to {}. Using the dir {} as a cache for next time.".format(
                     property, full_path, localtemp_dir
