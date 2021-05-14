@@ -145,6 +145,9 @@ def common_exporter_logic(
     tf_triggering_env,
     artifact_version="N/A",
 ):
+    per_version_time_series_dict = None
+    per_branch_time_series_dict = None
+
     if exporter_timemetric_path is not None and len(metrics) > 0:
         # extract timestamp
         datapoints_timestamp = parse_exporter_timemetric(
@@ -171,7 +174,7 @@ def common_exporter_logic(
         push_data_to_redistimeseries(rts, per_version_time_series_dict)
         if tf_github_branch is not None and tf_github_branch != "":
             # extract per branch datapoints
-            ok, branch_time_series_dict = extract_perbranch_timeseries_from_results(
+            ok, per_branch_time_series_dict = extract_perbranch_timeseries_from_results(
                 datapoints_timestamp,
                 metrics,
                 results_dict,
@@ -183,7 +186,7 @@ def common_exporter_logic(
                 tf_triggering_env,
             )
             # push per-branch data
-            push_data_to_redistimeseries(rts, branch_time_series_dict)
+            push_data_to_redistimeseries(rts, per_branch_time_series_dict)
         else:
             logging.warning(
                 "Requested to push data to RedisTimeSeries but no git"
@@ -196,6 +199,7 @@ def common_exporter_logic(
             "Requested to push data to RedisTimeSeries but "
             'no exporter definition was found. Missing "exporter" config.'
         )
+    return per_version_time_series_dict, per_branch_time_series_dict
 
 
 def get_start_time_vars(start_time=None):

@@ -414,36 +414,37 @@ def fetch_remote_setup_from_config(
 def push_data_to_redistimeseries(rts: client, branch_time_series_dict: dict):
     datapoint_errors = 0
     datapoint_inserts = 0
-    for timeseries_name, time_series in branch_time_series_dict.items():
-        try:
-            logging.info(
-                "Creating timeseries named {} with labels {}".format(
-                    timeseries_name, time_series["labels"]
-                )
-            )
-            rts.create(timeseries_name, labels=time_series["labels"])
-        except redis.exceptions.ResponseError:
-            logging.warning(
-                "Timeseries named {} already exists".format(timeseries_name)
-            )
-            pass
-        for timestamp, value in time_series["data"].items():
+    if rts is not None:
+        for timeseries_name, time_series in branch_time_series_dict.items():
             try:
-                rts.add(
-                    timeseries_name,
-                    timestamp,
-                    value,
-                    duplicate_policy="last",
-                )
-                datapoint_inserts += 1
-            except redis.exceptions.ResponseError:
-                logging.warning(
-                    "Error while inserting datapoint ({} : {}) in timeseries named {}. ".format(
-                        timestamp, value, timeseries_name
+                logging.info(
+                    "Creating timeseries named {} with labels {}".format(
+                        timeseries_name, time_series["labels"]
                     )
                 )
-                datapoint_errors += 1
+                rts.create(timeseries_name, labels=time_series["labels"])
+            except redis.exceptions.ResponseError:
+                logging.warning(
+                    "Timeseries named {} already exists".format(timeseries_name)
+                )
                 pass
+            for timestamp, value in time_series["data"].items():
+                try:
+                    rts.add(
+                        timeseries_name,
+                        timestamp,
+                        value,
+                        duplicate_policy="last",
+                    )
+                    datapoint_inserts += 1
+                except redis.exceptions.ResponseError:
+                    logging.warning(
+                        "Error while inserting datapoint ({} : {}) in timeseries named {}. ".format(
+                            timestamp, value, timeseries_name
+                        )
+                    )
+                    datapoint_errors += 1
+                    pass
     return datapoint_errors, datapoint_inserts
 
 
@@ -470,34 +471,40 @@ def extract_perversion_timeseries_from_results(
     for jsonpath in metrics:
         jsonpath_expr = parse(jsonpath)
         metric_name = jsonpath[2:]
-        metric_value = float(jsonpath_expr.find(results_dict)[0].value)
-        # prepare tags
-        # branch tags
-        version_tags = get_project_ts_tags(
-            tf_github_org, tf_github_repo, deployment_type, tf_triggering_env
-        )
-        version_tags["version"] = project_version
-        version_tags["test_name"] = str(test_name)
-        version_tags["metric"] = str(metric_name)
-
-        ts_name = (
-            "ci.benchmarks.redislabs/by.version/"
-            "{triggering_env}/{github_org}/{github_repo}/"
-            "{test_name}/{deployment_type}/{version}/{metric}".format(
-                version=project_version,
-                github_org=tf_github_org,
-                github_repo=tf_github_repo,
-                deployment_type=deployment_type,
-                test_name=test_name,
-                triggering_env=tf_triggering_env,
-                metric=metric_name,
+        find_res = jsonpath_expr.find(results_dict)
+        if find_res is not None and len(find_res) > 0:
+            metric_value = float(find_res[0].value)
+            # prepare tags
+            # branch tags
+            version_tags = get_project_ts_tags(
+                tf_github_org, tf_github_repo, deployment_type, tf_triggering_env
             )
-        )
+            version_tags["version"] = project_version
+            version_tags["test_name"] = str(test_name)
+            version_tags["metric"] = str(metric_name)
 
-        branch_time_series_dict[ts_name] = {
-            "labels": version_tags.copy(),
-            "data": {datapoints_timestamp: metric_value},
-        }
+            ts_name = (
+                "ci.benchmarks.redislabs/by.version/"
+                "{triggering_env}/{github_org}/{github_repo}/"
+                "{test_name}/{deployment_type}/{version}/{metric}".format(
+                    version=project_version,
+                    github_org=tf_github_org,
+                    github_repo=tf_github_repo,
+                    deployment_type=deployment_type,
+                    test_name=test_name,
+                    triggering_env=tf_triggering_env,
+                    metric=metric_name,
+                )
+            )
+
+            branch_time_series_dict[ts_name] = {
+                "labels": version_tags.copy(),
+                "data": {datapoints_timestamp: metric_value},
+            }
+        else:
+            logging.warning(
+                "Unable to find metric path {} in {}".format(jsonpath, results_dict)
+            )
     return True, branch_time_series_dict
 
 
@@ -532,34 +539,38 @@ def extract_perbranch_timeseries_from_results(
     for jsonpath in metrics:
         jsonpath_expr = parse(jsonpath)
         metric_name = jsonpath[2:]
-        metric_value = float(jsonpath_expr.find(results_dict)[0].value)
-        # prepare tags
-        # branch tags
+        find_res = jsonpath_expr.find(results_dict)
+        if find_res is not None and len(find_res) > 0:
+            metric_value = float(find_res[0].value)
 
-        branch_tags = get_project_ts_tags(
-            tf_github_org, tf_github_repo, deployment_type, tf_triggering_env
-        )
-        branch_tags["branch"] = str(tf_github_branch)
-        branch_tags["test_name"] = str(test_name)
-        branch_tags["metric"] = str(metric_name)
-        ts_name = (
-            "ci.benchmarks.redislabs/by.branch/"
-            "{triggering_env}/{github_org}/{github_repo}/"
-            "{test_name}/{deployment_type}/{branch}/{metric}".format(
-                branch=str(tf_github_branch),
-                github_org=tf_github_org,
-                github_repo=tf_github_repo,
-                deployment_type=deployment_type,
-                test_name=test_name,
-                triggering_env=tf_triggering_env,
-                metric=metric_name,
+            branch_tags = get_project_ts_tags(
+                tf_github_org, tf_github_repo, deployment_type, tf_triggering_env
             )
-        )
+            branch_tags["branch"] = str(tf_github_branch)
+            branch_tags["test_name"] = str(test_name)
+            branch_tags["metric"] = str(metric_name)
+            ts_name = (
+                "ci.benchmarks.redislabs/by.branch/"
+                "{triggering_env}/{github_org}/{github_repo}/"
+                "{test_name}/{deployment_type}/{branch}/{metric}".format(
+                    branch=str(tf_github_branch),
+                    github_org=tf_github_org,
+                    github_repo=tf_github_repo,
+                    deployment_type=deployment_type,
+                    test_name=test_name,
+                    triggering_env=tf_triggering_env,
+                    metric=metric_name,
+                )
+            )
 
-        branch_time_series_dict[ts_name] = {
-            "labels": branch_tags.copy(),
-            "data": {datapoints_timestamp: metric_value},
-        }
+            branch_time_series_dict[ts_name] = {
+                "labels": branch_tags.copy(),
+                "data": {datapoints_timestamp: metric_value},
+            }
+        else:
+            logging.warning(
+                "Unable to find metric path {} in {}".format(jsonpath, results_dict)
+            )
     return True, branch_time_series_dict
 
 

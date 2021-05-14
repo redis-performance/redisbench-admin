@@ -28,17 +28,17 @@ def prepare_tsbs_benchmark_command(
     command_arr.extend(
         ["--host", "{}:{}".format(server_private_ip, server_plaintext_port)]
     )
-
-    for k in benchmark_config["parameters"]:
-        if "file" in k:
-            input_file = k["file"]
-            input_file = check_if_needs_remote_fetch(
-                input_file, "/tmp", None, remote_queries_file, is_remote
-            )
-            command_arr.extend(["--file", input_file])
-        else:
-            for kk in k.keys():
-                command_arr.extend(["--{}".format(kk), str(k[kk])])
+    if "parameters" in benchmark_config:
+        for k in benchmark_config["parameters"]:
+            if "file" in k:
+                input_file = k["file"]
+                input_file = check_if_needs_remote_fetch(
+                    input_file, "/tmp", None, remote_queries_file, is_remote
+                )
+                command_arr.extend(["--file", input_file])
+            else:
+                for kk in k.keys():
+                    command_arr.extend(["--{}".format(kk), str(k[kk])])
 
     command_arr.extend(["--results-file", result_file])
 
