@@ -74,7 +74,7 @@ def setup_remote_benchmark_tool_requirements_tsbs(
     tool_link,
     queries_file_link,
     remote_tool_link,
-    remote_input_file="/tmp/data.input",
+    remote_input_file="/tmp/input.data",
 ):
     commands = [
         "wget {} -q -O {}".format(tool_link, remote_tool_link),
