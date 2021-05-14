@@ -1,0 +1,27 @@
+{
+ "ResultFormatVersion": "0.1",
+ "RunnerConfig": {
+  "db-name": "benchmark",
+  "batch-sze": 10000,
+  "workers": 64,
+  "limit": 0,
+  "do-load": true,
+  "do-create-db": true,
+  "do-abort-on-exist": false,
+  "reporting-period": 1000000000,
+  "hash-workers": true,
+  "no-flow-control": true,
+  "channel-capacity": 5,
+  "insert-intervals": "",
+  "results-file": "/tmp/benchmark-result.out",
+  "file": "/tmp/input.data",
+  "seed": 0
+ },
+ "StartTime": 1621011663,
+ "EndTime": 1621011727,
+ "DurationMillis": 64383,
+ "Totals": {
+  "metricRate": 402585.90317416016,
+  "rowRate": 40274.122180964405
+ }
+}

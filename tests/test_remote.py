@@ -1,6 +1,14 @@
+import json
+
 import redis
+import yaml
 from redistimeseries.client import Client
 
+from redisbench_admin.run_remote.run_remote import (
+    merge_default_and_config_metrics,
+    redistimeseries_results_logic,
+)
+from redisbench_admin.utils.benchmark_config import process_default_yaml_properties_file
 from redisbench_admin.utils.remote import (
     extract_git_vars,
     fetch_remote_setup_from_config,
@@ -102,3 +110,66 @@ def test_push_data_to_redistimeseries():
         )
         assert datapoint_errors == 0
         assert datapoint_inserts == 0
+
+
+def test_extract_perversion_timeseries_from_results():
+    # default and specific metrics test
+    with open("./tests/test_data/common-properties-v0.1.yml", "r") as yml_file:
+        (
+            default_kpis,
+            default_metrics,
+            exporter_timemetric_path,
+        ) = process_default_yaml_properties_file(None, None, "1.yml", None, yml_file)
+        assert exporter_timemetric_path == "$.StartTime"
+        with open(
+            "./tests/test_data/tsbs-devops-ingestion-scale100-4days.yml", "r"
+        ) as yml_file:
+            benchmark_config = yaml.safe_load(yml_file)
+            merged_exporter_timemetric_path, metrics = merge_default_and_config_metrics(
+                benchmark_config, default_metrics, exporter_timemetric_path
+            )
+            assert merged_exporter_timemetric_path == "$.StartTime"
+            assert "$.Totals.metricRate" in metrics
+            assert "$.Totals.rowRate" in metrics
+            for m in default_metrics:
+                assert m in metrics
+        with open(
+            "./tests/test_data/tsbs_load_redistimeseries_result.json", "r"
+        ) as json_file:
+            results_dict = json.load(json_file)
+
+            (
+                per_version_time_series_dict,
+                per_branch_time_series_dict,
+            ) = redistimeseries_results_logic(
+                "N/A",
+                benchmark_config,
+                default_metrics,
+                "oss",
+                exporter_timemetric_path,
+                results_dict,
+                None,
+                "test_name",
+                "tf_github_branch",
+                "tf_github_org",
+                "tf_github_repo",
+                "tf_triggering_env",
+            )
+            assert per_version_time_series_dict is not None
+            assert len(per_version_time_series_dict.keys()) == 2
+            for existing_metric in ["Totals.rowRate", "Totals.metricRate"]:
+                assert (
+                    "ci.benchmarks.redislabs/by.version/tf_triggering_env/tf_github_org/tf_github_repo/test_name/oss/N/A/{}".format(
+                        existing_metric
+                    )
+                    in per_version_time_series_dict.keys()
+                )
+            assert per_branch_time_series_dict is not None
+            assert len(per_branch_time_series_dict.keys()) == 2
+            for existing_metric in ["Totals.rowRate", "Totals.metricRate"]:
+                assert (
+                    "ci.benchmarks.redislabs/by.branch/tf_triggering_env/tf_github_org/tf_github_repo/test_name/oss/tf_github_branch/{}".format(
+                        existing_metric
+                    )
+                    in per_branch_time_series_dict.keys()
+                )

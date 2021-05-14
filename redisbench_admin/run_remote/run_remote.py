@@ -4,6 +4,7 @@ import os
 import sys
 import traceback
 
+import redis
 from python_terraform import Terraform
 from redistimeseries.client import Client
 
@@ -525,31 +526,47 @@ def run_remote_command_logic(args):
                         tf_github_repo,
                         tf_triggering_env,
                     )
-                    rts.redis.sadd(testcases_setname, test_name)
-                    rts.incrby(
-                        tsname_project_total_success,
-                        1,
-                        timestamp=start_time_ms,
-                        labels=get_project_ts_tags(
-                            tf_github_org,
-                            tf_github_repo,
-                            deployment_type,
-                            tf_triggering_env,
-                        ),
-                    )
+                    try:
+                        rts.redis.sadd(testcases_setname, test_name)
+                        rts.incrby(
+                            tsname_project_total_success,
+                            1,
+                            timestamp=start_time_ms,
+                            labels=get_project_ts_tags(
+                                tf_github_org,
+                                tf_github_repo,
+                                deployment_type,
+                                tf_triggering_env,
+                            ),
+                        )
+                    except redis.exceptions.ResponseError as e:
+                        logging.warning(
+                            "Error while updating secondary data structures {}. ".format(
+                                e.__str__()
+                            )
+                        )
+                        pass
             except:
                 if args.push_results_redistimeseries:
-                    rts.incrby(
-                        tsname_project_total_failures,
-                        1,
-                        timestamp=start_time_ms,
-                        labels=get_project_ts_tags(
-                            tf_github_org,
-                            tf_github_repo,
-                            deployment_type,
-                            tf_triggering_env,
-                        ),
-                    )
+                    try:
+                        rts.incrby(
+                            tsname_project_total_failures,
+                            1,
+                            timestamp=start_time_ms,
+                            labels=get_project_ts_tags(
+                                tf_github_org,
+                                tf_github_repo,
+                                deployment_type,
+                                tf_triggering_env,
+                            ),
+                        )
+                    except redis.exceptions.ResponseError as e:
+                        logging.warning(
+                            "Error while updating secondary data structures {}. ".format(
+                                e.__str__()
+                            )
+                        )
+                        pass
                 return_code |= 1
                 logging.critical(
                     "Some unexpected exception was caught "
@@ -596,7 +613,7 @@ def redistimeseries_results_logic(
     exporter_timemetric_path, metrics = merge_default_and_config_metrics(
         benchmark_config, default_metrics, exporter_timemetric_path
     )
-    common_exporter_logic(
+    per_version_time_series_dict, per_branch_time_series_dict = common_exporter_logic(
         deployment_type,
         exporter_timemetric_path,
         metrics,
@@ -609,6 +626,7 @@ def redistimeseries_results_logic(
         tf_triggering_env,
         artifact_version,
     )
+    return per_version_time_series_dict, per_branch_time_series_dict
 
 
 def merge_default_and_config_metrics(
