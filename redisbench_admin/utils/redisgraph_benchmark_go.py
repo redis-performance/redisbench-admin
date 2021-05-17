@@ -14,6 +14,7 @@ def spin_up_standalone_remote_redis(
     remote_module_file,
     remote_dataset_file,
     dirname=".",
+    redis_configuration_parameters=None,
 ):
     # copy the rdb to DB machine
     check_dataset_remote_requirements(
@@ -24,23 +25,36 @@ def spin_up_standalone_remote_redis(
         remote_dataset_file,
         dirname,
     )
+    initial_redis_cmd = (
+        'redis-server --save "" --dir /tmp/ --daemonize yes --protected-mode no'
+    )
+    if redis_configuration_parameters is not None:
+        for (
+            configuration_parameter,
+            configuration_value,
+        ) in redis_configuration_parameters.items():
+            initial_redis_cmd += " --{} {}".format(
+                configuration_parameter, configuration_value
+            )
 
     # copy the module to the DB machine
-    copy_file_to_remote_setup(
-        server_public_ip, username, private_key, local_module_file, remote_module_file
-    )
-    execute_remote_commands(
-        server_public_ip,
-        username,
-        private_key,
-        ["chmod 755 {}".format(remote_module_file)],
-    )
-    # start redis-server
-    commands = [
-        "redis-server --dir /tmp/ --daemonize yes --protected-mode no --loadmodule {}".format(
-            remote_module_file
+    if remote_module_file is not None:
+        copy_file_to_remote_setup(
+            server_public_ip,
+            username,
+            private_key,
+            local_module_file,
+            remote_module_file,
         )
-    ]
+        execute_remote_commands(
+            server_public_ip,
+            username,
+            private_key,
+            ["chmod 755 {}".format(remote_module_file)],
+        )
+        initial_redis_cmd += " --loadmodule {}".format(remote_module_file)
+    # start redis-server
+    commands = [initial_redis_cmd]
     execute_remote_commands(server_public_ip, username, private_key, commands)
 
 

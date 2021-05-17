@@ -62,6 +62,20 @@ def test_generate_standalone_redis_server_args():
         "--loadmodule",
         os.path.abspath(local_module_file),
     ]
+    cmd = generate_standalone_redis_server_args(
+        ".", None, "9999", {"notify-keyspace-events": "KEA"}
+    )
+    assert cmd == [
+        "redis-server",
+        "--save",
+        '""',
+        "--port",
+        "9999",
+        "--dir",
+        ".",
+        "--notify-keyspace-events",
+        "KEA",
+    ]
 
 
 def test_spin_up_local_redis():
