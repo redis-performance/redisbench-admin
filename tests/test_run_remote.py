@@ -5,6 +5,7 @@ from redisbench_admin.run_remote.run_remote import (
     redistimeseries_results_logic,
     merge_default_and_config_metrics,
     get_test_s3_bucket_path,
+    extract_tsbs_extra_links,
 )
 from redisbench_admin.utils.benchmark_config import process_default_yaml_properties_file
 from redisbench_admin.utils.remote import get_overall_dashboard_keynames
@@ -94,3 +95,21 @@ def test_get_overall_dashboard_keynames():
         "ci.benchmarks.redislabs/env/org/repo:total_failures"
         == tsname_project_total_failures
     )
+
+
+def test_extract_tsbs_extra_links():
+    with open(
+        "./tests/test_data/tsbs-devops-ingestion-scale100-4days-keyspace.yml", "r"
+    ) as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        queries_file_link, remote_tool_link, tool_link = extract_tsbs_extra_links(
+            benchmark_config, "tsbs_load_redistimeseries"
+        )
+        assert (
+            queries_file_link
+            == "https://s3.amazonaws.com/benchmarks.redislabs/redistimeseries/tsbs/datasets/devops/scale100/data_redistimeseries_cpu-only_100.dat"
+        )
+        assert remote_tool_link == "/tmp/tsbs_load_redistimeseries"
+        assert tool_link == (
+            "https://s3.amazonaws.com/benchmarks.redislabs/redistimeseries/tools/tsbs/tsbs_load_redistimeseries_linux_amd64"
+        )

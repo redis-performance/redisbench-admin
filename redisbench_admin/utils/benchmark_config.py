@@ -117,6 +117,19 @@ def merge_default_and_specific_properties_dict_type(
                 )
 
 
+def extract_redis_configuration_parameters(benchmark_config, dbconfig_keyname):
+    redis_configuration_parameters = {}
+    if dbconfig_keyname in benchmark_config:
+        for k in benchmark_config[dbconfig_keyname]:
+            if "configuration-parameters" in k:
+                cp = k["configuration-parameters"]
+                for item in cp:
+                    for k, v in item.items():
+                        redis_configuration_parameters[k] = v
+
+    return redis_configuration_parameters
+
+
 def process_default_yaml_properties_file(
     default_kpis, default_metrics, defaults_filename, exporter_timemetric_path, stream
 ):

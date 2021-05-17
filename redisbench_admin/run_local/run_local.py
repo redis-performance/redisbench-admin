@@ -18,6 +18,7 @@ from redisbench_admin.utils.benchmark_config import (
     extract_benchmark_tool_settings,
     check_required_modules,
     results_dict_kpi_check,
+    extract_redis_configuration_parameters,
 )
 from redisbench_admin.run.redis_benchmark.redis_benchmark import (
     redis_benchmark_ensure_min_version_local,
@@ -79,8 +80,15 @@ def run_local_command_logic(args):
             )
             check_dataset_local_requirements(benchmark_config, temporary_dir, dirname)
 
+            redis_configuration_parameters = extract_redis_configuration_parameters(
+                benchmark_config, "dbconfig"
+            )
+
             redis_process = spin_up_local_redis(
-                temporary_dir, args.port, local_module_file
+                temporary_dir,
+                args.port,
+                local_module_file,
+                redis_configuration_parameters,
             )
             if is_process_alive(redis_process) is False:
                 raise Exception("Redis process is not alive. Failing test.")

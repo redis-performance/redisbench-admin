@@ -5,6 +5,7 @@ import yaml
 from redisbench_admin.utils.benchmark_config import (
     results_dict_kpi_check,
     check_required_modules,
+    extract_redis_configuration_parameters,
 )
 
 
@@ -43,3 +44,26 @@ def test_check_required_modules():
         assert "Unable to detect required module" in e.__str__()
     check_required_modules(["search", "ReJSON", "TimeSeries"], ["search"])
     check_required_modules(["search", "ReJSON", "TimeSeries"], ["search", "TimeSeries"])
+
+
+def test_extract_redis_configuration_parameters():
+    with open(
+        "./tests/test_data/redisgraph-benchmark-go-defaults.yml", "r"
+    ) as config_fd:
+        benchmark_config = yaml.safe_load(config_fd)
+        redis_configuration_parameters = extract_redis_configuration_parameters(
+            benchmark_config, "dbconfig"
+        )
+        assert redis_configuration_parameters == {}
+
+        with open(
+            "./tests/test_data/tsbs-devops-ingestion-scale100-4days-keyspace.yml", "r"
+        ) as config_fd:
+            benchmark_config = yaml.safe_load(config_fd)
+            redis_configuration_parameters = extract_redis_configuration_parameters(
+                benchmark_config, "dbconfig"
+            )
+            assert redis_configuration_parameters == {
+                "notify-keyspace-events": "KEA",
+                "timeout": 0,
+            }

@@ -25,6 +25,7 @@ from redisbench_admin.utils.benchmark_config import (
     prepare_benchmark_definitions,
     check_required_modules,
     results_dict_kpi_check,
+    extract_redis_configuration_parameters,
 )
 from redisbench_admin.utils.redisgraph_benchmark_go import (
     spin_up_standalone_remote_redis,
@@ -354,6 +355,11 @@ def run_remote_command_logic(args):
             # after we've created the env, even on error we should always teardown
             # in case of some unexpected error we fail the test
             try:
+
+                redis_configuration_parameters = extract_redis_configuration_parameters(
+                    benchmark_config, "dbconfig"
+                )
+
                 # setup Redis
                 spin_up_standalone_remote_redis(
                     benchmark_config,
@@ -364,6 +370,7 @@ def run_remote_command_logic(args):
                     remote_module_file,
                     remote_dataset_file,
                     dirname,
+                    redis_configuration_parameters,
                 )
                 module_names, artifact_versions = extract_artifact_version_remote(
                     server_public_ip, server_plaintext_port, username, private_key
@@ -390,20 +397,11 @@ def run_remote_command_logic(args):
                         redisbenchmark_go_link,
                     )
                 if "tsbs_" in benchmark_tool:
-                    remote_tool_link = "/tmp/{}".format(benchmark_tool)
-                    tool_link = (
-                        "https://s3.amazonaws.com/benchmarks.redislabs/"
-                        + "redistimeseries/tools/tsbs/{}_linux_amd64".format(
-                            benchmark_tool
-                        )
-                    )
-
-                    queries_file_link = None
-                    for entry in benchmark_config["clientconfig"]:
-                        if "parameters" in entry:
-                            for parameter in entry["parameters"]:
-                                if "file" in parameter:
-                                    queries_file_link = parameter["file"]
+                    (
+                        queries_file_link,
+                        remote_tool_link,
+                        tool_link,
+                    ) = extract_tsbs_extra_links(benchmark_config, benchmark_tool)
 
                     setup_remote_benchmark_tool_requirements_tsbs(
                         client_public_ip,
@@ -584,6 +582,21 @@ def run_remote_command_logic(args):
         logging.info("Tear-down completed")
 
     exit(return_code)
+
+
+def extract_tsbs_extra_links(benchmark_config, benchmark_tool):
+    remote_tool_link = "/tmp/{}".format(benchmark_tool)
+    tool_link = (
+        "https://s3.amazonaws.com/benchmarks.redislabs/"
+        + "redistimeseries/tools/tsbs/{}_linux_amd64".format(benchmark_tool)
+    )
+    queries_file_link = None
+    for entry in benchmark_config["clientconfig"]:
+        if "parameters" in entry:
+            for parameter in entry["parameters"]:
+                if "file" in parameter:
+                    queries_file_link = parameter["file"]
+    return queries_file_link, remote_tool_link, tool_link
 
 
 def get_test_s3_bucket_path(s3_bucket_name, test_name, tf_github_org, tf_github_repo):

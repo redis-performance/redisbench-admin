@@ -87,8 +87,11 @@ def spin_up_local_redis(
     dbdir,
     port,
     local_module_file,
+    configuration_parameters=None,
 ):
-    command = generate_standalone_redis_server_args(dbdir, local_module_file, port)
+    command = generate_standalone_redis_server_args(
+        dbdir, local_module_file, port, configuration_parameters
+    )
 
     logging.info(
         "Running local redis-server with the following args: {}".format(
@@ -102,7 +105,9 @@ def spin_up_local_redis(
     return redis_process
 
 
-def generate_standalone_redis_server_args(dbdir, local_module_file, port):
+def generate_standalone_redis_server_args(
+    dbdir, local_module_file, port, configuration_parameters=None
+):
     # start redis-server
     command = [
         "redis-server",
@@ -113,6 +118,14 @@ def generate_standalone_redis_server_args(dbdir, local_module_file, port):
         "--dir",
         dbdir,
     ]
+    if configuration_parameters is not None:
+        for parameter, parameter_value in configuration_parameters.items():
+            command.extend(
+                [
+                    "--{}".format(parameter),
+                    parameter_value,
+                ]
+            )
     if local_module_file is not None:
         command.extend(
             [
