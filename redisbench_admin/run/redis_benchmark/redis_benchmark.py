@@ -67,6 +67,10 @@ def prepare_redis_benchmark_command(
             command_arr.extend(["--threads", "{}".format(k["threads"])])
         if "pipeline" in k:
             command_arr.extend(["-P", "{}".format(k["pipeline"])])
+        if "keyspacelen" in k:
+            command_arr.extend(["-r", "{}".format(k["keyspacelen"])])
+        if "size" in k:
+            command_arr.extend(["-d", "{}".format(k["size"])])
         # if we have the command keywork then it needs to be at the end of args
         if "command" in k:
             last_str = k["command"]

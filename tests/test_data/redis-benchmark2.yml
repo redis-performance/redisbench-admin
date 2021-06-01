@@ -1,0 +1,17 @@
+version: 0.2
+name: "bf_add_cap10K_err0.01"
+description: "bf.add test __rand_int__"
+remote:
+ - type: oss-standalone
+ - setup: redisearch-m5d
+clientconfig:
+  - tool: redis-benchmark
+  - min-tool-version: "6.2.0"
+  - parameters:
+    - clients: 16
+    - requests: 1000000000
+    - threads: 2
+    - pipeline: 1
+    - keyspacelen: 100000
+    - size: 128
+    - command: 'bf.add test __rand_int__'
