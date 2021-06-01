@@ -23,6 +23,20 @@ def test_prepare_redis_benchmark_command():
                 )
 
 
+def test_prepare_redis_benchmark_command():
+    with open("./tests/test_data/redis-benchmark2.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        for k in benchmark_config["clientconfig"]:
+            if "parameters" in k:
+                command_arr, command_str = prepare_redis_benchmark_command(
+                    "redis-benchmark", "localhost", "6380", k
+                )
+                assert (
+                    command_str
+                    == "redis-benchmark -h localhost -p 6380 --csv -e -c 16 -n 1000000000 --threads 2 -P 1 -r 100000 -d 128 bf.add test __rand_int__"
+                )
+
+
 def test_redis_benchmark_ensure_min_version_local():
     redis_benchmark_bin = shutil.which("redis-benchmark")
     if redis_benchmark_bin:
