@@ -77,8 +77,11 @@ def post_process_benchmark_results(
                 local_benchmark_output_filename
             )
         )
+        ycsb_input = stdout
+        if type(ycsb_input) == bytes:
+            ycsb_input = ycsb_input.decode("ascii")
         results_dict = post_process_ycsb_results(
-            stdout.decode("ascii"),
+            ycsb_input,
             start_time_ms,
             start_time_str,
         )

@@ -30,6 +30,7 @@ from redisbench_admin.utils.benchmark_config import (
 from redisbench_admin.utils.redisgraph_benchmark_go import (
     spin_up_standalone_remote_redis,
     setup_remote_benchmark_tool_redisgraph_benchmark_go,
+    setup_remote_benchmark_tool_ycsb_redisearch,
 )
 from redisbench_admin.utils.remote import (
     extract_git_vars,
@@ -396,6 +397,12 @@ def run_remote_command_logic(args):
                         private_key,
                         redisbenchmark_go_link,
                     )
+                if "ycsb" in benchmark_tool:
+                    setup_remote_benchmark_tool_ycsb_redisearch(
+                        client_public_ip,
+                        username,
+                        private_key,
+                    )
                 if "tsbs_" in benchmark_tool:
                     (
                         queries_file_link,
@@ -456,7 +463,7 @@ def run_remote_command_logic(args):
                     tmp = local_benchmark_output_filename
                     local_benchmark_output_filename = "result.csv"
                 # run the benchmark
-                run_remote_benchmark(
+                _, stdout, _ = run_remote_benchmark(
                     client_public_ip,
                     username,
                     private_key,
@@ -465,11 +472,12 @@ def run_remote_command_logic(args):
                     command_str,
                 )
 
-                if benchmark_tool == "redis-benchmark" or benchmark_tool == "ycsb":
+                if benchmark_tool == "redis-benchmark":
                     local_benchmark_output_filename = tmp
                     with open("result.csv", "r") as txt_file:
                         stdout = txt_file.read()
 
+                if benchmark_tool == "redis-benchmark" or benchmark_tool == "ycsb":
                     post_process_benchmark_results(
                         benchmark_tool,
                         local_benchmark_output_filename,
@@ -575,6 +583,10 @@ def run_remote_command_logic(args):
                 traceback.print_exc(file=sys.stdout)
                 print("-" * 60)
 
+        else:
+            logging.info(
+                "Test {} does not have remote config. Skipping test.".format(test_name)
+            )
     for remote_setup_name, tf in remote_envs.items():
         # tear-down
         logging.info("Tearing down setup {}".format(remote_setup_name))
