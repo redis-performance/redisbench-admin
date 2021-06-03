@@ -547,40 +547,44 @@ def extract_perbranch_timeseries_from_results(
 ):
     branch_time_series_dict = {}
     for jsonpath in metrics:
-        jsonpath_expr = parse(jsonpath)
-        metric_name = jsonpath[2:]
-        find_res = jsonpath_expr.find(results_dict)
-        if find_res is not None and len(find_res) > 0:
-            metric_value = float(find_res[0].value)
+        try:
+            jsonpath_expr = parse(jsonpath)
+        except Exception:
+            pass
+        finally:
+            metric_name = jsonpath[2:]
+            find_res = jsonpath_expr.find(results_dict)
+            if find_res is not None and len(find_res) > 0:
+                metric_value = float(find_res[0].value)
 
-            branch_tags = get_project_ts_tags(
-                tf_github_org, tf_github_repo, deployment_type, tf_triggering_env
-            )
-            branch_tags["branch"] = str(tf_github_branch)
-            branch_tags["test_name"] = str(test_name)
-            branch_tags["metric"] = str(metric_name)
-            ts_name = (
-                "ci.benchmarks.redislabs/by.branch/"
-                "{triggering_env}/{github_org}/{github_repo}/"
-                "{test_name}/{deployment_type}/{branch}/{metric}".format(
-                    branch=str(tf_github_branch),
-                    github_org=tf_github_org,
-                    github_repo=tf_github_repo,
-                    deployment_type=deployment_type,
-                    test_name=test_name,
-                    triggering_env=tf_triggering_env,
-                    metric=metric_name,
+                branch_tags = get_project_ts_tags(
+                    tf_github_org, tf_github_repo, deployment_type, tf_triggering_env
                 )
-            )
+                branch_tags["branch"] = str(tf_github_branch)
+                branch_tags["test_name"] = str(test_name)
+                branch_tags["metric"] = str(metric_name)
+                ts_name = (
+                    "ci.benchmarks.redislabs/by.branch/"
+                    "{triggering_env}/{github_org}/{github_repo}/"
+                    "{test_name}/{deployment_type}/{branch}/{metric}".format(
+                        branch=str(tf_github_branch),
+                        github_org=tf_github_org,
+                        github_repo=tf_github_repo,
+                        deployment_type=deployment_type,
+                        test_name=test_name,
+                        triggering_env=tf_triggering_env,
+                        metric=metric_name,
+                    )
+                )
 
-            branch_time_series_dict[ts_name] = {
-                "labels": branch_tags.copy(),
-                "data": {datapoints_timestamp: metric_value},
-            }
-        else:
-            logging.warning(
-                "Unable to find metric path {} in {}".format(jsonpath, results_dict)
-            )
+                branch_time_series_dict[ts_name] = {
+                    "labels": branch_tags.copy(),
+                    "data": {datapoints_timestamp: metric_value},
+                }
+            else:
+                logging.warning(
+                    "Unable to find metric path {} in {}".format(jsonpath, results_dict)
+                )
     return True, branch_time_series_dict
 
 
