@@ -7,21 +7,20 @@ on:
 
 jobs:
   pytest:
-    name: Linting, testing, and compliance
-    runs-on: ubuntu-latest
-    services:
-      rts-service:
-        image: redislabs/redistimeseries:latest
-        ports:
-          - 6379:6379
+    strategy:
+      matrix:
+        python-version: [ 3.6, 3.7, 3.8, 3.9 ]
+        os: [ ubuntu-latest, macos-latest ]
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+    runs-on: ${{ matrix.os }}
+    name: os ${{ matrix.os }} python ${{ matrix.python-version }} Linting, testing, and compliance
     steps:
       - uses: actions/checkout@master
-      - name: Set up Python 3.7
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v1
         with:
-          python-version: 3.7
+          python-version: ${{ matrix.python-version }}
 
       - name: Install Poetry
         uses: dschep/install-poetry-action@v1.3
