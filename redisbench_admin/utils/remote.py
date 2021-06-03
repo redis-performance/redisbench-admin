@@ -267,69 +267,75 @@ def validate_result_expectations(
     for expectation in benchmark_config[expectations_key]:
         for comparison_mode, rules in expectation.items():
             for jsonpath, expected_value in rules.items():
-                jsonpath_expr = parse(jsonpath)
-                actual_value = float(jsonpath_expr.find(results_dict)[0].value)
-                expected_value = float(expected_value)
-                if comparison_mode == "eq":
-                    if actual_value != expected_value:
-                        result &= False
-                        logging.error(
-                            "Condition on {} {} {} {} is False. Failing test expectations".format(
-                                jsonpath,
-                                actual_value,
-                                comparison_mode,
-                                expected_value,
-                            )
-                        )
-                    else:
-                        logging.info(
-                            "Condition on {} {} {} {} is True.".format(
-                                jsonpath,
-                                actual_value,
-                                comparison_mode,
-                                expected_value,
-                            )
-                        )
-                if comparison_mode == "le":
-                    if actual_value > expected_value:
-                        result &= False
-                        logging.error(
-                            "Condition on {} {} {} {} is False. Failing test expectations".format(
-                                jsonpath,
-                                actual_value,
-                                comparison_mode,
-                                expected_value,
-                            )
-                        )
-                    else:
-                        logging.info(
-                            "Condition on {} {} {} {} is True.".format(
-                                jsonpath,
-                                actual_value,
-                                comparison_mode,
-                                expected_value,
-                            )
-                        )
-                if comparison_mode == "ge":
-                    if actual_value < expected_value:
-                        result &= False
-                        logging.error(
-                            "Condition on {} {} {} {} is False. Failing test expectations".format(
-                                jsonpath,
-                                actual_value,
-                                comparison_mode,
-                                expected_value,
-                            )
-                        )
-                    else:
-                        logging.info(
-                            "Condition on {} {} {} {} is True.".format(
-                                jsonpath,
-                                actual_value,
-                                comparison_mode,
-                                expected_value,
-                            )
-                        )
+                try:
+                    jsonpath_expr = parse(jsonpath)
+                except Exception:
+                    pass
+                finally:
+                    r = jsonpath_expr.find(results_dict)
+                    if len(r) > 0:
+                        actual_value = float(r[0].value)
+                        expected_value = float(expected_value)
+                        if comparison_mode == "eq":
+                            if actual_value != expected_value:
+                                result &= False
+                                logging.error(
+                                    "Condition on {} {} {} {} is False. Failing test expectations".format(
+                                        jsonpath,
+                                        actual_value,
+                                        comparison_mode,
+                                        expected_value,
+                                    )
+                                )
+                            else:
+                                logging.info(
+                                    "Condition on {} {} {} {} is True.".format(
+                                        jsonpath,
+                                        actual_value,
+                                        comparison_mode,
+                                        expected_value,
+                                    )
+                                )
+                        if comparison_mode == "le":
+                            if actual_value > expected_value:
+                                result &= False
+                                logging.error(
+                                    "Condition on {} {} {} {} is False. Failing test expectations".format(
+                                        jsonpath,
+                                        actual_value,
+                                        comparison_mode,
+                                        expected_value,
+                                    )
+                                )
+                            else:
+                                logging.info(
+                                    "Condition on {} {} {} {} is True.".format(
+                                        jsonpath,
+                                        actual_value,
+                                        comparison_mode,
+                                        expected_value,
+                                    )
+                                )
+                        if comparison_mode == "ge":
+                            if actual_value < expected_value:
+                                result &= False
+                                logging.error(
+                                    "Condition on {} {} {} {} is False. Failing test expectations".format(
+                                        jsonpath,
+                                        actual_value,
+                                        comparison_mode,
+                                        expected_value,
+                                    )
+                                )
+                            else:
+                                logging.info(
+                                    "Condition on {} {} {} {} is True.".format(
+                                        jsonpath,
+                                        actual_value,
+                                        comparison_mode,
+                                        expected_value,
+                                    )
+                                )
     return result
 
 
@@ -469,42 +475,46 @@ def extract_perversion_timeseries_from_results(
 ):
     branch_time_series_dict = {}
     for jsonpath in metrics:
-        jsonpath_expr = parse(jsonpath)
-        metric_name = jsonpath[2:]
-        find_res = jsonpath_expr.find(results_dict)
-        if find_res is not None and len(find_res) > 0:
-            metric_value = float(find_res[0].value)
-            # prepare tags
-            # branch tags
-            version_tags = get_project_ts_tags(
-                tf_github_org, tf_github_repo, deployment_type, tf_triggering_env
-            )
-            version_tags["version"] = project_version
-            version_tags["test_name"] = str(test_name)
-            version_tags["metric"] = str(metric_name)
-
-            ts_name = (
-                "ci.benchmarks.redislabs/by.version/"
-                "{triggering_env}/{github_org}/{github_repo}/"
-                "{test_name}/{deployment_type}/{version}/{metric}".format(
-                    version=project_version,
-                    github_org=tf_github_org,
-                    github_repo=tf_github_repo,
-                    deployment_type=deployment_type,
-                    test_name=test_name,
-                    triggering_env=tf_triggering_env,
-                    metric=metric_name,
+        try:
+            jsonpath_expr = parse(jsonpath)
+        except Exception:
+            pass
+        finally:
+            metric_name = jsonpath[2:]
+            find_res = jsonpath_expr.find(results_dict)
+            if find_res is not None and len(find_res) > 0:
+                metric_value = float(find_res[0].value)
+                # prepare tags
+                # branch tags
+                version_tags = get_project_ts_tags(
+                    tf_github_org, tf_github_repo, deployment_type, tf_triggering_env
                 )
-            )
+                version_tags["version"] = project_version
+                version_tags["test_name"] = str(test_name)
+                version_tags["metric"] = str(metric_name)
 
-            branch_time_series_dict[ts_name] = {
-                "labels": version_tags.copy(),
-                "data": {datapoints_timestamp: metric_value},
-            }
-        else:
-            logging.warning(
-                "Unable to find metric path {} in {}".format(jsonpath, results_dict)
-            )
+                ts_name = (
+                    "ci.benchmarks.redislabs/by.version/"
+                    "{triggering_env}/{github_org}/{github_repo}/"
+                    "{test_name}/{deployment_type}/{version}/{metric}".format(
+                        version=project_version,
+                        github_org=tf_github_org,
+                        github_repo=tf_github_repo,
+                        deployment_type=deployment_type,
+                        test_name=test_name,
+                        triggering_env=tf_triggering_env,
+                        metric=metric_name,
+                    )
+                )
+
+                branch_time_series_dict[ts_name] = {
+                    "labels": version_tags.copy(),
+                    "data": {datapoints_timestamp: metric_value},
+                }
+            else:
+                logging.warning(
+                    "Unable to find metric path {} in {}".format(jsonpath, results_dict)
+                )
     return True, branch_time_series_dict
 
 

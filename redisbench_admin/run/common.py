@@ -175,9 +175,9 @@ def common_exporter_logic(
             test_name,
             tf_triggering_env,
         )
-
-        # push per-branch data
-        push_data_to_redistimeseries(rts, per_version_time_series_dict)
+        if ok:
+            # push per-version data
+            push_data_to_redistimeseries(rts, per_version_time_series_dict)
         if tf_github_branch is not None and tf_github_branch != "":
             # extract per branch datapoints
             ok, per_branch_time_series_dict = extract_perbranch_timeseries_from_results(
@@ -191,8 +191,9 @@ def common_exporter_logic(
                 test_name,
                 tf_triggering_env,
             )
-            # push per-branch data
-            push_data_to_redistimeseries(rts, per_branch_time_series_dict)
+            if ok:
+                # push per-branch data
+                push_data_to_redistimeseries(rts, per_branch_time_series_dict)
         else:
             logging.warning(
                 "Requested to push data to RedisTimeSeries but no git"
