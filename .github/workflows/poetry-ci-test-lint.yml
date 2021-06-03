@@ -8,12 +8,10 @@ on:
 jobs:
   pytest:
     name: Linting, testing, and compliance
-    runs-on: ${{ matrix.os }}
-      strategy:
-        fail-fast: false
-        matrix:
-          python-version: [ 3.6, 3.7, 3.8, 3.9 ]
-          os: [ ubuntu-latest, macOS-latest ]
+    strategy:
+      matrix:
+        python-version: [ 3.6, 3.7, 3.8, 3.9 ]
+        os: [ ubuntu-latest, macOS-latest ]
     services:
       rts-service:
         image: redislabs/redistimeseries:latest
@@ -21,6 +19,7 @@ jobs:
           - 6379:6379
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@master
       - name: Set up Python ${{ matrix.python-version }}
