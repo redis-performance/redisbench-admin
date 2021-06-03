@@ -12,11 +12,6 @@ jobs:
       matrix:
         python-version: [ 3.6, 3.7, 3.8, 3.9 ]
         os: [ ubuntu-latest, macOS-latest ]
-    services:
-      rts-service:
-        image: redislabs/redistimeseries:latest
-        ports:
-          - 6379:6379
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
     runs-on: ${{ matrix.os }}
