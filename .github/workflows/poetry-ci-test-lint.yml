@@ -7,14 +7,14 @@ on:
 
 jobs:
   pytest:
-    name: Linting, testing, and compliance
     strategy:
       matrix:
         python-version: [ 3.6, 3.7, 3.8, 3.9 ]
-        os: [ ubuntu-latest, macOS-latest ]
+        os: [ ubuntu-latest, macos-latest ]
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
     runs-on: ${{ matrix.os }}
+    name: os ${{ matrix.os }} python ${{ matrix.python-version }} Linting, testing, and compliance
     steps:
       - uses: actions/checkout@master
       - name: Set up Python ${{ matrix.python-version }}
