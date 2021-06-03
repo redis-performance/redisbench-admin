@@ -69,7 +69,9 @@ def post_process_ycsb_results(stdout, start_time_ms, start_time_str):
     }
     if type(stdout) == bytes:
         stdout = stdout.decode("ascii")
-    csv_data = list(csv.reader(stdout.splitlines(), delimiter=","))
+    if type(stdout) is not list:
+        stdout = stdout.splitlines()
+    csv_data = list(csv.reader(stdout, delimiter=","))
     start_row = 0
     for row in csv_data:
         if len(row) >= 1:

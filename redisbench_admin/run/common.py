@@ -58,6 +58,11 @@ def prepare_benchmark_parameters(
                 )
 
             if "ycsb" in benchmark_tool:
+                if isremote is True:
+                    benchmark_tool = (
+                        "/tmp/ycsb-redisearch-binding-0.18.0-SNAPSHOT/bin/ycsb"
+                    )
+                    current_workdir = "/tmp/ycsb-redisearch-binding-0.18.0-SNAPSHOT"
                 command_arr, command_str = prepare_ycsb_benchmark_command(
                     benchmark_tool,
                     server_private_ip,
@@ -122,14 +127,15 @@ def run_remote_benchmark(
         logging.info("remote process stdout: {}".format(stdout))
         logging.info("Extracting the benchmark results")
         remote_run_result = True
-        fetch_file_from_remote_setup(
-            client_public_ip,
-            username,
-            private_key,
-            local_results_file,
-            remote_results_file,
-        )
-    return remote_run_result
+        if "ycsb" not in command:
+            fetch_file_from_remote_setup(
+                client_public_ip,
+                username,
+                private_key,
+                local_results_file,
+                remote_results_file,
+            )
+    return remote_run_result, stdout, stderr
 
 
 def common_exporter_logic(
