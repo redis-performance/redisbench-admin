@@ -1,3 +1,10 @@
+#  Apache License Version 2.0
+#
+#  Copyright (c) 2021., Redis Labs Modules
+#  All rights reserved.
+#
+
+
 def get_timeserie_name(labels_kv_array):
     name = ""
     for label_kv in labels_kv_array:

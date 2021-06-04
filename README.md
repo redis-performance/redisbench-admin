@@ -12,8 +12,8 @@ Redis benchmark run helper can help you with the following tasks:
 - Management of benchmark data and specifications across different setups
 - Running benchmarks and recording results
 - Exporting performance results in several formats (CSV, RedisTimeSeries, JSON)
-- [SOON] Comparing performance results
-- [SOON] Finding performance problems by attaching telemetry probes
+- Finding on-cpu, off-cpu, io, and threading performance problems by attaching profiling tools/probers ( perf (a.k.a. perf_events), bpf tooling, vtune )
+- **[SOON]** Finding performance problems by attaching telemetry probes
 
 Current supported benchmark tools:
 
@@ -21,6 +21,7 @@ Current supported benchmark tools:
 - [ftsb_redisearch](https://github.com/RediSearch/ftsb)
 - [redis-benchmark](https://github.com/redis/redis)
 - [YCSB](https://github.com/RediSearch/YCSB)
+- [tsbs](https://github.com/RedisTimeSeries/tsbs)
 - [SOON][memtier_benchmark](https://github.com/RedisLabs/memtier_benchmark)
 - [SOON][aibench](https://github.com/RedisAI/aibench)
 - [SOON][redis-benchmark-go](https://github.com/filipecosta90/redis-benchmark-go)
@@ -34,6 +35,31 @@ python3 -m pip install redisbench-admin
 ```
 
 ## Development
+
+1. Install [pypoetry](https://python-poetry.org/) to manage your dependencies and trigger tooling.
+```sh
+pip install poetry
+```
+
+2. Installing dependencies from lock file
+
+```
+poetry install
+```
+
+### Running formaters
+
+```sh
+poetry run black .
+```
+
+
+### Running linters
+
+```sh
+poetry run flake8
+```
+
 
 ### Running tests
 

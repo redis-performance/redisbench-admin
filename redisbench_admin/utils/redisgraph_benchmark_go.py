@@ -1,3 +1,9 @@
+#  Apache License Version 2.0
+#
+#  Copyright (c) 2021., Redis Labs Modules
+#  All rights reserved.
+#
+
 from redisbench_admin.utils.remote import (
     check_dataset_remote_requirements,
     copy_file_to_remote_setup,
