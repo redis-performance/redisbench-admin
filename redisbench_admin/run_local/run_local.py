@@ -1,6 +1,13 @@
+#  Apache License Version 2.0
+#
+#  Copyright (c) 2021., Redis Labs Modules
+#  All rights reserved.
+#
+
 import json
 import logging
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -52,6 +59,11 @@ def run_local_command_logic(args):
     local_module_file = args.module_path
     os.path.abspath(".")
     required_modules = args.required_module
+    profilers_enabled = args.enable_profilers
+    if profilers_enabled:
+        res = check_compatible_system_and_kernel(args)
+        if res is False:
+            exit(1)
 
     logging.info("Retrieved the following local info:")
     logging.info("\tgithub_actor: {}".format(github_actor))
@@ -170,6 +182,42 @@ def run_local_command_logic(args):
         logging.info("Tear-down completed")
 
     exit(return_code)
+
+
+def check_compatible_system_and_kernel(args):
+    """
+    Checks if we can do local profiling, that for now is only available
+    via Linux based platforms and kernel versions >=4.9
+    Args:
+        args:
+    """
+    res = True
+    logging.info("Enabled profilers: {}".format(args.profilers))
+    logging.info("Checking if system is capable of running those profilers:")
+    if "Linux" not in platform.system():
+        logging.error(
+            "Platform needs to be Linux based. Current platform: {}".format(
+                platform.system()
+            )
+        )
+        res = False
+    # check for release >= 4.9
+    release = platform.release()
+    logging.info("Detected release: {}".format(release))
+    major_minor = release.split(".")[:2]
+    system_kernel_major_v = major_minor[0]
+    system_kernel_minor_v = major_minor[1]
+    if float(system_kernel_major_v) < 4:
+        logging.error(
+            "kernel version needs to be >= 4.9. Detected version: {}".format(release)
+        )
+        res = False
+    if float(system_kernel_major_v) == 4 and float(system_kernel_minor_v) < 9:
+        logging.error(
+            "kernel version needs to be >= 4.9. Detected version: {}".format(release)
+        )
+        res = False
+    return res
 
 
 def run_local_benchmark(benchmark_tool, command):
