@@ -17,6 +17,7 @@ import redis
 import wget
 from redisbench_admin.profilers.perf import Perf
 from cpuinfo import get_cpu_info
+from pytablewriter import MarkdownTableWriter
 
 from redisbench_admin.run.common import (
     prepare_benchmark_parameters,
@@ -98,9 +99,12 @@ def run_local_command_logic(args):
         )
     )
     collection_summary_str += (
-        '<tspan x="{}" dy="1.2em">Collection trigger: github_actor=\'{}\' '
-        + format(span_x, github_actor)
-        + " github_repo='{}', github_branch='{}', github_sha='{}'</tspan>".format(
+        '<tspan x="{}" dy="1.2em">Collection trigger: github_actor=\'{}\' '.format(
+            span_x, github_actor
+        )
+    )
+    collection_summary_str += (
+        " github_repo='{}', github_branch='{}', github_sha='{}'</tspan>".format(
             github_repo_name, github_branch, github_sha
         )
     )
@@ -108,6 +112,8 @@ def run_local_command_logic(args):
     benchmark_definitions, _, _ = prepare_benchmark_definitions(args)
 
     return_code = 0
+    profilers_artifacts_matrix = []
+
     for test_name, benchmark_config in benchmark_definitions.items():
         redis_process = None
         # after we've spinned Redis, even on error we should always teardown
@@ -233,6 +239,14 @@ def run_local_command_logic(args):
                             artifact_name,
                             profile_artifact,
                         ) in profile_res_artifacts_map.items():
+                            profilers_artifacts_matrix.append(
+                                [
+                                    test_name,
+                                    profiler_name,
+                                    artifact_name,
+                                    profile_artifact,
+                                ]
+                            )
                             logging.info(
                                 "artifact {}: {}.".format(
                                     artifact_name, profile_artifact
@@ -266,6 +280,17 @@ def run_local_command_logic(args):
         if redis_process is not None:
             redis_process.kill()
         logging.info("Tear-down completed")
+
+    if profilers_enabled:
+        logging.info("Printing profiler generated artifacts")
+
+        writer = MarkdownTableWriter(
+            table_name="Profiler artifacts",
+            headers=["Test Case", "Profiler", "Artifact", "Local file"],
+            value_matrix=profilers_artifacts_matrix,
+        )
+        writer.write_table()
+
     exit(return_code)
 
 
