@@ -6,8 +6,10 @@
 
 import os
 
+from redisbench_admin.profilers.profilers import PROFILERS_DEFAULT, ALLOWED_PROFILERS
+
 PROFILERS_ENABLED = os.getenv("PROFILE", 0)
-PROFILERS = os.getenv("PROFILERS", "ebpf-oncpu,ebpf-offcpu")
+PROFILERS = os.getenv("PROFILERS", PROFILERS_DEFAULT)
 
 
 def create_run_local_arguments(parser):
@@ -36,8 +38,10 @@ def create_run_local_arguments(parser):
         "--enable-profilers",
         default=PROFILERS_ENABLED,
         action="store_true",
-        help="Enable Identifying On- and Off-CPU Time using ebpf tooling. "
-        "Only available on x86 Linux platform and kernel version >= 4.9",
+        help="Enable Identifying On-CPU and Off-CPU Time using perf/ebpf/vtune tooling. "
+        + "By default the chosen profilers are {}".format(PROFILERS_DEFAULT)
+        + "Full list of profilers: {}".format(ALLOWED_PROFILERS)
+        + "Only available on x86 Linux platform and kernel version >= 4.9",
     )
     parser.add_argument("--port", type=int, default=6379)
     return parser
