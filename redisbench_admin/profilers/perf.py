@@ -8,6 +8,9 @@ import logging
 import os.path
 import re
 import subprocess
+import time
+
+from redisbench_admin.profilers.profilers import STACKCOLLAPSE_PATH, FLAMEGRAPH_PATH
 
 
 class Perf:
@@ -20,9 +23,13 @@ class Perf:
         if not self.perf:
             self.perf = "perf"
 
-        self.stack_collapser = os.getenv("STACKCOLLAPSE")
+        self.stack_collapser = os.getenv("STACKCOLLAPSE_PATH")
         if not self.stack_collapser:
-            self.stack_collapser = os.path.abspath(".") + "/stackcollapse-perf.pl"
+            self.stack_collapser = STACKCOLLAPSE_PATH
+
+        self.flamegraph_utity = os.getenv("FLAMEGRAPH_PATH")
+        if not self.flamegraph_utity:
+            self.flamegraph_utity = FLAMEGRAPH_PATH
 
         self.output = None
         self.profiler_process = None
@@ -40,6 +47,8 @@ class Perf:
         self.version_major = ""
         self.version_minor = ""
         self.retrieve_perf_version()
+        self.profile_start_time = None
+        self.profile_end_time = None
 
     def retrieve_perf_version(self):
         try:
@@ -62,7 +71,7 @@ class Perf:
             cmd += ["--freq", "{}".format(frequency)]
         return cmd
 
-    def start_profile(self, pid, output, frequency):
+    def start_profile(self, pid, output, frequency=99):
         """
         @param pid: profile events on specified process id
         @param output: output file name
@@ -70,6 +79,8 @@ class Perf:
         @return: returns True if profiler started, False if unsuccessful
         """
         result = False
+        self.profile_start_time = time.time()
+
         # profiler is already running
         if not self.started_profile:
             stderrPipe = subprocess.PIPE
@@ -84,7 +95,7 @@ class Perf:
             }
 
             args = self.generate_record_command(pid, output, frequency)
-            logging.error("Starting profile of pid {} with args {}".format(pid, args))
+            logging.info("Starting profile of pid {} with args {}".format(pid, args))
             self.profiler_process = subprocess.Popen(args=args, **options)
             self.started_profile = True
             result = True
@@ -108,7 +119,8 @@ class Perf:
         @return: returns True if profiler stop, False if unsuccessful
         """
         result = False
-        if not self._isAlive(self.profiler_process):
+        self.profile_end_time = time.time()
+        if not self._is_alive(self.profiler_process):
             logging.error(
                 "Profiler process is not alive, might have crash during test execution, "
             )
@@ -121,7 +133,33 @@ class Perf:
                 self.profiler_process_stderr,
             ) = self.profiler_process.communicate()
             self.profiler_process_exit_code = self.profiler_process.poll()
-            result = True
+            if self.profiler_process_exit_code <= 0:
+                logging.info("Generating trace file from profile.")
+                result = self.generate_trace_file_from_profile()
+                if result is True:
+                    logging.info("Trace file generation ran OK.")
+                    result = self.stack_collapse()
+                    if result is True:
+                        logging.info("Stack collapsing from trace file ran OK.")
+                    else:
+                        logging.error(
+                            "Something went wrong on stack collapsing from trace file."
+                        )
+                else:
+                    logging.error("Stack collapsing from trace file exit with error.")
+            else:
+                logging.error(
+                    "Profiler process exit with error. Exit code: {}\n\n".format(
+                        self.profiler_process_exit_code
+                    )
+                    + "If running in non-root user please confirm that you have:\n"
+                    + " - access to Kernel address maps."
+                    + " Check if `0` ( disabled ) appears from the output of `cat /proc/sys/kernel/kptr_restrict`\n"
+                    + '          If not then fix via: `sudo sh -c " echo 0 > /proc/sys/kernel/kptr_restrict"`\n'
+                    + " - permission to collect stats."
+                    + " Check if `-1` appears from the output of `cat /proc/sys/kernel/perf_event_paranoid`\n"
+                    + "          If not then fix via: `sudo sh -c 'echo -1 > /proc/sys/kernel/perf_event_paranoid'`\n"
+                )
 
         except OSError as e:
             logging.error(
@@ -154,10 +192,12 @@ class Perf:
     def get_trace_file(self):
         return self.trace_file
 
-    def generate_trace_file_from_profile(self, filename="out.perf"):
+    def generate_trace_file_from_profile(self, filename=None):
         result = False
         if self.output is not None:
             if os.path.isfile(self.output):
+                if filename is None:
+                    filename = self.output + ".script"
                 with open(filename, "w") as outfile:
                     args = [self.perf, "script", "-i", self.output]
                     try:
@@ -171,10 +211,12 @@ class Perf:
 
         return result
 
-    def stack_collapse(self, filename="out.stacks-folded"):
+    def stack_collapse(self, filename=None):
         result = False
         if self.trace_file is not None:
             if os.path.isfile(self.trace_file):
+                if filename is None:
+                    filename = self.output + ".stacks-folded"
                 with open(filename, "w") as outfile:
                     args = [self.stack_collapser, os.path.abspath(self.trace_file)]
                     try:
@@ -185,10 +227,61 @@ class Perf:
                                 self.stack_collapser, self.trace_file, e.__str__()
                             )
                         )
+                self.stack_collapse_file = filename
                 result = True
             else:
                 logging.error("Unable to open {0}".format(self.trace_file))
         return result
+
+    def generate_outputs(self, use_case, details=""):
+        result = False
+        outputs = {}
+        # generate flame graph
+        result, flame_graph_output = self.generate_flame_graph(
+            "Flame Graph: " + use_case, details
+        )
+        if result is True:
+            outputs["Flame Graph"] = flame_graph_output
+        return result, outputs
+
+    def generate_flame_graph(self, title="Flame Graph", subtitle="", filename=None):
+        result = False
+        result_artifact = None
+        # total_profile_duration = self.profile_end_time - self.profile_start_time
+
+        if self.stack_collapse_file is not None:
+            if os.path.isfile(self.stack_collapse_file):
+                if filename is None:
+                    filename = self.output + ".flamegraph.svg"
+                with open(filename, "w") as outfile:
+                    args = [
+                        self.flamegraph_utity,
+                        "--title",
+                        title,
+                        "--subtitle",
+                        subtitle,
+                        "--width",
+                        "1600",
+                        os.path.abspath(self.stack_collapse_file),
+                    ]
+                    try:
+                        subprocess.Popen(args=args, stdout=outfile).wait()
+                    except OSError as e:
+                        logging.error(
+                            "Unable t use flamegraph.pl to render a SVG. using: {0} {1}. Error {2}".format(
+                                self.flamegraph_utity,
+                                self.stack_collapse_file,
+                                e.__str__(),
+                            )
+                        )
+                result = True
+                result_artifact = os.path.abspath(filename)
+                logging.info(
+                    "Successfully rendered flame graph to {0}".format(result_artifact)
+                )
+            else:
+                logging.error("Unable to open {0}".format(self.stack_collapse_file))
+        return result, result_artifact
 
     def get_collapsed_stacks(self):
         return self.collapsed_stacks

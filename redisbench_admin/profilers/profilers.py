@@ -4,4 +4,15 @@
 #  All rights reserved.
 #
 
-ALLOWED_PROFILERS = "ebpf-oncpu,ebpf-offcpu"
+import pkg_resources
+
+ALLOWED_PROFILERS = "perf:record,ebpf:oncpu,ebpf:offcpu"
+PROFILERS_DEFAULT = "perf:record"
+
+STACKCOLLAPSE_PATH = pkg_resources.resource_filename(
+    "redisbench_admin", "profilers/stackcollapse-perf.pl"
+)
+
+FLAMEGRAPH_PATH = pkg_resources.resource_filename(
+    "redisbench_admin", "profilers/flamegraph.pl"
+)

@@ -15,6 +15,8 @@ import tempfile
 
 import redis
 import wget
+from redisbench_admin.profilers.perf import Perf
+from cpuinfo import get_cpu_info
 
 from redisbench_admin.run.common import (
     prepare_benchmark_parameters,
@@ -60,8 +62,13 @@ def run_local_command_logic(args):
     os.path.abspath(".")
     required_modules = args.required_module
     profilers_enabled = args.enable_profilers
+    profilers_map = {}
+    profilers_list = []
     if profilers_enabled:
-        res = check_compatible_system_and_kernel(args)
+        profilers_list = args.profilers.split(",")
+        res, profilers_map = check_compatible_system_and_kernel_and_prepare_profile(
+            args
+        )
         if res is False:
             exit(1)
 
@@ -71,6 +78,32 @@ def run_local_command_logic(args):
     logging.info("\tgithub_repo: {}".format(github_repo_name))
     logging.info("\tgithub_branch: {}".format(github_branch))
     logging.info("\tgithub_sha: {}".format(github_sha))
+
+    local_platform_info = get_cpu_info()
+    cpu_brand = local_platform_info["brand"]
+    cpu_core_count = local_platform_info["count"]
+    platform_uname_release = platform.uname().release
+    platform_uname_system = platform.uname().system
+    platform_uname_node = platform.uname().node
+    span_x = 800
+    collection_summary_str = (
+        '<tspan x="{}" dy="1.2em">Collection platform: system=\'{}\''.format(
+            span_x, platform_uname_system
+        )
+        + " release='{}', node='{}', cpu='{}', core-count={}</tspan>".format(
+            platform_uname_release,
+            platform_uname_node,
+            cpu_brand,
+            cpu_core_count,
+        )
+    )
+    collection_summary_str += (
+        '<tspan x="{}" dy="1.2em">Collection trigger: github_actor=\'{}\' '
+        + format(span_x, github_actor)
+        + " github_repo='{}', github_branch='{}', github_sha='{}'</tspan>".format(
+            github_repo_name, github_branch, github_sha
+        )
+    )
 
     benchmark_definitions, _, _ = prepare_benchmark_definitions(args)
 
@@ -102,6 +135,7 @@ def run_local_command_logic(args):
                 local_module_file,
                 redis_configuration_parameters,
             )
+
             if is_process_alive(redis_process) is False:
                 raise Exception("Redis process is not alive. Failing test.")
 
@@ -147,11 +181,63 @@ def run_local_command_logic(args):
                 benchmark_tool_workdir,
             )
 
+            # start the profile
+            if profilers_enabled:
+                logging.info("Profilers are enabled")
+                _, profilers_map = get_profilers_map(profilers_list)
+                for profiler_name, profiler_obj in profilers_map.items():
+                    logging.info(
+                        "Starting profiler {} for pid {}".format(
+                            profiler_name, redis_process.pid
+                        )
+                    )
+                    profile_filename = (
+                        "profile_{test_name}_{profile}_{start_time_str}.out".format(
+                            profile=profiler_name,
+                            test_name=test_name,
+                            start_time_str=start_time_str,
+                        )
+                    )
+                    profiler_obj.start_profile(redis_process.pid, profile_filename)
+
             # run the benchmark
             stdout, stderr = run_local_benchmark(benchmark_tool, command)
             logging.info("Extracting the benchmark results")
             logging.info("stdout: {}".format(stdout))
             logging.info("stderr: {}".format(stderr))
+
+            if profilers_enabled:
+                for profiler_name, profiler_obj in profilers_map.items():
+                    # Collect and fold stacks
+                    logging.info(
+                        "Stopping profiler {} for pid {}".format(
+                            profiler_name, redis_process.pid
+                        )
+                    )
+                    profiler_obj.stop_profile()
+
+                    # Generate Flame Graph SVG.
+                    (
+                        profile_res,
+                        profile_res_artifacts_map,
+                    ) = profiler_obj.generate_outputs(test_name, collection_summary_str)
+                    if profile_res is True:
+                        logging.info(
+                            "Profiler {} for pid {} ran successfully and generated {} artifacts.".format(
+                                profiler_name,
+                                redis_process.pid,
+                                len(profile_res_artifacts_map.values()),
+                            )
+                        )
+                        for (
+                            artifact_name,
+                            profile_artifact,
+                        ) in profile_res_artifacts_map.items():
+                            logging.info(
+                                "artifact {}: {}.".format(
+                                    artifact_name, profile_artifact
+                                )
+                            )
 
             post_process_benchmark_results(
                 benchmark_tool,
@@ -180,11 +266,10 @@ def run_local_command_logic(args):
         if redis_process is not None:
             redis_process.kill()
         logging.info("Tear-down completed")
-
     exit(return_code)
 
 
-def check_compatible_system_and_kernel(args):
+def check_compatible_system_and_kernel_and_prepare_profile(args):
     """
     Checks if we can do local profiling, that for now is only available
     via Linux based platforms and kernel versions >=4.9
@@ -193,7 +278,7 @@ def check_compatible_system_and_kernel(args):
     """
     res = True
     logging.info("Enabled profilers: {}".format(args.profilers))
-    logging.info("Checking if system is capable of running those profilers:")
+    logging.info("Checking if system is capable of running those profilers")
     if "Linux" not in platform.system():
         logging.error(
             "Platform needs to be Linux based. Current platform: {}".format(
@@ -203,7 +288,7 @@ def check_compatible_system_and_kernel(args):
         res = False
     # check for release >= 4.9
     release = platform.release()
-    logging.info("Detected release: {}".format(release))
+    logging.info("Detected platform release: {}".format(release))
     major_minor = release.split(".")[:2]
     system_kernel_major_v = major_minor[0]
     system_kernel_minor_v = major_minor[1]
@@ -217,7 +302,28 @@ def check_compatible_system_and_kernel(args):
             "kernel version needs to be >= 4.9. Detected version: {}".format(release)
         )
         res = False
-    return res
+    # a map between profiler name and profiler object wrapper
+    res, profilers_map = get_profilers_map(args.profilers.split(","))
+    return res, profilers_map
+
+
+def get_profilers_map(profilers_list):
+    profilers_map = {}
+    res = True
+    for profiler_name in profilers_list:
+        try:
+            if "perf:" in profiler_name:
+                logging.info("Preparing perf (a.k.a. perf_events ) profiler")
+                perf = Perf()
+                profilers_map[profiler_name] = perf
+        except Exception as e:
+            logging.error(
+                "Detected error while trying to prepare profiler named {}. Error: {}".format(
+                    profiler_name, e.__str__()
+                )
+            )
+            res = False
+    return res, profilers_map
 
 
 def run_local_benchmark(benchmark_tool, command):
