@@ -222,11 +222,18 @@ def run_local_command_logic(args):
                     )
                     profiler_obj.stop_profile()
 
-                    # Generate Flame Graph SVG.
+                    # Generate:
+                    #  - artifact with Flame Graph SVG
+                    #  - artifact with output graph image in PNG format
+                    #  - artifact with top entries in text form
                     (
                         profile_res,
                         profile_res_artifacts_map,
-                    ) = profiler_obj.generate_outputs(test_name, collection_summary_str)
+                    ) = profiler_obj.generate_outputs(
+                        test_name,
+                        details=collection_summary_str,
+                        binary=local_module_file,
+                    )
                     if profile_res is True:
                         logging.info(
                             "Profiler {} for pid {} ran successfully and generated {} artifacts.".format(
