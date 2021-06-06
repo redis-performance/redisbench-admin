@@ -10,7 +10,13 @@ import re
 import subprocess
 import time
 
+from redisbench_admin.profilers.pprof import (
+    PPROF_FORMAT_TEXT,
+    run_pprof,
+    PPROF_FORMAT_PNG,
+)
 from redisbench_admin.profilers.profilers import STACKCOLLAPSE_PATH, FLAMEGRAPH_PATH
+from redisbench_admin.utils.utils import whereis
 
 
 class Perf:
@@ -49,6 +55,8 @@ class Perf:
         self.retrieve_perf_version()
         self.profile_start_time = None
         self.profile_end_time = None
+
+        self.pprof_bin = whereis("pprof")
 
     def retrieve_perf_version(self):
         try:
@@ -114,7 +122,7 @@ class Perf:
             return True
         return False
 
-    def stop_profile(self):
+    def stop_profile(self, **kwargs):
         """
         @return: returns True if profiler stop, False if unsuccessful
         """
@@ -233,15 +241,48 @@ class Perf:
                 logging.error("Unable to open {0}".format(self.trace_file))
         return result
 
-    def generate_outputs(self, use_case, details=""):
-        result = False
+    def generate_outputs(self, use_case, **kwargs):
         outputs = {}
+        binary = kwargs.get("binary")
+        details = kwargs.get("details")
+        if details is None:
+            details = ""
+        result = True
         # generate flame graph
-        result, flame_graph_output = self.generate_flame_graph(
+        artifact_result, flame_graph_output = self.generate_flame_graph(
             "Flame Graph: " + use_case, details
         )
-        if result is True:
+        if artifact_result is True:
             outputs["Flame Graph"] = flame_graph_output
+        result &= artifact_result
+
+        if self.pprof_bin is None:
+            logging.error(
+                "Unable to detect pprof. Some of the capabilities will be disabled"
+            )
+        else:
+            logging.info("Generating pprof text output")
+            pprof_text_output = self.output + ".pprof.txt"
+            artifact_result, pprof_artifact_text_output = run_pprof(
+                self.pprof_bin,
+                PPROF_FORMAT_TEXT,
+                pprof_text_output,
+                binary,
+                self.output,
+            )
+            result &= artifact_result
+
+            if artifact_result is True:
+                outputs["Top entries in text form"] = pprof_artifact_text_output
+            logging.info("Generating pprof png output")
+            pprof_png_output = self.output + ".pprof.png"
+            artifact_result, pprof_artifact_png_output = run_pprof(
+                self.pprof_bin, PPROF_FORMAT_PNG, pprof_png_output, binary, self.output
+            )
+            if artifact_result is True:
+                outputs["Output graph image in PNG format"] = pprof_artifact_png_output
+            result &= artifact_result
+
         return result, outputs
 
     def generate_flame_graph(self, title="Flame Graph", subtitle="", filename=None):
