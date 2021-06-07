@@ -17,7 +17,7 @@ from redisbench_admin.extract.args import create_extract_arguments
 from redisbench_admin.extract.extract import extract_command_logic
 from redisbench_admin.run_local.args import create_run_local_arguments
 from redisbench_admin.run_local.run_local import run_local_command_logic
-from redisbench_admin.run_remote.args import create_run_remote_arguments
+from redisbench_admin.run_remote.args import create_run_remote_arguments, LOG_LEVEL
 from redisbench_admin.run_remote.run_remote import run_remote_command_logic
 
 
@@ -39,7 +39,7 @@ def populate_with_poetry_data():
 # logging settings
 logging.basicConfig(
     format="%(asctime)s %(levelname)-4s %(message)s",
-    level=logging.INFO,
+    level=LOG_LEVEL,
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 

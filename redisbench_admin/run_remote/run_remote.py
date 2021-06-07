@@ -3,7 +3,7 @@
 #  Copyright (c) 2021., Redis Labs Modules
 #  All rights reserved.
 #
-
+import datetime
 import json
 import logging
 import os
@@ -53,6 +53,8 @@ from redisbench_admin.utils.remote import (
 )
 
 # internal aux vars
+from redisbench_admin.utils.utils import get_ts_metric_name
+
 redisbenchmark_go_link = (
     "https://s3.amazonaws.com/benchmarks.redislabs/"
     "tools/redisgraph-benchmark-go/unstable/"
@@ -63,6 +65,7 @@ remote_module_file = "/tmp/module.so"
 local_results_file = "./benchmark-result.out"
 remote_results_file = "/tmp/benchmark-result.out"
 private_key = "/tmp/benchmarks.redislabs.pem"
+min_recommended_benchmark_duration = 60
 
 # environment variables
 PERFORMANCE_RTS_AUTH = os.getenv("PERFORMANCE_RTS_AUTH", None)
@@ -285,6 +288,7 @@ def run_remote_command_logic(args):
     remote_envs = {}
     dirname = "."
     (
+        prefix,
         testcases_setname,
         tsname_project_total_failures,
         tsname_project_total_success,
@@ -468,6 +472,8 @@ def run_remote_command_logic(args):
                 if benchmark_tool == "redis-benchmark":
                     tmp = local_benchmark_output_filename
                     local_benchmark_output_filename = "result.csv"
+
+                benchmark_start_time = datetime.datetime.now()
                 # run the benchmark
                 _, stdout, _ = run_remote_benchmark(
                     client_public_ip,
@@ -477,6 +483,21 @@ def run_remote_command_logic(args):
                     local_benchmark_output_filename,
                     command_str,
                 )
+                benchmark_end_time = datetime.datetime.now()
+                benchmark_duration_seconds = (
+                    benchmark_end_time - benchmark_start_time
+                ).seconds
+                logging.info(
+                    "Benchmark duration {} secs.".format(benchmark_duration_seconds)
+                )
+                if benchmark_duration_seconds < min_recommended_benchmark_duration:
+                    logging.warning(
+                        "Benchmark duration of {} secs is bellow the considered"
+                        " minimum duration for a stable run ({} secs).".format(
+                            benchmark_duration_seconds,
+                            min_recommended_benchmark_duration,
+                        )
+                    )
 
                 if benchmark_tool == "redis-benchmark":
                     local_benchmark_output_filename = tmp
@@ -550,6 +571,37 @@ def run_remote_command_logic(args):
                                 deployment_type,
                                 tf_triggering_env,
                             ),
+                        )
+                        metric_name = "benchmark_duration"
+                        tsname_use_case_duration = get_ts_metric_name(
+                            "by.version",
+                            artifact_version,
+                            tf_github_org,
+                            tf_github_repo,
+                            deployment_type,
+                            test_name,
+                            tf_triggering_env,
+                            metric_name,
+                        )
+                        labels = get_project_ts_tags(
+                            tf_github_org,
+                            tf_github_repo,
+                            deployment_type,
+                            tf_triggering_env,
+                        )
+                        labels["version"] = artifact_version
+                        labels["test_name"] = str(test_name)
+                        labels["metric"] = str(metric_name)
+                        logging.info(
+                            "Adding duration {} secs to time-serie named {}".format(
+                                benchmark_duration_seconds, tsname_use_case_duration
+                            )
+                        )
+                        rts.add(
+                            tsname_use_case_duration,
+                            start_time_ms,
+                            benchmark_duration_seconds,
+                            labels=labels,
                         )
                     except redis.exceptions.ResponseError as e:
                         logging.warning(

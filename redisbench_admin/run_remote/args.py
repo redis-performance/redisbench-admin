@@ -3,15 +3,20 @@
 #  Copyright (c) 2021., Redis Labs Modules
 #  All rights reserved.
 #
-
+import logging
 import os
 import socket
 
 # environment variables
+PERFORMANCE_RTS_PUSH = bool(os.getenv("PUSH_RTS", False))
 PERFORMANCE_RTS_AUTH = os.getenv("PERFORMANCE_RTS_AUTH", None)
 PERFORMANCE_RTS_HOST = os.getenv("PERFORMANCE_RTS_HOST", 6379)
 PERFORMANCE_RTS_PORT = os.getenv("PERFORMANCE_RTS_PORT", None)
 TERRAFORM_BIN_PATH = os.getenv("TERRAFORM_BIN_PATH", "terraform")
+
+LOG_LEVEL = logging.INFO
+if os.getenv("VERBOSE", "1") == "0":
+    LOG_LEVEL = logging.WARN
 
 
 def create_run_remote_arguments(parser):
@@ -61,7 +66,7 @@ def create_run_remote_arguments(parser):
     parser.add_argument("--redistimesies_pass", type=str, default=PERFORMANCE_RTS_AUTH)
     parser.add_argument(
         "--push_results_redistimeseries",
-        default=False,
+        default=PERFORMANCE_RTS_PUSH,
         action="store_true",
         help="uploads the results to RedisTimeSeries. Proper credentials are required",
     )

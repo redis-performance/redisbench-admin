@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import datetime
 
 import redis
 import wget
@@ -23,6 +24,7 @@ from redisbench_admin.run.common import (
     prepare_benchmark_parameters,
     get_start_time_vars,
 )
+from redisbench_admin.run_local.args import PROFILE_FREQ
 from redisbench_admin.utils.benchmark_config import (
     prepare_benchmark_definitions,
     extract_benchmark_tool_settings,
@@ -207,15 +209,36 @@ def run_local_command_logic(args):
                             start_time_str=start_time_str,
                         )
                     )
-                    profiler_obj.start_profile(redis_process.pid, profile_filename)
+                    profiler_obj.start_profile(
+                        redis_process.pid, profile_filename, PROFILE_FREQ
+                    )
 
             # run the benchmark
+            benchmark_start_time = datetime.datetime.now()
             stdout, stderr = run_local_benchmark(benchmark_tool, command)
+            benchmark_end_time = datetime.datetime.now()
+            benchmark_duration_seconds = (
+                benchmark_end_time - benchmark_start_time
+            ).seconds
+
             logging.info("Extracting the benchmark results")
             logging.info("stdout: {}".format(stdout))
             logging.info("stderr: {}".format(stderr))
 
             if profilers_enabled:
+                expected_min_duration = 60
+                if benchmark_duration_seconds < expected_min_duration:
+                    logging.warning(
+                        "Total benchmark duration ({} secs) was bellow {} seconds. ".format(
+                            benchmark_duration_seconds, expected_min_duration
+                        )
+                        + "Given the profile frequency {} it means that at max we mad {} profiles.".format(
+                            PROFILE_FREQ, int(PROFILE_FREQ) * benchmark_duration_seconds
+                        )
+                        + "Please increase benchmark time for more accurate profiles."
+                        + "If that is not possible please change the profile frequency to an higher value."
+                        + "via the env variable PROFILE_FREQ. NOTICE THAT THIS INCREASES OVERHEAD!!!"
+                    )
                 for profiler_name, profiler_obj in profilers_map.items():
                     # Collect and fold stacks
                     logging.info(
