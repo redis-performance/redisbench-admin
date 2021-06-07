@@ -82,11 +82,13 @@ def test_get_test_s3_bucket_path():
 
 def test_get_overall_dashboard_keynames():
     (
+        prefix,
         testcases_setname,
         tsname_project_total_failures,
         tsname_project_total_success,
     ) = get_overall_dashboard_keynames("org", "repo", "env")
     assert "ci.benchmarks.redislabs/env/org/repo:testcases" == testcases_setname
+    assert "ci.benchmarks.redislabs/env/org/repo" == prefix
     assert (
         "ci.benchmarks.redislabs/env/org/repo:total_success"
         == tsname_project_total_success

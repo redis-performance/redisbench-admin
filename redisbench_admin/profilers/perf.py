@@ -71,10 +71,22 @@ class Perf:
             self.version_minor = m.group(2)
         return m, self.version_major, self.version_minor
 
-    def generate_record_command(self, pid, output, frequency=None):
+    def generate_record_command(self, pid, output, frequency=None, call_graph="lbr"):
         self.output = output
         self.pid = pid
-        cmd = [self.perf, "record", "-g", "--pid", "{}".format(pid), "--output", output]
+        cmd = [
+            self.perf,
+            "record",
+            "-e",
+            "cycles:pp",
+            "-g",
+            "--pid",
+            "{}".format(pid),
+            "--output",
+            output,
+            "--call-graph",
+            call_graph,
+        ]
         if frequency:
             cmd += ["--freq", "{}".format(frequency)]
         return cmd

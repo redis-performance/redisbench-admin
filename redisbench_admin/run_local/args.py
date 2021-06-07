@@ -6,10 +6,15 @@
 
 import os
 
-from redisbench_admin.profilers.profilers import PROFILERS_DEFAULT, ALLOWED_PROFILERS
+from redisbench_admin.profilers.profilers import (
+    PROFILERS_DEFAULT,
+    ALLOWED_PROFILERS,
+    PROFILE_FREQ_DEFAULT,
+)
 
 PROFILERS_ENABLED = os.getenv("PROFILE", 0)
 PROFILERS = os.getenv("PROFILERS", PROFILERS_DEFAULT)
+PROFILE_FREQ = os.getenv("PROFILE_FREQ", PROFILE_FREQ_DEFAULT)
 
 
 def create_run_local_arguments(parser):

@@ -22,6 +22,7 @@ from python_terraform import Terraform
 from tqdm import tqdm
 
 from redisbench_admin.utils.local import check_dataset_local_requirements
+from redisbench_admin.utils.utils import get_ts_metric_name
 
 
 def get_git_root(path):
@@ -498,19 +499,15 @@ def extract_perversion_timeseries_from_results(
                 version_tags["version"] = project_version
                 version_tags["test_name"] = str(test_name)
                 version_tags["metric"] = str(metric_name)
-
-                ts_name = (
-                    "ci.benchmarks.redislabs/by.version/"
-                    "{triggering_env}/{github_org}/{github_repo}/"
-                    "{test_name}/{deployment_type}/{version}/{metric}".format(
-                        version=project_version,
-                        github_org=tf_github_org,
-                        github_repo=tf_github_repo,
-                        deployment_type=deployment_type,
-                        test_name=test_name,
-                        triggering_env=tf_triggering_env,
-                        metric=metric_name,
-                    )
+                ts_name = get_ts_metric_name(
+                    "by.version",
+                    project_version,
+                    tf_github_org,
+                    tf_github_repo,
+                    deployment_type,
+                    test_name,
+                    tf_triggering_env,
+                    metric_name,
                 )
 
                 branch_time_series_dict[ts_name] = {
@@ -559,6 +556,16 @@ def extract_perbranch_timeseries_from_results(
             pass
         finally:
             metric_name = jsonpath[2:]
+            ts_name = get_ts_metric_name(
+                "by.branch",
+                tf_github_branch,
+                tf_github_org,
+                tf_github_repo,
+                deployment_type,
+                test_name,
+                tf_triggering_env,
+                metric_name,
+            )
             find_res = jsonpath_expr.find(results_dict)
             if find_res is not None and len(find_res) > 0:
                 metric_value = float(find_res[0].value)
@@ -569,19 +576,6 @@ def extract_perbranch_timeseries_from_results(
                 branch_tags["branch"] = str(tf_github_branch)
                 branch_tags["test_name"] = str(test_name)
                 branch_tags["metric"] = str(metric_name)
-                ts_name = (
-                    "ci.benchmarks.redislabs/by.branch/"
-                    "{triggering_env}/{github_org}/{github_repo}/"
-                    "{test_name}/{deployment_type}/{branch}/{metric}".format(
-                        branch=str(tf_github_branch),
-                        github_org=tf_github_org,
-                        github_repo=tf_github_repo,
-                        deployment_type=deployment_type,
-                        test_name=test_name,
-                        triggering_env=tf_triggering_env,
-                        metric=metric_name,
-                    )
-                )
 
                 branch_time_series_dict[ts_name] = {
                     "labels": branch_tags.copy(),
@@ -595,31 +589,23 @@ def extract_perbranch_timeseries_from_results(
 
 
 def get_overall_dashboard_keynames(tf_github_org, tf_github_repo, tf_triggering_env):
-    testcases_setname = (
+    prefix = (
         "ci.benchmarks.redislabs/"
-        "{triggering_env}/{github_org}/{github_repo}:testcases".format(
+        + "{triggering_env}/{github_org}/{github_repo}".format(
             triggering_env=tf_triggering_env,
             github_org=tf_github_org,
             github_repo=tf_github_repo,
         )
     )
-    tsname_project_total_success = (
-        "ci.benchmarks.redislabs/"
-        "{triggering_env}/{github_org}/{github_repo}:total_success".format(
-            triggering_env=tf_triggering_env,
-            github_org=tf_github_org,
-            github_repo=tf_github_repo,
-        )
+    testcases_setname = "{}:testcases".format(prefix)
+    tsname_project_total_success = "{}:total_success".format(
+        prefix,
     )
-    tsname_project_total_failures = (
-        "ci.benchmarks.redislabs/"
-        "{triggering_env}/{github_org}/{github_repo}:total_failures".format(
-            triggering_env=tf_triggering_env,
-            github_org=tf_github_org,
-            github_repo=tf_github_repo,
-        )
+    tsname_project_total_failures = "{}:total_failures".format(
+        prefix,
     )
     return (
+        prefix,
         testcases_setname,
         tsname_project_total_failures,
         tsname_project_total_success,

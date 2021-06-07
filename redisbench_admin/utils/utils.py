@@ -195,3 +195,30 @@ def read_json_or_csv(
                 col_name = header_array[col_pos]
                 res_dict[col_name].append(col)
         benchmark_config[config_filename] = res_dict
+
+
+def get_ts_metric_name(
+    by,
+    by_value,
+    tf_github_org,
+    tf_github_repo,
+    deployment_type,
+    test_name,
+    tf_triggering_env,
+    metric_name,
+):
+    ts_name = (
+        "ci.benchmarks.redislabs/{by}/"
+        "{triggering_env}/{github_org}/{github_repo}/"
+        "{test_name}/{deployment_type}/{by_value}/{metric}".format(
+            by=by,
+            triggering_env=tf_triggering_env,
+            github_org=tf_github_org,
+            github_repo=tf_github_repo,
+            test_name=test_name,
+            deployment_type=deployment_type,
+            by_value=str(by_value),
+            metric=metric_name,
+        )
+    )
+    return ts_name
