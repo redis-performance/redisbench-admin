@@ -155,6 +155,9 @@ def run_local_command_logic(args):
 
             check_required_modules(module_names, required_modules)
 
+            # run initialization commands before benchmark starts
+            execute_init_commands(benchmark_config, r)
+
             # setup the benchmark
             start_time, start_time_ms, start_time_str = get_start_time_vars()
             local_benchmark_output_filename = get_local_run_full_filename(
@@ -499,3 +502,16 @@ def which_local(benchmark_tool, executable, full_path, which_benchmark_tool):
                 which_benchmark_tool = full_path_filename
                 break
     return which_benchmark_tool
+
+
+def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
+    cmds = None
+    if dbconfig_keyname in benchmark_config:
+        for k in benchmark_config[dbconfig_keyname]:
+            if "init_commands" in k:
+                cmds = k["init_commands"]
+    if cmds is not None:
+        for cmd in cmds:
+            cmd_split = cmd.split(None, 2)
+            stdout = r.execute_command(*cmd_split)
+            print(stdout)
