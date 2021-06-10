@@ -10,6 +10,7 @@ import re
 import subprocess
 import time
 
+
 from redisbench_admin.profilers.pprof import (
     PPROF_FORMAT_TEXT,
     run_pprof,
@@ -17,6 +18,18 @@ from redisbench_admin.profilers.pprof import (
 )
 from redisbench_admin.profilers.profilers import STACKCOLLAPSE_PATH, FLAMEGRAPH_PATH
 from redisbench_admin.utils.utils import whereis
+
+
+PERF_CALLGRAPH_MODE_DEFAULT = "lbr"
+LINUX_PERF_SETTINGS_MESSAGE = (
+    "If running in non-root user please confirm that you have:\n"
+    + " - access to Kernel address maps."
+    + " Check if `0` ( disabled ) appears from the output of `cat /proc/sys/kernel/kptr_restrict`\n"
+    + '          If not then fix via: `sudo sh -c " echo 0 > /proc/sys/kernel/kptr_restrict"`\n'
+    + " - permission to collect stats."
+    + " Check if `-1` appears from the output of `cat /proc/sys/kernel/perf_event_paranoid`\n"
+    + "          If not then fix via: `sudo sh -c 'echo -1 > /proc/sys/kernel/perf_event_paranoid'`\n"
+)
 
 
 class Perf:
@@ -29,13 +42,11 @@ class Perf:
         if not self.perf:
             self.perf = "perf"
 
-        self.stack_collapser = os.getenv("STACKCOLLAPSE_PATH")
-        if not self.stack_collapser:
-            self.stack_collapser = STACKCOLLAPSE_PATH
-
-        self.flamegraph_utity = os.getenv("FLAMEGRAPH_PATH")
-        if not self.flamegraph_utity:
-            self.flamegraph_utity = FLAMEGRAPH_PATH
+        self.stack_collapser = os.getenv("STACKCOLLAPSE_PATH", STACKCOLLAPSE_PATH)
+        self.flamegraph_utity = os.getenv("FLAMEGRAPH_PATH", FLAMEGRAPH_PATH)
+        self.callgraph_mode = os.getenv(
+            "PERF_CALLGRAPH_MODE", PERF_CALLGRAPH_MODE_DEFAULT
+        )
 
         self.output = None
         self.profiler_process = None
@@ -44,6 +55,7 @@ class Perf:
         self.profiler_process_exit_code = None
         self.trace_file = None
         self.collapsed_stack_file = None
+        self.stack_collapse_file = None
         self.collapsed_stacks = []
         self.pid = None
         self.started_profile = False
@@ -71,7 +83,7 @@ class Perf:
             self.version_minor = m.group(2)
         return m, self.version_major, self.version_minor
 
-    def generate_record_command(self, pid, output, frequency=None, call_graph="lbr"):
+    def generate_record_command(self, pid, output, frequency=None):
         self.output = output
         self.pid = pid
         cmd = [
@@ -85,7 +97,7 @@ class Perf:
             "--output",
             output,
             "--call-graph",
-            call_graph,
+            self.callgraph_mode,
         ]
         if frequency:
             cmd += ["--freq", "{}".format(frequency)]
@@ -172,13 +184,7 @@ class Perf:
                     "Profiler process exit with error. Exit code: {}\n\n".format(
                         self.profiler_process_exit_code
                     )
-                    + "If running in non-root user please confirm that you have:\n"
-                    + " - access to Kernel address maps."
-                    + " Check if `0` ( disabled ) appears from the output of `cat /proc/sys/kernel/kptr_restrict`\n"
-                    + '          If not then fix via: `sudo sh -c " echo 0 > /proc/sys/kernel/kptr_restrict"`\n'
-                    + " - permission to collect stats."
-                    + " Check if `-1` appears from the output of `cat /proc/sys/kernel/perf_event_paranoid`\n"
-                    + "          If not then fix via: `sudo sh -c 'echo -1 > /proc/sys/kernel/perf_event_paranoid'`\n"
+                    + LINUX_PERF_SETTINGS_MESSAGE
                 )
 
         except OSError as e:

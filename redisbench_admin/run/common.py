@@ -6,6 +6,7 @@
 
 import datetime as dt
 import logging
+import os
 
 from redisbench_admin.run.redis_benchmark.redis_benchmark import (
     prepare_redis_benchmark_command,
@@ -27,6 +28,8 @@ from redisbench_admin.utils.remote import (
     push_data_to_redistimeseries,
     extract_perbranch_timeseries_from_results,
 )
+
+BENCHMARK_REPETITIONS = int(os.getenv("BENCHMARK_REPETITIONS", 1))
 
 
 def prepare_benchmark_parameters(
@@ -221,3 +224,16 @@ def get_start_time_vars(start_time=None):
     start_time_ms = int((start_time - dt.datetime(1970, 1, 1)).total_seconds() * 1000)
     start_time_str = start_time.strftime("%Y-%m-%d-%H-%M-%S")
     return start_time, start_time_ms, start_time_str
+
+
+def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
+    cmds = None
+    if dbconfig_keyname in benchmark_config:
+        for k in benchmark_config[dbconfig_keyname]:
+            if "init_commands" in k:
+                cmds = k["init_commands"]
+    if cmds is not None:
+        for cmd in cmds:
+            cmd_split = cmd.split(None, 2)
+            stdout = r.execute_command(*cmd_split)
+            print(stdout)

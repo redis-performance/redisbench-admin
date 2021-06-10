@@ -72,10 +72,16 @@ def split_key_metrics_by_step(key_metrics_specs):
     return key_metrics_by_step
 
 
-def get_or_none(dictionary, prop: str):
+def get_or_none(dictionary, prop: str, inner_prop=None):
     result = None
     if prop in dictionary:
         result = dictionary[prop]
+        if inner_prop is not None:
+            if inner_prop in result:
+                result = result[inner_prop]
+            else:
+                None
+
     return result
 
 

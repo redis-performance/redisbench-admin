@@ -23,6 +23,7 @@ from pytablewriter import MarkdownTableWriter
 from redisbench_admin.run.common import (
     prepare_benchmark_parameters,
     get_start_time_vars,
+    execute_init_commands,
 )
 from redisbench_admin.run_local.args import PROFILE_FREQ
 from redisbench_admin.utils.benchmark_config import (
@@ -149,7 +150,6 @@ def run_local_command_logic(args):
 
             r = redis.StrictRedis(port=args.port)
             stdout = r.execute_command("info modules")
-            print(stdout)
             (
                 module_names,
                 _,
@@ -525,16 +525,3 @@ def which_local(benchmark_tool, executable, full_path, which_benchmark_tool):
                 which_benchmark_tool = full_path_filename
                 break
     return which_benchmark_tool
-
-
-def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
-    cmds = None
-    if dbconfig_keyname in benchmark_config:
-        for k in benchmark_config[dbconfig_keyname]:
-            if "init_commands" in k:
-                cmds = k["init_commands"]
-    if cmds is not None:
-        for cmd in cmds:
-            cmd_split = cmd.split(None, 2)
-            stdout = r.execute_command(*cmd_split)
-            print(stdout)
