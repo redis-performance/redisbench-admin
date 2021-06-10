@@ -290,7 +290,7 @@ def run_remote_command_logic(args):
             password=args.redistimesies_pass,
         )
         rts.redis.ping()
-    for repetition in range(1, BENCHMARK_REPETITIONS):
+    for repetition in range(1, BENCHMARK_REPETITIONS + 1):
         for test_name, benchmark_config in benchmark_definitions.items():
             s3_bucket_path = get_test_s3_bucket_path(
                 s3_bucket_name, test_name, tf_github_org, tf_github_repo
