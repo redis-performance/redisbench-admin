@@ -599,7 +599,31 @@ def run_remote_command_logic(args):
                                     tf_triggering_env,
                                 ),
                             )
-                            add_standardized_metric(
+                            add_standardized_metric_bybranch(
+                                "benchmark_duration",
+                                benchmark_duration_seconds,
+                                tf_github_branch,
+                                deployment_type,
+                                rts,
+                                start_time_ms,
+                                test_name,
+                                tf_github_org,
+                                tf_github_repo,
+                                tf_triggering_env,
+                            )
+                            add_standardized_metric_bybranch(
+                                "dataset_load_duration",
+                                dataset_load_duration_seconds,
+                                tf_github_branch,
+                                deployment_type,
+                                rts,
+                                start_time_ms,
+                                test_name,
+                                tf_github_org,
+                                tf_github_repo,
+                                tf_triggering_env,
+                            )
+                            add_standardized_metric_byversion(
                                 "benchmark_duration",
                                 benchmark_duration_seconds,
                                 artifact_version,
@@ -611,7 +635,7 @@ def run_remote_command_logic(args):
                                 tf_github_repo,
                                 tf_triggering_env,
                             )
-                            add_standardized_metric(
+                            add_standardized_metric_byversion(
                                 "dataset_load_duration",
                                 dataset_load_duration_seconds,
                                 artifact_version,
@@ -679,7 +703,63 @@ def run_remote_command_logic(args):
     exit(return_code)
 
 
-def add_standardized_metric(
+def add_standardized_metric_bybranch(
+    metric_name,
+    metric_value,
+    tf_github_branch,
+    deployment_type,
+    rts,
+    start_time_ms,
+    test_name,
+    tf_github_org,
+    tf_github_repo,
+    tf_triggering_env,
+):
+    tsname_use_case_duration = get_ts_metric_name(
+        "by.branch",
+        tf_github_branch,
+        tf_github_org,
+        tf_github_repo,
+        deployment_type,
+        test_name,
+        tf_triggering_env,
+        metric_name,
+    )
+    labels = get_project_ts_tags(
+        tf_github_org,
+        tf_github_repo,
+        deployment_type,
+        tf_triggering_env,
+    )
+    labels["branch"] = tf_github_branch
+    labels["test_name"] = str(test_name)
+    labels["metric"] = str(metric_name)
+    logging.info(
+        "Adding metric {}={} to time-serie named {}".format(
+            metric_name, metric_value, tsname_use_case_duration
+        )
+    )
+    try:
+        logging.info(
+            "Creating timeseries named {} with labels {}".format(
+                tsname_use_case_duration, labels
+            )
+        )
+        rts.create(tsname_use_case_duration, labels=labels)
+    except redis.exceptions.ResponseError:
+        logging.warning(
+            "Timeseries named {} already exists".format(tsname_use_case_duration)
+        )
+        pass
+    rts.add(
+        tsname_use_case_duration,
+        start_time_ms,
+        metric_value,
+        labels=labels,
+    )
+
+
+def add_standardized_metric_byversion(
     metric_name,
     metric_value,
     artifact_version,
