@@ -599,30 +599,31 @@ def run_remote_command_logic(args):
                                     tf_triggering_env,
                                 ),
                             )
-                            add_standardized_metric_bybranch(
-                                "benchmark_duration",
-                                benchmark_duration_seconds,
-                                tf_github_branch,
-                                deployment_type,
-                                rts,
-                                start_time_ms,
-                                test_name,
-                                tf_github_org,
-                                tf_github_repo,
-                                tf_triggering_env,
-                            )
-                            add_standardized_metric_bybranch(
-                                "dataset_load_duration",
-                                dataset_load_duration_seconds,
-                                tf_github_branch,
-                                deployment_type,
-                                rts,
-                                start_time_ms,
-                                test_name,
-                                tf_github_org,
-                                tf_github_repo,
-                                tf_triggering_env,
-                            )
+                            if tf_github_branch is not None and tf_github_branch != "":
+                                add_standardized_metric_bybranch(
+                                    "benchmark_duration",
+                                    benchmark_duration_seconds,
+                                    str(tf_github_branch),
+                                    deployment_type,
+                                    rts,
+                                    start_time_ms,
+                                    test_name,
+                                    tf_github_org,
+                                    tf_github_repo,
+                                    tf_triggering_env,
+                                )
+                                add_standardized_metric_bybranch(
+                                    "dataset_load_duration",
+                                    dataset_load_duration_seconds,
+                                    str(tf_github_branch),
+                                    deployment_type,
+                                    rts,
+                                    start_time_ms,
+                                    test_name,
+                                    tf_github_org,
+                                    tf_github_repo,
+                                    tf_triggering_env,
+                                )
                             add_standardized_metric_byversion(
                                 "benchmark_duration",
                                 benchmark_duration_seconds,
