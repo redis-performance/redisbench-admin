@@ -24,6 +24,17 @@ from tqdm import tqdm
 from redisbench_admin.utils.local import check_dataset_local_requirements
 from redisbench_admin.utils.utils import get_ts_metric_name
 
+# environment variables
+PERFORMANCE_RTS_PUSH = bool(os.getenv("PUSH_RTS", False))
+PERFORMANCE_RTS_AUTH = os.getenv("PERFORMANCE_RTS_AUTH", None)
+PERFORMANCE_RTS_HOST = os.getenv("PERFORMANCE_RTS_HOST", "localhost")
+PERFORMANCE_RTS_PORT = os.getenv("PERFORMANCE_RTS_PORT", 6379)
+TERRAFORM_BIN_PATH = os.getenv("TERRAFORM_BIN_PATH", "terraform")
+EC2_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID", None)
+EC2_REGION = os.getenv("AWS_DEFAULT_REGION", None)
+EC2_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", None)
+EC2_PRIVATE_PEM = os.getenv("EC2_PRIVATE_PEM", None)
+
 
 def get_git_root(path):
     git_repo = git.Repo(path, search_parent_directories=True)
@@ -429,18 +440,7 @@ def push_data_to_redistimeseries(rts: client, branch_time_series_dict: dict):
     datapoint_inserts = 0
     if rts is not None:
         for timeseries_name, time_series in branch_time_series_dict.items():
-            try:
-                logging.info(
-                    "Creating timeseries named {} with labels {}".format(
-                        timeseries_name, time_series["labels"]
-                    )
-                )
-                rts.create(timeseries_name, labels=time_series["labels"])
-            except redis.exceptions.ResponseError:
-                logging.warning(
-                    "Timeseries named {} already exists".format(timeseries_name)
-                )
-                pass
+            exporter_create_ts(rts, time_series, timeseries_name)
             for timestamp, value in time_series["data"].items():
                 try:
                     rts.add(
@@ -459,6 +459,19 @@ def push_data_to_redistimeseries(rts: client, branch_time_series_dict: dict):
                     datapoint_errors += 1
                     pass
     return datapoint_errors, datapoint_inserts
+
+
+def exporter_create_ts(rts, time_series, timeseries_name):
+    try:
+        logging.info(
+            "Creating timeseries named {} with labels {}".format(
+                timeseries_name, time_series["labels"]
+            )
+        )
+        rts.create(timeseries_name, labels=time_series["labels"])
+    except redis.exceptions.ResponseError:
+        logging.warning("Timeseries named {} already exists".format(timeseries_name))
+        pass
 
 
 def extract_redisgraph_version_from_resultdict(results_dict: dict):
@@ -610,3 +623,15 @@ def get_overall_dashboard_keynames(tf_github_org, tf_github_repo, tf_triggering_
         tsname_project_total_failures,
         tsname_project_total_success,
     )
+
+
+def check_ec2_env():
+    if EC2_ACCESS_KEY is None or EC2_ACCESS_KEY == "":
+        logging.error("missing required AWS_ACCESS_KEY_ID env variable")
+        exit(1)
+    if EC2_REGION is None or EC2_REGION == "":
+        logging.error("missing required AWS_DEFAULT_REGION env variable")
+        exit(1)
+    if EC2_SECRET_KEY is None or EC2_SECRET_KEY == "":
+        logging.error("missing required AWS_SECRET_ACCESS_KEY env variable")
+        exit(1)

@@ -8,15 +8,20 @@ import os
 import socket
 
 # environment variables
-PERFORMANCE_RTS_PUSH = bool(os.getenv("PUSH_RTS", False))
-PERFORMANCE_RTS_AUTH = os.getenv("PERFORMANCE_RTS_AUTH", None)
-PERFORMANCE_RTS_HOST = os.getenv("PERFORMANCE_RTS_HOST", 6379)
-PERFORMANCE_RTS_PORT = os.getenv("PERFORMANCE_RTS_PORT", None)
-TERRAFORM_BIN_PATH = os.getenv("TERRAFORM_BIN_PATH", "terraform")
+from redisbench_admin.utils.remote import (
+    TERRAFORM_BIN_PATH,
+    PERFORMANCE_RTS_HOST,
+    PERFORMANCE_RTS_PORT,
+    PERFORMANCE_RTS_AUTH,
+    PERFORMANCE_RTS_PUSH,
+)
 
 LOG_LEVEL = logging.INFO
 if os.getenv("VERBOSE", "1") == "0":
     LOG_LEVEL = logging.WARN
+
+DEFAULT_TRIGGERING_ENV = socket.gethostname()
+TRIGGERING_ENV = os.getenv("TRIGGERING_ENV", DEFAULT_TRIGGERING_ENV)
 
 
 def create_run_remote_arguments(parser):
@@ -45,7 +50,7 @@ def create_run_remote_arguments(parser):
         "You can use `--required-module` more than once",
     )
     parser.add_argument("--github_branch", type=str, default=None, nargs="?", const="")
-    parser.add_argument("--triggering_env", type=str, default=socket.gethostname())
+    parser.add_argument("--triggering_env", type=str, default=TRIGGERING_ENV)
     parser.add_argument("--terraform_bin_path", type=str, default=TERRAFORM_BIN_PATH)
     parser.add_argument("--setup_name_sufix", type=str, default="")
     parser.add_argument(

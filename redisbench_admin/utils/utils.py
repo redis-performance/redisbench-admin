@@ -12,10 +12,12 @@ import operator
 import os
 import os.path
 import tarfile
+import time
 from functools import reduce
 from zipfile import ZipFile
 
 import boto3
+import redis
 import requests
 from tqdm import tqdm
 
@@ -222,3 +224,24 @@ def get_ts_metric_name(
         )
     )
     return ts_name
+
+
+def wait_for_conn(conn, retries=120, command="PING", should_be=True):
+    """Wait until a given Redis connection is ready"""
+    result = False
+    while retries > 0 and result is False:
+        try:
+            if conn.execute_command(command) == should_be:
+                result = True
+        except redis.exceptions.BusyLoadingError:
+            time.sleep(1)  # give extra 1sec in case of RDB loading
+        except redis.ConnectionError as err:
+            logging.error(err)
+        except redis.ResponseError as err:
+            err1 = str(err)
+            if not err1.startswith("DENIED"):
+                raise
+        time.sleep(1)
+        retries -= 1
+        logging.debug("Waiting for Redis")
+    return result

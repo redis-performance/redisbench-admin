@@ -7,11 +7,12 @@
 import logging
 import os
 import subprocess
-import time
 from shutil import copyfile
 
 import redis
 import wget
+
+from redisbench_admin.utils.utils import wait_for_conn
 
 
 def check_dataset_local_requirements(
@@ -66,27 +67,6 @@ def check_if_needs_remote_fetch(
             full_path = "{}/{}".format(dirname, full_path)
 
     return full_path
-
-
-def wait_for_conn(conn, retries=20, command="PING", should_be=True):
-    """Wait until a given Redis connection is ready"""
-    result = False
-    while retries > 0 and result is False:
-        try:
-            if conn.execute_command(command) == should_be:
-                result = True
-        except redis.exceptions.BusyLoadingError:
-            time.sleep(0.1)  # give extra 100msec in case of RDB loading
-        except redis.ConnectionError as err:
-            str(err)
-        except redis.ResponseError as err:
-            err1 = str(err)
-            if not err1.startswith("DENIED"):
-                raise
-        time.sleep(0.1)
-        retries -= 1
-        logging.debug("Waiting for Redis")
-    return result
 
 
 def spin_up_local_redis(
