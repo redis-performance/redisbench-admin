@@ -3,10 +3,12 @@
 #  Copyright (c) 2021., Redis Labs Modules
 #  All rights reserved.
 #
-
+import csv
 import datetime as dt
 import logging
 import os
+
+import redis
 
 from redisbench_admin.run.redis_benchmark.redis_benchmark import (
     prepare_redis_benchmark_command,
@@ -234,6 +236,30 @@ def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
                 cmds = k["init_commands"]
     if cmds is not None:
         for cmd in cmds:
-            cmd_split = cmd.split(None, 2)
-            stdout = r.execute_command(*cmd_split)
-            print(stdout)
+            is_array = False
+            if '"' in cmd:
+                cols = []
+                for lines in csv.reader(
+                    cmd,
+                    quotechar='"',
+                    delimiter=" ",
+                    quoting=csv.QUOTE_ALL,
+                    skipinitialspace=True,
+                ):
+                    if lines[0] != " " and len(lines[0]) > 0:
+                        cols.append(lines[0])
+                cmd = cols
+                is_array = True
+            try:
+                logging.info("Sending init command: {}".format(cmd))
+                if is_array:
+                    stdout = r.execute_command(*cmd)
+                else:
+                    stdout = r.execute_command(cmd)
+                logging.info("Command reply: {}".format(stdout))
+            except redis.connection.ConnectionError as e:
+                logging.error(
+                    "Error establishing connection to Redis. Message: {}".format(
+                        e.__str__()
+                    )
+                )
