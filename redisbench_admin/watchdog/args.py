@@ -29,7 +29,13 @@ def create_watchdog_arguments(parser):
         default=60,
         help="watchdog update interval in seconds",
     )
-    parser.add_argument("--redistimesies_host", type=str, default=PERFORMANCE_RTS_HOST)
-    parser.add_argument("--redistimesies_port", type=int, default=PERFORMANCE_RTS_PORT)
-    parser.add_argument("--redistimesies_pass", type=str, default=PERFORMANCE_RTS_AUTH)
+    parser.add_argument(
+        "--redistimeseries_host", type=str, default=PERFORMANCE_RTS_HOST
+    )
+    parser.add_argument(
+        "--redistimeseries_port", type=int, default=PERFORMANCE_RTS_PORT
+    )
+    parser.add_argument(
+        "--redistimeseries_pass", type=str, default=PERFORMANCE_RTS_AUTH
+    )
     return parser
