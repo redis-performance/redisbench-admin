@@ -285,9 +285,9 @@ def run_remote_command_logic(args):
     if args.push_results_redistimeseries:
         logging.info("Checking connection to RedisTimeSeries.")
         rts = Client(
-            host=args.redistimesies_host,
-            port=args.redistimesies_port,
-            password=args.redistimesies_pass,
+            host=args.redistimeseries_host,
+            port=args.redistimeseries_port,
+            password=args.redistimeseries_pass,
         )
         rts.redis.ping()
     for repetition in range(1, BENCHMARK_REPETITIONS + 1):
