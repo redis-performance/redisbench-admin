@@ -3,7 +3,6 @@
 #  Copyright (c) 2021., Redis Labs Modules
 #  All rights reserved.
 #
-import logging
 import os
 import socket
 
@@ -16,9 +15,6 @@ from redisbench_admin.utils.remote import (
     PERFORMANCE_RTS_PUSH,
 )
 
-LOG_LEVEL = logging.INFO
-if os.getenv("VERBOSE", "1") == "0":
-    LOG_LEVEL = logging.WARN
 
 DEFAULT_TRIGGERING_ENV = socket.gethostname()
 TRIGGERING_ENV = os.getenv("TRIGGERING_ENV", DEFAULT_TRIGGERING_ENV)

@@ -10,6 +10,7 @@ import logging
 import time
 
 import boto3
+import redis
 from redistimeseries.client import Client
 
 from redisbench_admin.run.common import get_start_time_vars
@@ -125,14 +126,17 @@ def watchdog_command_logic(args):
         running_count, _ = get_ci_ec2_instances_by_state(
             ec2_client, ci_machines_prefix, "running"
         )
-
-        rts.add(
-            tsname_overall_running,
-            start_time_ms,
-            running_count,
-            labels={"cloud": cloud, "region": EC2_REGION},
-        )
-
+        try:
+            rts.add(
+                tsname_overall_running,
+                start_time_ms,
+                running_count,
+                labels={"cloud": cloud, "region": EC2_REGION},
+            )
+        except redis.exceptions.ConnectionError as e:
+            logging.error(
+                "Detected an error while writing data to rts: {}".format(e.__str__())
+            )
         sleep_time_secs = float(update_interval) - (
             (datetime.datetime.now() - starttime).total_seconds()
             % float(update_interval)

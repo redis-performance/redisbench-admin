@@ -244,4 +244,8 @@ def wait_for_conn(conn, retries=120, command="PING", should_be=True):
         time.sleep(1)
         retries -= 1
         logging.debug("Waiting for Redis")
+    if retries == 0:
+        logging.debug(
+            "Redis busy loading time surpassed the timeout of {} secs".format(retries)
+        )
     return result

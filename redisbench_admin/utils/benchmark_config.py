@@ -123,8 +123,9 @@ def merge_default_and_specific_properties_dict_type(
                 )
 
 
-def extract_redis_configuration_parameters(benchmark_config, dbconfig_keyname):
+def extract_redis_dbconfig_parameters(benchmark_config, dbconfig_keyname):
     redis_configuration_parameters = {}
+    dataset_load_timeout_secs = 120
     if dbconfig_keyname in benchmark_config:
         for k in benchmark_config[dbconfig_keyname]:
             if "configuration-parameters" in k:
@@ -132,8 +133,10 @@ def extract_redis_configuration_parameters(benchmark_config, dbconfig_keyname):
                 for item in cp:
                     for k, v in item.items():
                         redis_configuration_parameters[k] = v
+            if "dataset_load_timeout_secs" in k:
+                dataset_load_timeout_secs = k["dataset_load_timeout_secs"]
 
-    return redis_configuration_parameters
+    return redis_configuration_parameters, dataset_load_timeout_secs
 
 
 def process_default_yaml_properties_file(
