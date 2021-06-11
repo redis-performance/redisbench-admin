@@ -34,7 +34,7 @@ from redisbench_admin.utils.benchmark_config import (
     prepare_benchmark_definitions,
     check_required_modules,
     results_dict_kpi_check,
-    extract_redis_configuration_parameters,
+    extract_redis_dbconfig_parameters,
 )
 from redisbench_admin.utils.redisgraph_benchmark_go import (
     spin_up_standalone_remote_redis,
@@ -359,11 +359,10 @@ def run_remote_command_logic(args):
                 # in case of some unexpected error we fail the test
                 try:
 
-                    redis_configuration_parameters = (
-                        extract_redis_configuration_parameters(
-                            benchmark_config, "dbconfig"
-                        )
-                    )
+                    (
+                        redis_configuration_parameters,
+                        dataset_load_timeout_secs,
+                    ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
                     # setup Redis
                     spin_up_standalone_remote_redis(
                         benchmark_config,
@@ -383,7 +382,7 @@ def run_remote_command_logic(args):
                         server_public_ip,
                         username,
                     )
-                    result = wait_for_conn(local_redis_conn)
+                    result = wait_for_conn(local_redis_conn, dataset_load_timeout_secs)
                     dataset_load_end_time = datetime.datetime.now()
                     if result is True:
                         logging.info("Redis available")
@@ -409,7 +408,19 @@ def run_remote_command_logic(args):
                     check_required_modules(module_names, required_modules)
 
                     # run initialization commands before benchmark starts
+                    logging.info(
+                        "Running initialization commands before benchmark starts."
+                    )
+                    execute_init_commands_start_time = datetime.datetime.now()
                     execute_init_commands(benchmark_config, local_redis_conn)
+                    execute_init_commands_duration_seconds = (
+                        datetime.datetime.now() - execute_init_commands_start_time
+                    ).seconds
+                    logging.info(
+                        "Running initialization commands took {} secs.".format(
+                            execute_init_commands_duration_seconds
+                        )
+                    )
 
                     ssh_tunnel.close()  # Close the tunnel
 

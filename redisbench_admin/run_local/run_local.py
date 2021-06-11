@@ -31,7 +31,7 @@ from redisbench_admin.utils.benchmark_config import (
     extract_benchmark_tool_settings,
     check_required_modules,
     results_dict_kpi_check,
-    extract_redis_configuration_parameters,
+    extract_redis_dbconfig_parameters,
 )
 from redisbench_admin.run.redis_benchmark.redis_benchmark import (
     redis_benchmark_ensure_min_version_local,
@@ -134,7 +134,7 @@ def run_local_command_logic(args):
             )
             check_dataset_local_requirements(benchmark_config, temporary_dir, dirname)
 
-            redis_configuration_parameters = extract_redis_configuration_parameters(
+            redis_configuration_parameters, _ = extract_redis_dbconfig_parameters(
                 benchmark_config, "dbconfig"
             )
 
@@ -158,7 +158,17 @@ def run_local_command_logic(args):
             check_required_modules(module_names, required_modules)
 
             # run initialization commands before benchmark starts
+            logging.info("Running initialization commands before benchmark starts.")
+            execute_init_commands_start_time = datetime.datetime.now()
             execute_init_commands(benchmark_config, r)
+            execute_init_commands_duration_seconds = (
+                datetime.datetime.now() - execute_init_commands_start_time
+            ).seconds
+            logging.info(
+                "Running initialization commands took {} secs.".format(
+                    execute_init_commands_duration_seconds
+                )
+            )
 
             # setup the benchmark
             start_time, start_time_ms, start_time_str = get_start_time_vars()

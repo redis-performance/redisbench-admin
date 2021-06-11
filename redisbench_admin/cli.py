@@ -6,6 +6,7 @@
 
 import argparse
 import logging
+import os
 import sys
 
 import toml
@@ -17,10 +18,17 @@ from redisbench_admin.extract.args import create_extract_arguments
 from redisbench_admin.extract.extract import extract_command_logic
 from redisbench_admin.run_local.args import create_run_local_arguments
 from redisbench_admin.run_local.run_local import run_local_command_logic
-from redisbench_admin.run_remote.args import create_run_remote_arguments, LOG_LEVEL
+from redisbench_admin.run_remote.args import create_run_remote_arguments
 from redisbench_admin.run_remote.run_remote import run_remote_command_logic
 from redisbench_admin.watchdog.args import create_watchdog_arguments
 from redisbench_admin.watchdog.watchdog import watchdog_command_logic
+
+
+LOG_LEVEL = logging.INFO
+if os.getenv("VERBOSE", "1") == "0":
+    LOG_LEVEL = logging.WARN
+LOG_FORMAT = "%(asctime)s %(levelname)-4s %(message)s"
+LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
 
 
 def populate_with_poetry_data():
@@ -36,14 +44,6 @@ def populate_with_poetry_data():
         pass
 
     return project_name, project_description, project_version
-
-
-# logging settings
-logging.basicConfig(
-    format="%(asctime)s %(levelname)-4s %(message)s",
-    level=LOG_LEVEL,
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 
 
 def main():
@@ -65,6 +65,9 @@ def main():
     )
     parser.add_argument(
         "--local-dir", type=str, default="./", help="local dir to use as storage"
+    )
+    parser.add_argument(
+        "--logname", type=str, default=None, help="logname to write the logs to"
     )
 
     if requested_tool == "run-remote":
@@ -96,6 +99,24 @@ def main():
 
     argv = sys.argv[2:]
     args = parser.parse_args(args=argv)
+
+    if args.logname is not None:
+        print("Writting log to {}".format(args.logname))
+        logging.basicConfig(
+            filename=args.logname,
+            filemode="a",
+            format=LOG_FORMAT,
+            datefmt=LOG_DATEFMT,
+            level=LOG_LEVEL,
+        )
+    else:
+        # logging settings
+        logging.basicConfig(
+            format=LOG_FORMAT,
+            level=LOG_LEVEL,
+            datefmt=LOG_DATEFMT,
+        )
+
     if requested_tool == "run-local":
         run_local_command_logic(args)
     if requested_tool == "run-remote":
