@@ -62,9 +62,15 @@ def create_run_remote_arguments(parser):
         help="uploads the result files and configuration file to public "
         "'ci.benchmarks.redislabs' bucket. Proper credentials are required",
     )
-    parser.add_argument("--redistimesies_host", type=str, default=PERFORMANCE_RTS_HOST)
-    parser.add_argument("--redistimesies_port", type=int, default=PERFORMANCE_RTS_PORT)
-    parser.add_argument("--redistimesies_pass", type=str, default=PERFORMANCE_RTS_AUTH)
+    parser.add_argument(
+        "--redistimeseries_host", type=str, default=PERFORMANCE_RTS_HOST
+    )
+    parser.add_argument(
+        "--redistimeseries_port", type=int, default=PERFORMANCE_RTS_PORT
+    )
+    parser.add_argument(
+        "--redistimeseries_pass", type=str, default=PERFORMANCE_RTS_AUTH
+    )
     parser.add_argument(
         "--push_results_redistimeseries",
         default=PERFORMANCE_RTS_PUSH,
