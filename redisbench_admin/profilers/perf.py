@@ -103,6 +103,21 @@ class Perf:
             cmd += ["--freq", "{}".format(frequency)]
         return cmd
 
+    def generate_report_command(self, input, dso=None):
+        cmd = [self.perf, "report"]
+        if dso is not None:
+            cmd += ["--dso", dso]
+        cmd += [
+            "--header",
+            "--no-children",
+            "--stdio",
+            "-g",
+            "none,1.0,caller,function",
+            "--input",
+            input,
+        ]
+        return cmd
+
     def start_profile(self, pid, output, frequency=99):
         """
         @param pid: profile events on specified process id
@@ -274,32 +289,78 @@ class Perf:
             outputs["Flame Graph"] = flame_graph_output
         result &= artifact_result
 
-        if self.pprof_bin is None:
-            logging.error(
-                "Unable to detect pprof. Some of the capabilities will be disabled"
+        # save perf output
+        if artifact_result is True:
+            outputs["perf output"] = os.path.abspath(self.output)
+
+        # generate perf report --stdio report
+        logging.info("Generating perf report text outputs")
+        perf_report_output = self.output + ".perf-report.top-cpu.txt"
+
+        artifact_result, perf_report_artifact = self.run_perf_report(
+            perf_report_output, None
+        )
+
+        if artifact_result is True:
+            outputs["perf report top self-cpu"] = perf_report_artifact
+        result &= artifact_result
+
+        # generate perf report --stdio report
+        logging.info(
+            "Generating perf report text outputs only for dso {}".format(binary)
+        )
+        perf_report_output_dso = self.output + ".perf-report.top-cpu.dso.txt"
+
+        artifact_result, perf_report_artifact = self.run_perf_report(
+            perf_report_output_dso, binary
+        )
+
+        if artifact_result is True:
+            outputs[
+                "perf report top self-cpu (dso={})".format(binary)
+            ] = perf_report_artifact
+        result &= artifact_result
+
+        if self.callgraph_mode == "dwarf":
+            logging.warning(
+                "Unable to use perf output collected with callgraph dwarf mode in pprof. Skipping artifacts generation."
+            )
+            logging.warning(
+                "Check https://github.com/google/perf_data_converter/issues/40."
             )
         else:
-            logging.info("Generating pprof text output")
-            pprof_text_output = self.output + ".pprof.txt"
-            artifact_result, pprof_artifact_text_output = run_pprof(
-                self.pprof_bin,
-                PPROF_FORMAT_TEXT,
-                pprof_text_output,
-                binary,
-                self.output,
-            )
-            result &= artifact_result
+            if self.pprof_bin is None:
+                logging.error(
+                    "Unable to detect pprof. Some of the capabilities will be disabled"
+                )
+            else:
+                logging.info("Generating pprof text output")
+                pprof_text_output = self.output + ".pprof.txt"
+                artifact_result, pprof_artifact_text_output = run_pprof(
+                    self.pprof_bin,
+                    PPROF_FORMAT_TEXT,
+                    pprof_text_output,
+                    binary,
+                    self.output,
+                )
+                result &= artifact_result
 
-            if artifact_result is True:
-                outputs["Top entries in text form"] = pprof_artifact_text_output
-            logging.info("Generating pprof png output")
-            pprof_png_output = self.output + ".pprof.png"
-            artifact_result, pprof_artifact_png_output = run_pprof(
-                self.pprof_bin, PPROF_FORMAT_PNG, pprof_png_output, binary, self.output
-            )
-            if artifact_result is True:
-                outputs["Output graph image in PNG format"] = pprof_artifact_png_output
-            result &= artifact_result
+                if artifact_result is True:
+                    outputs["Top entries in text form"] = pprof_artifact_text_output
+                logging.info("Generating pprof png output")
+                pprof_png_output = self.output + ".pprof.png"
+                artifact_result, pprof_artifact_png_output = run_pprof(
+                    self.pprof_bin,
+                    PPROF_FORMAT_PNG,
+                    pprof_png_output,
+                    binary,
+                    self.output,
+                )
+                if artifact_result is True:
+                    outputs[
+                        "Output graph image in PNG format"
+                    ] = pprof_artifact_png_output
+                result &= artifact_result
 
         return result, outputs
 
@@ -344,3 +405,27 @@ class Perf:
 
     def get_collapsed_stacks(self):
         return self.collapsed_stacks
+
+    def run_perf_report(
+        self,
+        output,
+        dso,
+    ):
+        status = False
+        result_artifact = None
+        args = self.generate_report_command(self.output, dso)
+        logging.info("Running {} report with args {}".format(self.perf, args))
+        try:
+            stdout, _ = subprocess.Popen(
+                args=args, stdout=subprocess.PIPE
+            ).communicate()
+            logging.debug(stdout)
+            with open(output, "w") as outfile:
+                outfile.write(stdout.decode())
+            status = True
+            result_artifact = os.path.abspath(output)
+        except OSError as e:
+            logging.error(
+                "Unable to run {} report. Error {}".format(self.perf, e.__str__())
+            )
+        return status, result_artifact
