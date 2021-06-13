@@ -103,16 +103,20 @@ class Perf:
             cmd += ["--freq", "{}".format(frequency)]
         return cmd
 
-    def generate_report_command(self, input, dso=None):
+    def generate_report_command(self, tid, input, dso, percentage_mode):
         cmd = [self.perf, "report"]
         if dso is not None:
             cmd += ["--dso", dso]
         cmd += [
             "--header",
+            "--tid",
+            "{}".format(tid),
             "--no-children",
             "--stdio",
             "-g",
             "none,1.0,caller,function",
+            "--percentage",
+            percentage_mode,
             "--input",
             input,
         ]
@@ -293,12 +297,13 @@ class Perf:
         if artifact_result is True:
             outputs["perf output"] = os.path.abspath(self.output)
 
+        tid = self.pid
         # generate perf report --stdio report
         logging.info("Generating perf report text outputs")
         perf_report_output = self.output + ".perf-report.top-cpu.txt"
 
         artifact_result, perf_report_artifact = self.run_perf_report(
-            perf_report_output, None
+            tid, perf_report_output, None, "absolute"
         )
 
         if artifact_result is True:
@@ -312,7 +317,7 @@ class Perf:
         perf_report_output_dso = self.output + ".perf-report.top-cpu.dso.txt"
 
         artifact_result, perf_report_artifact = self.run_perf_report(
-            perf_report_output_dso, binary
+            tid, perf_report_output_dso, binary, "relative"
         )
 
         if artifact_result is True:
@@ -406,14 +411,10 @@ class Perf:
     def get_collapsed_stacks(self):
         return self.collapsed_stacks
 
-    def run_perf_report(
-        self,
-        output,
-        dso,
-    ):
+    def run_perf_report(self, tid, output, dso, percentage_mode):
         status = False
         result_artifact = None
-        args = self.generate_report_command(self.output, dso)
+        args = self.generate_report_command(tid, self.output, dso, percentage_mode)
         logging.info("Running {} report with args {}".format(self.perf, args))
         try:
             stdout, _ = subprocess.Popen(

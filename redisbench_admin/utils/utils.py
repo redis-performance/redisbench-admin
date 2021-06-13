@@ -25,7 +25,7 @@ EPOCH = dt.datetime.utcfromtimestamp(0)
 
 
 def upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path):
-    print("-- uploading results to s3 -- ")
+    logging.info("-- uploading results to s3 -- ")
     s3 = boto3.resource("s3")
     bucket = s3.Bucket(s3_bucket_name)
     progress = tqdm(unit="files", total=len(artifacts))
@@ -33,6 +33,7 @@ def upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path):
         object_key = "{bucket_path}{filename}".format(
             bucket_path=s3_bucket_path, filename=artifact
         )
+
         bucket.upload_file(artifact, object_key)
         object_acl = s3.ObjectAcl(s3_bucket_name, object_key)
         object_acl.put(ACL="public-read")

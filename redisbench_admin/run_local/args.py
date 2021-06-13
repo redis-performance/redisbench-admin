@@ -12,6 +12,7 @@ from redisbench_admin.profilers.profilers import (
     PROFILE_FREQ_DEFAULT,
 )
 
+PUSH_S3 = bool(os.getenv("PUSH_S3", False))
 PROFILERS_ENABLED = os.getenv("PROFILE", 0)
 PROFILERS = os.getenv("PROFILERS", PROFILERS_DEFAULT)
 PROFILE_FREQ = os.getenv("PROFILE_FREQ", PROFILE_FREQ_DEFAULT)
@@ -37,6 +38,19 @@ def create_run_local_arguments(parser):
         action="append",
         help="path to the module file. "
         "You can use `--required-module` more than once",
+    )
+    parser.add_argument(
+        "--s3_bucket_name",
+        type=str,
+        default="ci.benchmarks.redislabs",
+        help="S3 bucket name.",
+    )
+    parser.add_argument(
+        "--upload_results_s3",
+        default=PUSH_S3,
+        action="store_true",
+        help="uploads the result files and configuration file to public "
+        "'ci.benchmarks.redislabs' bucket. Proper credentials are required",
     )
     parser.add_argument("--profilers", type=str, default=PROFILERS)
     parser.add_argument(
