@@ -864,11 +864,14 @@ def extract_tsbs_extra_links(benchmark_config, benchmark_tool):
     return queries_file_link, remote_tool_link, tool_link
 
 
-def get_test_s3_bucket_path(s3_bucket_name, test_name, tf_github_org, tf_github_repo):
-    s3_bucket_path = "{github_org}/{github_repo}/results/{test_name}/".format(
+def get_test_s3_bucket_path(
+    s3_bucket_name, test_name, tf_github_org, tf_github_repo, folder="results"
+):
+    s3_bucket_path = "{github_org}/{github_repo}/{folder}/{test_name}/".format(
         github_org=tf_github_org,
         github_repo=tf_github_repo,
         test_name=test_name,
+        folder=folder,
     )
     return s3_bucket_path
 

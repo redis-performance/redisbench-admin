@@ -38,6 +38,7 @@ from redisbench_admin.run.redis_benchmark.redis_benchmark import (
 )
 from redisbench_admin.run_remote.run_remote import (
     extract_module_semver_from_info_modules_cmd,
+    get_test_s3_bucket_path,
 )
 from redisbench_admin.utils.local import (
     spin_up_local_redis,
@@ -49,7 +50,11 @@ from redisbench_admin.utils.remote import (
     extract_git_vars,
 )
 from redisbench_admin.utils.results import post_process_benchmark_results
-from redisbench_admin.utils.utils import decompress_file, get_decompressed_filename
+from redisbench_admin.utils.utils import (
+    decompress_file,
+    get_decompressed_filename,
+    upload_artifacts_to_s3,
+)
 
 
 def run_local_command_logic(args):
@@ -66,6 +71,7 @@ def run_local_command_logic(args):
     os.path.abspath(".")
     required_modules = args.required_module
     profilers_enabled = args.enable_profilers
+    s3_bucket_name = args.s3_bucket_name
     profilers_map = {}
     profilers_list = []
     if profilers_enabled:
@@ -119,6 +125,7 @@ def run_local_command_logic(args):
 
     for test_name, benchmark_config in benchmark_definitions.items():
         redis_process = None
+
         # after we've spinned Redis, even on error we should always teardown
         # in case of some unexpected error we fail the test
         # noinspection PyBroadException
@@ -249,6 +256,13 @@ def run_local_command_logic(args):
                         + "If that is not possible please change the profile frequency to an higher value."
                         + "via the env variable PROFILE_FREQ. NOTICE THAT THIS INCREASES OVERHEAD!!!"
                     )
+                s3_bucket_path = get_test_s3_bucket_path(
+                    s3_bucket_name,
+                    test_name,
+                    github_org_name,
+                    github_repo_name,
+                    "profiles",
+                )
                 for profiler_name, profiler_obj in profilers_map.items():
                     # Collect and fold stacks
                     logging.info(
@@ -278,6 +292,7 @@ def run_local_command_logic(args):
                                 len(profile_res_artifacts_map.values()),
                             )
                         )
+                        artifact_paths = []
                         for (
                             artifact_name,
                             profile_artifact,
@@ -290,10 +305,20 @@ def run_local_command_logic(args):
                                     profile_artifact,
                                 ]
                             )
+                            artifact_paths.append(profile_artifact)
                             logging.info(
                                 "artifact {}: {}.".format(
                                     artifact_name, profile_artifact
                                 )
+                            )
+                        if args.upload_results_s3:
+                            logging.info(
+                                "Uploading results to s3. s3 bucket name: {}. s3 bucket path: {}".format(
+                                    s3_bucket_name, s3_bucket_path
+                                )
+                            )
+                            upload_artifacts_to_s3(
+                                artifact_paths, s3_bucket_name, s3_bucket_path
                             )
 
             post_process_benchmark_results(
