@@ -24,6 +24,7 @@ from redisbench_admin.run.common import (
     prepare_benchmark_parameters,
     get_start_time_vars,
     execute_init_commands,
+    BENCHMARK_REPETITIONS,
 )
 from redisbench_admin.run_local.args import PROFILE_FREQ
 from redisbench_admin.utils.benchmark_config import (
@@ -122,239 +123,244 @@ def run_local_command_logic(args):
 
     return_code = 0
     profilers_artifacts_matrix = []
-
-    for test_name, benchmark_config in benchmark_definitions.items():
-        redis_process = None
-
-        # after we've spinned Redis, even on error we should always teardown
-        # in case of some unexpected error we fail the test
-        # noinspection PyBroadException
-        try:
-            dirname = "."
-            # setup Redis
-            # copy the rdb to DB machine
-            temporary_dir = tempfile.mkdtemp()
+    for repetition in range(1, BENCHMARK_REPETITIONS + 1):
+        for test_name, benchmark_config in benchmark_definitions.items():
             logging.info(
-                "Using local temporary dir to spin up Redis Instance. Path: {}".format(
-                    temporary_dir
+                "Repetition {} of {}. Running test {}".format(
+                    repetition, BENCHMARK_REPETITIONS, test_name
                 )
             )
-            check_dataset_local_requirements(benchmark_config, temporary_dir, dirname)
+            redis_process = None
 
-            redis_configuration_parameters, _ = extract_redis_dbconfig_parameters(
-                benchmark_config, "dbconfig"
-            )
-
-            redis_process = spin_up_local_redis(
-                temporary_dir,
-                args.port,
-                local_module_file,
-                redis_configuration_parameters,
-            )
-
-            if is_process_alive(redis_process) is False:
-                raise Exception("Redis process is not alive. Failing test.")
-
-            r = redis.StrictRedis(port=args.port)
-            stdout = r.execute_command("info modules")
-            (
-                module_names,
-                _,
-            ) = extract_module_semver_from_info_modules_cmd(stdout)
-
-            check_required_modules(module_names, required_modules)
-
-            # run initialization commands before benchmark starts
-            logging.info("Running initialization commands before benchmark starts.")
-            execute_init_commands_start_time = datetime.datetime.now()
-            execute_init_commands(benchmark_config, r)
-            execute_init_commands_duration_seconds = (
-                datetime.datetime.now() - execute_init_commands_start_time
-            ).seconds
-            logging.info(
-                "Running initialization commands took {} secs.".format(
-                    execute_init_commands_duration_seconds
+            # after we've spinned Redis, even on error we should always teardown
+            # in case of some unexpected error we fail the test
+            # noinspection PyBroadException
+            try:
+                dirname = "."
+                # setup Redis
+                # copy the rdb to DB machine
+                temporary_dir = tempfile.mkdtemp()
+                logging.info(
+                    "Using local temporary dir to spin up Redis Instance. Path: {}".format(
+                        temporary_dir
+                    )
                 )
-            )
-
-            # setup the benchmark
-            start_time, start_time_ms, start_time_str = get_start_time_vars()
-            local_benchmark_output_filename = get_local_run_full_filename(
-                start_time_str,
-                github_branch,
-                test_name,
-            )
-            logging.info(
-                "Will store benchmark json output to local file {}".format(
-                    local_benchmark_output_filename
+                check_dataset_local_requirements(
+                    benchmark_config, temporary_dir, dirname
                 )
-            )
 
-            (
-                benchmark_tool,
-                full_benchmark_path,
-                benchmark_tool_workdir,
-            ) = check_benchmark_binaries_local_requirements(
-                benchmark_config, args.allowed_tools
-            )
+                redis_configuration_parameters, _ = extract_redis_dbconfig_parameters(
+                    benchmark_config, "dbconfig"
+                )
 
-            # prepare the benchmark command
-            command, command_str = prepare_benchmark_parameters(
-                benchmark_config,
-                full_benchmark_path,
-                args.port,
-                "localhost",
-                local_benchmark_output_filename,
-                False,
-                benchmark_tool_workdir,
-            )
+                redis_process = spin_up_local_redis(
+                    temporary_dir,
+                    args.port,
+                    local_module_file,
+                    redis_configuration_parameters,
+                )
 
-            # start the profile
-            if profilers_enabled:
-                logging.info("Profilers are enabled")
-                _, profilers_map = get_profilers_map(profilers_list)
-                for profiler_name, profiler_obj in profilers_map.items():
-                    logging.info(
-                        "Starting profiler {} for pid {}".format(
-                            profiler_name, redis_process.pid
-                        )
+                if is_process_alive(redis_process) is False:
+                    raise Exception("Redis process is not alive. Failing test.")
+
+                r = redis.StrictRedis(port=args.port)
+                stdout = r.execute_command("info modules")
+                (
+                    module_names,
+                    _,
+                ) = extract_module_semver_from_info_modules_cmd(stdout)
+
+                check_required_modules(module_names, required_modules)
+
+                # run initialization commands before benchmark starts
+                logging.info("Running initialization commands before benchmark starts.")
+                execute_init_commands_start_time = datetime.datetime.now()
+                execute_init_commands(benchmark_config, r)
+                execute_init_commands_duration_seconds = (
+                    datetime.datetime.now() - execute_init_commands_start_time
+                ).seconds
+                logging.info(
+                    "Running initialization commands took {} secs.".format(
+                        execute_init_commands_duration_seconds
                     )
-                    profile_filename = (
-                        "profile_{test_name}_{profile}_{start_time_str}.out".format(
-                            profile=profiler_name,
-                            test_name=test_name,
-                            start_time_str=start_time_str,
-                        )
-                    )
-                    profiler_obj.start_profile(
-                        redis_process.pid, profile_filename, PROFILE_FREQ
-                    )
+                )
 
-            # run the benchmark
-            benchmark_start_time = datetime.datetime.now()
-            stdout, stderr = run_local_benchmark(benchmark_tool, command)
-            benchmark_end_time = datetime.datetime.now()
-            benchmark_duration_seconds = (
-                benchmark_end_time - benchmark_start_time
-            ).seconds
-
-            logging.info("Extracting the benchmark results")
-            logging.info("stdout: {}".format(stdout))
-            logging.info("stderr: {}".format(stderr))
-
-            if profilers_enabled:
-                expected_min_duration = 60
-                if benchmark_duration_seconds < expected_min_duration:
-                    logging.warning(
-                        "Total benchmark duration ({} secs) was bellow {} seconds. ".format(
-                            benchmark_duration_seconds, expected_min_duration
-                        )
-                        + "Given the profile frequency {} it means that at max we mad {} profiles.".format(
-                            PROFILE_FREQ, int(PROFILE_FREQ) * benchmark_duration_seconds
-                        )
-                        + "Please increase benchmark time for more accurate profiles."
-                        + "If that is not possible please change the profile frequency to an higher value."
-                        + "via the env variable PROFILE_FREQ. NOTICE THAT THIS INCREASES OVERHEAD!!!"
-                    )
-                s3_bucket_path = get_test_s3_bucket_path(
-                    s3_bucket_name,
+                # setup the benchmark
+                start_time, start_time_ms, start_time_str = get_start_time_vars()
+                local_benchmark_output_filename = get_local_run_full_filename(
+                    start_time_str,
+                    github_branch,
                     test_name,
-                    github_org_name,
-                    github_repo_name,
-                    "profiles",
                 )
-                for profiler_name, profiler_obj in profilers_map.items():
-                    # Collect and fold stacks
-                    logging.info(
-                        "Stopping profiler {} for pid {}".format(
-                            profiler_name, redis_process.pid
-                        )
+                logging.info(
+                    "Will store benchmark json output to local file {}".format(
+                        local_benchmark_output_filename
                     )
-                    profiler_obj.stop_profile()
+                )
 
-                    # Generate:
-                    #  - artifact with Flame Graph SVG
-                    #  - artifact with output graph image in PNG format
-                    #  - artifact with top entries in text form
-                    (
-                        profile_res,
-                        profile_res_artifacts_map,
-                    ) = profiler_obj.generate_outputs(
-                        test_name,
-                        details=collection_summary_str,
-                        binary=local_module_file,
-                    )
-                    if profile_res is True:
+                (
+                    benchmark_tool,
+                    full_benchmark_path,
+                    benchmark_tool_workdir,
+                ) = check_benchmark_binaries_local_requirements(
+                    benchmark_config, args.allowed_tools
+                )
+
+                # prepare the benchmark command
+                command, command_str = prepare_benchmark_parameters(
+                    benchmark_config,
+                    full_benchmark_path,
+                    args.port,
+                    "localhost",
+                    local_benchmark_output_filename,
+                    False,
+                    benchmark_tool_workdir,
+                )
+
+                # start the profile
+                if profilers_enabled:
+                    logging.info("Profilers are enabled")
+                    _, profilers_map = get_profilers_map(profilers_list)
+                    for profiler_name, profiler_obj in profilers_map.items():
                         logging.info(
-                            "Profiler {} for pid {} ran successfully and generated {} artifacts.".format(
-                                profiler_name,
-                                redis_process.pid,
-                                len(profile_res_artifacts_map.values()),
+                            "Starting profiler {} for pid {}".format(
+                                profiler_name, redis_process.pid
                             )
                         )
-                        artifact_paths = []
-                        for (
-                            artifact_name,
-                            profile_artifact,
-                        ) in profile_res_artifacts_map.items():
-                            profilers_artifacts_matrix.append(
-                                [
-                                    test_name,
+                        profile_filename = (
+                            "profile_{test_name}_{profile}_{start_time_str}.out".format(
+                                profile=profiler_name,
+                                test_name=test_name,
+                                start_time_str=start_time_str,
+                            )
+                        )
+                        profiler_obj.start_profile(
+                            redis_process.pid, profile_filename, PROFILE_FREQ
+                        )
+
+                # run the benchmark
+                benchmark_start_time = datetime.datetime.now()
+                stdout, stderr = run_local_benchmark(benchmark_tool, command)
+                benchmark_end_time = datetime.datetime.now()
+                benchmark_duration_seconds = (
+                    benchmark_end_time - benchmark_start_time
+                ).seconds
+
+                logging.info("Extracting the benchmark results")
+                logging.info("stdout: {}".format(stdout))
+                logging.info("stderr: {}".format(stderr))
+
+                if profilers_enabled:
+                    expected_min_duration = 60
+                    if benchmark_duration_seconds < expected_min_duration:
+                        logging.warning(
+                            "Total benchmark duration ({} secs) was bellow {} seconds. ".format(
+                                benchmark_duration_seconds, expected_min_duration
+                            )
+                            + "Given the profile frequency {} it means that at max we mad {} profiles.".format(
+                                PROFILE_FREQ,
+                                int(PROFILE_FREQ) * benchmark_duration_seconds,
+                            )
+                            + "Please increase benchmark time for more accurate profiles."
+                            + "If that is not possible please change the profile frequency to an higher value."
+                            + "via the env variable PROFILE_FREQ. NOTICE THAT THIS INCREASES OVERHEAD!!!"
+                        )
+                    s3_bucket_path = get_test_s3_bucket_path(
+                        s3_bucket_name,
+                        test_name,
+                        github_org_name,
+                        github_repo_name,
+                        "profiles",
+                    )
+                    for profiler_name, profiler_obj in profilers_map.items():
+                        # Collect and fold stacks
+                        logging.info(
+                            "Stopping profiler {} for pid {}".format(
+                                profiler_name, redis_process.pid
+                            )
+                        )
+                        profiler_obj.stop_profile()
+
+                        # Generate:
+                        #  - artifact with Flame Graph SVG
+                        #  - artifact with output graph image in PNG format
+                        #  - artifact with top entries in text form
+                        (
+                            profile_res,
+                            profile_res_artifacts_map,
+                        ) = profiler_obj.generate_outputs(
+                            test_name,
+                            details=collection_summary_str,
+                            binary=local_module_file,
+                        )
+                        if profile_res is True:
+                            logging.info(
+                                "Profiler {} for pid {} ran successfully and generated {} artifacts.".format(
                                     profiler_name,
-                                    artifact_name,
-                                    profile_artifact,
-                                ]
-                            )
-                            artifact_paths.append(profile_artifact)
-                            logging.info(
-                                "artifact {}: {}.".format(
-                                    artifact_name, profile_artifact
+                                    redis_process.pid,
+                                    len(profile_res_artifacts_map.values()),
                                 )
                             )
-                        if args.upload_results_s3:
-                            logging.info(
-                                "Uploading results to s3. s3 bucket name: {}. s3 bucket path: {}".format(
-                                    s3_bucket_name, s3_bucket_path
+                            for (
+                                artifact_name,
+                                profile_artifact,
+                            ) in profile_res_artifacts_map.items():
+                                if args.upload_results_s3:
+                                    logging.info(
+                                        "Uploading results to s3. s3 bucket name: {}. s3 bucket path: {}".format(
+                                            s3_bucket_name, s3_bucket_path
+                                        )
+                                    )
+                                    url_map = upload_artifacts_to_s3(
+                                        [profile_artifact],
+                                        s3_bucket_name,
+                                        s3_bucket_path,
+                                    )
+                                s3_link = list(url_map.values())[0]
+                                profilers_artifacts_matrix.append(
+                                    [
+                                        test_name,
+                                        profiler_name,
+                                        artifact_name,
+                                        profile_artifact,
+                                        s3_link,
+                                    ]
                                 )
-                            )
-                            upload_artifacts_to_s3(
-                                artifact_paths, s3_bucket_name, s3_bucket_path
-                            )
 
-            post_process_benchmark_results(
-                benchmark_tool,
-                local_benchmark_output_filename,
-                start_time_ms,
-                start_time_str,
-                stdout,
-            )
-
-            with open(local_benchmark_output_filename, "r") as json_file:
-                results_dict = json.load(json_file)
-
-                # check KPIs
-                return_code = results_dict_kpi_check(
-                    benchmark_config, results_dict, return_code
+                post_process_benchmark_results(
+                    benchmark_tool,
+                    local_benchmark_output_filename,
+                    start_time_ms,
+                    start_time_str,
+                    stdout,
                 )
 
-        except:
-            return_code |= 1
-            logging.critical(
-                "Some unexpected exception was caught during remote work. Failing test...."
-            )
-            logging.critical(sys.exc_info())
-        # tear-down
-        logging.info("Tearing down setup")
-        if redis_process is not None:
-            redis_process.kill()
-        logging.info("Tear-down completed")
+                with open(local_benchmark_output_filename, "r") as json_file:
+                    results_dict = json.load(json_file)
+
+                    # check KPIs
+                    return_code = results_dict_kpi_check(
+                        benchmark_config, results_dict, return_code
+                    )
+
+            except:
+                return_code |= 1
+                logging.critical(
+                    "Some unexpected exception was caught during remote work. Failing test...."
+                )
+                logging.critical(sys.exc_info())
+            # tear-down
+            logging.info("Tearing down setup")
+            if redis_process is not None:
+                redis_process.kill()
+            logging.info("Tear-down completed")
 
     if profilers_enabled:
         logging.info("Printing profiler generated artifacts")
 
         writer = MarkdownTableWriter(
             table_name="Profiler artifacts",
-            headers=["Test Case", "Profiler", "Artifact", "Local file"],
+            headers=["Test Case", "Profiler", "Artifact", "Local file", "s3 link"],
             value_matrix=profilers_artifacts_matrix,
         )
         writer.write_table()

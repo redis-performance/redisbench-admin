@@ -43,7 +43,6 @@ from redisbench_admin.utils.redisgraph_benchmark_go import (
 )
 from redisbench_admin.utils.remote import (
     extract_git_vars,
-    upload_artifacts_to_s3,
     setup_remote_environment,
     check_and_fix_pem_str,
     get_run_full_filename,
@@ -53,13 +52,17 @@ from redisbench_admin.utils.remote import (
     retrieve_tf_connection_vars,
     get_project_ts_tags,
     get_overall_dashboard_keynames,
-    EC2_PRIVATE_PEM,
     check_ec2_env,
 )
 from sshtunnel import SSHTunnelForwarder
 
 # internal aux vars
-from redisbench_admin.utils.utils import get_ts_metric_name, wait_for_conn
+from redisbench_admin.utils.utils import (
+    get_ts_metric_name,
+    wait_for_conn,
+    EC2_PRIVATE_PEM,
+    upload_artifacts_to_s3,
+)
 
 redisbenchmark_go_link = (
     "https://s3.amazonaws.com/benchmarks.redislabs/"
