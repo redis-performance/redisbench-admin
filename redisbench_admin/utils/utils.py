@@ -14,6 +14,7 @@ import os.path
 import tarfile
 import time
 from functools import reduce
+from urllib.parse import quote_plus
 from zipfile import ZipFile
 
 import boto3
@@ -25,20 +26,28 @@ EPOCH = dt.datetime.utcfromtimestamp(0)
 
 
 def upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path):
+    artifacts_map = {}
     logging.info("-- uploading results to s3 -- ")
     s3 = boto3.resource("s3")
     bucket = s3.Bucket(s3_bucket_name)
     progress = tqdm(unit="files", total=len(artifacts))
-    for artifact in artifacts:
+    bucket_location = EC2_REGION
+    for full_artifact_path in artifacts:
+        artifact = os.path.basename(full_artifact_path)
         object_key = "{bucket_path}{filename}".format(
             bucket_path=s3_bucket_path, filename=artifact
         )
 
-        bucket.upload_file(artifact, object_key)
+        bucket.upload_file(full_artifact_path, object_key)
         object_acl = s3.ObjectAcl(s3_bucket_name, object_key)
         object_acl.put(ACL="public-read")
         progress.update()
+        url = "https://s3.{0}.amazonaws.com/{1}/{2}{3}".format(
+            bucket_location, s3_bucket_name, s3_bucket_path, quote_plus(artifact)
+        )
+        artifacts_map[artifact] = url
     progress.close()
+    return artifacts_map
 
 
 def whereis(program):
@@ -250,3 +259,9 @@ def wait_for_conn(conn, retries=120, command="PING", should_be=True):
             "Redis busy loading time surpassed the timeout of {} secs".format(retries)
         )
     return result
+
+
+EC2_REGION = os.getenv("AWS_DEFAULT_REGION", None)
+EC2_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", None)
+EC2_PRIVATE_PEM = os.getenv("EC2_PRIVATE_PEM", None)
+EC2_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID", None)

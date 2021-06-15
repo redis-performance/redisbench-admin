@@ -10,7 +10,6 @@ import os
 import sys
 import tempfile
 
-import boto3
 import git
 import paramiko
 import pysftp
@@ -19,10 +18,14 @@ import redistimeseries.client as client
 from git import Repo
 from jsonpath_ng import parse
 from python_terraform import Terraform
-from tqdm import tqdm
 
 from redisbench_admin.utils.local import check_dataset_local_requirements
-from redisbench_admin.utils.utils import get_ts_metric_name
+from redisbench_admin.utils.utils import (
+    get_ts_metric_name,
+    EC2_REGION,
+    EC2_SECRET_KEY,
+    EC2_ACCESS_KEY,
+)
 
 # environment variables
 PERFORMANCE_RTS_PUSH = bool(os.getenv("PUSH_RTS", False))
@@ -30,10 +33,6 @@ PERFORMANCE_RTS_AUTH = os.getenv("PERFORMANCE_RTS_AUTH", None)
 PERFORMANCE_RTS_HOST = os.getenv("PERFORMANCE_RTS_HOST", "localhost")
 PERFORMANCE_RTS_PORT = os.getenv("PERFORMANCE_RTS_PORT", 6379)
 TERRAFORM_BIN_PATH = os.getenv("TERRAFORM_BIN_PATH", "terraform")
-EC2_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID", None)
-EC2_REGION = os.getenv("AWS_DEFAULT_REGION", None)
-EC2_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", None)
-EC2_PRIVATE_PEM = os.getenv("EC2_PRIVATE_PEM", None)
 
 
 def get_git_root(path):
@@ -355,24 +354,6 @@ def validate_result_expectations(
                                     )
                                 )
     return result
-
-
-def upload_artifacts_to_s3(
-    artifacts, s3_bucket_name, s3_bucket_path, acl="public-read"
-):
-    logging.info("Uploading results to s3")
-    s3 = boto3.resource("s3")
-    bucket = s3.Bucket(s3_bucket_name)
-    progress = tqdm(unit="files", total=len(artifacts))
-    for artifact in artifacts:
-        object_key = "{bucket_path}{filename}".format(
-            bucket_path=s3_bucket_path, filename=artifact
-        )
-        bucket.upload_file(artifact, object_key)
-        object_acl = s3.ObjectAcl(s3_bucket_name, object_key)
-        object_acl.put(ACL=acl)
-        progress.update()
-    progress.close()
 
 
 def check_and_fix_pem_str(ec2_private_pem: str):

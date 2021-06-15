@@ -15,11 +15,9 @@ from redistimeseries.client import Client
 
 from redisbench_admin.run.common import get_start_time_vars
 from redisbench_admin.utils.remote import (
-    EC2_REGION,
-    EC2_SECRET_KEY,
-    EC2_ACCESS_KEY,
     check_ec2_env,
 )
+from redisbench_admin.utils.utils import EC2_REGION, EC2_SECRET_KEY, EC2_ACCESS_KEY
 
 terminate_after_secs = 45 * 60
 dry_run = True
