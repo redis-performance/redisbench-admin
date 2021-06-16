@@ -15,7 +15,6 @@ class Vtune:
         """
         Profiling on top of intel's vtune
         """
-        self.minor = 0
         self.vtune = os.getenv("VTUNE")
         if not self.vtune:
             self.vtune = "vtune"

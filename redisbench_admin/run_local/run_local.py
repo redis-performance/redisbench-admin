@@ -20,6 +20,7 @@ from redisbench_admin.profilers.perf import Perf
 from cpuinfo import get_cpu_info
 from pytablewriter import MarkdownTableWriter
 
+from redisbench_admin.profilers.vtune import Vtune
 from redisbench_admin.run.common import (
     prepare_benchmark_parameters,
     get_start_time_vars,
@@ -428,6 +429,10 @@ def get_profilers_map(profilers_list):
                 logging.info("Preparing perf (a.k.a. perf_events ) profiler")
                 perf = Perf()
                 profilers_map[profiler_name] = perf
+            if "vtune" in profiler_name:
+                logging.info("Preparing Intel(R) VTune(TM) profiler")
+                vtune = Vtune()
+                profilers_map[profiler_name] = vtune
         except Exception as e:
             logging.error(
                 "Detected error while trying to prepare profiler named {}. Error: {}".format(
