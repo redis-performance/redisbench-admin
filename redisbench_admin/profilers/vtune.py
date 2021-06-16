@@ -110,11 +110,11 @@ class Vtune:
             return result
         try:
             self.profiler_process.terminate()
-            # self.profiler_process.wait()
-            (
-                self.profiler_process_stdout,
-                self.profiler_process_stderr,
-            ) = self.profiler_process.communicate()
+            self.profiler_process.wait()
+            # (
+            #     self.profiler_process_stdout,
+            #     self.profiler_process_stderr,
+            # ) = self.profiler_process.communicate()
             self.profiler_process_exit_code = self.profiler_process.poll()
             if self.profiler_process_exit_code <= 0:
                 logging.info("Generating trace file from profile.")
