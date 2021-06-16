@@ -69,6 +69,7 @@ def run_local_command_logic(args):
     ) = extract_git_vars()
 
     local_module_file = args.module_path
+    dbdir_folder = args.dbdir_folder
     os.path.abspath(".")
     required_modules = args.required_module
     profilers_enabled = args.enable_profilers
@@ -145,6 +146,16 @@ def run_local_command_logic(args):
                         temporary_dir
                     )
                 )
+                if dbdir_folder is not None:
+                    from distutils.dir_util import copy_tree
+
+                    copy_tree(dbdir_folder, temporary_dir)
+                    logging.info(
+                        "Copied entire content of {} into temporary path: {}".format(
+                            dbdir_folder, temporary_dir
+                        )
+                    )
+
                 check_dataset_local_requirements(
                     benchmark_config, temporary_dir, dirname
                 )
@@ -158,6 +169,7 @@ def run_local_command_logic(args):
                     args.port,
                     local_module_file,
                     redis_configuration_parameters,
+                    dbdir_folder,
                 )
 
                 if is_process_alive(redis_process) is False:
@@ -305,6 +317,7 @@ def run_local_command_logic(args):
                                 artifact_name,
                                 profile_artifact,
                             ) in profile_res_artifacts_map.items():
+                                s3_link = None
                                 if args.upload_results_s3:
                                     logging.info(
                                         "Uploading results to s3. s3 bucket name: {}. s3 bucket path: {}".format(
@@ -316,7 +329,7 @@ def run_local_command_logic(args):
                                         s3_bucket_name,
                                         s3_bucket_path,
                                     )
-                                s3_link = list(url_map.values())[0]
+                                    s3_link = list(url_map.values())[0]
                                 profilers_artifacts_matrix.append(
                                     [
                                         test_name,

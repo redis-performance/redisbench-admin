@@ -628,6 +628,14 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "pyworkflow"
+version = "0.0.2"
+description = "A lightweight parallel task engine"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "pyyaml"
 version = "5.4.1"
 description = "YAML parser and emitter for Python"
@@ -890,7 +898,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=1.2.3)", "pytest-flake8", "pyt
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6.1"
-content-hash = "f0ff6922116276ce9ff89cf7a6b5e54573f670ce22f870dcfac3a2e5860e5af5"
+content-hash = "90b37cf5918fd4665ecb91438dd4d94d478a432a93ddb5b0ec3e8e947f5d6506"
 
 [metadata.files]
 appdirs = [
@@ -1275,6 +1283,9 @@ pywin32 = [
     {file = "pywin32-227-cp38-cp38-win_amd64.whl", hash = "sha256:7c1ae32c489dc012930787f06244426f8356e129184a02c25aef163917ce158e"},
     {file = "pywin32-227-cp39-cp39-win32.whl", hash = "sha256:c054c52ba46e7eb6b7d7dfae4dbd987a1bb48ee86debe3f245a2884ece46e295"},
     {file = "pywin32-227-cp39-cp39-win_amd64.whl", hash = "sha256:f27cec5e7f588c3d1051651830ecc00294f90728d19c3bf6916e6dba93ea357c"},
+]
+pyworkflow = [
+    {file = "pyWorkFlow-0.0.2.tar.gz", hash = "sha256:98dd6064d19eab9412adc03240a17d5764ba571d884ac9a4017aed20cd463dad"},
 ]
 pyyaml = [
     {file = "PyYAML-5.4.1-cp27-cp27m-macosx_10_9_x86_64.whl", hash = "sha256:3b2b1824fe7112845700f815ff6a489360226a5609b96ec2190a45e62a9fc922"},

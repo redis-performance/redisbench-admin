@@ -70,10 +70,7 @@ def check_if_needs_remote_fetch(
 
 
 def spin_up_local_redis(
-    dbdir,
-    port,
-    local_module_file,
-    configuration_parameters=None,
+    dbdir, port, local_module_file, configuration_parameters=None, dbdir_folder=None
 ):
     command = generate_standalone_redis_server_args(
         dbdir, local_module_file, port, configuration_parameters
