@@ -220,6 +220,7 @@ def run_remote_command_logic(args):
     tf_setup_name_sufix = "{}-{}".format(args.setup_name_sufix, tf_github_sha)
     s3_bucket_name = args.s3_bucket_name
     local_module_file = args.module_path
+    dbdir_folder = args.dbdir_folder
 
     if args.skip_env_vars_verify is False:
         check_ec2_env()
@@ -377,6 +378,7 @@ def run_remote_command_logic(args):
                         remote_dataset_file,
                         dirname,
                         redis_configuration_parameters,
+                        dbdir_folder,
                     )
                     dataset_load_start_time = datetime.datetime.now()
                     local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
@@ -458,6 +460,23 @@ def run_remote_command_logic(args):
                             remote_tool_link,
                             tool_link,
                         ) = extract_tsbs_extra_links(benchmark_config, benchmark_tool)
+
+                        setup_remote_benchmark_tool_requirements_tsbs(
+                            client_public_ip,
+                            username,
+                            private_key,
+                            tool_link,
+                            queries_file_link,
+                            remote_tool_link,
+                        )
+                    if "aibench_" in benchmark_tool:
+                        (
+                            queries_file_link,
+                            remote_tool_link,
+                            tool_link,
+                        ) = extract_aibench_extra_links(
+                            benchmark_config, benchmark_tool
+                        )
 
                         setup_remote_benchmark_tool_requirements_tsbs(
                             client_public_ip,
@@ -857,6 +876,21 @@ def extract_tsbs_extra_links(benchmark_config, benchmark_tool):
     tool_link = (
         "https://s3.amazonaws.com/benchmarks.redislabs/"
         + "redistimeseries/tools/tsbs/{}_linux_amd64".format(benchmark_tool)
+    )
+    queries_file_link = None
+    for entry in benchmark_config["clientconfig"]:
+        if "parameters" in entry:
+            for parameter in entry["parameters"]:
+                if "file" in parameter:
+                    queries_file_link = parameter["file"]
+    return queries_file_link, remote_tool_link, tool_link
+
+
+def extract_aibench_extra_links(benchmark_config, benchmark_tool):
+    remote_tool_link = "/tmp/{}".format(benchmark_tool)
+    tool_link = (
+        "https://s3.amazonaws.com/benchmarks.redislabs/"
+        + "tools/redisai/aibench/{}_linux_amd64".format(benchmark_tool)
     )
     queries_file_link = None
     for entry in benchmark_config["clientconfig"]:

@@ -1,0 +1,3 @@
+WARNING: -e option has been deprecated. We now immediatly exit on error to avoid false results.
+"test","rps","avg_latency_ms","min_latency_ms","p50_latency_ms","p95_latency_ms","p99_latency_ms","max_latency_ms"
+"JSON.GET jsonsl-1 .","19920.32","0.183","0.104","0.183","0.239","0.287","0.351"

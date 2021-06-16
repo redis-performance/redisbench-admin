@@ -28,6 +28,7 @@ PyYAML = "^5.4.0"
 wget = "^3.2"
 pytablewriter = "^0.60.0"
 sshtunnel = "^0.4.0"
+pyWorkFlow = "^0.0.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^4.6"
