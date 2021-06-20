@@ -21,6 +21,7 @@ def spin_up_standalone_remote_redis(
     local_module_file,
     remote_module_file,
     remote_dataset_file,
+    logfile,
     dirname=".",
     redis_configuration_parameters=None,
     dbdir_folder=None,
@@ -35,11 +36,10 @@ def spin_up_standalone_remote_redis(
         dirname,
     )
     temporary_dir = "/tmp"
-    initial_redis_cmd = (
-        'redis-server --save "" --dir {} --daemonize yes --protected-mode no'.format(
-            temporary_dir
-        )
+    initial_redis_cmd = 'redis-server --save "" --logfile {} --dir {} --daemonize yes --protected-mode no'.format(
+        logfile, temporary_dir
     )
+    full_logfile = "{}/{}".format(temporary_dir, logfile)
     if dbdir_folder is not None:
         logging.info(
             "Copying entire content of {} into temporary path: {}".format(
@@ -77,6 +77,7 @@ def spin_up_standalone_remote_redis(
     # start redis-server
     commands = [initial_redis_cmd]
     execute_remote_commands(server_public_ip, username, private_key, commands)
+    return full_logfile
 
 
 def setup_remote_benchmark_tool_redisgraph_benchmark_go(
