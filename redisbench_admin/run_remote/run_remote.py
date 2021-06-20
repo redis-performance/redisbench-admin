@@ -53,6 +53,7 @@ from redisbench_admin.utils.remote import (
     get_project_ts_tags,
     get_overall_dashboard_keynames,
     check_ec2_env,
+    fetch_file_from_remote_setup,
 )
 from sshtunnel import SSHTunnelForwarder
 
@@ -362,13 +363,14 @@ def run_remote_command_logic(args):
                 # after we've created the env, even on error we should always teardown
                 # in case of some unexpected error we fail the test
                 try:
-
+                    _, _, testcase_start_time_str = get_start_time_vars()
+                    logname = "{}_{}.log".format(test_name, testcase_start_time_str)
                     (
                         redis_configuration_parameters,
                         dataset_load_timeout_secs,
                     ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
                     # setup Redis
-                    spin_up_standalone_remote_redis(
+                    full_logfile = spin_up_standalone_remote_redis(
                         benchmark_config,
                         server_public_ip,
                         username,
@@ -376,6 +378,7 @@ def run_remote_command_logic(args):
                         local_module_file,
                         remote_module_file,
                         remote_dataset_file,
+                        logname,
                         dirname,
                         redis_configuration_parameters,
                         dbdir_folder,
@@ -533,7 +536,7 @@ def run_remote_command_logic(args):
 
                     benchmark_start_time = datetime.datetime.now()
                     # run the benchmark
-                    _, stdout, _ = run_remote_benchmark(
+                    remote_run_result, stdout, _ = run_remote_benchmark(
                         client_public_ip,
                         username,
                         private_key,
@@ -542,6 +545,30 @@ def run_remote_command_logic(args):
                         command_str,
                     )
                     benchmark_end_time = datetime.datetime.now()
+                    if remote_run_result is False:
+                        local_logfile = "{}/{}".format(dirname, logname)
+                        logging.error(
+                            "The benchmark returned an error exit status. Fetching remote logfile {} into {}".format(
+                                full_logfile, local_logfile
+                            )
+                        )
+                        fetch_file_from_remote_setup(
+                            client_public_ip,
+                            username,
+                            private_key,
+                            local_logfile,
+                            full_logfile,
+                        )
+                        if args.upload_results_s3:
+                            logging.info(
+                                "Uploading logfile {} to s3. s3 bucket name: {}. s3 bucket path: {}".format(
+                                    local_logfile, s3_bucket_name, s3_bucket_path
+                                )
+                            )
+                            artifacts = [local_logfile]
+                            upload_artifacts_to_s3(
+                                artifacts, s3_bucket_name, s3_bucket_path
+                            )
                     benchmark_duration_seconds = (
                         benchmark_end_time - benchmark_start_time
                     ).seconds
