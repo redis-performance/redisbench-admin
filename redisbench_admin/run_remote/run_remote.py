@@ -73,7 +73,6 @@ redisbenchmark_go_link = (
 remote_dataset_file = "/tmp/dump.rdb"
 remote_module_file = "/tmp/module.so"
 local_results_file = "./benchmark-result.out"
-remote_results_file = "/tmp/benchmark-result.out"
 private_key = "/tmp/benchmarks.redislabs.pem"
 min_recommended_benchmark_duration = 60
 
@@ -365,6 +364,10 @@ def run_remote_command_logic(args):
                 try:
                     _, _, testcase_start_time_str = get_start_time_vars()
                     logname = "{}_{}.log".format(test_name, testcase_start_time_str)
+                    remote_results_file = "/tmp/benchmark-result-{}_{}.out".format(
+                        test_name, testcase_start_time_str
+                    )
+
                     (
                         redis_configuration_parameters,
                         dataset_load_timeout_secs,
