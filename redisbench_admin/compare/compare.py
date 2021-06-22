@@ -6,6 +6,7 @@
 import logging
 
 import redis
+from pytablewriter import MarkdownTableWriter
 
 from redisbench_admin.utils.remote import get_overall_dashboard_keynames
 from redistimeseries.client import Client
@@ -30,7 +31,8 @@ def compare_command_logic(args):
     to_ts_ms = args.to_timestamp
     baseline_branch = args.baseline_branch
     comparison_branch = args.comparison_branch
-
+    metric_name = args.metric_name
+    metric_mode = args.metric_mode
     (
         prefix,
         testcases_setname,
@@ -40,17 +42,26 @@ def compare_command_logic(args):
     test_names = []
     try:
         test_names = rts.redis.smembers(testcases_setname)
+        test_names = list(test_names)
+        test_names.sort()
     except redis.exceptions.ResponseError as e:
         logging.warning(
-            "Error while updating secondary data structures {}. ".format(e.__str__())
+            "Error while trying to fetch test cases set (key={}) {}. ".format(
+                testcases_setname, e.__str__()
+            )
         )
         pass
 
-    logging.info(test_names)
+    logging.warning(
+        "Based on test-cases set (key={}) we have {} distinct benchmarks. ".format(
+            testcases_setname, len(test_names)
+        )
+    )
+    profilers_artifacts_matrix = []
     for test_name in test_names:
-        metric_name = "Tests.Overall.rps"
 
         test_name = test_name.decode()
+
         ts_name_baseline = get_ts_metric_name(
             "by.branch",
             baseline_branch,
@@ -87,4 +98,38 @@ def compare_command_logic(args):
                 _, comparison_v = comparison_datapoints[0]
         except redis.exceptions.ResponseError:
             pass
-        logging.info("{} | {} | {}".format(test_name, baseline_v, comparison_v))
+        percentage_change = "N/A"
+        if baseline_v != "N/A" and comparison_v != "N/A":
+            if metric_mode == "higher-better":
+                percentage_change = "{0:.2f} %".format(
+                    (float(comparison_v) / float(baseline_v) - 1) * 100.0
+                )
+            else:
+                # lower-better
+                percentage_change = "{0:.2f} %".format(
+                    (float(baseline_v) / float(comparison_v) - 1) * 100.0
+                )
+        if baseline_v != "N/A" or comparison_v != "N/A":
+            profilers_artifacts_matrix.append(
+                [
+                    test_name,
+                    baseline_v,
+                    comparison_v,
+                    percentage_change,
+                ]
+            )
+    logging.info("Printing differential analysis between branches")
+
+    writer = MarkdownTableWriter(
+        table_name="Comparison between {} and {} for metric: {}".format(
+            baseline_branch, comparison_branch, metric_name
+        ),
+        headers=[
+            "Test Case",
+            "Baseline value",
+            "Comparison Value",
+            "% change ({})".format(metric_mode),
+        ],
+        value_matrix=profilers_artifacts_matrix,
+    )
+    writer.write_table()

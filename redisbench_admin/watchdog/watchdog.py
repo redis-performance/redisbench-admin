@@ -19,7 +19,6 @@ from redisbench_admin.utils.remote import (
 )
 from redisbench_admin.utils.utils import EC2_REGION, EC2_SECRET_KEY, EC2_ACCESS_KEY
 
-terminate_after_secs = 45 * 60
 dry_run = True
 ci_machines_prefix = "/tmp/"
 
@@ -96,6 +95,7 @@ def watchdog_command_logic(args):
     cloud = "aws"
     prefix = "ci.benchmarks.redislabs/{}/{}".format(cloud, EC2_REGION)
     tsname_overall_running = "{}/state-running".format(prefix)
+    terminate_after_secs = args.terminate_after_secs
     check_ec2_env()
     boto3.setup_default_session(
         region_name=EC2_REGION,

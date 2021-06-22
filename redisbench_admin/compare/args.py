@@ -38,6 +38,8 @@ def create_compare_arguments(parser):
     parser.add_argument("--github_org", type=str, default=GITHUB_ORG)
     parser.add_argument("--triggering_env", type=str, default=TRIGGERING_ENV)
     parser.add_argument("--deployment_type", type=str, default="oss-standalone")
+    parser.add_argument("--metric_name", type=str, default="Tests.Overall.rps")
+    parser.add_argument("--metric_mode", type=str, default="higher-better")
     parser.add_argument("--baseline-branch", type=str, default=None, required=True)
     parser.add_argument("--comparison-branch", type=str, default=None, required=True)
     parser.add_argument(
