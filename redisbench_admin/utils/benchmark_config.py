@@ -230,8 +230,8 @@ def get_testfiles_to_process(args):
             )
         )
     else:
-        logging.info("Running specific benchmark in file: {}".format(args.test))
-        files = [args.test]
+        files = args.test.split(",")
+        logging.info("Running specific benchmark in file: {}".format(files))
     return defaults_filename, files
 
 

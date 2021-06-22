@@ -12,6 +12,8 @@ import sys
 import toml
 
 from redisbench_admin import __version__
+from redisbench_admin.compare.args import create_compare_arguments
+from redisbench_admin.compare.compare import compare_command_logic
 from redisbench_admin.export.args import create_export_arguments
 from redisbench_admin.export.export import export_command_logic
 from redisbench_admin.extract.args import create_extract_arguments
@@ -78,6 +80,8 @@ def main():
         parser = create_extract_arguments(parser)
     elif requested_tool == "export":
         parser = create_export_arguments(parser)
+    elif requested_tool == "compare":
+        parser = create_compare_arguments(parser)
     elif requested_tool == "watchdog":
         parser = create_watchdog_arguments(parser)
     elif requested_tool == "--version":
@@ -88,6 +92,7 @@ def main():
         sys.exit(0)
     else:
         valid_tool_options = [
+            "compare",
             "run-local",
             "run-remote",
             "export",
@@ -127,6 +132,8 @@ def main():
         extract_command_logic(args)
     if requested_tool == "watchdog":
         watchdog_command_logic(args)
+    if requested_tool == "compare":
+        compare_command_logic(args)
 
 
 def print_invalid_tool_option(requested_tool, valid_tool_options):

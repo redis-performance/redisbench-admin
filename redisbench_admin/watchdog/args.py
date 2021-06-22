@@ -30,6 +30,12 @@ def create_watchdog_arguments(parser):
         help="watchdog update interval in seconds",
     )
     parser.add_argument(
+        "--terminate-after-secs",
+        type=int,
+        default=4200,
+        help="watchdog will terminate machines running for longer than value (that are associated with ci benchmarks)",
+    )
+    parser.add_argument(
         "--redistimeseries_host", type=str, default=PERFORMANCE_RTS_HOST
     )
     parser.add_argument(
