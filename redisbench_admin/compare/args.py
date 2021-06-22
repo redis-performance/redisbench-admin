@@ -42,6 +42,13 @@ def create_compare_arguments(parser):
     parser.add_argument("--metric_mode", type=str, default="higher-better")
     parser.add_argument("--baseline-branch", type=str, default=None, required=True)
     parser.add_argument("--comparison-branch", type=str, default=None, required=True)
+    parser.add_argument("--print-regressions-only", type=bool, default=False)
+    parser.add_argument(
+        "--regressions-percent-lower-limit",
+        type=float,
+        default=5.0,
+        help="Only consider regressions with a percentage over the defined limit. (0-100)",
+    )
     parser.add_argument(
         "--redistimeseries_host", type=str, default=PERFORMANCE_RTS_HOST
     )

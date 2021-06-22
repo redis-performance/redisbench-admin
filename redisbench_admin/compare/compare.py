@@ -58,6 +58,7 @@ def compare_command_logic(args):
         )
     )
     profilers_artifacts_matrix = []
+    detected_regressions = []
     for test_name in test_names:
 
         test_name = test_name.decode()
@@ -99,25 +100,35 @@ def compare_command_logic(args):
         except redis.exceptions.ResponseError:
             pass
         percentage_change = "N/A"
+        percentage_change = 0.0
         if baseline_v != "N/A" and comparison_v != "N/A":
             if metric_mode == "higher-better":
-                percentage_change = "{0:.2f} %".format(
-                    (float(comparison_v) / float(baseline_v) - 1) * 100.0
-                )
+                percentage_change = (
+                    float(comparison_v) / float(baseline_v) - 1
+                ) * 100.0
             else:
                 # lower-better
-                percentage_change = "{0:.2f} %".format(
-                    (float(baseline_v) / float(comparison_v) - 1) * 100.0
-                )
+                percentage_change = (
+                    float(baseline_v) / float(comparison_v) - 1
+                ) * 100.0
         if baseline_v != "N/A" or comparison_v != "N/A":
-            profilers_artifacts_matrix.append(
-                [
-                    test_name,
-                    baseline_v,
-                    comparison_v,
-                    percentage_change,
-                ]
-            )
+            detected_regression = False
+            if (
+                percentage_change < 0.0
+                and percentage_change < -args.regressions_percent_lower_limit
+            ):
+                detected_regression = True
+                detected_regressions.append(test_name)
+            if args.print_regressions_only is False or detected_regression:
+                profilers_artifacts_matrix.append(
+                    [
+                        test_name,
+                        baseline_v,
+                        comparison_v,
+                        percentage_change,
+                    ]
+                )
+
     logging.info("Printing differential analysis between branches")
 
     writer = MarkdownTableWriter(
@@ -133,3 +144,15 @@ def compare_command_logic(args):
         value_matrix=profilers_artifacts_matrix,
     )
     writer.write_table()
+    total_regressions = len(detected_regressions)
+    if total_regressions > 0:
+        logging.warning(
+            "Detected a total of {} regressions. Printing BENCHMARK env var compatible list".format(
+                total_regressions
+            )
+        )
+        logging.warning(
+            "BENCHMARK={}".format(
+                ",".join(["{}.yml".format(x) for x in detected_regressions])
+            )
+        )
