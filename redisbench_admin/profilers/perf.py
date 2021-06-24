@@ -282,6 +282,9 @@ class Perf:
         outputs = {}
         binary = kwargs.get("binary")
         details = kwargs.get("details")
+        primary_id = kwargs.get("primary_id")
+        total_primaries = kwargs.get("total_primaries")
+        identifier = "primary {} of {}".format(primary_id, total_primaries)
         if details is None:
             details = ""
         result = True
@@ -290,12 +293,14 @@ class Perf:
             "Flame Graph: " + use_case, details
         )
         if artifact_result is True:
-            outputs["Flame Graph"] = flame_graph_output
+            outputs["Flame Graph ({})".format(identifier)] = flame_graph_output
         result &= artifact_result
 
         # save perf output
         if artifact_result is True:
-            outputs["perf output"] = os.path.abspath(self.output)
+            outputs["perf output ({})".format(identifier)] = os.path.abspath(
+                self.output
+            )
 
         tid = self.pid
         # generate perf report --stdio report
@@ -307,23 +312,28 @@ class Perf:
         )
 
         if artifact_result is True:
-            outputs["perf report top self-cpu"] = perf_report_artifact
+            outputs[
+                "perf report top self-cpu ({})".format(identifier)
+            ] = perf_report_artifact
         result &= artifact_result
 
         # generate perf report --stdio report
-        logging.info(
-            "Generating perf report text outputs only for dso {}".format(binary)
-        )
-        perf_report_output_dso = self.output + ".perf-report.top-cpu.dso.txt"
+        if binary is not None:
+            logging.info(
+                "Generating perf report text outputs only for dso only ({})".format(
+                    identifier
+                )
+            )
+            perf_report_output_dso = self.output + ".perf-report.top-cpu.dso.txt"
 
-        artifact_result, perf_report_artifact = self.run_perf_report(
-            tid, perf_report_output_dso, binary, "relative"
-        )
+            artifact_result, perf_report_artifact = self.run_perf_report(
+                tid, perf_report_output_dso, binary, "relative"
+            )
 
-        if artifact_result is True:
-            outputs[
-                "perf report top self-cpu (dso={})".format(binary)
-            ] = perf_report_artifact
+            if artifact_result is True:
+                outputs[
+                    "perf report top self-cpu (dso={})".format(binary)
+                ] = perf_report_artifact
         result &= artifact_result
 
         if self.callgraph_mode == "dwarf":

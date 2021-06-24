@@ -6,9 +6,12 @@ import redis
 
 from redisbench_admin.utils.local import (
     check_dataset_local_requirements,
-    generate_standalone_redis_server_args,
-    spin_up_local_redis,
 )
+from redisbench_admin.environments.oss_standalone import (
+    spin_up_local_redis,
+    generate_standalone_redis_server_args,
+)
+
 
 #
 # def test_check_dataset_local_requirements():

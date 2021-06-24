@@ -44,9 +44,35 @@ def parse_exporter_timemetric(metric_path: str, results_dict: dict):
 def prepare_benchmark_definitions(args):
     benchmark_definitions = {}
     defaults_filename, files = get_testfiles_to_process(args)
+
+    (
+        default_kpis,
+        default_metrics,
+        exporter_timemetric_path,
+        default_specs,
+        clusterconfig,
+    ) = get_defaults(defaults_filename)
+    for usecase_filename in files:
+        with open(usecase_filename, "r") as stream:
+            benchmark_config, test_name = get_final_benchmark_config(
+                default_kpis, stream, usecase_filename
+            )
+            benchmark_definitions[test_name] = benchmark_config
+    return (
+        benchmark_definitions,
+        default_metrics,
+        exporter_timemetric_path,
+        default_specs,
+        clusterconfig,
+    )
+
+
+def get_defaults(defaults_filename):
     default_metrics = []
     exporter_timemetric_path = None
     default_kpis = None
+    default_specs = None
+    cluster_config = None
     if os.path.exists(defaults_filename):
         with open(defaults_filename, "r") as stream:
             logging.info(
@@ -56,6 +82,8 @@ def prepare_benchmark_definitions(args):
                 default_kpis,
                 default_metrics,
                 exporter_timemetric_path,
+                default_specs,
+                cluster_config,
             ) = process_default_yaml_properties_file(
                 default_kpis,
                 default_metrics,
@@ -63,18 +91,25 @@ def prepare_benchmark_definitions(args):
                 exporter_timemetric_path,
                 stream,
             )
-    for usecase_filename in files:
-        with open(usecase_filename, "r") as stream:
-            os.path.dirname(os.path.abspath(usecase_filename))
-            benchmark_config = yaml.safe_load(stream)
-            kpis_keyname = "kpis"
-            if default_kpis is not None:
-                merge_default_and_specific_properties_dict_type(
-                    benchmark_config, default_kpis, kpis_keyname, usecase_filename
-                )
-            test_name = benchmark_config["name"]
-            benchmark_definitions[test_name] = benchmark_config
-    return benchmark_definitions, default_metrics, exporter_timemetric_path
+    return (
+        default_kpis,
+        default_metrics,
+        exporter_timemetric_path,
+        default_specs,
+        cluster_config,
+    )
+
+
+def get_final_benchmark_config(default_kpis, stream, usecase_filename):
+    os.path.dirname(os.path.abspath(usecase_filename))
+    benchmark_config = yaml.safe_load(stream)
+    kpis_keyname = "kpis"
+    if default_kpis is not None:
+        merge_default_and_specific_properties_dict_type(
+            benchmark_config, default_kpis, kpis_keyname, usecase_filename
+        )
+    test_name = benchmark_config["name"]
+    return benchmark_config, test_name
 
 
 def merge_default_and_specific_properties_dict_type(
@@ -143,6 +178,8 @@ def process_default_yaml_properties_file(
     default_kpis, default_metrics, defaults_filename, exporter_timemetric_path, stream
 ):
     default_config = yaml.safe_load(stream)
+    default_specs = None
+    cluster_config = None
     if "exporter" in default_config:
         default_metrics = parse_exporter_metrics_definition(default_config["exporter"])
         if len(default_metrics) > 0:
@@ -169,7 +206,25 @@ def process_default_yaml_properties_file(
             )
         )
         default_kpis = default_config["kpis"]
-    return default_kpis, default_metrics, exporter_timemetric_path
+    if "spec" in default_config:
+        logging.info(
+            "Loading default setup SPECs from file: {}".format(defaults_filename)
+        )
+        default_specs = default_config["spec"]
+    if "clusterconfig" in default_config:
+        logging.info(
+            "Loading cluster-config default steps from file: {}".format(
+                defaults_filename
+            )
+        )
+        cluster_config = default_config["clusterconfig"]
+    return (
+        default_kpis,
+        default_metrics,
+        exporter_timemetric_path,
+        default_specs,
+        cluster_config,
+    )
 
 
 def extract_benchmark_tool_settings(benchmark_config):

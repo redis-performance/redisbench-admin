@@ -46,6 +46,8 @@ def test_merge_default_and_config_metrics():
             default_kpis,
             default_metrics,
             exporter_timemetric_path,
+            default_specs,
+            cluster_config,
         ) = process_default_yaml_properties_file(None, None, "1.yml", None, yml_file)
         assert exporter_timemetric_path == "$.StartTime"
         merged_exporter_timemetric_path, metrics = merge_default_and_config_metrics(
@@ -53,6 +55,7 @@ def test_merge_default_and_config_metrics():
         )
         assert merged_exporter_timemetric_path == exporter_timemetric_path
         assert default_metrics == metrics
+        assert default_specs == None
 
     # default and specific metrics test
     with open("./tests/test_data/common-properties-v0.1.yml", "r") as yml_file:
@@ -60,8 +63,11 @@ def test_merge_default_and_config_metrics():
             default_kpis,
             default_metrics,
             exporter_timemetric_path,
+            default_specs,
+            cluster_config,
         ) = process_default_yaml_properties_file(None, None, "1.yml", None, yml_file)
         assert exporter_timemetric_path == "$.StartTime"
+        assert default_specs == None
         with open(
             "./tests/test_data/redis-benchmark-with-exporter.yml", "r"
         ) as yml_file:

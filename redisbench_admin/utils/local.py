@@ -6,13 +6,9 @@
 
 import logging
 import os
-import subprocess
 from shutil import copyfile
 
-import redis
 import wget
-
-from redisbench_admin.utils.utils import wait_for_conn
 
 
 def check_dataset_local_requirements(
@@ -69,56 +65,6 @@ def check_if_needs_remote_fetch(
     return full_path
 
 
-def spin_up_local_redis(
-    dbdir, port, local_module_file, configuration_parameters=None, dbdir_folder=None
-):
-    command = generate_standalone_redis_server_args(
-        dbdir, local_module_file, port, configuration_parameters
-    )
-
-    logging.info(
-        "Running local redis-server with the following args: {}".format(
-            " ".join(command)
-        )
-    )
-    redis_process = subprocess.Popen(command)
-    result = wait_for_conn(redis.StrictRedis(port=port))
-    if result is True:
-        logging.info("Redis available")
-    return redis_process
-
-
-def generate_standalone_redis_server_args(
-    dbdir, local_module_file, port, configuration_parameters=None
-):
-    # start redis-server
-    command = [
-        "redis-server",
-        "--save",
-        '""',
-        "--port",
-        "{}".format(port),
-        "--dir",
-        dbdir,
-    ]
-    if configuration_parameters is not None:
-        for parameter, parameter_value in configuration_parameters.items():
-            command.extend(
-                [
-                    "--{}".format(parameter),
-                    parameter_value,
-                ]
-            )
-    if local_module_file is not None:
-        command.extend(
-            [
-                "--loadmodule",
-                os.path.abspath(local_module_file),
-            ]
-        )
-    return command
-
-
 def is_process_alive(process):
     if not process:
         return False
@@ -133,9 +79,11 @@ def get_local_run_full_filename(
     start_time_str,
     github_branch,
     test_name,
+    setup_name,
 ):
     benchmark_output_filename = (
-        "{start_time_str}-{github_branch}-{test_name}.json".format(
+        "{setup_name}-{start_time_str}-{github_branch}-{test_name}.json".format(
+            setup_name=setup_name,
             start_time_str=start_time_str,
             github_branch=github_branch,
             test_name=test_name,

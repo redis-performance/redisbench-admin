@@ -119,8 +119,11 @@ def test_extract_perversion_timeseries_from_results():
             default_kpis,
             default_metrics,
             exporter_timemetric_path,
+            default_specs,
+            cluster_config,
         ) = process_default_yaml_properties_file(None, None, "1.yml", None, yml_file)
         assert exporter_timemetric_path == "$.StartTime"
+        assert default_specs == None
         with open(
             "./tests/test_data/tsbs-devops-ingestion-scale100-4days.yml", "r"
         ) as yml_file:

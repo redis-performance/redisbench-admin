@@ -275,6 +275,8 @@ def run_remote_command_logic(args):
         benchmark_definitions,
         default_metrics,
         exporter_timemetric_path,
+        _,
+        _,
     ) = prepare_benchmark_definitions(args)
     return_code = 0
     remote_envs = {}
