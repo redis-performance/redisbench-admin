@@ -12,11 +12,15 @@ from redisbench_admin.run.common import (
     prepare_benchmark_parameters,
     get_start_time_vars,
     common_exporter_logic,
+    extract_test_feasible_setups,
+    get_setup_type_and_primaries_count,
 )
 
 from redisbench_admin.utils.benchmark_config import (
     process_default_yaml_properties_file,
     extract_benchmark_tool_settings,
+    get_defaults,
+    get_final_benchmark_config,
 )
 
 
@@ -103,7 +107,6 @@ def test_extract_benchmark_tool_settings():
 
 
 def test_extract_benchmark_tool_settings_with_remote():
-
     with open("./tests/test_data/ycsb-config.yml", "r") as yml_file:
         benchmark_config = yaml.safe_load(yml_file)
         (
@@ -131,6 +134,63 @@ def test_process_default_yaml_properties_file():
             default_kpis,
             default_metrics,
             exporter_timemetric_path,
+            default_specs,
+            cluster_config,
         ) = process_default_yaml_properties_file(None, None, "1.yml", None, yml_file)
         assert exporter_timemetric_path == "$.StartTime"
         assert default_kpis is None
+        assert default_specs is None
+        assert cluster_config is None
+
+
+def test_extract_test_feasible_setups():
+    defaults_filename = "./tests/test_data/common-properties-v0.3.yml"
+    (
+        default_kpis,
+        default_metrics,
+        exporter_timemetric_path,
+        default_specs,
+        cluster_config,
+    ) = get_defaults(defaults_filename)
+    usecase_filename = "./tests/test_data/tsbs-devops-ingestion-scale100-4days-v2.yml"
+    with open(usecase_filename, "r") as stream:
+        benchmark_config, test_name = get_final_benchmark_config(
+            default_kpis, stream, usecase_filename
+        )
+    assert cluster_config == {
+        "init_commands": [
+            {
+                "commands": ["RG.REFRESHCLUSTER"],
+                "when_modules_present": ["redisgears.so"],
+            }
+        ]
+    }
+
+    assert default_specs is not None
+    assert len(default_specs["setups"]) == 6
+    print(default_specs)
+    test_setups = extract_test_feasible_setups(
+        benchmark_config, "setups", default_specs
+    )
+    assert len(test_setups.keys()) == 2
+    assert "oss-standalone" in test_setups
+    assert test_setups["oss-standalone"] != {}
+    standalone_setup_type = test_setups["oss-standalone"]["type"]
+    standalone_shard_count = test_setups["oss-standalone"]["redis_topology"][
+        "primaries"
+    ]
+    assert standalone_setup_type == "oss-standalone"
+    assert standalone_shard_count == 1
+    t, c = get_setup_type_and_primaries_count(test_setups["oss-standalone"])
+    assert standalone_setup_type == t
+    assert standalone_shard_count == c
+
+    assert "oss-cluster-3-primaries" in test_setups
+    assert test_setups["oss-cluster-3-primaries"] != {}
+    osscluster_setup_type = test_setups["oss-cluster-3-primaries"]["type"]
+    osscluster_shard_count = test_setups["oss-cluster-3-primaries"]["redis_topology"][
+        "primaries"
+    ]
+    t, c = get_setup_type_and_primaries_count(test_setups["oss-cluster-3-primaries"])
+    assert osscluster_setup_type == t
+    assert osscluster_shard_count == c

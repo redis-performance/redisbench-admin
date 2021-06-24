@@ -45,6 +45,7 @@ def prepare_benchmark_parameters(
     remote_results_file,
     isremote=False,
     current_workdir=None,
+    cluster_api_enabled=False,
 ):
     command_arr = None
     command_str = None
@@ -98,6 +99,7 @@ def prepare_benchmark_parameters(
                     remote_results_file,
                     input_data_file,
                     isremote,
+                    cluster_api_enabled,
                 )
             if "aibench_" in benchmark_tool:
                 input_data_file = None
@@ -281,3 +283,22 @@ def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
                         e.__str__()
                     )
                 )
+
+
+def extract_test_feasible_setups(benchmark_config, param, default_specs):
+    feasible_setups_map = {}
+    if param in benchmark_config:
+        feasible_setups_list = benchmark_config[param]
+        for setup_name in feasible_setups_list:
+            feasible_setups_map[setup_name] = {}
+            if "setups" in default_specs:
+                for setup in default_specs["setups"]:
+                    if setup_name == setup["name"]:
+                        feasible_setups_map[setup_name] = setup
+    return feasible_setups_map
+
+
+def get_setup_type_and_primaries_count(setup_settings):
+    setup_type = setup_settings["type"]
+    shard_count = setup_settings["redis_topology"]["primaries"]
+    return setup_type, shard_count

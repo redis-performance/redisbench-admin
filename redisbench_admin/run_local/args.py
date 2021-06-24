@@ -16,10 +16,18 @@ PUSH_S3 = bool(os.getenv("PUSH_S3", False))
 PROFILERS_ENABLED = os.getenv("PROFILE", 0)
 PROFILERS = os.getenv("PROFILERS", PROFILERS_DEFAULT)
 PROFILE_FREQ = os.getenv("PROFILE_FREQ", PROFILE_FREQ_DEFAULT)
+ENV = os.getenv("ENV", "oss-standalone,oss-cluster")
 
 
 def create_run_local_arguments(parser):
-    parser.add_argument("--module_path", type=str, required=False)
+    parser.add_argument(
+        "--module_path",
+        required=False,
+        default=None,
+        action="append",
+        help="path to the module file. " "You can use `--module_path` more than once. ",
+    )
+    parser.add_argument("--dso", type=str, required=False, default=None)
     parser.add_argument(
         "--dbdir_folder",
         type=str,
@@ -71,4 +79,10 @@ def create_run_local_arguments(parser):
         + "Only available on x86 Linux platform and kernel version >= 4.9",
     )
     parser.add_argument("--port", type=int, default=6379)
+    parser.add_argument(
+        "--allowed-envs",
+        type=str,
+        default=ENV,
+        help="Comma delimited allowed setups: 'oss-standalone','oss-cluster'",
+    )
     return parser

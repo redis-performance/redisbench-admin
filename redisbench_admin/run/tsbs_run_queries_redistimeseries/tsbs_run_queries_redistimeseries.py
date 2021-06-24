@@ -16,6 +16,7 @@ def prepare_tsbs_benchmark_command(
     result_file: str,
     remote_queries_file,
     is_remote: bool,
+    cluster_api_enabled: bool = False,
 ):
     """
     Prepares tsbs_run_queries_redistimeseries command parameters
@@ -31,6 +32,8 @@ def prepare_tsbs_benchmark_command(
     command_arr.extend(
         ["--host", "{}:{}".format(server_private_ip, server_plaintext_port)]
     )
+    if cluster_api_enabled is True:
+        command_arr.extend(["--cluster"])
     if "parameters" in benchmark_config:
         for k in benchmark_config["parameters"]:
             if "file" in k:
