@@ -13,9 +13,11 @@ import subprocess
 import sys
 import tempfile
 import datetime
+import traceback
 
 import redis
 import wget
+from rediscluster import RedisCluster
 
 from redisbench_admin.environments.oss_cluster import spin_up_local_redis_cluster
 from redisbench_admin.profilers.perf import Perf
@@ -31,7 +33,7 @@ from redisbench_admin.run.common import (
     extract_test_feasible_setups,
     get_setup_type_and_primaries_count,
 )
-from redisbench_admin.run_local.args import PROFILE_FREQ
+from redisbench_admin.run_local.args import PROFILE_FREQ, MAX_PROFILERS_PER_TYPE
 from redisbench_admin.utils.benchmark_config import (
     prepare_benchmark_definitions,
     extract_benchmark_tool_settings,
@@ -200,11 +202,6 @@ def run_local_command_logic(args):
                                     dbdir_folder, temporary_dir
                                 )
                             )
-
-                        check_dataset_local_requirements(
-                            benchmark_config, temporary_dir, dirname
-                        )
-
                         (
                             redis_configuration_parameters,
                             _,
@@ -212,22 +209,6 @@ def run_local_command_logic(args):
                             benchmark_config, "dbconfig"
                         )
                         cluster_api_enabled = False
-                        if setup_type == "oss-standalone":
-                            redis_processes = spin_up_local_redis(
-                                temporary_dir,
-                                args.port,
-                                local_module_file,
-                                redis_configuration_parameters,
-                                dbdir_folder,
-                            )
-
-                            for redis_process in redis_processes:
-                                if is_process_alive(redis_process) is False:
-                                    raise Exception(
-                                        "Redis process is not alive. Failing test."
-                                    )
-
-                            r = redis.StrictRedis(port=args.port)
 
                         if setup_type == "oss-cluster":
                             cluster_api_enabled = True
@@ -249,7 +230,46 @@ def run_local_command_logic(args):
                             r = redis.StrictRedis(port=args.port)
                             r_conns = []
                             for p in range(args.port, args.port + shard_count):
-                                r_conns.append(redis.StrictRedis(port=p))
+                                redis.StrictRedis(port=p).execute_command(
+                                    "CLUSTER SAVECONFIG"
+                                )
+
+                        check_dataset_local_requirements(
+                            benchmark_config,
+                            temporary_dir,
+                            dirname,
+                            "./datasets",
+                            "dbconfig",
+                            shard_count,
+                            cluster_api_enabled,
+                        )
+
+                        if setup_type == "oss-standalone":
+                            redis_processes = spin_up_local_redis(
+                                temporary_dir,
+                                args.port,
+                                local_module_file,
+                                redis_configuration_parameters,
+                                dbdir_folder,
+                            )
+
+                            for redis_process in redis_processes:
+                                if is_process_alive(redis_process) is False:
+                                    raise Exception(
+                                        "Redis process is not alive. Failing test."
+                                    )
+
+                            r = redis.StrictRedis(port=args.port)
+
+                        if setup_type == "oss-cluster":
+                            startup_nodes = []
+                            for p in range(args.port, args.port + shard_count):
+                                primary_conn = redis.StrictRedis(port=p)
+                                primary_conn.execute_command("DEBUG RELOAD NOSAVE")
+                                r_conns.append(primary_conn)
+                                startup_nodes.append(
+                                    {"host": "127.0.0.1", "port": "{}".format(p)}
+                                )
                             if clusterconfig is not None:
                                 if "init_commands" in clusterconfig:
                                     for command_group in clusterconfig["init_commands"]:
@@ -302,6 +322,16 @@ def run_local_command_logic(args):
                                                     ],
                                                 )
                                             )
+
+                            rc = RedisCluster(
+                                startup_nodes=startup_nodes, decode_responses=True
+                            )
+                            cluster_info = rc.cluster_info()
+                            logging.info(
+                                "Cluster info after initialization: {}.".format(
+                                    cluster_info
+                                )
+                            )
                         stdout = r.execute_command("info modules")
                         (
                             module_names,
@@ -365,7 +395,9 @@ def run_local_command_logic(args):
                             logging.info("Profilers are enabled")
                             total_involved_processes = len(redis_processes)
                             _, profilers_map = get_profilers_map(
-                                profilers_list, total_involved_processes
+                                profilers_list,
+                                total_involved_processes,
+                                MAX_PROFILERS_PER_TYPE,
                             )
                             for (
                                 profiler_name,
@@ -374,6 +406,10 @@ def run_local_command_logic(args):
                                 for setup_process_number, redis_process in enumerate(
                                     redis_processes
                                 ):
+                                    if (setup_process_number + 1) > len(
+                                        profiler_obj_arr
+                                    ):
+                                        continue
                                     profiler_obj = profiler_obj_arr[
                                         setup_process_number
                                     ]
@@ -447,49 +483,47 @@ def run_local_command_logic(args):
                                 profiler_name,
                                 profiler_obj_arr,
                             ) in profilers_map.items():
-                                for setup_process_number, redis_process in enumerate(
-                                    redis_processes
+                                for setup_process_number, profiler_obj in enumerate(
+                                    profiler_obj_arr
                                 ):
-                                    profiler_obj = profiler_obj_arr[
-                                        setup_process_number
-                                    ]
-                                    setup_process_number = setup_process_number + 1
                                     logging.info(
                                         "Stopping profiler {} for Process {} of {}: pid {}".format(
                                             profiler_name,
                                             setup_process_number,
                                             total_involved_processes,
-                                            redis_process.pid,
+                                            profiler_obj.pid,
                                         )
                                     )
 
-                                    profiler_obj.stop_profile()
-
-                                    # Generate:
-                                    #  - artifact with Flame Graph SVG
-                                    #  - artifact with output graph image in PNG format
-                                    #  - artifact with top entries in text form
-                                    (
-                                        profile_res,
-                                        profile_res_artifacts_map,
-                                    ) = profiler_obj.generate_outputs(
-                                        test_name,
-                                        details=collection_summary_str,
-                                        binary=dso,
-                                        primary_id=setup_process_number,
-                                        total_primaries=total_involved_processes,
-                                    )
+                                    profile_res = profiler_obj.stop_profile()
                                     if profile_res is True:
-                                        logging.info(
-                                            "Profiler {} for pid {} ran successfully and generated {} artifacts.".format(
-                                                profiler_name,
-                                                redis_process.pid,
-                                                len(profile_res_artifacts_map.values()),
+                                        # Generate:
+                                        #  - artifact with Flame Graph SVG
+                                        #  - artifact with output graph image in PNG format
+                                        #  - artifact with top entries in text form
+                                        (
+                                            profile_res,
+                                            profile_res_artifacts_map,
+                                        ) = profiler_obj.generate_outputs(
+                                            test_name,
+                                            details=collection_summary_str,
+                                            binary=dso,
+                                            primary_id=(setup_process_number + 1),
+                                            total_primaries=total_involved_processes,
+                                        )
+                                        if profile_res is True:
+                                            logging.info(
+                                                "Profiler {} for pid {} ran successfully and generated {} artifacts.".format(
+                                                    profiler_name,
+                                                    profiler_obj.pid,
+                                                    len(
+                                                        profile_res_artifacts_map.values()
+                                                    ),
+                                                )
                                             )
-                                        )
-                                        overall_artifacts_map.update(
-                                            profile_res_artifacts_map
-                                        )
+                                            overall_artifacts_map.update(
+                                                profile_res_artifacts_map
+                                            )
 
                             for (
                                 artifact_name,
@@ -537,9 +571,10 @@ def run_local_command_logic(args):
                     except:
                         return_code |= 1
                         logging.critical(
-                            "Some unexpected exception was caught during remote work. Failing test...."
+                            "Some unexpected exception was caught during local work. Failing test...."
                         )
                         logging.critical(sys.exc_info())
+                        logging.critical("Traceback: {}".format(traceback.format_exc()))
                     # tear-down
                     logging.info("Tearing down setup")
                     for redis_process in redis_processes:
@@ -598,22 +633,33 @@ def check_compatible_system_and_kernel_and_prepare_profile(args):
     return res
 
 
-def get_profilers_map(profilers_list, total_involved_processes):
+def get_profilers_map(profilers_list, total_involved_processes, max_profilers=1):
     profilers_map = {}
     res = True
     for profiler_name in profilers_list:
         try:
             profilers_map[profiler_name] = []
             if "perf:" in profiler_name:
-                logging.info("Preparing perf (a.k.a. perf_events ) profiler")
-                for _ in range(total_involved_processes):
-                    perf = Perf()
-                    profilers_map[profiler_name].append(perf)
+                for profilers_per_type in range(1, total_involved_processes + 1):
+                    if profilers_per_type <= max_profilers:
+                        logging.info(
+                            "Preparing perf (a.k.a. perf_events ) profiler for proc {} of {}".format(
+                                profilers_per_type, total_involved_processes
+                            )
+                        )
+                        perf = Perf()
+                        profilers_map[profiler_name].append(perf)
             if "vtune" in profiler_name:
-                logging.info("Preparing Intel(R) VTune(TM) profiler")
-                for _ in range(total_involved_processes):
-                    vtune = Vtune()
-                    profilers_map[profiler_name].append(vtune)
+
+                for profilers_per_type in range(total_involved_processes):
+                    logging.info(
+                        "Preparing Intel(R) VTune(TM) profiler for proc {} of {}".format(
+                            profilers_per_type, total_involved_processes
+                        )
+                    )
+                    if profilers_per_type <= max_profilers:
+                        vtune = Vtune()
+                        profilers_map[profiler_name].append(vtune)
         except Exception as e:
             logging.error(
                 "Detected error while trying to prepare profiler named {}. Error: {}".format(

@@ -99,7 +99,7 @@ def generate_cluster_redis_server_args(
         "--cluster-enabled",
         "yes",
         "--dbfilename",
-        "cluster-node-port-{}.rdb".format(port),
+        get_cluster_dbfilename(port),
         "--cluster-config-file",
         "cluster-node-port-{}.config".format(port),
         "--save",
@@ -134,3 +134,7 @@ def generate_cluster_redis_server_args(
                     ]
                 )
     return command
+
+
+def get_cluster_dbfilename(port):
+    return "cluster-node-port-{}.rdb".format(port)
