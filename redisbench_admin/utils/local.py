@@ -10,6 +10,8 @@ from shutil import copyfile
 
 import wget
 
+from redisbench_admin.environments.oss_cluster import get_cluster_dbfilename
+
 
 def check_dataset_local_requirements(
     benchmark_config,
@@ -17,6 +19,8 @@ def check_dataset_local_requirements(
     dirname=None,
     datasets_localtemp_dir="./datasets",
     dbconfig_keyname="dbconfig",
+    number_primaries=1,
+    is_cluster=False,
 ):
     dataset = None
     full_path = None
@@ -29,11 +33,23 @@ def check_dataset_local_requirements(
             full_path = check_if_needs_remote_fetch(
                 dataset, datasets_localtemp_dir, dirname
             )
-            tmp_path = "{}/dump.rdb".format(redis_dbdir)
-            logging.info(
-                "Copying rdb from {} to {}/dump.rdb".format(full_path, redis_dbdir)
-            )
-            copyfile(full_path, tmp_path)
+
+            if is_cluster is False:
+                tmp_path = "{}/dump.rdb".format(redis_dbdir)
+                logging.info("Copying rdb from {} to {}".format(full_path, tmp_path))
+                copyfile(full_path, tmp_path)
+            else:
+                start_port = 6379
+                for primary_number in range(number_primaries):
+                    primary_port = start_port + primary_number
+                    tmp_path = "{}/{}".format(
+                        redis_dbdir, get_cluster_dbfilename(primary_port)
+                    )
+                    logging.info(
+                        "Copying rdb from {} to {}".format(full_path, tmp_path)
+                    )
+                    copyfile(full_path, tmp_path)
+
     return dataset, full_path, tmp_path
 
 
