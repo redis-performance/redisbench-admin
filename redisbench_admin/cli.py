@@ -123,17 +123,17 @@ def main():
         )
 
     if requested_tool == "run-local":
-        run_local_command_logic(args)
+        run_local_command_logic(args, project_name, project_version)
     if requested_tool == "run-remote":
-        run_remote_command_logic(args)
+        run_remote_command_logic(args, project_name, project_version)
     if requested_tool == "export":
-        export_command_logic(args)
+        export_command_logic(args, project_name, project_version)
     if requested_tool == "extract":
-        extract_command_logic(args)
+        extract_command_logic(args, project_name, project_version)
     if requested_tool == "watchdog":
-        watchdog_command_logic(args)
+        watchdog_command_logic(args, project_name, project_version)
     if requested_tool == "compare":
-        compare_command_logic(args)
+        compare_command_logic(args, project_name, project_version)
 
 
 def print_invalid_tool_option(requested_tool, valid_tool_options):

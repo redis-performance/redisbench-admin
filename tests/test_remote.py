@@ -4,10 +4,8 @@ import redis
 import yaml
 from redistimeseries.client import Client
 
-from redisbench_admin.run_remote.run_remote import (
-    merge_default_and_config_metrics,
-    redistimeseries_results_logic,
-)
+from redisbench_admin.run.redistimeseries import redistimeseries_results_logic
+from redisbench_admin.run.common import merge_default_and_config_metrics
 from redisbench_admin.utils.benchmark_config import process_default_yaml_properties_file
 from redisbench_admin.utils.remote import (
     extract_git_vars,

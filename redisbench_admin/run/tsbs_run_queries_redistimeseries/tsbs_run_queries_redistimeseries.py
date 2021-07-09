@@ -50,3 +50,18 @@ def prepare_tsbs_benchmark_command(
 
     command_str = " ".join(command_arr)
     return command_arr, command_str
+
+
+def extract_tsbs_extra_links(benchmark_config, benchmark_tool):
+    remote_tool_link = "/tmp/{}".format(benchmark_tool)
+    tool_link = (
+        "https://s3.amazonaws.com/benchmarks.redislabs/"
+        + "redistimeseries/tools/tsbs/{}_linux_amd64".format(benchmark_tool)
+    )
+    queries_file_link = None
+    for entry in benchmark_config["clientconfig"]:
+        if "parameters" in entry:
+            for parameter in entry["parameters"]:
+                if "file" in parameter:
+                    queries_file_link = parameter["file"]
+    return queries_file_link, remote_tool_link, tool_link

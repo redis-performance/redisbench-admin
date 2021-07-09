@@ -91,7 +91,12 @@ def watchdog_dangling_ec2_instances(
     logging.info("Detected a total of {} ci.bechmark VMs".format(total_instances))
 
 
-def watchdog_command_logic(args):
+def watchdog_command_logic(args, project_name, project_version):
+    logging.info(
+        "Using: {project_name} {project_version}".format(
+            project_name=project_name, project_version=project_version
+        )
+    )
     cloud = "aws"
     prefix = "ci.benchmarks.redislabs/{}/{}".format(cloud, EC2_REGION)
     tsname_overall_running = "{}/state-running".format(prefix)

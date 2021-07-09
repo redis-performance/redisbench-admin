@@ -5,7 +5,7 @@ from time import sleep
 
 import yaml
 
-from redisbench_admin.run_local.run_local import (
+from redisbench_admin.run_local.local_helpers import (
     check_benchmark_binaries_local_requirements,
 )
 

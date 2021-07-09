@@ -13,8 +13,9 @@ from redisbench_admin.profilers.profilers import (
 )
 
 PUSH_S3 = bool(os.getenv("PUSH_S3", False))
-PROFILERS_ENABLED = os.getenv("PROFILE", 0)
+PROFILERS_ENABLED = bool(os.getenv("PROFILE", 0))
 PROFILERS = os.getenv("PROFILERS", PROFILERS_DEFAULT)
+MAX_PROFILERS_PER_TYPE = int(os.getenv("MAX_PROFILERS", 1))
 PROFILE_FREQ = os.getenv("PROFILE_FREQ", PROFILE_FREQ_DEFAULT)
 ENV = os.getenv("ENV", "oss-standalone,oss-cluster")
 

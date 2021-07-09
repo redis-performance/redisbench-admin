@@ -18,6 +18,7 @@ from redisbench_admin.utils.remote import (
 
 DEFAULT_TRIGGERING_ENV = socket.gethostname()
 TRIGGERING_ENV = os.getenv("TRIGGERING_ENV", DEFAULT_TRIGGERING_ENV)
+ENV = os.getenv("ENV", "oss-standalone,oss-cluster")
 
 
 def create_run_remote_arguments(parser):
@@ -90,5 +91,11 @@ def create_run_remote_arguments(parser):
         default=False,
         action="store_true",
         help="skip environment variables check",
+    )
+    parser.add_argument(
+        "--allowed-envs",
+        type=str,
+        default=ENV,
+        help="Comma delimited allowed setups: 'oss-standalone','oss-cluster'",
     )
     return parser
