@@ -20,7 +20,7 @@ from redisbench_admin.profilers.profilers import STACKCOLLAPSE_PATH, FLAMEGRAPH_
 from redisbench_admin.utils.utils import whereis
 
 
-PERF_CALLGRAPH_MODE_DEFAULT = "lbr"
+PERF_CALLGRAPH_MODE_DEFAULT = "fp"
 LINUX_PERF_SETTINGS_MESSAGE = (
     "If running in non-root user please confirm that you have:\n"
     + " - access to Kernel address maps."
