@@ -136,10 +136,18 @@ def check_dataset_remote_requirements(
     private_key,
     remote_dataset_file,
     dirname,
+    number_primaries,
+    is_cluster,
 ):
     res = True
     dataset, fullpath, tmppath = check_dataset_local_requirements(
-        benchmark_config, ".", dirname
+        benchmark_config,
+        ".",
+        dirname,
+        "./datasets",
+        "dbconfig",
+        number_primaries,
+        is_cluster,
     )
     if dataset is not None:
         logging.info(

@@ -180,3 +180,10 @@ def redis_benchmark_ensure_min_version_remote(
         benchmark_tool,
         stdout[0],
     )
+
+
+redisbenchmark_go_link = (
+    "https://s3.amazonaws.com/benchmarks.redislabs/"
+    "tools/redisgraph-benchmark-go/unstable/"
+    "redisgraph-benchmark-go_linux_amd64"
+)

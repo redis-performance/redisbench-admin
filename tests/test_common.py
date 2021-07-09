@@ -168,7 +168,6 @@ def test_extract_test_feasible_setups():
 
     assert default_specs is not None
     assert len(default_specs["setups"]) == 6
-    print(default_specs)
     test_setups = extract_test_feasible_setups(
         benchmark_config, "setups", default_specs
     )

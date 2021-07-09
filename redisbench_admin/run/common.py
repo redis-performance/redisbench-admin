@@ -4,6 +4,7 @@
 #  All rights reserved.
 #
 import csv
+import datetime
 import datetime as dt
 import logging
 import os
@@ -23,8 +24,14 @@ from redisbench_admin.run.tsbs_run_queries_redistimeseries.tsbs_run_queries_redi
     prepare_tsbs_benchmark_command,
 )
 from redisbench_admin.run.ycsb.ycsb import prepare_ycsb_benchmark_command
+from redisbench_admin.run_remote.remote_helpers import (
+    extract_module_semver_from_info_modules_cmd,
+)
 from redisbench_admin.utils.benchmark_config import (
     parse_exporter_timemetric,
+    parse_exporter_metrics_definition,
+    parse_exporter_timemetric_definition,
+    check_required_modules,
 )
 from redisbench_admin.utils.remote import (
     execute_remote_commands,
@@ -285,7 +292,9 @@ def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
                 )
 
 
-def extract_test_feasible_setups(benchmark_config, param, default_specs):
+def extract_test_feasible_setups(
+    benchmark_config, param, default_specs, backwards_compatible=True
+):
     feasible_setups_map = {}
     if param in benchmark_config:
         feasible_setups_list = benchmark_config[param]
@@ -295,6 +304,19 @@ def extract_test_feasible_setups(benchmark_config, param, default_specs):
                 for setup in default_specs["setups"]:
                     if setup_name == setup["name"]:
                         feasible_setups_map[setup_name] = setup
+    if len(feasible_setups_map.keys()) == 0 and backwards_compatible:
+        feasible_setups_map["oss-standalone"] = {
+            "name": "oss-standalone",
+            "type": "oss-standalone",
+            "redis_topology": {"primaries": 1, "replicas": 0},
+            "resources": {"requests": {"cpu": "1000m"}, "limits": {"cpu": "2000m"}},
+        }
+        logging.info(
+            "Using a backwards compatible 'oss-standalone' setup, with settings: {}".format(
+                feasible_setups_map["oss-standalone"]
+            )
+        )
+
     return feasible_setups_map
 
 
@@ -302,3 +324,62 @@ def get_setup_type_and_primaries_count(setup_settings):
     setup_type = setup_settings["type"]
     shard_count = setup_settings["redis_topology"]["primaries"]
     return setup_type, shard_count
+
+
+def merge_default_and_config_metrics(
+    benchmark_config, default_metrics, exporter_timemetric_path
+):
+    metrics = default_metrics
+    if "exporter" in benchmark_config:
+        extra_metrics = parse_exporter_metrics_definition(benchmark_config["exporter"])
+        metrics.extend(extra_metrics)
+        extra_timemetric_path = parse_exporter_timemetric_definition(
+            benchmark_config["exporter"]
+        )
+        if extra_timemetric_path is not None:
+            exporter_timemetric_path = extra_timemetric_path
+    return exporter_timemetric_path, metrics
+
+
+def run_redis_pre_steps(benchmark_config, r, required_modules):
+    stdout = r.execute_command("info modules")
+    (
+        module_names,
+        artifact_versions,
+    ) = extract_module_semver_from_info_modules_cmd(stdout)
+    check_required_modules(module_names, required_modules)
+    # run initialization commands before benchmark starts
+    logging.info("Running initialization commands before benchmark starts.")
+    execute_init_commands_start_time = datetime.datetime.now()
+    execute_init_commands(benchmark_config, r)
+    execute_init_commands_duration_seconds = (
+        datetime.datetime.now() - execute_init_commands_start_time
+    ).seconds
+    logging.info(
+        "Running initialization commands took {} secs.".format(
+            execute_init_commands_duration_seconds
+        )
+    )
+    return artifact_versions[0]
+
+
+def dso_check(dso, local_module_file):
+    if dso is None:
+        logging.warning("No dso specified for perf analysis {}".format(dso))
+        if local_module_file is not None:
+
+            if type(local_module_file) == str:
+                dso = local_module_file
+                logging.warning(
+                    "Using provided module = {} to specify dso".format(
+                        local_module_file
+                    )
+                )
+            if type(local_module_file) == list:
+                dso = local_module_file[0]
+                logging.warning(
+                    "Using first module = {} to specify dso".format(
+                        local_module_file[0]
+                    )
+                )
+    return dso

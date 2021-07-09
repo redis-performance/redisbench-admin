@@ -14,7 +14,12 @@ from redistimeseries.client import Client
 from redisbench_admin.utils.utils import get_ts_metric_name
 
 
-def compare_command_logic(args):
+def compare_command_logic(args, project_name, project_version):
+    logging.info(
+        "Using: {project_name} {project_version}".format(
+            project_name=project_name, project_version=project_version
+        )
+    )
     logging.info("Checking connection to RedisTimeSeries.")
     rts = Client(
         host=args.redistimeseries_host,
@@ -59,6 +64,9 @@ def compare_command_logic(args):
     )
     profilers_artifacts_matrix = []
     detected_regressions = []
+    total_improvements = 0
+    total_stable = 0
+    total_regressions = 0
     for test_name in test_names:
 
         test_name = test_name.decode()
@@ -113,12 +121,24 @@ def compare_command_logic(args):
                 ) * 100.0
         if baseline_v != "N/A" or comparison_v != "N/A":
             detected_regression = False
+            detected_improvement = False
             if (
                 percentage_change < 0.0
                 and percentage_change < -args.regressions_percent_lower_limit
             ):
                 detected_regression = True
+                total_regressions = total_regressions + 1
                 detected_regressions.append(test_name)
+            if (
+                percentage_change > 0.0
+                and percentage_change > args.regressions_percent_lower_limit
+            ):
+                detected_improvement = True
+                total_improvements = total_improvements + 1
+
+            if detected_improvement is False and detected_regression is False:
+                total_stable = total_stable + 1
+
             if args.print_regressions_only is False or detected_regression:
                 profilers_artifacts_matrix.append(
                     [
@@ -144,13 +164,25 @@ def compare_command_logic(args):
         value_matrix=profilers_artifacts_matrix,
     )
     writer.write_table()
-    total_regressions = len(detected_regressions)
-    if total_regressions > 0:
-        logging.warning(
-            "Detected a total of {} regressions. Printing BENCHMARK env var compatible list".format(
-                total_regressions
+    if total_stable > 0:
+        logging.info(
+            "Detected a total of {} stable tests between versions.".format(
+                total_stable,
             )
         )
+    if total_improvements > 0:
+        logging.info(
+            "Detected a total of {} improvements above the improvement water line (> {} %%)".format(
+                total_improvements, args.regressions_percent_lower_limit
+            )
+        )
+    if total_regressions > 0:
+        logging.warning(
+            "Detected a total of {} regressions bellow the regression water line (< -{} %%)".format(
+                total_regressions, args.regressions_percent_lower_limit
+            )
+        )
+        logging.warning("Printing BENCHMARK env var compatible list")
         logging.warning(
             "BENCHMARK={}".format(
                 ",".join(["{}.yml".format(x) for x in detected_regressions])

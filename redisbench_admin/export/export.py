@@ -6,6 +6,7 @@
 
 
 import json
+import logging
 import os
 
 import redis
@@ -19,7 +20,12 @@ from redisbench_admin.export.redis_benchmark.redis_benchmark_csv_format import (
 from redisbench_admin.utils.utils import retrieve_local_or_remote_input_json
 
 
-def export_command_logic(args):
+def export_command_logic(args, project_name, project_version):
+    logging.info(
+        "Using: {project_name} {project_version}".format(
+            project_name=project_name, project_version=project_version
+        )
+    )
     benchmark_files = args.benchmark_result_files
     local_path = os.path.abspath(args.local_dir)
     results_format = args.results_format
