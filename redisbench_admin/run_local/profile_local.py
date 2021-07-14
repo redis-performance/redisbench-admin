@@ -143,6 +143,8 @@ def local_profilers_start_if_required(
     start_time_str,
     test_name,
 ):
+    profilers_map = {}
+    profiler_name = None
     if profilers_enabled:
         logging.info("Profilers are enabled")
         total_involved_processes = len(redis_processes)
