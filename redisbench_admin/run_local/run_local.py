@@ -95,6 +95,7 @@ def run_local_command_logic(args, project_name, project_version):
 
     dso = dso_check(args.dso, local_module_file)
     # start the profile
+    collection_summary_str = ""
     if profilers_enabled:
         collection_summary_str = local_profilers_platform_checks(
             dso, github_actor, github_branch, github_repo_name, github_sha
