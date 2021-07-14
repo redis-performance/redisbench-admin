@@ -6,7 +6,8 @@
 
 import pkg_resources
 
-ALLOWED_PROFILERS = "perf:record,ebpf:oncpu,ebpf:offcpu,vtune"
+# ALLOWED_PROFILERS = "perf:record,ebpf:oncpu,ebpf:offcpu,vtune"
+ALLOWED_PROFILERS = "perf:record,vtune"
 PROFILERS_DEFAULT = "perf:record"
 PROFILE_FREQ_DEFAULT = "99"
 
