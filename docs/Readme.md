@@ -93,3 +93,85 @@ a standalone redis-server, copy the dataset and module files to the DB VM and ma
 - After each benchmark the defined KPIs limits are checked and will influence the exit code of the runner script. Even if we fail a benchmark variation, all other benchmark definitions are run.
 - At the end of each benchmark an output json file is stored with this benchmarks folder and will be named like `<start time>-<deployment type>-<git org>-<git repo>-<git branch>-<test name>-<git sha>.json`
 - In the case of a uncaught exception after we've deployed the environment the benchmark script will always try to teardown the created environment. 
+
+# Attaching profiling tools/probers ( perf (a.k.a. perf_events), bpf tooling, vtune ) while running local benchmarks
+
+**Note:** This part of the guide is only valid for Linux based machines, 
+and requires at least perf( and ideally pprof + perf_to_profile + graphviz ). 
+
+As soon we enable bpf tooling automation this will be valid for darwin based systems as well ( MacOs ), **so sit tight!**
+
+While running benchmarks locally you attach profilers ( currently only related on on-cpu time ) to understand exactly what are the functions that that more cpu cycles to complete.
+Currently, the benchmark automation supports two profilers:
+- perf perf (a.k.a. perf_events), enabled by default and with the profiler key: `perf:record`
+- Intel (R) Vtune (TM) (`vtune`) with the profiler key: `vtune`
+
+## Trigger a profile
+To trigger a profile while running a benchmark you just need to add `PROFILE=1` to the previous env variables.
+
+Here's an example within RedisTimeSeries project:
+```
+make benchmark PROFILE=1 BENCHMARK=tsbs-scale100_single-groupby-1-1-1.yml
+```
+
+Depending on the used profiler you will get:
+- 1) Table of Top CPU entries in text form for the profiled process(es)
+  
+![Table of Top CPU entries](top-entries-table.png)
+
+- 2) Call graph identifying the top hotspots 
+  
+![Call graph identifying the top hotspots ](call-graph-sample.png)
+
+- 3) FlameGraph – convert profiling data to a flamegraph
+
+![Flame graph ](flame-graph-sample.png)
+
+
+If you run the benchmark automation without specifying a benchmark ( example : `make benchmark PROFILE=1` )
+the automation will trigger all benchmarks and consequently profile each individual one. 
+
+At the end, you should have an artifact table like the following:
+
+```bash
+# Profiler artifacts
+|       Test Case        | Profiler  |                                                     Artifact                                                      |                                                                                     Local file                                                                                      |s3 link|
+|------------------------|-----------|-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------|
+|tsbs-scale100_high-cpu-1|perf:record|Flame Graph (primary 1 of 1)                                                                                       |/home/fco/redislabs/RedisTimeSeries/tests/benchmarks/profile_oss-standalone__primary-1-of-1__tsbs-scale100_high-cpu-1_perf:record_2021-07-14-10-04-38.out.flamegraph.svg             |       |
+|tsbs-scale100_high-cpu-1|perf:record|perf output (primary 1 of 1)                                                                                       |/home/fco/redislabs/RedisTimeSeries/tests/benchmarks/profile_oss-standalone__primary-1-of-1__tsbs-scale100_high-cpu-1_perf:record_2021-07-14-10-04-38.out                            |       |
+|tsbs-scale100_high-cpu-1|perf:record|perf report top self-cpu (primary 1 of 1)                                                                          |/home/fco/redislabs/RedisTimeSeries/tests/benchmarks/profile_oss-standalone__primary-1-of-1__tsbs-scale100_high-cpu-1_perf:record_2021-07-14-10-04-38.out.perf-report.top-cpu.txt    |       |
+|tsbs-scale100_high-cpu-1|perf:record|perf report top self-cpu (dso=/home/fco/redislabs/RedisTimeSeries/bin/linux-x64-release-profile/redistimeseries.so)|/home/fco/redislabs/RedisTimeSeries/tests/benchmarks/profile_oss-standalone__primary-1-of-1__tsbs-scale100_high-cpu-1_perf:record_2021-07-14-10-04-38.out.perf-report.top-cpu.dso.txt|       |
+|tsbs-scale100_high-cpu-1|perf:record|Top entries in text form                                                                                           |/home/fco/redislabs/RedisTimeSeries/tests/benchmarks/profile_oss-standalone__primary-1-of-1__tsbs-scale100_high-cpu-1_perf:record_2021-07-14-10-04-38.out.pprof.txt                  |       |
+|tsbs-scale100_high-cpu-1|perf:record|Output graph image in PNG format                                                                                   |/home/fco/redislabs/RedisTimeSeries/tests/benchmarks/profile_oss-standalone__primary-1-of-1__tsbs-scale100_high-cpu-1_perf:record_2021-07-14-10-04-38.out.pprof.png                  |       |
+```
+
+##
+
+### Further notes on using perf (a.k.a. perf_events) in non-root user
+
+If running in non-root user please confirm that you have:
+ - **access to Kernel address maps**.
+
+    Check if `0` ( disabled ) appears from the output of `cat /proc/sys/kernel/kptr_restrict`
+   
+    If not then fix via: `sudo sh -c " echo 0 > /proc/sys/kernel/kptr_restrict"`
+ 
+
+ - **permission to collect stats**.
+    
+    Check if `-1` appears from the output of `cat /proc/sys/kernel/perf_event_paranoid`
+    
+    If not then fix via: `sudo sh -c 'echo -1 > /proc/sys/kernel/perf_event_paranoid'`
+
+### Further note on profiling in Rust
+
+Due to Rust symbol (de)mangling still being unstable we're not able to properly 
+demangle symbols if we use perf default's `fp` (frame-pointer based walking on the stack to understand for a sample).
+
+Therefore, when profiling Rust you need to set the env variable `PERF_CALLGRAPH_MODE` to `dwarf`. Further notes on the different perf 
+`call-graph` modes [here](https://stackoverflow.com/a/57432063). 
+
+Here's an example of RedisJson profile run:
+```bash
+make build benchmark PROFILE=1 BENCHMARK=json_get_array_of_docs[1]sclr_pass_100_json.yml PERF_CALLGRAPH_MODE=dwarf
+```
