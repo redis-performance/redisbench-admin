@@ -236,7 +236,7 @@ def get_ts_metric_name(
     return ts_name
 
 
-def wait_for_conn(conn, retries=120, command="PING", should_be=True):
+def wait_for_conn(conn, retries=20, command="PING", should_be=True):
     """Wait until a given Redis connection is ready"""
     result = False
     while retries > 0 and result is False:
