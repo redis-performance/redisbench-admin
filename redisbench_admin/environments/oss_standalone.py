@@ -13,10 +13,15 @@ from redisbench_admin.utils.utils import wait_for_conn
 
 
 def spin_up_local_redis(
-    dbdir, port, local_module_files, configuration_parameters=None, dbdir_folder=None
+    binary,
+    port,
+    dbdir,
+    local_module_files,
+    configuration_parameters=None,
+    dbdir_folder=None,
 ):
     command = generate_standalone_redis_server_args(
-        dbdir, local_module_files, port, configuration_parameters
+        binary, dbdir, local_module_files, port, configuration_parameters
     )
 
     logging.info(
@@ -32,11 +37,11 @@ def spin_up_local_redis(
 
 
 def generate_standalone_redis_server_args(
-    dbdir, local_module_files, port, configuration_parameters=None
+    binary, dbdir, local_module_files, port, configuration_parameters=None
 ):
     # start redis-server
     command = [
-        "redis-server",
+        binary,
         "--save",
         '""',
         "--port",

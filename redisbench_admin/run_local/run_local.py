@@ -198,8 +198,9 @@ def run_local_command_logic(args, project_name, project_version):
 
                         if setup_type == "oss-standalone":
                             redis_processes = spin_up_local_redis(
-                                temporary_dir,
+                                "redis-server",
                                 args.port,
+                                temporary_dir,
                                 local_module_file,
                                 redis_configuration_parameters,
                                 dbdir_folder,

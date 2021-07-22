@@ -50,10 +50,12 @@ from redisbench_admin.environments.oss_standalone import (
 
 
 def test_generate_standalone_redis_server_args():
-    cmd = generate_standalone_redis_server_args(".", None, "9999")
+    cmd = generate_standalone_redis_server_args("redis-server", ".", None, "9999")
     assert cmd == ["redis-server", "--save", '""', "--port", "9999", "--dir", "."]
     local_module_file = "m1.so"
-    cmd = generate_standalone_redis_server_args(".", local_module_file, "1010")
+    cmd = generate_standalone_redis_server_args(
+        "redis-server", ".", local_module_file, "1010"
+    )
     assert cmd == [
         "redis-server",
         "--save",
@@ -66,7 +68,7 @@ def test_generate_standalone_redis_server_args():
         os.path.abspath(local_module_file),
     ]
     cmd = generate_standalone_redis_server_args(
-        ".", None, "9999", {"notify-keyspace-events": "KEA"}
+        "redis-server", ".", None, "9999", {"notify-keyspace-events": "KEA"}
     )
     assert cmd == [
         "redis-server",
@@ -84,6 +86,6 @@ def test_generate_standalone_redis_server_args():
 def test_spin_up_local_redis():
     if shutil.which("redis-server"):
         port = 9999
-        spin_up_local_redis(".", port, None)
+        spin_up_local_redis("redis-server", port, ".", None)
         r = redis.Redis(host="localhost", port=port)
         assert r.ping() == True

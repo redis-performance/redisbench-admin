@@ -9,6 +9,7 @@ datasets
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
+utilities/redis_benchmarks_specification/__pycache__/
 *.py[cod]
 *$py.class
 
