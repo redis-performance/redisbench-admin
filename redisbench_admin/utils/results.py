@@ -60,6 +60,7 @@ def post_process_benchmark_results(
     start_time_ms,
     start_time_str,
     stdout,
+    overload_test_name="Overall",
 ):
     if benchmark_tool == "redis-benchmark":
         if type(stdout) == bytes:
@@ -73,7 +74,7 @@ def post_process_benchmark_results(
             stdout,
             start_time_ms,
             start_time_str,
-            overload_test_name="Overall",
+            overload_test_name,
         )
         with open(local_benchmark_output_filename, "w") as json_file:
             json.dump(results_dict, json_file, indent=True)
