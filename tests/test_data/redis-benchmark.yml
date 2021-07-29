@@ -13,3 +13,7 @@ clientconfig:
     - threads: 1
     - pipeline: 1
     - command: '"TS.MRANGE" "1609613705646" "1609617305646" "WITHLABELS" "AGGREGATION" "MAX" "60000" "FILTER" "measurement=cpu" "fieldname=usage_user" "hostname=(host_49,host_3,host_35,host_39,host_75,host_15,host_21,host_11)" "GROUPBY" "hostname" "REDUCE" "max"'
+  - resources:
+      requests:
+        cpus: "2"
+        memory: "2g"

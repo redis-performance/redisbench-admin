@@ -331,6 +331,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                 benchmark_tool,
                                 benchmark_tool_source,
                                 _,
+                                _,
                             ) = extract_benchmark_tool_settings(benchmark_config)
                             benchmark_tools_sanity_check(args, benchmark_tool)
                             # setup the benchmark tool

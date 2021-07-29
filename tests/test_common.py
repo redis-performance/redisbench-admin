@@ -99,6 +99,7 @@ def test_extract_benchmark_tool_settings():
                 benchmark_tool,
                 benchmark_tool_source,
                 benchmark_tool_source_bin_path,
+                _,
             ) = extract_benchmark_tool_settings(benchmark_config)
             assert benchmark_tool is not None
             prepare_benchmark_parameters(
@@ -117,6 +118,25 @@ def test_extract_benchmark_tool_settings_with_remote():
             benchmark_tool,
             benchmark_tool_source,
             benchmark_tool_source_bin_path,
+            _,
+        ) = extract_benchmark_tool_settings(benchmark_config)
+        assert benchmark_tool is not None
+        assert benchmark_tool_source is not None
+        assert benchmark_tool_source_bin_path is not None
+
+
+def test_extract_benchmark_tool_settings_with_resource():
+    with open("./tests/test_data/ycsb-config.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        (
+            benchmark_min_tool_version,
+            benchmark_min_tool_version_major,
+            benchmark_min_tool_version_minor,
+            benchmark_min_tool_version_patch,
+            benchmark_tool,
+            benchmark_tool_source,
+            benchmark_tool_source_bin_path,
+            benchmark_tool_property_map,
         ) = extract_benchmark_tool_settings(benchmark_config)
         assert benchmark_tool is not None
         assert benchmark_tool_source is not None
