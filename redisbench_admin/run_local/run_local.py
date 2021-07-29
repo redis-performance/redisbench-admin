@@ -156,7 +156,7 @@ def run_local_command_logic(args, project_name, project_version):
                             )
                         (
                             redis_configuration_parameters,
-                            _,
+                            dataset_load_timeout_secs,
                         ) = extract_redis_dbconfig_parameters(
                             benchmark_config, "dbconfig"
                         )
@@ -172,6 +172,7 @@ def run_local_command_logic(args, project_name, project_version):
                                 local_module_file,
                                 redis_configuration_parameters,
                                 dbdir_folder,
+                                dataset_load_timeout_secs,
                             )
                             for redis_process in redis_processes:
                                 if is_process_alive(redis_process) is False:

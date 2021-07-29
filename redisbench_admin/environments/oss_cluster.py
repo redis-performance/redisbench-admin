@@ -20,6 +20,7 @@ def spin_up_local_redis_cluster(
     local_module_file,
     configuration_parameters=None,
     dbdir_folder=None,
+    dataset_load_timeout_secs=60,
 ):
     redis_processes = []
     meet_cmds = []
@@ -38,7 +39,7 @@ def spin_up_local_redis_cluster(
         )
         redis_process = subprocess.Popen(command)
         r = redis.StrictRedis(port=shard_port)
-        result = wait_for_conn(r)
+        result = wait_for_conn(r, dataset_load_timeout_secs)
         if result is True:
             logging.info("Redis available")
         meet_cmds.append("CLUSTER MEET {} {}".format("127.0.0.1", shard_port))
