@@ -162,6 +162,12 @@ def run_local_command_logic(args, project_name, project_version):
                         )
                         cluster_api_enabled = False
 
+                        logging.info(
+                            "Using a dataset load timeout of {} seconds.".format(
+                                dataset_load_timeout_secs
+                            )
+                        )
+
                         if setup_type == "oss-cluster":
                             cluster_api_enabled = True
                             # pass
@@ -205,6 +211,7 @@ def run_local_command_logic(args, project_name, project_version):
                                 local_module_file,
                                 redis_configuration_parameters,
                                 dbdir_folder,
+                                dataset_load_timeout_secs,
                             )
 
                             for redis_process in redis_processes:
