@@ -18,6 +18,7 @@ def test_prepare_redis_graph_benchmark_go_command():
                     == "redisgraph-benchmark-go -graph-key g -rps 0 -c 32 -n 1000000 -query MATCH (n) WHERE ID(n) = 0 SET n.v = n.v + 1 -query-ratio 1 -h localhost -p 6380 -json-out-file result.txt"
                 )
 
+
 def test_prepare_redis_graph_benchmark_go_new_command():
     with open("./tests/test_data/redisgraph-benchmark-go_2.yml", "r") as yml_file:
         benchmark_config = yaml.safe_load(yml_file)
