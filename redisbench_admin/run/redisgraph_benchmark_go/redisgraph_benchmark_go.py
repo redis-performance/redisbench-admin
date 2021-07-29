@@ -33,13 +33,13 @@ def prepare_redisgraph_benchmark_go_command(
             else:
                 graph_key = k["graph"]
             queries_str.extend(["-graph-key", graph_key])
-        if "clients" in k:
+        elif "clients" in k:
             queries_str.extend(["-c", "{}".format(k["clients"])])
-        if "requests" in k:
+        elif "requests" in k:
             queries_str.extend(["-n", "{}".format(k["requests"])])
-        if "rps" in k:
+        elif "rps" in k:
             queries_str.extend(["-rps", "{}".format(k["rps"])])
-        if "queries" in k:
+        elif "queries" in k:
             for kk in k["queries"]:
                 if is_remote:
                     query = "'{}'".format(kk["q"])
@@ -48,6 +48,11 @@ def prepare_redisgraph_benchmark_go_command(
                 queries_str.extend(["-query", query])
                 if "ratio" in kk:
                     queries_str.extend(["-query-ratio", "{}".format(kk["ratio"])])
+        else:
+            if "threads" not in k and "connections" not in k:
+                for kk in k.keys():
+                    queries_str.extend(["-{}".format(kk), str(k[kk])])
+
     queries_str.extend(["-h", "{}".format(server_private_ip)])
     queries_str.extend(["-p", "{}".format(server_plaintext_port)])
     queries_str.extend(["-json-out-file", "{}".format(results_file)])
