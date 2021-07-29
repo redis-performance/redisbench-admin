@@ -235,7 +235,7 @@ def extract_benchmark_tool_settings(benchmark_config):
     benchmark_min_tool_version_major = None
     benchmark_min_tool_version_minor = None
     benchmark_min_tool_version_patch = None
-
+    benchmark_tool_property_map = benchmark_config["clientconfig"]
     for entry in benchmark_config["clientconfig"]:
         if "tool" in entry:
             benchmark_tool = entry["tool"]
@@ -268,6 +268,7 @@ def extract_benchmark_tool_settings(benchmark_config):
         benchmark_tool,
         benchmark_tool_source,
         benchmark_tool_source_inner_path,
+        benchmark_tool_property_map,
     )
 
 

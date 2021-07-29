@@ -39,6 +39,7 @@ def check_benchmark_binaries_local_requirements(
         benchmark_tool,
         tool_source,
         tool_source_bin_path,
+        _,
     ) = extract_benchmark_tool_settings(benchmark_config)
     which_benchmark_tool = None
     if benchmark_tool is not None:
