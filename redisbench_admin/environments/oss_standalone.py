@@ -19,6 +19,7 @@ def spin_up_local_redis(
     local_module_files,
     configuration_parameters=None,
     dbdir_folder=None,
+    dataset_load_timeout_secs=120,
 ):
     command = generate_standalone_redis_server_args(
         binary, dbdir, local_module_files, port, configuration_parameters
@@ -30,7 +31,7 @@ def spin_up_local_redis(
         )
     )
     redis_process = subprocess.Popen(command)
-    result = wait_for_conn(redis.StrictRedis(port=port))
+    result = wait_for_conn(redis.StrictRedis(port=port), dataset_load_timeout_secs)
     if result is True:
         logging.info("Redis available")
     return [redis_process]
