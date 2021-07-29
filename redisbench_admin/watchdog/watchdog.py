@@ -109,9 +109,9 @@ def watchdog_command_logic(args, project_name, project_version):
     )
     logging.info("Checking connection to RedisTimeSeries.")
     rts = Client(
-        host=args.redistimesies_host,
-        port=args.redistimesies_port,
-        password=args.redistimesies_pass,
+        host=args.redistimeseries_host,
+        port=args.redistimeseries_port,
+        password=args.redistimeseries_pass,
     )
     rts.redis.ping()
     ec2_client = boto3.client("ec2")
