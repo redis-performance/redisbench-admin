@@ -117,10 +117,15 @@ def merge_default_and_specific_properties_dict_type(
 ):
     if propertygroup_keyname not in benchmark_config:
         benchmark_config[propertygroup_keyname] = default_properties
+        pg_len = 0
+        if type(benchmark_config[propertygroup_keyname]) == list:
+            pg_len = len(benchmark_config[propertygroup_keyname])
+        elif type(benchmark_config[propertygroup_keyname]) == dict:
+            pg_len = len(benchmark_config[propertygroup_keyname].keys())
         logging.info(
             "Using exclusively default '{}' properties (total={}) given the file {} had no '{}' property group".format(
                 propertygroup_keyname,
-                len(benchmark_config[propertygroup_keyname].keys()),
+                pg_len,
                 usecase_filename,
                 propertygroup_keyname,
             )
