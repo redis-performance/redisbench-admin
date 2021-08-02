@@ -8,7 +8,7 @@ import datetime
 import datetime as dt
 import logging
 import os
-
+import time
 import redis
 
 from redisbench_admin.run.aibench_run_inference_redisai_vision.aibench_run_inference_redisai_vision import (
@@ -360,6 +360,32 @@ def run_redis_pre_steps(benchmark_config, r, required_modules):
             execute_init_commands_duration_seconds
         )
     )
+    if "search" in module_names:
+        logging.info(
+            "Given redisearch was detected, checking for any index that is still indexing."
+        )
+        loading_indices = r.execute_command("ft._list")
+        logging.info("Detected {} indices.".format(len(loading_indices)))
+        while len(loading_indices) > 0:
+            logging.info(
+                "There are still {} indices loading. {}".format(
+                    len(loading_indices), loading_indices
+                )
+            )
+            for index_pos, fts_indexname in enumerate(loading_indices, start=0):
+                if type(fts_indexname) == bytes:
+                    fts_indexname = fts_indexname.decode()
+                ft_info = r.execute_command("ft.info {}".format(fts_indexname))
+                is_indexing = None
+                for arraypos, arrayval in enumerate(ft_info, start=0):
+                    if arrayval == b"indexing" or arrayval == "indexing":
+                        is_indexing = ft_info[arraypos + 1]
+                if is_indexing == "0" or is_indexing == b"0":
+                    loading_indices.pop(index_pos)
+
+            time.sleep(1)
+        logging.info("Loaded all secondary indices.")
+
     return artifact_versions[0]
 
 
