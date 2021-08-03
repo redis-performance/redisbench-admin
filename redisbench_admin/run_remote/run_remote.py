@@ -321,8 +321,6 @@ def run_remote_command_logic(args, project_name, project_version):
                                 benchmark_config, local_redis_conn, required_modules
                             )
 
-                            ssh_tunnel.close()  # Close the tunnel
-
                             (
                                 benchmark_min_tool_version,
                                 benchmark_min_tool_version_major,
@@ -392,6 +390,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                 command_str,
                             )
                             benchmark_end_time = datetime.datetime.now()
+
+                            logging.info("Shutting down remote redis.")
+                            local_redis_conn.shutdown(save=False)
+                            ssh_tunnel.close()  # Close the tunnel
                             if remote_run_result is False:
                                 failed_remote_run_artifact_store(
                                     args,
