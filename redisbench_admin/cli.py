@@ -26,9 +26,9 @@ from redisbench_admin.watchdog.args import create_watchdog_arguments
 from redisbench_admin.watchdog.watchdog import watchdog_command_logic
 
 
-LOG_LEVEL = logging.INFO
+LOG_LEVEL = logging.DEBUG
 if os.getenv("VERBOSE", "1") == "0":
-    LOG_LEVEL = logging.WARN
+    LOG_LEVEL = logging.INFO
 LOG_FORMAT = "%(asctime)s %(levelname)-4s %(message)s"
 LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
 
