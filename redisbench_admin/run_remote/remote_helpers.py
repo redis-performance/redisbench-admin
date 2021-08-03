@@ -10,6 +10,7 @@ import os
 from redisbench_admin.run.aibench_run_inference_redisai_vision.aibench_run_inference_redisai_vision import (
     extract_aibench_extra_links,
 )
+from redisbench_admin.run.ftsb.ftsb import extract_ftsb_extra_links
 from redisbench_admin.run.redis_benchmark.redis_benchmark import (
     redis_benchmark_ensure_min_version_remote,
     redisbenchmark_go_link,
@@ -61,6 +62,7 @@ def remote_tool_pre_bench_step(
     client_public_ip,
     username,
 ):
+    logging.info("Settting up remote tool {} requirements".format(benchmark_tool))
     if benchmark_tool == "redisgraph-benchmark-go":
         setup_remote_benchmark_tool_redisgraph_benchmark_go(
             client_public_ip,
@@ -74,6 +76,28 @@ def remote_tool_pre_bench_step(
             username,
             private_key,
         )
+
+    if "ftsb_" in benchmark_tool:
+        (
+            queries_file_link,
+            remote_tool_link,
+            tool_link,
+        ) = extract_ftsb_extra_links(benchmark_config, benchmark_tool)
+        logging.info(
+            "FTSB Extracted:\nremote tool input: {}\nremote tool link: {}\ntool path: {}".format(
+                queries_file_link, remote_tool_link, tool_link
+            )
+        )
+
+        setup_remote_benchmark_tool_requirements_ftsb(
+            client_public_ip,
+            username,
+            private_key,
+            tool_link,
+            queries_file_link,
+            remote_tool_link,
+        )
+
     if "tsbs_" in benchmark_tool:
         (
             queries_file_link,
@@ -115,6 +139,24 @@ def remote_tool_pre_bench_step(
             username,
             private_key,
         )
+    logging.info("Finished up remote tool {} requirements".format(benchmark_tool))
+
+
+def setup_remote_benchmark_tool_requirements_ftsb(
+    client_public_ip,
+    username,
+    private_key,
+    tool_link,
+    queries_file_link,
+    remote_tool_link,
+    remote_input_file="/tmp/input.data",
+):
+    commands = [
+        "wget {} -q -O {}".format(tool_link, remote_tool_link),
+        "wget {} -q -O {}".format(queries_file_link, remote_input_file),
+        "chmod 755 {}".format(remote_tool_link),
+    ]
+    execute_remote_commands(client_public_ip, username, private_key, commands)
 
 
 def setup_remote_benchmark_tool_requirements_tsbs(
