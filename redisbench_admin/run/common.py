@@ -14,6 +14,7 @@ import redis
 from redisbench_admin.run.aibench_run_inference_redisai_vision.aibench_run_inference_redisai_vision import (
     prepare_aibench_benchmark_command,
 )
+from redisbench_admin.run.ftsb.ftsb import prepare_ftsb_benchmark_command
 from redisbench_admin.run.redis_benchmark.redis_benchmark import (
     prepare_redis_benchmark_command,
 )
@@ -98,6 +99,22 @@ def prepare_benchmark_parameters(
                     benchmark_tool = "/tmp/{}".format(benchmark_tool)
                     input_data_file = "/tmp/input.data"
                 (command_arr, command_str,) = prepare_tsbs_benchmark_command(
+                    benchmark_tool,
+                    server_private_ip,
+                    server_plaintext_port,
+                    entry,
+                    current_workdir,
+                    remote_results_file,
+                    input_data_file,
+                    isremote,
+                    cluster_api_enabled,
+                )
+            if "ftsb_" in benchmark_tool:
+                input_data_file = None
+                if isremote is True:
+                    benchmark_tool = "/tmp/{}".format(benchmark_tool)
+                    input_data_file = "/tmp/input.data"
+                (command_arr, command_str,) = prepare_ftsb_benchmark_command(
                     benchmark_tool,
                     server_private_ip,
                     server_plaintext_port,
