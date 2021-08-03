@@ -532,7 +532,7 @@ def extract_perversion_timeseries_from_results(
                 }
             else:
                 logging.warning(
-                    "Unable to find metric path {} in {}".format(jsonpath, results_dict)
+                    "Unable to find metric path {} in result dict".format(jsonpath)
                 )
     return True, branch_time_series_dict
 
@@ -599,7 +599,7 @@ def extract_perbranch_timeseries_from_results(
                 }
             else:
                 logging.warning(
-                    "Unable to find metric path {} in {}".format(jsonpath, results_dict)
+                    "Unable to find metric path {} in result dict".format(jsonpath)
                 )
     return True, branch_time_series_dict
 
