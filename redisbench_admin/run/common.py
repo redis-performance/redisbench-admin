@@ -394,13 +394,22 @@ def run_redis_pre_steps(benchmark_config, r, required_modules):
                     fts_indexname = fts_indexname.decode()
                 ft_info = r.execute_command("ft.info {}".format(fts_indexname))
                 is_indexing = None
+                percent_indexed = "0.0"
                 for arraypos, arrayval in enumerate(ft_info, start=0):
+                    if arrayval == b"percent_indexed" or arrayval == "percent_indexed":
+                        percent_indexed = ft_info[arraypos + 1]
                     if arrayval == b"indexing" or arrayval == "indexing":
                         is_indexing = ft_info[arraypos + 1]
-                if is_indexing == "0" or is_indexing == b"0":
+
+                logging.info(
+                    "indexing={} ; percent_indexed={}.".format(
+                        is_indexing, percent_indexed
+                    )
+                )
+                if is_indexing == "0" or is_indexing == b"0" or is_indexing == 0:
                     loading_indices.pop(index_pos)
 
-            time.sleep(1)
+            time.sleep(5)
         logging.info("Loaded all secondary indices.")
 
     return artifact_versions[0]

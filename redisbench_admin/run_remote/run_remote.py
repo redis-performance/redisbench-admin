@@ -264,7 +264,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                     )
 
                             if setup_type == "oss-standalone":
-                                full_logfile = spin_up_standalone_remote_redis(
+                                full_logfile, dataset = spin_up_standalone_remote_redis(
                                     benchmark_config,
                                     server_public_ip,
                                     username,
@@ -306,12 +306,16 @@ def run_remote_command_logic(args, project_name, project_version):
                             )
 
                             if setup_type == "oss-cluster":
+                                contains_rdb = False
+                                if dataset is not None:
+                                    contains_rdb = True
                                 startup_nodes = cluster_init_steps(
                                     args,
                                     clusterconfig,
                                     local_module_file,
                                     r_conns,
                                     shard_count,
+                                    contains_rdb,
                                 )
 
                                 rc = RedisCluster(
