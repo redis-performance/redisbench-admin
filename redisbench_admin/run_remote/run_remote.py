@@ -217,8 +217,13 @@ def run_remote_command_logic(args, project_name, project_version):
                             )
 
                             cluster_api_enabled = False
+                            cluster_start_port = 20000
                             # setup Redis
                             if setup_type == "oss-cluster":
+                                logging.error(
+                                    "Remote cluster is still not implemented =(. We're working hard to get it ASAP =)!!"
+                                )
+                                continue
                                 cluster_api_enabled = True
                                 spin_up_redis_cluster_remote_redis(
                                     benchmark_config,
@@ -233,19 +238,21 @@ def run_remote_command_logic(args, project_name, project_version):
                                     redis_configuration_parameters,
                                     dbdir_folder,
                                     shard_count,
-                                    args.port,
+                                    cluster_start_port,
                                 )
                                 dataset_load_start_time = datetime.datetime.now()
 
                                 # we use node 0 for the checks
                                 local_redis_conn = ssh_tunnel_redisconn(
-                                    args.port,
+                                    cluster_start_port,
                                     server_private_ip,
                                     server_public_ip,
                                     username,
                                 )
                                 r_conns = []
-                                for p in range(args.port, args.port + shard_count):
+                                for p in range(
+                                    cluster_start_port, cluster_start_port + shard_count
+                                ):
                                     local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
                                         p,
                                         server_private_ip,
