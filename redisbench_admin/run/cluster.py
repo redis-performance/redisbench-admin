@@ -79,6 +79,6 @@ def spin_up_redis_cluster_remote_redis(
     shard_count,
     port,
 ):
-    raise Exception(
+    logging.error(
         "Remote cluster is still not implemented =(. We're working hard to get it ASAP =)!!"
     )
