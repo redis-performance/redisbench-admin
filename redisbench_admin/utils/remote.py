@@ -163,7 +163,7 @@ def check_dataset_remote_requirements(
             remote_dataset_file,
             None,
         )
-    return res
+    return res, dataset, fullpath, tmppath
 
 
 def setup_remote_environment(

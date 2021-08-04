@@ -193,7 +193,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     "CLUSTER SAVECONFIG"
                                 )
 
-                        check_dataset_local_requirements(
+                        dataset, _, _ = check_dataset_local_requirements(
                             benchmark_config,
                             temporary_dir,
                             dirname,
@@ -223,12 +223,16 @@ def run_local_command_logic(args, project_name, project_version):
                             r = redis.StrictRedis(port=args.port)
 
                         if setup_type == "oss-cluster":
+                            contains_rdb = False
+                            if dataset is not None:
+                                contains_rdb = True
                             startup_nodes = cluster_init_steps(
                                 args,
                                 clusterconfig,
                                 local_module_file,
                                 r_conns,
                                 shard_count,
+                                contains_rdb,
                             )
 
                             rc = RedisCluster(

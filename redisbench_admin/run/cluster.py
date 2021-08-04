@@ -8,11 +8,15 @@ import logging
 import redis
 
 
-def cluster_init_steps(args, clusterconfig, local_module_file, r_conns, shard_count):
+def cluster_init_steps(
+    args, clusterconfig, local_module_file, r_conns, shard_count, contains_dataset=True
+):
     startup_nodes = []
     for p in range(args.port, args.port + shard_count):
         primary_conn = redis.StrictRedis(port=p)
-        primary_conn.execute_command("DEBUG RELOAD NOSAVE")
+        if contains_dataset:
+            # force debug reload nosave to replace the current database with the contents of an existing RDB file
+            primary_conn.execute_command("DEBUG RELOAD NOSAVE")
         r_conns.append(primary_conn)
         startup_nodes.append({"host": "127.0.0.1", "port": "{}".format(p)})
     if clusterconfig is not None:

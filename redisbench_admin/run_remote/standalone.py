@@ -28,7 +28,7 @@ def spin_up_standalone_remote_redis(
     dbdir_folder=None,
 ):
     # copy the rdb to DB machine
-    check_dataset_remote_requirements(
+    _, dataset, _, _ = check_dataset_remote_requirements(
         benchmark_config,
         server_public_ip,
         username,
@@ -80,4 +80,4 @@ def spin_up_standalone_remote_redis(
     # start redis-server
     commands = [initial_redis_cmd]
     execute_remote_commands(server_public_ip, username, private_key, commands)
-    return full_logfile
+    return full_logfile, dataset

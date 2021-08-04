@@ -33,7 +33,7 @@ def prepare_ftsb_benchmark_command(
         ["--host", "{}:{}".format(server_private_ip, server_plaintext_port)]
     )
     if cluster_api_enabled is True:
-        command_arr.extend(["--cluster"])
+        command_arr.extend(["--cluster-mode"])
     if "parameters" in benchmark_config:
         for k in benchmark_config["parameters"]:
             if "input" in k:
