@@ -59,6 +59,7 @@ from redisbench_admin.utils.remote import (
     get_run_full_filename,
     get_overall_dashboard_keynames,
     check_ec2_env,
+    execute_remote_commands,
 )
 
 from redisbench_admin.utils.utils import (
@@ -199,6 +200,19 @@ def run_remote_command_logic(args, project_name, project_version):
                         # after we've created the env, even on error we should always teardown
                         # in case of some unexpected error we fail the test
                         try:
+                            # ensure /tmp folder is free of benchmark data from previous runs
+                            remote_working_folder = "/tmp"
+                            execute_remote_commands(
+                                server_public_ip,
+                                username,
+                                private_key,
+                                [
+                                    "rm -rf {}/*.log".format(remote_working_folder),
+                                    "rm -rf {}/*.rdb".format(remote_working_folder),
+                                    "rm -rf {}/*.out".format(remote_working_folder),
+                                    "rm -rf {}/*.data".format(remote_working_folder),
+                                ],
+                            )
                             _, _, testcase_start_time_str = get_start_time_vars()
                             logname = "{}_{}.log".format(
                                 test_name, testcase_start_time_str
@@ -287,6 +301,7 @@ def run_remote_command_logic(args, project_name, project_version):
                             result = wait_for_conn(
                                 local_redis_conn, dataset_load_timeout_secs
                             )
+                            logging.info("Starting dataset loading...")
                             dataset_load_end_time = datetime.datetime.now()
                             if result is True:
                                 logging.info("Redis available")
