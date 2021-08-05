@@ -115,12 +115,22 @@ def main():
             level=LOG_LEVEL,
         )
     else:
-        # logging settings
-        logging.basicConfig(
-            format=LOG_FORMAT,
-            level=LOG_LEVEL,
-            datefmt=LOG_DATEFMT,
-        )
+        logger = logging.getLogger()
+        logger.setLevel(LOG_LEVEL)
+
+        # create console handler and set level to debug
+        ch = logging.StreamHandler()
+        ch.setLevel(LOG_LEVEL)
+
+        # create formatter
+        formatter = logging.Formatter(LOG_FORMAT)
+
+        # add formatter to ch
+        ch.setFormatter(formatter)
+
+        # add ch to logger
+        logger.addHandler(ch)
+    print_stdout_effective_log_level()
 
     if requested_tool == "run-local":
         run_local_command_logic(args, project_name, project_version)
@@ -134,6 +144,20 @@ def main():
         watchdog_command_logic(args, project_name, project_version)
     if requested_tool == "compare":
         compare_command_logic(args, project_name, project_version)
+
+
+def print_stdout_effective_log_level():
+    effective_log_level = "N/A"
+    effective_log_level = logging.getLogger().getEffectiveLevel()
+    if effective_log_level == logging.DEBUG:
+        effective_log_level = "DEBUG"
+    if effective_log_level == logging.INFO:
+        effective_log_level = "INFO"
+    if effective_log_level == logging.WARN:
+        effective_log_level = "WARN"
+    if effective_log_level == logging.ERROR:
+        effective_log_level = "ERROR"
+    print("Effective log level set to {}".format(effective_log_level))
 
 
 def print_invalid_tool_option(requested_tool, valid_tool_options):
