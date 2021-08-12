@@ -97,8 +97,8 @@ a standalone redis-server, copy the dataset and module files to the DB VM and ma
 # Comparing feature branches
 
 You can use the data stored in redistimeseries of different branches to portray a differential analysis between them.
-To be able to fetch the RedisTimeseries data, you need to pass either the `--redistimeseries_host,--redistimeseries_port,--redistimeseries_auth` 
-or the equivalent `REDISTIMESERIES_HOST,REDISTIMESERIES_PORT,REDISTIMESERIES_AUTH`. 
+To be able to fetch the RedisTimeseries data, you need to pass either the `--redistimeseries_host,--redistimeseries_port,--redistimeseries_auth,--redistimeseries_user` 
+or the equivalent `PERFORMANCE_RTS_HOST,PERFORMANCE_RTS_PORT,PERFORMANCE_RTS_AUTH,PERFORMANCE_RTS_USER`. 
 **To have them, you should ask the performance team for the read-only access keys.**
 
 Depending on the metric type ( example of latency / throughput ) the improvement is checked either via `higher-better` 
@@ -122,21 +122,22 @@ TRIGGERING_ENV=circleci redisbench-admin compare \
     --github_repo RedisJSON --github_org RedisJSON \
     --redistimeseries_host ${REDISTIMESERIES_HOST} \
     --redistimeseries_port ${REDISTIMESERIES_PORT} \
-    --redistimeseries_pass ${REDISTIMESERIES_PASS}
+    --redistimeseries_pass ${REDISTIMESERIES_PASS} \
+    --redistimeseries_user ${REDISTIMESERIES_USER}
 ```
 
 **Output:**
 ```
 WARNING:root:Unable to fill git vars. caught the following error: 
 Effective log level set to INFO
-INFO:root:Using: redisbench-admin 0.4.6
-2021-08-12 10:46:37,550 INFO Using: redisbench-admin 0.4.6
-INFO:root:Checking connection to RedisTimeSeries.
-2021-08-12 10:46:37,550 INFO Checking connection to RedisTimeSeries.
+INFO:root:Using: redisbench-admin 0.4.7
+2021-08-12 12:01:40,213 INFO Using: redisbench-admin 0.4.7
+INFO:root:Checking connection to RedisTimeSeries with user: (....), host: (....), port: (....)
+2021-08-12 12:01:40,213 INFO Checking connection to RedisTimeSeries with user: None, host: 34.194.187.44, port: 12000
 WARNING:root:Based on test-cases set (key=ci.benchmarks.redislabs/circleci/RedisJSON/RedisJSON:testcases) we have 35 distinct benchmarks. 
-2021-08-12 10:46:37,934 WARNING Based on test-cases set (key=ci.benchmarks.redislabs/circleci/RedisJSON/RedisJSON:testcases) we have 35 distinct benchmarks. 
+2021-08-12 12:01:40,613 WARNING Based on test-cases set (key=ci.benchmarks.redislabs/circleci/RedisJSON/RedisJSON:testcases) we have 35 distinct benchmarks. 
 INFO:root:Printing differential analysis between branches
-2021-08-12 10:46:44,779 INFO Printing differential analysis between branches
+2021-08-12 12:01:47,591 INFO Printing differential analysis between branches
 # Comparison between 1.0 and master for metric: Tests.Overall.rps
 |                           Test Case                            |Baseline value|Comparison Value|% change (higher-better)|
 |----------------------------------------------------------------|-------------:|----------------|-----------------------:|
@@ -172,15 +173,15 @@ INFO:root:Printing differential analysis between branches
 |json_set_sclr_1_pass_100_json                                   |      130708.7|        127382.0|                  -2.545|
 |json_set_sclr_pass_100_json                                     |      141835.9|        129863.4|                  -8.441|
 INFO:root:Detected a total of 7 stable tests between versions.
-2021-08-12 10:46:44,872 INFO Detected a total of 7 stable tests between versions.
+2021-08-12 12:01:47,683 INFO Detected a total of 7 stable tests between versions.
 INFO:root:Detected a total of 16 improvements above the improvement water line (> 5.0 %%)
-2021-08-12 10:46:44,872 INFO Detected a total of 16 improvements above the improvement water line (> 5.0 %%)
+2021-08-12 12:01:47,683 INFO Detected a total of 16 improvements above the improvement water line (> 5.0 %%)
 WARNING:root:Detected a total of 11 regressions bellow the regression water line (< -5.0 %%)
-2021-08-12 10:46:44,872 WARNING Detected a total of 11 regressions bellow the regression water line (< -5.0 %%)
+2021-08-12 12:01:47,684 WARNING Detected a total of 11 regressions bellow the regression water line (< -5.0 %%)
 WARNING:root:Printing BENCHMARK env var compatible list
-2021-08-12 10:46:44,872 WARNING Printing BENCHMARK env var compatible list
+2021-08-12 12:01:47,684 WARNING Printing BENCHMARK env var compatible list
 WARNING:root:BENCHMARK=json_arrappend_geojson.yml,json_get_ResultSet.totalResultsAvailable_jsonsl-yahoo2_json.yml,json_get_[0]_jsonsl-1.yml,json_get_[7]_jsonsl-1.yml,json_get_[8].zero_jsonsl-1.yml,json_get_[web-app].servlet[0][servlet-name]_json-parser-0000.yml,json_set_ResultSet.totalResultsAvailable_1_jsonsl-yahoo2_json.yml,json_set_[0]foo_jsonsl-1.yml,json_set_[web-app].servlet[0][servlet-name]_bar_json-parser-0000.yml,json_set_message.code_1_jsonsl-yelp_json.yml,json_set_sclr_pass_100_json.yml
-2021-08-12 10:46:44,872 WARNING BENCHMARK=json_arrappend_geojson.yml,json_get_ResultSet.totalResultsAvailable_jsonsl-yahoo2_json.yml,json_get_[0]_jsonsl-1.yml,json_get_[7]_jsonsl-1.yml,json_get_[8].zero_jsonsl-1.yml,json_get_[web-app].servlet[0][servlet-name]_json-parser-0000.yml,json_set_ResultSet.totalResultsAvailable_1_jsonsl-yahoo2_json.yml,json_set_[0]foo_jsonsl-1.yml,json_set_[web-app].servlet[0][servlet-name]_bar_json-parser-0000.yml,json_set_message.code_1_jsonsl-yelp_json.yml,json_set_sclr_pass_100_json.yml
+2021-08-12 12:01:47,684 WARNING BENCHMARK=json_arrappend_geojson.yml,json_get_ResultSet.totalResultsAvailable_jsonsl-yahoo2_json.yml,json_get_[0]_jsonsl-1.yml,json_get_[7]_jsonsl-1.yml,json_get_[8].zero_jsonsl-1.yml,json_get_[web-app].servlet[0][servlet-name]_json-parser-0000.yml,json_set_ResultSet.totalResultsAvailable_1_jsonsl-yahoo2_json.yml,json_set_[0]foo_jsonsl-1.yml,json_set_[web-app].servlet[0][servlet-name]_bar_json-parser-0000.yml,json_set_message.code_1_jsonsl-yelp_json.yml,json_set_sclr_pass_100_json.yml
 ```
 
 # Attaching profiling tools/probers ( perf (a.k.a. perf_events), bpf tooling, vtune ) while running local benchmarks

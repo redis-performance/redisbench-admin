@@ -12,6 +12,7 @@ from redisbench_admin.utils.remote import (
     PERFORMANCE_RTS_PORT,
     PERFORMANCE_RTS_AUTH,
     extract_git_vars,
+    PERFORMANCE_RTS_USER,
 )
 
 (
@@ -57,6 +58,9 @@ def create_compare_arguments(parser):
     )
     parser.add_argument(
         "--redistimeseries_pass", type=str, default=PERFORMANCE_RTS_AUTH
+    )
+    parser.add_argument(
+        "--redistimeseries_user", type=str, default=PERFORMANCE_RTS_USER
     )
     parser.add_argument("--from_timestamp", type=int, default=LAST_WEEK_UTC)
     parser.add_argument("--to_timestamp", type=int, default=NOW_UTC)
