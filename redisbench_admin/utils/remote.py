@@ -30,6 +30,7 @@ from redisbench_admin.utils.utils import (
 # environment variables
 PERFORMANCE_RTS_PUSH = bool(os.getenv("PUSH_RTS", False))
 PERFORMANCE_RTS_AUTH = os.getenv("PERFORMANCE_RTS_AUTH", None)
+PERFORMANCE_RTS_USER = os.getenv("PERFORMANCE_RTS_USER", None)
 PERFORMANCE_RTS_HOST = os.getenv("PERFORMANCE_RTS_HOST", "localhost")
 PERFORMANCE_RTS_PORT = os.getenv("PERFORMANCE_RTS_PORT", 6379)
 TERRAFORM_BIN_PATH = os.getenv("TERRAFORM_BIN_PATH", "terraform")

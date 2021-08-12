@@ -94,6 +94,95 @@ a standalone redis-server, copy the dataset and module files to the DB VM and ma
 - At the end of each benchmark an output json file is stored with this benchmarks folder and will be named like `<start time>-<deployment type>-<git org>-<git repo>-<git branch>-<test name>-<git sha>.json`
 - In the case of a uncaught exception after we've deployed the environment the benchmark script will always try to teardown the created environment. 
 
+# Comparing feature branches
+
+You can use the data stored in redistimeseries of different branches to portray a differential analysis between them.
+To be able to fetch the RedisTimeseries data, you need to pass either the `--redistimeseries_host,--redistimeseries_port,--redistimeseries_auth,--redistimeseries_user` 
+or the equivalent `PERFORMANCE_RTS_HOST,PERFORMANCE_RTS_PORT,PERFORMANCE_RTS_AUTH,PERFORMANCE_RTS_USER`. 
+**To have them, you should ask the performance team for the read-only access keys.**
+
+Depending on the metric type ( example of latency / throughput ) the improvement is checked either via `higher-better` 
+mode or `lower-better` mode. 
+
+By default, the metric used is `Tests.Overall.rps` and the metric mode is `higher-better`. 
+You can change the metric and metric mode via `--metric_name` and `--metric_mode` parameters.
+
+**Important Note:** The current differential analysis focus only on the last datapoint of result of each branch 
+( meaning this can and will be improved in the future to take into account multi-datapoints per branch ).
+
+By default, the tool checks for the last week datapoints, and uses the most recent one per branch.
+You can control the time-range of the comparison using `--from_timestamp` and `--to_timestamp` arguments.
+
+Bellow, you can find an example comparing RedisJSON 1.0 vs master branch:
+
+**Command:**
+```
+TRIGGERING_ENV=circleci redisbench-admin compare \
+    --baseline-branch 1.0 --comparison-branch master \
+    --github_repo RedisJSON --github_org RedisJSON \
+    --redistimeseries_host ${REDISTIMESERIES_HOST} \
+    --redistimeseries_port ${REDISTIMESERIES_PORT} \
+    --redistimeseries_pass ${REDISTIMESERIES_PASS} \
+    --redistimeseries_user ${REDISTIMESERIES_USER}
+```
+
+**Output:**
+```
+WARNING:root:Unable to fill git vars. caught the following error: 
+Effective log level set to INFO
+INFO:root:Using: redisbench-admin 0.4.7
+2021-08-12 12:01:40,213 INFO Using: redisbench-admin 0.4.7
+INFO:root:Checking connection to RedisTimeSeries with user: (....), host: (....), port: (....)
+WARNING:root:Based on test-cases set (key=ci.benchmarks.redislabs/circleci/RedisJSON/RedisJSON:testcases) we have 35 distinct benchmarks. 
+2021-08-12 12:01:40,613 WARNING Based on test-cases set (key=ci.benchmarks.redislabs/circleci/RedisJSON/RedisJSON:testcases) we have 35 distinct benchmarks. 
+INFO:root:Printing differential analysis between branches
+2021-08-12 12:01:47,591 INFO Printing differential analysis between branches
+# Comparison between 1.0 and master for metric: Tests.Overall.rps
+|                           Test Case                            |Baseline value|Comparison Value|% change (higher-better)|
+|----------------------------------------------------------------|-------------:|----------------|-----------------------:|
+|json_arrappend_geojson                                          |       77811.3|         64503.6|                 -17.102|
+|json_get_ResultSet.totalResultsAvailable_jsonsl-yahoo2_json     |      145972.6|        137919.6|                  -5.517|
+|json_get_[0]_jsonsl-1                                           |      142849.0|        131568.6|                  -7.897|
+|json_get_[7]_jsonsl-1                                           |      139852.3|        127382.0|                  -8.917|
+|json_get_[8].zero_jsonsl-1                                      |      153841.4|        137923.4|                 -10.347|
+|json_get_[web-app].servlet[0][servlet-name]_json-parser-0000    |      135584.0|        117633.2|                 -13.240|
+|json_get_[web-app].servlet[0]_json-parser-0000                  |       42183.1|         84735.7|                 100.876|
+|json_get_[web-app].servlet_json-parser-0000                     |       31091.2|         78730.2|                 153.223|
+|json_get_array_of_docs[1]_pass_100_json                         |      103084.3|        130712.1|                  26.801|
+|json_get_array_of_docs[1]sclr_pass_100_json                     |      125776.7|        119751.9|                  -4.790|
+|json_get_array_of_docs_pass_100_json                            |       88484.6|        125776.7|                  42.145|
+|json_get_fulldoc_json-parser-0000                               |       27572.5|         81956.5|                 197.240|
+|json_get_fulldoc_jsonsl-1                                       |       31632.8|         94777.7|                 199.619|
+|json_get_fulldoc_jsonsl-yahoo2_json                             |        6278.8|         27770.1|                 342.286|
+|json_get_fulldoc_jsonsl-yelp_json                               |        2760.9|         13879.2|                 402.715|
+|json_get_fulldoc_pass_100_json                                  |       71676.4|        123450.7|                  72.233|
+|json_get_key_empty                                              |      144919.1|        160266.7|                  10.590|
+|json_get_message.code_jsonsl-yelp_json                          |      139848.4|        143876.6|                   2.880|
+|json_get_sclr_pass_100_json                                     |      141835.9|        151506.0|                   6.818|
+|json_get_sub_doc.sclr_pass_100_json                             |      135127.8|        144919.1|                   7.246|
+|json_get_sub_doc_pass_100_json                                  |      109880.4|        127382.0|                  15.928|
+|json_numincrby_num_1                                            |      131568.6|        133322.7|                   1.333|
+|json_set_ResultSet.totalResultsAvailable_1_jsonsl-yahoo2_json   |      135124.2|        119039.1|                 -11.904|
+|json_set_[0]foo_jsonsl-1                                        |      134221.0|        124217.4|                  -7.453|
+|json_set_[web-app].servlet[0][servlet-name]_bar_json-parser-0000|      139852.3|         98029.6|                 -29.905|
+|json_set_fulldoc_pass_100_json                                  |       72192.8|         87325.6|                  20.962|
+|json_set_key_empty                                              |      143876.6|        156240.2|                   8.593|
+|json_set_message.code_1_jsonsl-yelp_json                        |      141831.9|        117638.8|                 -17.058|
+|json_set_num_0                                                  |      149244.8|        156240.2|                   4.687|
+|json_set_sclr_1_pass_100_json                                   |      130708.7|        127382.0|                  -2.545|
+|json_set_sclr_pass_100_json                                     |      141835.9|        129863.4|                  -8.441|
+INFO:root:Detected a total of 7 stable tests between versions.
+2021-08-12 12:01:47,683 INFO Detected a total of 7 stable tests between versions.
+INFO:root:Detected a total of 16 improvements above the improvement water line (> 5.0 %%)
+2021-08-12 12:01:47,683 INFO Detected a total of 16 improvements above the improvement water line (> 5.0 %%)
+WARNING:root:Detected a total of 11 regressions bellow the regression water line (< -5.0 %%)
+2021-08-12 12:01:47,684 WARNING Detected a total of 11 regressions bellow the regression water line (< -5.0 %%)
+WARNING:root:Printing BENCHMARK env var compatible list
+2021-08-12 12:01:47,684 WARNING Printing BENCHMARK env var compatible list
+WARNING:root:BENCHMARK=json_arrappend_geojson.yml,json_get_ResultSet.totalResultsAvailable_jsonsl-yahoo2_json.yml,json_get_[0]_jsonsl-1.yml,json_get_[7]_jsonsl-1.yml,json_get_[8].zero_jsonsl-1.yml,json_get_[web-app].servlet[0][servlet-name]_json-parser-0000.yml,json_set_ResultSet.totalResultsAvailable_1_jsonsl-yahoo2_json.yml,json_set_[0]foo_jsonsl-1.yml,json_set_[web-app].servlet[0][servlet-name]_bar_json-parser-0000.yml,json_set_message.code_1_jsonsl-yelp_json.yml,json_set_sclr_pass_100_json.yml
+2021-08-12 12:01:47,684 WARNING BENCHMARK=json_arrappend_geojson.yml,json_get_ResultSet.totalResultsAvailable_jsonsl-yahoo2_json.yml,json_get_[0]_jsonsl-1.yml,json_get_[7]_jsonsl-1.yml,json_get_[8].zero_jsonsl-1.yml,json_get_[web-app].servlet[0][servlet-name]_json-parser-0000.yml,json_set_ResultSet.totalResultsAvailable_1_jsonsl-yahoo2_json.yml,json_set_[0]foo_jsonsl-1.yml,json_set_[web-app].servlet[0][servlet-name]_bar_json-parser-0000.yml,json_set_message.code_1_jsonsl-yelp_json.yml,json_set_sclr_pass_100_json.yml
+```
+
 # Attaching profiling tools/probers ( perf (a.k.a. perf_events), bpf tooling, vtune ) while running local benchmarks
 
 **Note:** This part of the guide is only valid for Linux based machines, 

@@ -20,11 +20,18 @@ def compare_command_logic(args, project_name, project_version):
             project_name=project_name, project_version=project_version
         )
     )
-    logging.info("Checking connection to RedisTimeSeries.")
+    logging.info(
+        "Checking connection to RedisTimeSeries with user: {}, host: {}, port: {}".format(
+            args.redistimeseries_user,
+            args.redistimeseries_host,
+            args.redistimeseries_port,
+        )
+    )
     rts = Client(
         host=args.redistimeseries_host,
         port=args.redistimeseries_port,
         password=args.redistimeseries_pass,
+        username=args.redistimeseries_user,
     )
     rts.redis.ping()
 
