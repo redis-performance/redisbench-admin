@@ -133,7 +133,6 @@ Effective log level set to INFO
 INFO:root:Using: redisbench-admin 0.4.7
 2021-08-12 12:01:40,213 INFO Using: redisbench-admin 0.4.7
 INFO:root:Checking connection to RedisTimeSeries with user: (....), host: (....), port: (....)
-2021-08-12 12:01:40,213 INFO Checking connection to RedisTimeSeries with user: None, host: 34.194.187.44, port: 12000
 WARNING:root:Based on test-cases set (key=ci.benchmarks.redislabs/circleci/RedisJSON/RedisJSON:testcases) we have 35 distinct benchmarks. 
 2021-08-12 12:01:40,613 WARNING Based on test-cases set (key=ci.benchmarks.redislabs/circleci/RedisJSON/RedisJSON:testcases) we have 35 distinct benchmarks. 
 INFO:root:Printing differential analysis between branches
