@@ -57,89 +57,37 @@ def prepare_benchmark_parameters(
 ):
     command_arr = None
     command_str = None
-    for entry in benchmark_config["clientconfig"]:
-        if "parameters" in entry:
-            if "redis-benchmark" in benchmark_tool:
-                command_arr, command_str = prepare_redis_benchmark_command(
-                    benchmark_tool, server_private_ip, server_plaintext_port, entry
-                )
-                if isremote is True:
-                    redirect_file = "> {}".format(remote_results_file)
-                    command_arr.append(redirect_file)
-                    command_str = command_str + " " + redirect_file
-
-            if "redisgraph-benchmark-go" in benchmark_tool:
-                if isremote is True:
-                    benchmark_tool = "/tmp/redisgraph-benchmark-go"
-                command_arr, command_str = prepare_redisgraph_benchmark_go_command(
+    # v0.1 to 0.3 spec
+    if type(benchmark_config["clientconfig"]) == list:
+        for entry in benchmark_config["clientconfig"]:
+            if "parameters" in entry:
+                command_arr, command_str = prepare_benchmark_parameters_specif_tooling(
                     benchmark_tool,
-                    server_private_ip,
-                    server_plaintext_port,
-                    entry,
-                    remote_results_file,
-                    isremote,
-                )
-
-            if "ycsb" in benchmark_tool:
-                if isremote is True:
-                    benchmark_tool = (
-                        "/tmp/ycsb-redisearch-binding-0.18.0-SNAPSHOT/bin/ycsb"
-                    )
-                    current_workdir = "/tmp/ycsb-redisearch-binding-0.18.0-SNAPSHOT"
-                command_arr, command_str = prepare_ycsb_benchmark_command(
-                    benchmark_tool,
-                    server_private_ip,
-                    server_plaintext_port,
-                    entry,
-                    current_workdir,
-                )
-            if "tsbs_" in benchmark_tool:
-                input_data_file = None
-                if isremote is True:
-                    benchmark_tool = "/tmp/{}".format(benchmark_tool)
-                    input_data_file = "/tmp/input.data"
-                (command_arr, command_str,) = prepare_tsbs_benchmark_command(
-                    benchmark_tool,
-                    server_private_ip,
-                    server_plaintext_port,
-                    entry,
-                    current_workdir,
-                    remote_results_file,
-                    input_data_file,
-                    isremote,
                     cluster_api_enabled,
-                )
-            if "ftsb_" in benchmark_tool:
-                input_data_file = None
-                if isremote is True:
-                    benchmark_tool = "/tmp/{}".format(benchmark_tool)
-                    input_data_file = "/tmp/input.data"
-                (command_arr, command_str,) = prepare_ftsb_benchmark_command(
-                    benchmark_tool,
-                    server_private_ip,
-                    server_plaintext_port,
-                    entry,
+                    command_arr,
+                    command_str,
                     current_workdir,
-                    remote_results_file,
-                    input_data_file,
-                    isremote,
-                    cluster_api_enabled,
-                )
-            if "aibench_" in benchmark_tool:
-                input_data_file = None
-                if isremote is True:
-                    benchmark_tool = "/tmp/{}".format(benchmark_tool)
-                    input_data_file = "/tmp/input.data"
-                (command_arr, command_str,) = prepare_aibench_benchmark_command(
-                    benchmark_tool,
-                    server_private_ip,
-                    server_plaintext_port,
                     entry,
-                    current_workdir,
-                    remote_results_file,
-                    input_data_file,
                     isremote,
+                    remote_results_file,
+                    server_plaintext_port,
+                    server_private_ip,
                 )
+    # v0.4 spec
+    elif type(benchmark_config["clientconfig"]) == dict:
+        entry = benchmark_config["clientconfig"]
+        command_arr, command_str = prepare_benchmark_parameters_specif_tooling(
+            benchmark_tool,
+            cluster_api_enabled,
+            command_arr,
+            command_str,
+            current_workdir,
+            entry,
+            isremote,
+            remote_results_file,
+            server_plaintext_port,
+            server_private_ip,
+        )
     printed_command_str = command_str
     printed_command_arr = command_arr
     if len(command_str) > 200:
@@ -150,6 +98,98 @@ def prepare_benchmark_parameters(
             printed_command_arr, printed_command_str
         )
     )
+    return command_arr, command_str
+
+
+def prepare_benchmark_parameters_specif_tooling(
+    benchmark_tool,
+    cluster_api_enabled,
+    command_arr,
+    command_str,
+    current_workdir,
+    entry,
+    isremote,
+    remote_results_file,
+    server_plaintext_port,
+    server_private_ip,
+):
+    if "redis-benchmark" in benchmark_tool:
+        command_arr, command_str = prepare_redis_benchmark_command(
+            benchmark_tool, server_private_ip, server_plaintext_port, entry
+        )
+        if isremote is True:
+            redirect_file = "> {}".format(remote_results_file)
+            command_arr.append(redirect_file)
+            command_str = command_str + " " + redirect_file
+    if "redisgraph-benchmark-go" in benchmark_tool:
+        if isremote is True:
+            benchmark_tool = "/tmp/redisgraph-benchmark-go"
+        command_arr, command_str = prepare_redisgraph_benchmark_go_command(
+            benchmark_tool,
+            server_private_ip,
+            server_plaintext_port,
+            entry,
+            remote_results_file,
+            isremote,
+        )
+    if "ycsb" in benchmark_tool:
+        if isremote is True:
+            benchmark_tool = "/tmp/ycsb-redisearch-binding-0.18.0-SNAPSHOT/bin/ycsb"
+            current_workdir = "/tmp/ycsb-redisearch-binding-0.18.0-SNAPSHOT"
+        command_arr, command_str = prepare_ycsb_benchmark_command(
+            benchmark_tool,
+            server_private_ip,
+            server_plaintext_port,
+            entry,
+            current_workdir,
+        )
+    if "tsbs_" in benchmark_tool:
+        input_data_file = None
+        if isremote is True:
+            benchmark_tool = "/tmp/{}".format(benchmark_tool)
+            input_data_file = "/tmp/input.data"
+        (command_arr, command_str,) = prepare_tsbs_benchmark_command(
+            benchmark_tool,
+            server_private_ip,
+            server_plaintext_port,
+            entry,
+            current_workdir,
+            remote_results_file,
+            input_data_file,
+            isremote,
+            cluster_api_enabled,
+        )
+    if "ftsb_" in benchmark_tool:
+        input_data_file = None
+        if isremote is True:
+            benchmark_tool = "/tmp/{}".format(benchmark_tool)
+            input_data_file = "/tmp/input.data"
+        (command_arr, command_str,) = prepare_ftsb_benchmark_command(
+            benchmark_tool,
+            server_private_ip,
+            server_plaintext_port,
+            entry,
+            current_workdir,
+            remote_results_file,
+            input_data_file,
+            isremote,
+            cluster_api_enabled,
+        )
+    if "aibench_" in benchmark_tool:
+        input_data_file = None
+        if isremote is True:
+            benchmark_tool = "/tmp/{}".format(benchmark_tool)
+            input_data_file = "/tmp/input.data"
+        (command_arr, command_str,) = prepare_aibench_benchmark_command(
+            benchmark_tool,
+            server_private_ip,
+            server_plaintext_port,
+            entry,
+            current_workdir,
+            remote_results_file,
+            input_data_file,
+            isremote,
+        )
     return command_arr, command_str
 
 

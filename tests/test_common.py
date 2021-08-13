@@ -80,6 +80,17 @@ def test_prepare_benchmark_parameters():
             " -p dictfile=./bin/uci_online_retail.csv"
             " -p recordcount=100000 -p operationcount=100000"
         )
+    with open(
+        "./tests/test_data/redis-benchmark-full-suite-1Mkeys-100B.yml", "r"
+    ) as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        command_arr, command_str = prepare_benchmark_parameters(
+            benchmark_config, "redis-benchmark", "6380", "localhost", "out.txt", False
+        )
+        assert (
+            command_str
+            == "redis-benchmark -h localhost -p 6380 --csv -e -c 50 -n 100000 --threads 2 -P 1"
+        )
 
 
 def test_extract_benchmark_tool_settings():
