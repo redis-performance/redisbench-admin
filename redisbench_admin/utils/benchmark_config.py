@@ -185,25 +185,7 @@ def process_default_yaml_properties_file(
     default_config = yaml.safe_load(stream)
     default_specs = None
     cluster_config = None
-    if "exporter" in default_config:
-        default_metrics = parse_exporter_metrics_definition(default_config["exporter"])
-        if len(default_metrics) > 0:
-            logging.info(
-                "Found RedisTimeSeries default metrics specification."
-                " Will include the following metrics on all benchmarks {}".format(
-                    " ".join(default_metrics)
-                )
-            )
-        exporter_timemetric_path = parse_exporter_timemetric_definition(
-            default_config["exporter"]
-        )
-        if exporter_timemetric_path is not None:
-            logging.info(
-                "Found RedisTimeSeries default time metric specification."
-                " Will use the following JSON path to retrieve the test time {}".format(
-                    exporter_timemetric_path
-                )
-            )
+    default_metrics, exporter_timemetric_path = extract_exporter_metrics(default_config)
     if "kpis" in default_config:
         logging.info(
             "Loading default KPIs specifications from file: {}".format(
@@ -230,6 +212,29 @@ def process_default_yaml_properties_file(
         default_specs,
         cluster_config,
     )
+
+
+def extract_exporter_metrics(default_config):
+    if "exporter" in default_config:
+        default_metrics = parse_exporter_metrics_definition(default_config["exporter"])
+        if len(default_metrics) > 0:
+            logging.info(
+                "Found RedisTimeSeries default metrics specification."
+                " Will include the following metrics on all benchmarks {}".format(
+                    " ".join(default_metrics)
+                )
+            )
+        exporter_timemetric_path = parse_exporter_timemetric_definition(
+            default_config["exporter"]
+        )
+        if exporter_timemetric_path is not None:
+            logging.info(
+                "Found RedisTimeSeries default time metric specification."
+                " Will use the following JSON path to retrieve the test time {}".format(
+                    exporter_timemetric_path
+                )
+            )
+    return default_metrics, exporter_timemetric_path
 
 
 def extract_benchmark_tool_settings(benchmark_config):
