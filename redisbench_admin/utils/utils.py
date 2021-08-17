@@ -218,7 +218,11 @@ def get_ts_metric_name(
     test_name,
     tf_triggering_env,
     metric_name,
+    metric_context_path=None,
+    use_metric_context_path=False,
 ):
+    if use_metric_context_path:
+        metric_name = "{}/{}".format(metric_name, metric_context_path)
     ts_name = (
         "ci.benchmarks.redislabs/{by}/"
         "{triggering_env}/{github_org}/{github_repo}/"

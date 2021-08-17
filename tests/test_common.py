@@ -1,7 +1,10 @@
 import datetime as dt
+import json
 from unittest import TestCase
 
+import redis
 import yaml
+from redistimeseries.client import Client
 
 from redisbench_admin.export.common.common import (
     add_datapoint,
@@ -14,6 +17,7 @@ from redisbench_admin.run.common import (
     common_exporter_logic,
     extract_test_feasible_setups,
     get_setup_type_and_primaries_count,
+    merge_default_and_config_metrics,
 )
 
 from redisbench_admin.utils.benchmark_config import (
@@ -157,6 +161,43 @@ def test_extract_benchmark_tool_settings_with_resource():
 def test_common_exporter_logic():
     # negative test
     common_exporter_logic(None, None, None, None, None, None, None, None, None, None)
+    try:
+        rts = Client()
+        rts.redis.ping()
+        with open(
+            "./tests/test_data/redis-benchmark-full-suite-1Mkeys-100B.yml", "r"
+        ) as yml_file:
+            benchmark_config = yaml.safe_load(yml_file)
+            merged_exporter_timemetric_path, metrics = merge_default_and_config_metrics(
+                benchmark_config, None, None
+            )
+            with open(
+                "./tests/test_data/results/oss-standalone-2021-07-23-16-15-12-71d4528-redis-benchmark-full-suite-1Mkeys-100B.json",
+                "r",
+            ) as json_file:
+                results_dict = json.load(json_file)
+                tf_github_org = "redis"
+                tf_github_repo = "redis"
+                tf_github_branch = "unstable"
+                project_version = "6.2.4"
+                tf_triggering_env = "gh"
+                test_name = "redis-benchmark-full-suite-1Mkeys-100B"
+                deployment_type = "oss-standalone"
+                common_exporter_logic(
+                    deployment_type,
+                    merged_exporter_timemetric_path,
+                    metrics,
+                    results_dict,
+                    rts,
+                    test_name,
+                    tf_github_branch,
+                    tf_github_org,
+                    tf_github_repo,
+                    tf_triggering_env,
+                    project_version,
+                )
+    except redis.exceptions.ConnectionError:
+        pass
 
 
 def test_process_default_yaml_properties_file():

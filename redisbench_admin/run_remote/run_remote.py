@@ -466,7 +466,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                 )
 
                             timeseries_test_sucess_flow(
-                                args,
+                                args.push_results_redistimeseries,
                                 artifact_version,
                                 benchmark_config,
                                 benchmark_duration_seconds,

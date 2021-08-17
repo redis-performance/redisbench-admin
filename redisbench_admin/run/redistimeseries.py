@@ -163,7 +163,7 @@ def add_standardized_metric_byversion(
 
 
 def timeseries_test_sucess_flow(
-    args,
+    push_results_redistimeseries,
     artifact_version,
     benchmark_config,
     benchmark_duration_seconds,
@@ -182,7 +182,7 @@ def timeseries_test_sucess_flow(
     tf_triggering_env,
     tsname_project_total_success,
 ):
-    if args.push_results_redistimeseries:
+    if push_results_redistimeseries:
         logging.info("Pushing results to RedisTimeSeries.")
         redistimeseries_results_logic(
             artifact_version,
