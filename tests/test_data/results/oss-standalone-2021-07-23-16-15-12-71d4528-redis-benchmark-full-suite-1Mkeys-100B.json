@@ -1,0 +1,177 @@
+{
+ "Tests": {
+  "PING_INLINE": {
+   "rps": "133155.80",
+   "avg_latency_ms": "0.214",
+   "min_latency_ms": "0.040",
+   "p50_latency_ms": "0.199",
+   "p95_latency_ms": "0.375",
+   "p99_latency_ms": "0.503",
+   "max_latency_ms": "1.343"
+  },
+  "PING_MBULK": {
+   "rps": "133333.33",
+   "avg_latency_ms": "0.232",
+   "min_latency_ms": "0.032",
+   "p50_latency_ms": "0.207",
+   "p95_latency_ms": "0.359",
+   "p99_latency_ms": "0.471",
+   "max_latency_ms": "1.119"
+  },
+  "SET": {
+   "rps": "133333.33",
+   "avg_latency_ms": "0.239",
+   "min_latency_ms": "0.032",
+   "p50_latency_ms": "0.215",
+   "p95_latency_ms": "0.415",
+   "p99_latency_ms": "0.591",
+   "max_latency_ms": "2.639"
+  },
+  "GET": {
+   "rps": "133333.33",
+   "avg_latency_ms": "0.227",
+   "min_latency_ms": "0.048",
+   "p50_latency_ms": "0.207",
+   "p95_latency_ms": "0.375",
+   "p99_latency_ms": "0.487",
+   "max_latency_ms": "0.975"
+  },
+  "INCR": {
+   "rps": "133333.33",
+   "avg_latency_ms": "0.213",
+   "min_latency_ms": "0.048",
+   "p50_latency_ms": "0.207",
+   "p95_latency_ms": "0.359",
+   "p99_latency_ms": "0.423",
+   "max_latency_ms": "0.975"
+  },
+  "LPUSH": {
+   "rps": "133333.33",
+   "avg_latency_ms": "0.246",
+   "min_latency_ms": "0.048",
+   "p50_latency_ms": "0.231",
+   "p95_latency_ms": "0.407",
+   "p99_latency_ms": "0.599",
+   "max_latency_ms": "2.239"
+  },
+  "RPUSH": {
+   "rps": "133333.33",
+   "avg_latency_ms": "0.282",
+   "min_latency_ms": "0.040",
+   "p50_latency_ms": "0.263",
+   "p95_latency_ms": "0.439",
+   "p99_latency_ms": "0.615",
+   "max_latency_ms": "27.967"
+  },
+  "LPOP": {
+   "rps": "133333.33",
+   "avg_latency_ms": "0.219",
+   "min_latency_ms": "0.048",
+   "p50_latency_ms": "0.215",
+   "p95_latency_ms": "0.351",
+   "p99_latency_ms": "0.423",
+   "max_latency_ms": "1.335"
+  },
+  "RPOP": {
+   "rps": "133333.33",
+   "avg_latency_ms": "0.228",
+   "min_latency_ms": "0.048",
+   "p50_latency_ms": "0.207",
+   "p95_latency_ms": "0.383",
+   "p99_latency_ms": "0.503",
+   "max_latency_ms": "0.863"
+  },
+  "SADD": {
+   "rps": "133333.33",
+   "avg_latency_ms": "0.247",
+   "min_latency_ms": "0.032",
+   "p50_latency_ms": "0.223",
+   "p95_latency_ms": "0.399",
+   "p99_latency_ms": "0.543",
+   "max_latency_ms": "1.167"
+  },
+  "HSET": {
+   "rps": "133155.80",
+   "avg_latency_ms": "0.232",
+   "min_latency_ms": "0.056",
+   "p50_latency_ms": "0.207",
+   "p95_latency_ms": "0.407",
+   "p99_latency_ms": "0.527",
+   "max_latency_ms": "1.247"
+  },
+  "SPOP": {
+   "rps": "133333.33",
+   "avg_latency_ms": "0.228",
+   "min_latency_ms": "0.040",
+   "p50_latency_ms": "0.207",
+   "p95_latency_ms": "0.375",
+   "p99_latency_ms": "0.487",
+   "max_latency_ms": "1.263"
+  },
+  "ZADD": {
+   "rps": "133333.33",
+   "avg_latency_ms": "0.233",
+   "min_latency_ms": "0.048",
+   "p50_latency_ms": "0.223",
+   "p95_latency_ms": "0.383",
+   "p99_latency_ms": "0.503",
+   "max_latency_ms": "0.887"
+  },
+  "ZPOPMIN": {
+   "rps": "133155.80",
+   "avg_latency_ms": "0.215",
+   "min_latency_ms": "0.048",
+   "p50_latency_ms": "0.199",
+   "p95_latency_ms": "0.375",
+   "p99_latency_ms": "0.503",
+   "max_latency_ms": "1.191"
+  },
+  "LRANGE_100": {
+   "rps": "79936.05",
+   "avg_latency_ms": "0.471",
+   "min_latency_ms": "0.136",
+   "p50_latency_ms": "0.415",
+   "p95_latency_ms": "0.855",
+   "p99_latency_ms": "1.015",
+   "max_latency_ms": "7.743"
+  },
+  "LRANGE_300": {
+   "rps": "30712.53",
+   "avg_latency_ms": "0.859",
+   "min_latency_ms": "0.152",
+   "p50_latency_ms": "0.655",
+   "p95_latency_ms": "1.711",
+   "p99_latency_ms": "3.711",
+   "max_latency_ms": "11.599"
+  },
+  "LRANGE_500": {
+   "rps": "23479.69",
+   "avg_latency_ms": "1.096",
+   "min_latency_ms": "0.192",
+   "p50_latency_ms": "1.007",
+   "p95_latency_ms": "1.751",
+   "p99_latency_ms": "2.695",
+   "max_latency_ms": "7.079"
+  },
+  "LRANGE_600": {
+   "rps": "19956.10",
+   "avg_latency_ms": "1.254",
+   "min_latency_ms": "0.136",
+   "p50_latency_ms": "1.175",
+   "p95_latency_ms": "1.903",
+   "p99_latency_ms": "2.759",
+   "max_latency_ms": "6.839"
+  },
+  "MSET": {
+   "rps": "100000.00",
+   "avg_latency_ms": "0.382",
+   "min_latency_ms": "0.080",
+   "p50_latency_ms": "0.359",
+   "p95_latency_ms": "0.559",
+   "p99_latency_ms": "0.735",
+   "max_latency_ms": "1.455"
+  }
+ },
+ "StartTime": 1627056912692,
+ "StartTimeHuman": "2021-07-23-16-15-12"
+}

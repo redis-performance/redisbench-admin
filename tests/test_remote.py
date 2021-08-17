@@ -11,6 +11,8 @@ from redisbench_admin.utils.remote import (
     extract_git_vars,
     fetch_remote_setup_from_config,
     push_data_to_redistimeseries,
+    extract_perversion_timeseries_from_results,
+    extract_perbranch_timeseries_from_results,
 )
 
 
@@ -174,3 +176,65 @@ def test_extract_perversion_timeseries_from_results():
                     )
                     in per_branch_time_series_dict.keys()
                 )
+
+
+def test_extract_timeseries_from_results():
+    with open(
+        "./tests/test_data/redis-benchmark-full-suite-1Mkeys-100B.yml", "r"
+    ) as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        merged_exporter_timemetric_path, metrics = merge_default_and_config_metrics(
+            benchmark_config, None, None
+        )
+        with open(
+            "./tests/test_data/results/oss-standalone-2021-07-23-16-15-12-71d4528-redis-benchmark-full-suite-1Mkeys-100B.json",
+            "r",
+        ) as json_file:
+            results_dict = json.load(json_file)
+            tf_github_org = "redis"
+            tf_github_repo = "redis"
+            tf_github_branch = "unstable"
+            project_version = "6.2.4"
+            tf_triggering_env = "gh"
+            test_name = "redis-benchmark-full-suite-1Mkeys-100B"
+            deployment_type = "oss-standalone"
+            datapoints_timestamp = 1000
+            # extract per branch datapoints
+            (
+                ok,
+                per_version_time_series_dict,
+            ) = extract_perversion_timeseries_from_results(
+                datapoints_timestamp,
+                metrics,
+                results_dict,
+                project_version,
+                tf_github_org,
+                tf_github_repo,
+                deployment_type,
+                test_name,
+                tf_triggering_env,
+            )
+            assert ok == True
+            assert (len(results_dict["Tests"].keys()) * len(metrics)) == len(
+                per_version_time_series_dict.keys()
+            )
+
+            # extract per branch datapoints
+            (
+                ok,
+                per_branch_time_series_dict,
+            ) = extract_perbranch_timeseries_from_results(
+                datapoints_timestamp,
+                metrics,
+                results_dict,
+                tf_github_branch,
+                tf_github_org,
+                tf_github_repo,
+                deployment_type,
+                test_name,
+                tf_triggering_env,
+            )
+            assert ok == True
+            assert (len(results_dict["Tests"].keys()) * len(metrics)) == len(
+                per_branch_time_series_dict.keys()
+            )

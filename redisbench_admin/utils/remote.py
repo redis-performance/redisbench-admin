@@ -497,6 +497,37 @@ def extract_perversion_timeseries_from_results(
     test_name: str,
     tf_triggering_env: str,
 ):
+    break_by_key = "version"
+    break_by_str = "by.{}".format(break_by_key)
+    branch_time_series_dict = common_timeseries_extraction(
+        break_by_key,
+        break_by_str,
+        datapoints_timestamp,
+        deployment_type,
+        metrics,
+        project_version,
+        results_dict,
+        test_name,
+        tf_github_org,
+        tf_github_repo,
+        tf_triggering_env,
+    )
+    return True, branch_time_series_dict
+
+
+def common_timeseries_extraction(
+    break_by_key,
+    break_by_str,
+    datapoints_timestamp,
+    deployment_type,
+    metrics,
+    project_version,
+    results_dict,
+    test_name,
+    tf_github_org,
+    tf_github_repo,
+    tf_triggering_env,
+):
     branch_time_series_dict = {}
     for jsonpath in metrics:
         try:
@@ -504,38 +535,59 @@ def extract_perversion_timeseries_from_results(
         except Exception:
             pass
         finally:
-            metric_name = jsonpath[2:]
             find_res = jsonpath_expr.find(results_dict)
-            if find_res is not None and len(find_res) > 0:
-                metric_value = float(find_res[0].value)
-                # prepare tags
-                # branch tags
-                version_tags = get_project_ts_tags(
-                    tf_github_org, tf_github_repo, deployment_type, tf_triggering_env
-                )
-                version_tags["version"] = project_version
-                version_tags["test_name"] = str(test_name)
-                version_tags["metric"] = str(metric_name)
-                ts_name = get_ts_metric_name(
-                    "by.version",
-                    project_version,
-                    tf_github_org,
-                    tf_github_repo,
-                    deployment_type,
-                    test_name,
-                    tf_triggering_env,
-                    metric_name,
-                )
+            if find_res is not None:
+                use_metric_context_path = False
+                if len(find_res) > 1:
+                    use_metric_context_path = True
+                for metric in find_res:
+                    metric_name = str(metric.path)
+                    metric_value = float(metric.value)
+                    metric_jsonpath = jsonpath
+                    metric_context_path = str(metric.context.path)
+                    if metric_jsonpath[0] == "$":
+                        metric_jsonpath = metric_jsonpath[1:]
+                    if metric_jsonpath[0] == ".":
+                        metric_jsonpath = metric_jsonpath[1:]
 
-                branch_time_series_dict[ts_name] = {
-                    "labels": version_tags.copy(),
-                    "data": {datapoints_timestamp: metric_value},
-                }
+                    # retro-compatible naming
+                    if use_metric_context_path is False:
+                        metric_name = metric_jsonpath
+
+                    # prepare tags
+                    timeserie_tags = get_project_ts_tags(
+                        tf_github_org,
+                        tf_github_repo,
+                        deployment_type,
+                        tf_triggering_env,
+                    )
+                    timeserie_tags[break_by_key] = project_version
+                    timeserie_tags["test_name"] = str(test_name)
+                    timeserie_tags["metric"] = str(metric_name)
+                    timeserie_tags["metric_name"] = metric_name
+                    timeserie_tags["metric_context_path"] = metric_context_path
+                    timeserie_tags["metric_jsonpath"] = metric_jsonpath
+                    ts_name = get_ts_metric_name(
+                        break_by_str,
+                        project_version,
+                        tf_github_org,
+                        tf_github_repo,
+                        deployment_type,
+                        test_name,
+                        tf_triggering_env,
+                        metric_name,
+                        metric_context_path,
+                        use_metric_context_path,
+                    )
+                    branch_time_series_dict[ts_name] = {
+                        "labels": timeserie_tags.copy(),
+                        "data": {datapoints_timestamp: metric_value},
+                    }
             else:
                 logging.warning(
                     "Unable to find metric path {} in result dict".format(jsonpath)
                 )
-    return True, branch_time_series_dict
+    return branch_time_series_dict
 
 
 def get_project_ts_tags(
@@ -565,43 +617,21 @@ def extract_perbranch_timeseries_from_results(
     test_name: str,
     tf_triggering_env: str,
 ):
-    branch_time_series_dict = {}
-    for jsonpath in metrics:
-        try:
-            jsonpath_expr = parse(jsonpath)
-        except Exception:
-            pass
-        finally:
-            metric_name = jsonpath[2:]
-            ts_name = get_ts_metric_name(
-                "by.branch",
-                tf_github_branch,
-                tf_github_org,
-                tf_github_repo,
-                deployment_type,
-                test_name,
-                tf_triggering_env,
-                metric_name,
-            )
-            find_res = jsonpath_expr.find(results_dict)
-            if find_res is not None and len(find_res) > 0:
-                metric_value = float(find_res[0].value)
-
-                branch_tags = get_project_ts_tags(
-                    tf_github_org, tf_github_repo, deployment_type, tf_triggering_env
-                )
-                branch_tags["branch"] = str(tf_github_branch)
-                branch_tags["test_name"] = str(test_name)
-                branch_tags["metric"] = str(metric_name)
-
-                branch_time_series_dict[ts_name] = {
-                    "labels": branch_tags.copy(),
-                    "data": {datapoints_timestamp: metric_value},
-                }
-            else:
-                logging.warning(
-                    "Unable to find metric path {} in result dict".format(jsonpath)
-                )
+    break_by_key = "branch"
+    break_by_str = "by.{}".format(break_by_key)
+    branch_time_series_dict = common_timeseries_extraction(
+        break_by_key,
+        break_by_str,
+        datapoints_timestamp,
+        deployment_type,
+        metrics,
+        tf_github_branch,
+        results_dict,
+        test_name,
+        tf_github_org,
+        tf_github_repo,
+        tf_triggering_env,
+    )
     return True, branch_time_series_dict
 
 

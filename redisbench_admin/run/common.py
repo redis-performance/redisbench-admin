@@ -386,6 +386,8 @@ def get_setup_type_and_primaries_count(setup_settings):
 def merge_default_and_config_metrics(
     benchmark_config, default_metrics, exporter_timemetric_path
 ):
+    if default_metrics is None:
+        default_metrics = []
     metrics = default_metrics
     if "exporter" in benchmark_config:
         extra_metrics = parse_exporter_metrics_definition(benchmark_config["exporter"])
