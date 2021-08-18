@@ -254,25 +254,29 @@ def common_exporter_logic(
         datapoints_timestamp = parse_exporter_timemetric(
             exporter_timemetric_path, results_dict
         )
-
-        # extract per branch datapoints
-        (
-            ok,
-            per_version_time_series_dict,
-        ) = extract_perversion_timeseries_from_results(
-            datapoints_timestamp,
-            metrics,
-            results_dict,
-            artifact_version,
-            tf_github_org,
-            tf_github_repo,
-            deployment_type,
-            test_name,
-            tf_triggering_env,
-        )
-        if ok:
-            # push per-version data
-            push_data_to_redistimeseries(rts, per_version_time_series_dict)
+        if (
+            artifact_version is not None
+            and artifact_version != ""
+            and artifact_version != "N/A"
+        ):
+            # extract per-version datapoints
+            (
+                ok,
+                per_version_time_series_dict,
+            ) = extract_perversion_timeseries_from_results(
+                datapoints_timestamp,
+                metrics,
+                results_dict,
+                artifact_version,
+                tf_github_org,
+                tf_github_repo,
+                deployment_type,
+                test_name,
+                tf_triggering_env,
+            )
+            if ok:
+                # push per-version data
+                push_data_to_redistimeseries(rts, per_version_time_series_dict)
         if tf_github_branch is not None and tf_github_branch != "":
             # extract per branch datapoints
             ok, per_branch_time_series_dict = extract_perbranch_timeseries_from_results(
