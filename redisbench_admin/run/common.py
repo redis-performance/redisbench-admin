@@ -245,6 +245,8 @@ def common_exporter_logic(
     tf_github_repo,
     tf_triggering_env,
     artifact_version="N/A",
+    metadata_tags={},
+    build_variant_name=None,
 ):
     per_version_time_series_dict = None
     per_branch_time_series_dict = None
@@ -273,6 +275,8 @@ def common_exporter_logic(
                 deployment_type,
                 test_name,
                 tf_triggering_env,
+                metadata_tags,
+                build_variant_name,
             )
             if ok:
                 # push per-version data
@@ -289,6 +293,8 @@ def common_exporter_logic(
                 deployment_type,
                 test_name,
                 tf_triggering_env,
+                metadata_tags,
+                build_variant_name,
             )
             if ok:
                 # push per-branch data

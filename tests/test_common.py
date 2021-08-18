@@ -26,6 +26,7 @@ from redisbench_admin.utils.benchmark_config import (
     get_defaults,
     get_final_benchmark_config,
 )
+from redisbench_admin.utils.utils import get_ts_metric_name
 
 
 class Test(TestCase):
@@ -196,6 +197,104 @@ def test_common_exporter_logic():
                     tf_triggering_env,
                     project_version,
                 )
+                metric_name = "rps"
+                use_metric_context_path = True
+                metric_context_path = "MSET"
+
+                ts_key_name = get_ts_metric_name(
+                    "by.branch",
+                    "unstable",
+                    tf_github_org,
+                    tf_github_repo,
+                    deployment_type,
+                    test_name,
+                    tf_triggering_env,
+                    metric_name,
+                    metric_context_path,
+                    use_metric_context_path,
+                )
+
+                assert ts_key_name.encode() in rts.redis.keys()
+                rts.redis.flushall()
+
+                # test for build variant
+                build_variant_name = "variant-1"
+
+                common_exporter_logic(
+                    deployment_type,
+                    merged_exporter_timemetric_path,
+                    metrics,
+                    results_dict,
+                    rts,
+                    test_name,
+                    tf_github_branch,
+                    tf_github_org,
+                    tf_github_repo,
+                    tf_triggering_env,
+                    project_version,
+                    {},
+                    build_variant_name,
+                )
+                metric_name = "rps"
+                use_metric_context_path = True
+                metric_context_path = "MSET"
+
+                ts_key_name = get_ts_metric_name(
+                    "by.branch",
+                    "unstable",
+                    tf_github_org,
+                    tf_github_repo,
+                    deployment_type,
+                    test_name,
+                    tf_triggering_env,
+                    metric_name,
+                    metric_context_path,
+                    use_metric_context_path,
+                    build_variant_name,
+                )
+                assert ts_key_name.encode() in rts.redis.keys()
+                rts.redis.flushall()
+
+                # test for build variant and extra metadata flags
+                build_variant_name = "variant-1"
+
+                common_exporter_logic(
+                    deployment_type,
+                    merged_exporter_timemetric_path,
+                    metrics,
+                    results_dict,
+                    rts,
+                    test_name,
+                    tf_github_branch,
+                    tf_github_org,
+                    tf_github_repo,
+                    tf_triggering_env,
+                    project_version,
+                    {"arch": "amd64", "compiler": "icc", "compiler_version": "10.3"},
+                    build_variant_name,
+                )
+                metric_name = "rps"
+                use_metric_context_path = True
+                metric_context_path = "MSET"
+
+                ts_key_name = get_ts_metric_name(
+                    "by.branch",
+                    "unstable",
+                    tf_github_org,
+                    tf_github_repo,
+                    deployment_type,
+                    test_name,
+                    tf_triggering_env,
+                    metric_name,
+                    metric_context_path,
+                    use_metric_context_path,
+                    build_variant_name,
+                )
+                assert ts_key_name.encode() in rts.redis.keys()
+                assert "arch" in rts.info(ts_key_name).labels
+                assert "compiler" in rts.info(ts_key_name).labels
+                assert "compiler_version" in rts.info(ts_key_name).labels
+
     except redis.exceptions.ConnectionError:
         pass
 
