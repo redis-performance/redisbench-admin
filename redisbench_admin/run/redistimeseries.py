@@ -236,30 +236,30 @@ def timeseries_test_sucess_flow(
                     tf_github_repo,
                     tf_triggering_env,
                 )
-            add_standardized_metric_byversion(
-                "benchmark_duration",
-                benchmark_duration_seconds,
-                artifact_version,
-                deployment_type,
-                rts,
-                start_time_ms,
-                test_name,
-                tf_github_org,
-                tf_github_repo,
-                tf_triggering_env,
-            )
-            add_standardized_metric_byversion(
-                "dataset_load_duration",
-                dataset_load_duration_seconds,
-                artifact_version,
-                deployment_type,
-                rts,
-                start_time_ms,
-                test_name,
-                tf_github_org,
-                tf_github_repo,
-                tf_triggering_env,
-            )
+                add_standardized_metric_byversion(
+                    "benchmark_duration",
+                    benchmark_duration_seconds,
+                    artifact_version,
+                    deployment_type,
+                    rts,
+                    start_time_ms,
+                    test_name,
+                    tf_github_org,
+                    tf_github_repo,
+                    tf_triggering_env,
+                )
+                add_standardized_metric_byversion(
+                    "dataset_load_duration",
+                    dataset_load_duration_seconds,
+                    artifact_version,
+                    deployment_type,
+                    rts,
+                    start_time_ms,
+                    test_name,
+                    tf_github_org,
+                    tf_github_repo,
+                    tf_triggering_env,
+                )
         except redis.exceptions.ResponseError as e:
             logging.warning(
                 "Error while updating secondary data structures {}. ".format(
