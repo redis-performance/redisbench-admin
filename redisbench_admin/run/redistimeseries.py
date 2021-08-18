@@ -236,6 +236,7 @@ def timeseries_test_sucess_flow(
                     tf_github_repo,
                     tf_triggering_env,
                 )
+            if artifact_version is not None and artifact_version != "":
                 add_standardized_metric_byversion(
                     "benchmark_duration",
                     benchmark_duration_seconds,
