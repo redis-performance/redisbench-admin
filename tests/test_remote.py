@@ -145,7 +145,7 @@ def test_extract_perversion_timeseries_from_results():
                 per_version_time_series_dict,
                 per_branch_time_series_dict,
             ) = redistimeseries_results_logic(
-                "N/A",
+                "1.0.0",
                 benchmark_config,
                 default_metrics,
                 "oss",
@@ -162,7 +162,7 @@ def test_extract_perversion_timeseries_from_results():
             assert len(per_version_time_series_dict.keys()) == 2
             for existing_metric in ["Totals.rowRate", "Totals.metricRate"]:
                 assert (
-                    "ci.benchmarks.redislabs/by.version/tf_triggering_env/tf_github_org/tf_github_repo/test_name/oss/N/A/{}".format(
+                    "ci.benchmarks.redislabs/by.version/tf_triggering_env/tf_github_org/tf_github_repo/test_name/oss/1.0.0/{}".format(
                         existing_metric
                     )
                     in per_version_time_series_dict.keys()

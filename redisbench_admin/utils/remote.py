@@ -496,6 +496,8 @@ def extract_perversion_timeseries_from_results(
     deployment_type: str,
     test_name: str,
     tf_triggering_env: str,
+    metadata_tags={},
+    build_variant_name=None,
 ):
     break_by_key = "version"
     break_by_str = "by.{}".format(break_by_key)
@@ -511,6 +513,8 @@ def extract_perversion_timeseries_from_results(
         tf_github_org,
         tf_github_repo,
         tf_triggering_env,
+        metadata_tags,
+        build_variant_name,
     )
     return True, branch_time_series_dict
 
@@ -527,6 +531,8 @@ def common_timeseries_extraction(
     tf_github_org,
     tf_github_repo,
     tf_triggering_env,
+    metadata_tags={},
+    build_variant_name=None,
 ):
     branch_time_series_dict = {}
     for jsonpath in metrics:
@@ -567,6 +573,8 @@ def common_timeseries_extraction(
                     timeserie_tags["metric_name"] = metric_name
                     timeserie_tags["metric_context_path"] = metric_context_path
                     timeserie_tags["metric_jsonpath"] = metric_jsonpath
+                    for k, v in metadata_tags.items():
+                        timeserie_tags[k] = v
                     ts_name = get_ts_metric_name(
                         break_by_str,
                         project_version,
@@ -578,6 +586,7 @@ def common_timeseries_extraction(
                         metric_name,
                         metric_context_path,
                         use_metric_context_path,
+                        build_variant_name,
                     )
                     branch_time_series_dict[ts_name] = {
                         "labels": timeserie_tags.copy(),
@@ -616,6 +625,8 @@ def extract_perbranch_timeseries_from_results(
     deployment_type: str,
     test_name: str,
     tf_triggering_env: str,
+    metadata_tags={},
+    build_variant_name=None,
 ):
     break_by_key = "branch"
     break_by_str = "by.{}".format(break_by_key)
@@ -631,6 +642,8 @@ def extract_perbranch_timeseries_from_results(
         tf_github_org,
         tf_github_repo,
         tf_triggering_env,
+        metadata_tags,
+        build_variant_name,
     )
     return True, branch_time_series_dict
 
