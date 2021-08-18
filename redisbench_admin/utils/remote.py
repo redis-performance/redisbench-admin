@@ -566,6 +566,8 @@ def common_timeseries_extraction(
                         tf_github_repo,
                         deployment_type,
                         tf_triggering_env,
+                        metadata_tags,
+                        build_variant_name,
                     )
                     timeserie_tags[break_by_key] = project_version
                     timeserie_tags["test_name"] = str(test_name)
@@ -573,8 +575,7 @@ def common_timeseries_extraction(
                     timeserie_tags["metric_name"] = metric_name
                     timeserie_tags["metric_context_path"] = metric_context_path
                     timeserie_tags["metric_jsonpath"] = metric_jsonpath
-                    for k, v in metadata_tags.items():
-                        timeserie_tags[k] = v
+
                     ts_name = get_ts_metric_name(
                         break_by_str,
                         project_version,
@@ -604,6 +605,8 @@ def get_project_ts_tags(
     tf_github_repo: str,
     deployment_type: str,
     tf_triggering_env: str,
+    metadata_tags={},
+    build_variant_name=None,
 ):
     tags = {
         "github_org": tf_github_org,
@@ -612,6 +615,10 @@ def get_project_ts_tags(
         "deployment_type": deployment_type,
         "triggering_env": tf_triggering_env,
     }
+    if build_variant_name is not None:
+        tags["build_variant"] = build_variant_name
+    for k, v in metadata_tags.items():
+        tags[k] = str(v)
     return tags
 
 
