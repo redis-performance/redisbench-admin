@@ -29,6 +29,8 @@ def redistimeseries_results_logic(
     tf_github_org,
     tf_github_repo,
     tf_triggering_env,
+    metadata_tags={},
+    build_variant_name=None,
 ):
     # check which metrics to extract
     exporter_timemetric_path, metrics = merge_default_and_config_metrics(
@@ -46,6 +48,8 @@ def redistimeseries_results_logic(
         tf_github_repo,
         tf_triggering_env,
         artifact_version,
+        metadata_tags,
+        build_variant_name,
     )
     return per_version_time_series_dict, per_branch_time_series_dict
 
