@@ -147,6 +147,8 @@ def run_remote_command_logic(args, project_name, project_version):
         testcases_setname,
         tsname_project_total_failures,
         tsname_project_total_success,
+        _,
+        _,
     ) = get_overall_dashboard_keynames(tf_github_org, tf_github_repo, tf_triggering_env)
     rts = None
     if args.push_results_redistimeseries:

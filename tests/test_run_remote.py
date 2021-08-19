@@ -94,6 +94,8 @@ def test_get_overall_dashboard_keynames():
         testcases_setname,
         tsname_project_total_failures,
         tsname_project_total_success,
+        _,
+        _,
     ) = get_overall_dashboard_keynames("org", "repo", "env")
     assert "ci.benchmarks.redislabs/env/org/repo:testcases" == testcases_setname
     assert "ci.benchmarks.redislabs/env/org/repo" == prefix
@@ -103,6 +105,34 @@ def test_get_overall_dashboard_keynames():
     )
     assert (
         "ci.benchmarks.redislabs/env/org/repo:total_failures"
+        == tsname_project_total_failures
+    )
+    (
+        prefix,
+        testcases_setname,
+        tsname_project_total_failures,
+        tsname_project_total_success,
+        running_platforms_setname,
+        testcases_build_variant_setname,
+    ) = get_overall_dashboard_keynames(
+        "org",
+        "repo",
+        "env",
+        "build-1",
+    )
+    assert "ci.benchmarks.redislabs/env/org/repo:testcases" == testcases_setname
+    assert "ci.benchmarks.redislabs/env/org/repo:platforms" == running_platforms_setname
+    assert (
+        "ci.benchmarks.redislabs/env/org/repo/build-1:testcases:build_variants"
+        == testcases_build_variant_setname
+    )
+    assert "ci.benchmarks.redislabs/env/org/repo/build-1" == prefix
+    assert (
+        "ci.benchmarks.redislabs/env/org/repo/build-1:total_success"
+        == tsname_project_total_success
+    )
+    assert (
+        "ci.benchmarks.redislabs/env/org/repo/build-1:total_failures"
         == tsname_project_total_failures
     )
 

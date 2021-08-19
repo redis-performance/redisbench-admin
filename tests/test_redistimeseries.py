@@ -47,6 +47,8 @@ def test_timeseries_test_sucess_flow():
                     testcases_setname,
                     tsname_project_total_failures,
                     tsname_project_total_success,
+                    _,
+                    _,
                 ) = get_overall_dashboard_keynames(
                     tf_github_org, tf_github_repo, tf_triggering_env
                 )

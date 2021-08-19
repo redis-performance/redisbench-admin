@@ -498,6 +498,7 @@ def extract_perversion_timeseries_from_results(
     tf_triggering_env: str,
     metadata_tags={},
     build_variant_name=None,
+    running_platform=None,
 ):
     break_by_key = "version"
     break_by_str = "by.{}".format(break_by_key)
@@ -515,6 +516,7 @@ def extract_perversion_timeseries_from_results(
         tf_triggering_env,
         metadata_tags,
         build_variant_name,
+        running_platform,
     )
     return True, branch_time_series_dict
 
@@ -533,6 +535,7 @@ def common_timeseries_extraction(
     tf_triggering_env,
     metadata_tags={},
     build_variant_name=None,
+    running_platform=None,
 ):
     branch_time_series_dict = {}
     for jsonpath in metrics:
@@ -568,6 +571,7 @@ def common_timeseries_extraction(
                         tf_triggering_env,
                         metadata_tags,
                         build_variant_name,
+                        running_platform,
                     )
                     timeserie_tags[break_by_key] = project_version
                     timeserie_tags["test_name"] = str(test_name)
@@ -588,6 +592,7 @@ def common_timeseries_extraction(
                         metric_context_path,
                         use_metric_context_path,
                         build_variant_name,
+                        running_platform,
                     )
                     branch_time_series_dict[ts_name] = {
                         "labels": timeserie_tags.copy(),
@@ -607,6 +612,7 @@ def get_project_ts_tags(
     tf_triggering_env: str,
     metadata_tags={},
     build_variant_name=None,
+    running_platform=None,
 ):
     tags = {
         "github_org": tf_github_org,
@@ -617,6 +623,8 @@ def get_project_ts_tags(
     }
     if build_variant_name is not None:
         tags["build_variant"] = build_variant_name
+    if running_platform is not None:
+        tags["running_platform"] = running_platform
     for k, v in metadata_tags.items():
         tags[k] = str(v)
     return tags
@@ -634,6 +642,7 @@ def extract_perbranch_timeseries_from_results(
     tf_triggering_env: str,
     metadata_tags={},
     build_variant_name=None,
+    running_platform=None,
 ):
     break_by_key = "branch"
     break_by_str = "by.{}".format(break_by_key)
@@ -651,12 +660,25 @@ def extract_perbranch_timeseries_from_results(
         tf_triggering_env,
         metadata_tags,
         build_variant_name,
+        running_platform,
     )
     return True, branch_time_series_dict
 
 
-def get_overall_dashboard_keynames(tf_github_org, tf_github_repo, tf_triggering_env):
-    prefix = (
+def get_overall_dashboard_keynames(
+    tf_github_org,
+    tf_github_repo,
+    tf_triggering_env,
+    build_variant_name=None,
+    running_platform=None,
+):
+    build_variant_str = ""
+    if build_variant_name is not None:
+        build_variant_str = "/{}".format(build_variant_name)
+    running_platform_str = ""
+    if running_platform is not None:
+        running_platform_str = "/{}".format(running_platform)
+    sprefix = (
         "ci.benchmarks.redislabs/"
         + "{triggering_env}/{github_org}/{github_repo}".format(
             triggering_env=tf_triggering_env,
@@ -664,7 +686,19 @@ def get_overall_dashboard_keynames(tf_github_org, tf_github_repo, tf_triggering_
             github_repo=tf_github_repo,
         )
     )
-    testcases_setname = "{}:testcases".format(prefix)
+    testcases_setname = "{}:testcases".format(sprefix)
+    running_platforms_setname = "{}:platforms".format(sprefix)
+    build_variant_prefix = "{sprefix}{build_variant_str}".format(
+        sprefix=sprefix,
+        build_variant_str=build_variant_str,
+    )
+    testcases_build_variant_setname = "{}:testcases:build_variants".format(
+        build_variant_prefix
+    )
+    prefix = "{build_variant_prefix}{running_platform_str}".format(
+        build_variant_prefix=build_variant_prefix,
+        running_platform_str=running_platform_str,
+    )
     tsname_project_total_success = "{}:total_success".format(
         prefix,
     )
@@ -676,6 +710,8 @@ def get_overall_dashboard_keynames(tf_github_org, tf_github_repo, tf_triggering_
         testcases_setname,
         tsname_project_total_failures,
         tsname_project_total_success,
+        running_platforms_setname,
+        testcases_build_variant_setname,
     )
 
 
