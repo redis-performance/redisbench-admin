@@ -31,6 +31,7 @@ def redistimeseries_results_logic(
     tf_triggering_env,
     metadata_tags={},
     build_variant_name=None,
+    running_platform=None,
 ):
     # check which metrics to extract
     exporter_timemetric_path, metrics = merge_default_and_config_metrics(
@@ -50,6 +51,7 @@ def redistimeseries_results_logic(
         artifact_version,
         metadata_tags,
         build_variant_name,
+        running_platform,
     )
     return per_version_time_series_dict, per_branch_time_series_dict
 
@@ -67,6 +69,7 @@ def add_standardized_metric_bybranch(
     tf_triggering_env,
     metadata_tags={},
     build_variant_name=None,
+    running_platform=None,
 ):
     tsname_use_case_duration = get_ts_metric_name(
         "by.branch",
@@ -80,6 +83,7 @@ def add_standardized_metric_bybranch(
         None,
         False,
         build_variant_name,
+        running_platform,
     )
     labels = get_project_ts_tags(
         tf_github_org,
@@ -88,6 +92,7 @@ def add_standardized_metric_bybranch(
         tf_triggering_env,
         metadata_tags,
         build_variant_name,
+        running_platform,
     )
     labels["branch"] = tf_github_branch
     labels["test_name"] = str(test_name)
@@ -130,6 +135,7 @@ def add_standardized_metric_byversion(
     tf_triggering_env,
     metadata_tags={},
     build_variant_name=None,
+    running_platform=None,
 ):
     tsname_use_case_duration = get_ts_metric_name(
         "by.version",
@@ -143,6 +149,7 @@ def add_standardized_metric_byversion(
         None,
         False,
         build_variant_name,
+        running_platform,
     )
     labels = get_project_ts_tags(
         tf_github_org,
@@ -201,6 +208,7 @@ def timeseries_test_sucess_flow(
     tsname_project_total_success,
     metadata_tags={},
     build_variant_name=None,
+    running_platform=None,
 ):
     if push_results_redistimeseries:
         logging.info("Pushing results to RedisTimeSeries.")
@@ -219,6 +227,7 @@ def timeseries_test_sucess_flow(
             tf_triggering_env,
             metadata_tags,
             build_variant_name,
+            running_platform,
         )
         try:
             rts.redis.sadd(testcases_setname, test_name)
@@ -233,6 +242,7 @@ def timeseries_test_sucess_flow(
                     tf_triggering_env,
                     metadata_tags,
                     build_variant_name,
+                    running_platform,
                 ),
             )
             if tf_github_branch is not None and tf_github_branch != "":
@@ -249,6 +259,7 @@ def timeseries_test_sucess_flow(
                     tf_triggering_env,
                     metadata_tags,
                     build_variant_name,
+                    running_platform,
                 )
                 add_standardized_metric_bybranch(
                     "dataset_load_duration",
@@ -263,6 +274,7 @@ def timeseries_test_sucess_flow(
                     tf_triggering_env,
                     metadata_tags,
                     build_variant_name,
+                    running_platform,
                 )
             if artifact_version is not None and artifact_version != "":
                 add_standardized_metric_byversion(
@@ -278,6 +290,7 @@ def timeseries_test_sucess_flow(
                     tf_triggering_env,
                     metadata_tags,
                     build_variant_name,
+                    running_platform,
                 )
                 add_standardized_metric_byversion(
                     "dataset_load_duration",
@@ -292,6 +305,7 @@ def timeseries_test_sucess_flow(
                     tf_triggering_env,
                     metadata_tags,
                     build_variant_name,
+                    running_platform,
                 )
         except redis.exceptions.ResponseError as e:
             logging.warning(

@@ -221,16 +221,20 @@ def get_ts_metric_name(
     metric_context_path=None,
     use_metric_context_path=False,
     build_variant_name=None,
+    running_platform=None,
 ):
     if use_metric_context_path:
         metric_name = "{}/{}".format(metric_name, metric_context_path)
     build_variant_str = ""
     if build_variant_name is not None:
         build_variant_str = "{}/".format(str(build_variant_name))
+    running_platform_str = ""
+    if running_platform is not None:
+        running_platform_str = "{}/".format(str(running_platform))
     ts_name = (
         "ci.benchmarks.redislabs/{by}/"
         "{triggering_env}/{github_org}/{github_repo}/"
-        "{test_name}/{build_variant_str}{deployment_type}/{by_value}/{metric}".format(
+        "{test_name}/{build_variant_str}{running_platform_str}{deployment_type}/{by_value}/{metric}".format(
             by=by,
             triggering_env=tf_triggering_env,
             github_org=tf_github_org,
@@ -238,6 +242,7 @@ def get_ts_metric_name(
             test_name=test_name,
             deployment_type=deployment_type,
             build_variant_str=build_variant_str,
+            running_platform_str=running_platform_str,
             by_value=str(by_value),
             metric=metric_name,
         )
