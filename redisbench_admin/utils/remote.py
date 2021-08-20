@@ -695,6 +695,11 @@ def get_overall_dashboard_keynames(
         )
     )
     testcases_setname = "{}:testcases".format(sprefix)
+    project_archs_setname = "{}:archs".format(sprefix)
+    project_oss_setname = "{}:oss".format(sprefix)
+    project_branches_setname = "{}:branches".format(sprefix)
+    project_versions_setname = "{}:versions".format(sprefix)
+    project_compilers_setname = "{}:compilers".format(sprefix)
     running_platforms_setname = "{}:platforms".format(sprefix)
     build_variant_setname = "{}:build_variants".format(sprefix)
     build_variant_prefix = "{sprefix}{build_variant_str}".format(
@@ -732,6 +737,11 @@ def get_overall_dashboard_keynames(
         build_variant_setname,
         testcases_metric_context_path_setname,
         testcases_and_metric_context_path_setname,
+        project_archs_setname,
+        project_oss_setname,
+        project_branches_setname,
+        project_versions_setname,
+        project_compilers_setname,
     )
 
 

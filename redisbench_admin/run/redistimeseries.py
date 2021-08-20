@@ -247,12 +247,32 @@ def timeseries_test_sucess_flow(
             build_variant_setname,
             testcases_metric_context_path_setname,
             testcases_and_metric_context_path_setname,
+            project_archs_setname,
+            project_oss_setname,
+            project_branches_setname,
+            project_versions_setname,
+            project_compilers_setname,
         ) = get_overall_dashboard_keynames(
-            tf_github_org, tf_github_repo, tf_triggering_env, test_name
+            tf_github_org,
+            tf_github_repo,
+            tf_triggering_env,
+            build_variant_name,
+            running_platform,
+            test_name,
         )
 
         try:
             rts.redis.sadd(testcases_setname, test_name)
+            if "arch" in metadata_tags:
+                rts.redis.sadd(project_archs_setname, metadata_tags["arch"])
+            if "os" in metadata_tags:
+                rts.redis.sadd(project_oss_setname, metadata_tags["os"])
+            if "compiler" in metadata_tags:
+                rts.redis.sadd(project_compilers_setname, metadata_tags["compiler"])
+            if tf_github_branch is not None and tf_github_branch != "":
+                rts.redis.sadd(project_branches_setname, tf_github_branch)
+            if artifact_version is not None and artifact_version != "":
+                rts.redis.sadd(project_versions_setname, artifact_version)
 
             if running_platform is not None:
                 rts.redis.sadd(running_platforms_setname, running_platform)

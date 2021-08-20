@@ -98,6 +98,11 @@ def test_get_overall_dashboard_keynames():
         _,
         _,
         _,
+        _,
+        _,
+        _,
+        _,
+        _,
     ) = get_overall_dashboard_keynames("org", "repo", "env")
     assert "ci.benchmarks.redislabs/env/org/repo:testcases" == testcases_setname
     assert "ci.benchmarks.redislabs/env/org/repo" == prefix
@@ -116,6 +121,11 @@ def test_get_overall_dashboard_keynames():
         tsname_project_total_success,
         running_platforms_setname,
         testcases_build_variant_setname,
+        _,
+        _,
+        _,
+        _,
+        _,
         _,
         _,
     ) = get_overall_dashboard_keynames(
