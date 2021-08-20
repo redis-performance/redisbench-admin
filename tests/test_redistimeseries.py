@@ -51,8 +51,18 @@ def test_timeseries_test_sucess_flow():
                     build_variant_setname,
                     testcases_metric_context_path_setname,
                     testcases_and_metric_context_path_setname,
+                    project_archs_setname,
+                    project_oss_setname,
+                    project_branches_setname,
+                    project_versions_setname,
+                    project_compilers_setname,
                 ) = get_overall_dashboard_keynames(
-                    tf_github_org, tf_github_repo, tf_triggering_env, test_name
+                    tf_github_org,
+                    tf_github_repo,
+                    tf_triggering_env,
+                    "build1",
+                    "platform1",
+                    test_name,
                 )
                 benchmark_duration_seconds = 60
                 dataset_load_duration_seconds = 0
@@ -75,15 +85,28 @@ def test_timeseries_test_sucess_flow():
                     tf_github_org,
                     tf_github_repo,
                     tf_triggering_env,
-                    {},
+                    {"arch": "amd64", "os": "debian:8", "compiler": "gcc"},
                     "build1",
                     "platform1",
                 )
             assert rts.redis.exists(testcases_setname)
             assert rts.redis.exists(running_platforms_setname)
             assert rts.redis.exists(build_variant_setname)
+
+            assert "amd64".encode() in rts.redis.smembers(project_archs_setname)
+            assert "debian:8".encode() in rts.redis.smembers(project_oss_setname)
+            assert "gcc".encode() in rts.redis.smembers(project_compilers_setname)
+            assert project_version.encode() in rts.redis.smembers(
+                project_versions_setname
+            )
+            assert tf_github_branch.encode() in rts.redis.smembers(
+                project_branches_setname
+            )
             assert "build1".encode() in rts.redis.smembers(build_variant_setname)
             assert test_name.encode() in rts.redis.smembers(testcases_setname)
+            assert len(rts.redis.smembers(testcases_setname)) == 1
+            assert len(rts.redis.smembers(project_branches_setname)) == 1
+            assert len(rts.redis.smembers(project_versions_setname)) == 1
             assert "platform1".encode() in rts.redis.smembers(running_platforms_setname)
             assert len(
                 rts.redis.smembers(testcases_and_metric_context_path_setname)
@@ -109,8 +132,8 @@ def test_timeseries_test_sucess_flow():
             ]
             # 2 (branch/version) x ( load time + test time  ) + project successes
             number_of_control_ts = 2 + 2 + 1
-            # set with test names
-            number_of_control_redis = 5
+            # set with test names + per project tag sets ( os, branch, .... )
+            number_of_control_redis = 10
 
             keys = [x.decode() for x in rts.redis.keys()]
             assert (
@@ -135,5 +158,43 @@ def test_timeseries_test_sucess_flow():
             assert (
                 total_by_branch == len(results_dict["Tests"].keys()) * total_metrics + 2
             )
+
+            # test again and change some metadata
+            timeseries_test_sucess_flow(
+                True,
+                project_version,
+                benchmark_config,
+                benchmark_duration_seconds,
+                dataset_load_duration_seconds,
+                metrics,
+                deployment_type,
+                merged_exporter_timemetric_path,
+                results_dict,
+                rts,
+                start_time_ms,
+                test_name,
+                tf_github_branch,
+                tf_github_org,
+                tf_github_repo,
+                tf_triggering_env,
+                {"arch": "arm64", "os": "ubuntu:16.04", "compiler": "icc"},
+                "build",
+                "platform2",
+            )
+            assert "arm64".encode() in rts.redis.smembers(project_archs_setname)
+            assert "ubuntu:16.04".encode() in rts.redis.smembers(project_oss_setname)
+            assert "icc".encode() in rts.redis.smembers(project_compilers_setname)
+            assert "build".encode() in rts.redis.smembers(build_variant_setname)
+            assert "platform2".encode() in rts.redis.smembers(running_platforms_setname)
+
+            assert len(rts.redis.smembers(project_archs_setname)) == 2
+            assert len(rts.redis.smembers(project_oss_setname)) == 2
+            assert len(rts.redis.smembers(project_compilers_setname)) == 2
+            assert len(rts.redis.smembers(build_variant_setname)) == 2
+            assert len(rts.redis.smembers(running_platforms_setname)) == 2
+            assert len(rts.redis.smembers(testcases_setname)) == 1
+            assert len(rts.redis.smembers(project_branches_setname)) == 1
+            assert len(rts.redis.smembers(project_versions_setname)) == 1
+
     except redis.exceptions.ConnectionError:
         pass
