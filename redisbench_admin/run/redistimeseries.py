@@ -12,7 +12,10 @@ from redisbench_admin.run.common import (
     common_exporter_logic,
     get_start_time_vars,
 )
-from redisbench_admin.utils.remote import get_project_ts_tags
+from redisbench_admin.utils.remote import (
+    get_project_ts_tags,
+    get_overall_dashboard_keynames,
+)
 from redisbench_admin.utils.utils import get_ts_metric_name
 
 
@@ -37,7 +40,11 @@ def redistimeseries_results_logic(
     exporter_timemetric_path, metrics = merge_default_and_config_metrics(
         benchmark_config, default_metrics, exporter_timemetric_path
     )
-    per_version_time_series_dict, per_branch_time_series_dict = common_exporter_logic(
+    (
+        per_version_time_series_dict,
+        per_branch_time_series_dict,
+        testcase_metric_context_paths,
+    ) = common_exporter_logic(
         deployment_type,
         exporter_timemetric_path,
         metrics,
@@ -53,7 +60,11 @@ def redistimeseries_results_logic(
         build_variant_name,
         running_platform,
     )
-    return per_version_time_series_dict, per_branch_time_series_dict
+    return (
+        per_version_time_series_dict,
+        per_branch_time_series_dict,
+        testcase_metric_context_paths,
+    )
 
 
 def add_standardized_metric_bybranch(
@@ -200,19 +211,17 @@ def timeseries_test_sucess_flow(
     rts,
     start_time_ms,
     test_name,
-    testcases_setname,
     tf_github_branch,
     tf_github_org,
     tf_github_repo,
     tf_triggering_env,
-    tsname_project_total_success,
     metadata_tags={},
     build_variant_name=None,
     running_platform=None,
 ):
     if push_results_redistimeseries:
         logging.info("Pushing results to RedisTimeSeries.")
-        redistimeseries_results_logic(
+        _, _, testcase_metric_context_paths = redistimeseries_results_logic(
             artifact_version,
             benchmark_config,
             default_metrics,
@@ -229,8 +238,34 @@ def timeseries_test_sucess_flow(
             build_variant_name,
             running_platform,
         )
+        (
+            _,
+            testcases_setname,
+            _,
+            tsname_project_total_success,
+            running_platforms_setname,
+            build_variant_setname,
+            testcases_metric_context_path_setname,
+            testcases_and_metric_context_path_setname,
+        ) = get_overall_dashboard_keynames(
+            tf_github_org, tf_github_repo, tf_triggering_env, test_name
+        )
+
         try:
             rts.redis.sadd(testcases_setname, test_name)
+
+            if running_platform is not None:
+                rts.redis.sadd(running_platforms_setname, running_platform)
+            if build_variant_name is not None:
+                rts.redis.sadd(build_variant_setname, build_variant_name)
+            for metric_context_path in testcase_metric_context_paths:
+                rts.redis.sadd(
+                    testcases_metric_context_path_setname, metric_context_path
+                )
+                rts.redis.sadd(
+                    testcases_and_metric_context_path_setname,
+                    "{}:{}".format(test_name, metric_context_path),
+                )
             rts.incrby(
                 tsname_project_total_success,
                 1,

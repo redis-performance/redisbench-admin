@@ -251,6 +251,7 @@ def common_exporter_logic(
 ):
     per_version_time_series_dict = None
     per_branch_time_series_dict = None
+    testcase_metric_context_paths = []
 
     if exporter_timemetric_path is not None and len(metrics) > 0:
         # extract timestamp
@@ -279,6 +280,7 @@ def common_exporter_logic(
                 metadata_tags,
                 build_variant_name,
                 running_platform,
+                testcase_metric_context_paths,
             )
             if ok:
                 # push per-version data
@@ -298,6 +300,7 @@ def common_exporter_logic(
                 metadata_tags,
                 build_variant_name,
                 running_platform,
+                testcase_metric_context_paths,
             )
             if ok:
                 # push per-branch data
@@ -314,7 +317,11 @@ def common_exporter_logic(
             "Requested to push data to RedisTimeSeries but "
             'no exporter definition was found. Missing "exporter" config.'
         )
-    return per_version_time_series_dict, per_branch_time_series_dict
+    return (
+        per_version_time_series_dict,
+        per_branch_time_series_dict,
+        testcase_metric_context_paths,
+    )
 
 
 def get_start_time_vars(start_time=None):
