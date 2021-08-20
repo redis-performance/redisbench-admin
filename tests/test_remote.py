@@ -144,6 +144,7 @@ def test_extract_perversion_timeseries_from_results():
             (
                 per_version_time_series_dict,
                 per_branch_time_series_dict,
+                _,
             ) = redistimeseries_results_logic(
                 "1.0.0",
                 benchmark_config,

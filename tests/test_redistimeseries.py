@@ -47,14 +47,15 @@ def test_timeseries_test_sucess_flow():
                     testcases_setname,
                     tsname_project_total_failures,
                     tsname_project_total_success,
-                    _,
-                    _,
+                    running_platforms_setname,
+                    build_variant_setname,
+                    testcases_metric_context_path_setname,
+                    testcases_and_metric_context_path_setname,
                 ) = get_overall_dashboard_keynames(
-                    tf_github_org, tf_github_repo, tf_triggering_env
+                    tf_github_org, tf_github_repo, tf_triggering_env, test_name
                 )
                 benchmark_duration_seconds = 60
                 dataset_load_duration_seconds = 0
-                tsname_project_total_success = 1
                 _, start_time_ms, testcase_start_time_str = get_start_time_vars()
 
                 timeseries_test_sucess_flow(
@@ -70,21 +71,46 @@ def test_timeseries_test_sucess_flow():
                     rts,
                     start_time_ms,
                     test_name,
-                    testcases_setname,
                     tf_github_branch,
                     tf_github_org,
                     tf_github_repo,
                     tf_triggering_env,
-                    tsname_project_total_success,
+                    {},
+                    "build1",
+                    "platform1",
                 )
             assert rts.redis.exists(testcases_setname)
+            assert rts.redis.exists(running_platforms_setname)
+            assert rts.redis.exists(build_variant_setname)
+            assert "build1".encode() in rts.redis.smembers(build_variant_setname)
+            assert test_name.encode() in rts.redis.smembers(testcases_setname)
+            assert "platform1".encode() in rts.redis.smembers(running_platforms_setname)
+            assert len(
+                rts.redis.smembers(testcases_and_metric_context_path_setname)
+            ) == len(results_dict["Tests"].keys())
+            testcases_and_metric_context_path_members = [
+                x.decode()
+                for x in rts.redis.smembers(testcases_and_metric_context_path_setname)
+            ]
+            metric_context_path_members = [
+                x.decode()
+                for x in rts.redis.smembers(testcases_metric_context_path_setname)
+            ]
+            for metric_context_path in results_dict["Tests"].keys():
+                assert (
+                    "{}:{}".format(test_name, metric_context_path)
+                    in testcases_and_metric_context_path_members
+                )
+            for metric_context_path in results_dict["Tests"].keys():
+                assert metric_context_path in metric_context_path_members
+
             assert [x.decode() for x in rts.redis.smembers(testcases_setname)] == [
                 test_name
             ]
             # 2 (branch/version) x ( load time + test time  ) + project successes
             number_of_control_ts = 2 + 2 + 1
             # set with test names
-            number_of_control_redis = 1
+            number_of_control_redis = 5
 
             keys = [x.decode() for x in rts.redis.keys()]
             assert (

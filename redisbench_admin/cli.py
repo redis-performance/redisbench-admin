@@ -177,11 +177,7 @@ def print_version(project_name, project_version):
 
 
 def print_help(project_name, project_version):
-    print(
-        "{project_name} {project_version}".format(
-            project_name=project_name, project_version=project_version
-        )
-    )
+    print_version(project_name, project_version)
     print("usage: {project_name} <tool> <args>...".format(project_name=project_name))
     print(
         "\t-) To know more on how to run benchmarks: {project_name} run-remote/run-local --help".format(

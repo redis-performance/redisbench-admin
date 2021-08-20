@@ -499,6 +499,7 @@ def extract_perversion_timeseries_from_results(
     metadata_tags={},
     build_variant_name=None,
     running_platform=None,
+    testcase_metric_context_paths=[],
 ):
     break_by_key = "version"
     break_by_str = "by.{}".format(break_by_key)
@@ -517,6 +518,7 @@ def extract_perversion_timeseries_from_results(
         metadata_tags,
         build_variant_name,
         running_platform,
+        testcase_metric_context_paths,
     )
     return True, branch_time_series_dict
 
@@ -536,6 +538,7 @@ def common_timeseries_extraction(
     metadata_tags={},
     build_variant_name=None,
     running_platform=None,
+    testcase_metric_context_paths=[],
 ):
     branch_time_series_dict = {}
     for jsonpath in metrics:
@@ -579,6 +582,8 @@ def common_timeseries_extraction(
                     timeserie_tags["metric_name"] = metric_name
                     timeserie_tags["metric_context_path"] = metric_context_path
                     timeserie_tags["metric_jsonpath"] = metric_jsonpath
+                    if metric_context_path not in testcase_metric_context_paths:
+                        testcase_metric_context_paths.append(metric_context_path)
 
                     ts_name = get_ts_metric_name(
                         break_by_str,
@@ -643,6 +648,7 @@ def extract_perbranch_timeseries_from_results(
     metadata_tags={},
     build_variant_name=None,
     running_platform=None,
+    testcase_metric_context_paths=[],
 ):
     break_by_key = "branch"
     break_by_str = "by.{}".format(break_by_key)
@@ -661,6 +667,7 @@ def extract_perbranch_timeseries_from_results(
         metadata_tags,
         build_variant_name,
         running_platform,
+        testcase_metric_context_paths,
     )
     return True, branch_time_series_dict
 
@@ -671,6 +678,7 @@ def get_overall_dashboard_keynames(
     tf_triggering_env,
     build_variant_name=None,
     running_platform=None,
+    test_name=None,
 ):
     build_variant_str = ""
     if build_variant_name is not None:
@@ -688,12 +696,10 @@ def get_overall_dashboard_keynames(
     )
     testcases_setname = "{}:testcases".format(sprefix)
     running_platforms_setname = "{}:platforms".format(sprefix)
+    build_variant_setname = "{}:build_variants".format(sprefix)
     build_variant_prefix = "{sprefix}{build_variant_str}".format(
         sprefix=sprefix,
         build_variant_str=build_variant_str,
-    )
-    testcases_build_variant_setname = "{}:testcases:build_variants".format(
-        build_variant_prefix
     )
     prefix = "{build_variant_prefix}{running_platform_str}".format(
         build_variant_prefix=build_variant_prefix,
@@ -705,13 +711,27 @@ def get_overall_dashboard_keynames(
     tsname_project_total_failures = "{}:total_failures".format(
         prefix,
     )
+    testcases_metric_context_path_setname = ""
+    if test_name is None:
+        testcases_metric_context_path_setname = (
+            "{testcases_setname}:metric_context_path:{test_name}".format(
+                testcases_setname=testcases_setname, test_name=test_name
+            )
+        )
+    testcases_and_metric_context_path_setname = (
+        "{testcases_setname}_AND_metric_context_path".format(
+            testcases_setname=testcases_setname
+        )
+    )
     return (
         prefix,
         testcases_setname,
         tsname_project_total_failures,
         tsname_project_total_success,
         running_platforms_setname,
-        testcases_build_variant_setname,
+        build_variant_setname,
+        testcases_metric_context_path_setname,
+        testcases_and_metric_context_path_setname,
     )
 
 

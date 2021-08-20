@@ -143,10 +143,12 @@ def run_remote_command_logic(args, project_name, project_version):
     remote_envs = {}
     dirname = "."
     (
-        prefix,
-        testcases_setname,
+        _,
+        _,
         tsname_project_total_failures,
-        tsname_project_total_success,
+        _,
+        _,
+        _,
         _,
         _,
     ) = get_overall_dashboard_keynames(tf_github_org, tf_github_repo, tf_triggering_env)
@@ -480,12 +482,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                 rts,
                                 start_time_ms,
                                 test_name,
-                                testcases_setname,
                                 tf_github_branch,
                                 tf_github_org,
                                 tf_github_repo,
                                 tf_triggering_env,
-                                tsname_project_total_success,
                             )
 
                         except:
