@@ -89,6 +89,9 @@ def test_timeseries_test_sucess_flow():
                     "build1",
                     "platform1",
                 )
+
+            assert rts.redis.exists(testcases_and_metric_context_path_setname)
+            assert rts.redis.exists(testcases_metric_context_path_setname)
             assert rts.redis.exists(testcases_setname)
             assert rts.redis.exists(running_platforms_setname)
             assert rts.redis.exists(build_variant_setname)
@@ -126,7 +129,9 @@ def test_timeseries_test_sucess_flow():
                 )
             for metric_context_path in results_dict["Tests"].keys():
                 assert metric_context_path in metric_context_path_members
-
+            assert len(metric_context_path_members) == len(
+                testcases_and_metric_context_path_members
+            )
             assert [x.decode() for x in rts.redis.smembers(testcases_setname)] == [
                 test_name
             ]
