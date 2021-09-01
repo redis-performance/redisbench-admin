@@ -22,18 +22,23 @@ def generate_pprof_cmd_args(
     edge_fraction=0.01,
     node_fraction=0.01,
 ):
-    cmd = [
-        pprof_bin,
-        format,
-        "-edgefraction",
-        "{}".format(edge_fraction),
-        "-nodefraction",
-        "{}".format(node_fraction),
-        "-output",
-        "{}".format(output),
-        main_binary,
-        profile,
-    ]
+    cmd = [pprof_bin]
+    if type(format) == str:
+        cmd.extend([format])
+    if type(format) == list:
+        cmd.extend(format)
+    cmd.extend(
+        [
+            "-edgefraction",
+            "{}".format(edge_fraction),
+            "-nodefraction",
+            "{}".format(node_fraction),
+            "-output",
+            "{}".format(output),
+            main_binary,
+            profile,
+        ]
+    )
     return cmd
 
 

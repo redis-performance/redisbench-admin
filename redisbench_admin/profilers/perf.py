@@ -359,9 +359,24 @@ class Perf:
                     self.output,
                 )
                 result &= artifact_result
-
                 if artifact_result is True:
                     outputs["Top entries in text form"] = pprof_artifact_text_output
+
+                logging.info("Generating pprof per LOC text output")
+                pprof_text_output = self.output + ".pprof.LOC.txt"
+                artifact_result, pprof_artifact_text_output = run_pprof(
+                    self.pprof_bin,
+                    [PPROF_FORMAT_TEXT, "-lines"],
+                    pprof_text_output,
+                    binary,
+                    self.output,
+                )
+                result &= artifact_result
+                if artifact_result is True:
+                    outputs[
+                        "Top entries in text form by LOC"
+                    ] = pprof_artifact_text_output
+
                 logging.info("Generating pprof png output")
                 pprof_png_output = self.output + ".pprof.png"
                 artifact_result, pprof_artifact_png_output = run_pprof(

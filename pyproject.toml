@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "redisbench-admin"
-version = "0.4.16"
+version = "0.4.17"
 description = "Redis benchmark run helper. A wrapper around Redis and Redis Modules benchmark tools ( ftsb_redisearch, memtier_benchmark, redis-benchmark, aibench, etc... )."
-authors = ["filipecosta90 <filipecosta.90@gmail.com>"]
+authors = ["filipecosta90 <filipecosta.90@gmail.com>","Redis Performance Group <performance@redis.com>"]
 readme = "README.md"
 
 [tool.poetry.scripts]
