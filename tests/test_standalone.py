@@ -45,7 +45,7 @@ def get_test_data_module():
 
 
 def test_spin_up_standalone_remote_redis():
-    port = 22
+    port = 2222
     username = "ubuntu"
     private_key = "./tests/test_data/test-ssh/tox_rsa"
     server_public_ip = "localhost"
