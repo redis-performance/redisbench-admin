@@ -1,8 +1,4 @@
 import os
-import tarfile
-from io import BytesIO
-from time import sleep
-
 import yaml
 
 from redisbench_admin.run_local.local_helpers import (
@@ -30,23 +26,3 @@ def test_check_benchmark_binaries_local_requirements():
             "./binaries/ycsb-redisearch-binding-0.18.0-SNAPSHOT"
         )
         assert benchmark_tool == "ycsb"
-
-
-#
-# def test_run_local_command_logic():
-#     LD_LIBRARY_PATH = "/usr/lib/redis/modules"
-#     import docker
-#
-#     client = docker.from_env()
-#     container = client.containers.run("redislabs/redistimeseries:edge", detach=True)
-#     sleep(5)
-#     module_file_stream, file_stats = container.get_archive(
-#         "{}/{}".format(LD_LIBRARY_PATH, "redistimeseries.so")
-#     )
-#     file_obj = BytesIO()
-#     for i in module_file_stream:
-#         file_obj.write(i)
-#     file_obj.seek(0)
-#     with open("test.so", "wb") as fo:
-#         fo.write(file_obj.read())
-#     container.stop()

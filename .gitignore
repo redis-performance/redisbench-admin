@@ -15,6 +15,7 @@ utilities/redis_benchmarks_specification/__pycache__/
 
 # C extensions
 *.so
+*.so.1
 
 # Distribution / packaging
 .Python

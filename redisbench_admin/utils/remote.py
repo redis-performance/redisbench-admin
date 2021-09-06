@@ -14,7 +14,6 @@ import git
 import paramiko
 import pysftp
 import redis
-import redistimeseries.client as client
 from git import Repo
 from jsonpath_ng import parse
 from python_terraform import Terraform
@@ -49,7 +48,13 @@ def view_bar_simple(a, b):
 
 
 def copy_file_to_remote_setup(
-    server_public_ip, username, private_key, local_file, remote_file, dirname=None
+    server_public_ip,
+    username,
+    private_key,
+    local_file,
+    remote_file,
+    dirname=None,
+    port=22,
 ):
     full_local_path = local_file
     if dirname is not None:
@@ -70,6 +75,7 @@ def copy_file_to_remote_setup(
             username=username,
             private_key=private_key,
             cnopts=cnopts,
+            port=port,
         )
         srv.put(full_local_path, remote_file, callback=view_bar_simple)
         srv.close()
@@ -111,13 +117,13 @@ def fetch_file_from_remote_setup(
     )
 
 
-def execute_remote_commands(server_public_ip, username, private_key, commands):
+def execute_remote_commands(server_public_ip, username, private_key, commands, port=22):
     res = []
     k = paramiko.RSAKey.from_private_key_file(private_key)
     c = paramiko.SSHClient()
     c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     logging.info("Connecting to remote server {}".format(server_public_ip))
-    c.connect(hostname=server_public_ip, username=username, pkey=k)
+    c.connect(hostname=server_public_ip, port=port, username=username, pkey=k)
     logging.info("Connected to remote server {}".format(server_public_ip))
     for command in commands:
         logging.info('Executing remote command "{}"'.format(command))
@@ -439,7 +445,7 @@ def fetch_remote_setup_from_config(
     return terraform_working_dir, setup_type, setup
 
 
-def push_data_to_redistimeseries(rts: client, branch_time_series_dict: dict):
+def push_data_to_redistimeseries(rts, branch_time_series_dict: dict):
     datapoint_errors = 0
     datapoint_inserts = 0
     if rts is not None:
