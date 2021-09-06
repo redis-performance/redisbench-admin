@@ -22,7 +22,13 @@ ENV = os.getenv("ENV", "oss-standalone,oss-cluster")
 
 
 def create_run_remote_arguments(parser):
-    parser.add_argument("--module_path", type=str, required=False)
+    parser.add_argument(
+        "--module_path",
+        required=False,
+        default=None,
+        action="append",
+        help="path to the module file. " "You can use `--module_path` more than once. ",
+    )
     parser.add_argument(
         "--dbdir_folder",
         type=str,

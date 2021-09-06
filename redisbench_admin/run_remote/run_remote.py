@@ -36,7 +36,7 @@ from redisbench_admin.run.s3 import get_test_s3_bucket_path
 from redisbench_admin.run.ssh import ssh_tunnel_redisconn, ssh_pem_check
 from redisbench_admin.run_remote.consts import (
     remote_dataset_file,
-    remote_module_file,
+    remote_module_file_dir,
     private_key,
 )
 from redisbench_admin.run_remote.remote_failures import failed_remote_run_artifact_store
@@ -96,23 +96,26 @@ def run_remote_command_logic(args, project_name, project_version):
     tf_triggering_env = args.triggering_env
     tf_setup_name_sufix = "{}-{}".format(args.setup_name_sufix, tf_github_sha)
     s3_bucket_name = args.s3_bucket_name
-    local_module_file = args.module_path
+    local_module_files = args.module_path
     dbdir_folder = args.dbdir_folder
 
     if args.skip_env_vars_verify is False:
         check_ec2_env()
 
-    logging.info("Using the following module artifact: {}".format(local_module_file))
-    logging.info("Checking if module artifact exists...")
-    if os.path.exists(local_module_file) is False:
-        logging.error(
-            "Specified module artifact does not exist: {}".format(local_module_file)
-        )
-        exit(1)
-    else:
+    logging.info("Using the following module artifacts: {}".format(local_module_files))
+    for local_module_file in local_module_files:
         logging.info(
-            "Confirmed that module artifact: '{}' exists!".format(local_module_file)
+            "Checking if module artifact {} exists...".format(local_module_file)
         )
+        if os.path.exists(local_module_file) is False:
+            logging.error(
+                "Specified module artifact does not exist: {}".format(local_module_file)
+            )
+            exit(1)
+        else:
+            logging.info(
+                "Confirmed that module artifact: '{}' exists!".format(local_module_file)
+            )
 
     logging.info("Using the following vars on terraform deployment:")
     logging.info("\tterraform bin path: {}".format(tf_bin_path))
@@ -253,8 +256,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                     server_public_ip,
                                     username,
                                     private_key,
-                                    local_module_file,
-                                    remote_module_file,
+                                    local_module_files,
+                                    remote_module_file_dir,
                                     remote_dataset_file,
                                     logname,
                                     dirname,
@@ -292,8 +295,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                     server_public_ip,
                                     username,
                                     private_key,
-                                    local_module_file,
-                                    remote_module_file,
+                                    local_module_files,
+                                    remote_module_file_dir,
                                     remote_dataset_file,
                                     logname,
                                     dirname,
@@ -336,7 +339,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                 startup_nodes = cluster_init_steps(
                                     args,
                                     clusterconfig,
-                                    local_module_file,
+                                    local_module_files,
                                     r_conns,
                                     shard_count,
                                     contains_rdb,

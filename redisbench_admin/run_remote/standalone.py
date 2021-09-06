@@ -5,6 +5,7 @@
 #
 #
 import logging
+import os
 
 from redisbench_admin.utils.remote import (
     check_dataset_remote_requirements,
@@ -19,13 +20,14 @@ def spin_up_standalone_remote_redis(
     server_public_ip,
     username,
     private_key,
-    local_module_file,
-    remote_module_file,
+    local_module_files,
+    remote_module_file_dir,
     remote_dataset_file,
     logfile,
     dirname=".",
     redis_configuration_parameters=None,
     dbdir_folder=None,
+    port=22,
 ):
     # copy the rdb to DB machine
     _, dataset, _, _ = check_dataset_remote_requirements(
@@ -60,24 +62,30 @@ def spin_up_standalone_remote_redis(
             initial_redis_cmd += " --{} {}".format(
                 configuration_parameter, configuration_value
             )
-
-    # copy the module to the DB machine
-    if remote_module_file is not None:
-        copy_file_to_remote_setup(
-            server_public_ip,
-            username,
-            private_key,
-            local_module_file,
-            remote_module_file,
-        )
-        execute_remote_commands(
-            server_public_ip,
-            username,
-            private_key,
-            ["chmod 755 {}".format(remote_module_file)],
-        )
-        initial_redis_cmd += " --loadmodule {}".format(remote_module_file)
+    if local_module_files is not None:
+        for local_module_file in local_module_files:
+            remote_module_file = "{}/{}".format(
+                remote_module_file_dir, os.path.basename(local_module_file)
+            )
+            # copy the module to the DB machine
+            copy_file_to_remote_setup(
+                server_public_ip,
+                username,
+                private_key,
+                local_module_file,
+                remote_module_file,
+                None,
+                port,
+            )
+            execute_remote_commands(
+                server_public_ip,
+                username,
+                private_key,
+                ["chmod 755 {}".format(remote_module_file)],
+                port,
+            )
+            initial_redis_cmd += " --loadmodule {}".format(remote_module_file)
     # start redis-server
     commands = [initial_redis_cmd]
-    execute_remote_commands(server_public_ip, username, private_key, commands)
+    execute_remote_commands(server_public_ip, username, private_key, commands, port)
     return full_logfile, dataset
