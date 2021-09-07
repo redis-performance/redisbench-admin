@@ -27,6 +27,15 @@ def local_profilers_print_artifacts_table(profilers_artifacts_matrix):
     writer.write_table()
 
 
+def get_profilers_rts_key_prefix(triggering_env, tf_github_org, tf_github_repo):
+    zset_name = "ci.benchmarks.redis.com/{triggering_env}/{github_org}/{github_repo}:profiles".format(
+        triggering_env=triggering_env,
+        github_org=tf_github_org,
+        github_repo=tf_github_repo,
+    )
+    return zset_name
+
+
 def local_profilers_stop_if_required(
     args,
     benchmark_duration_seconds,
@@ -42,8 +51,9 @@ def local_profilers_stop_if_required(
     s3_bucket_name,
     test_name,
 ):
+    overall_artifacts_map = {}
+    overall_tabular_data_map = {}
     if profilers_enabled:
-        overall_artifacts_map = {}
         expected_min_duration = 60
         if benchmark_duration_seconds < expected_min_duration:
             logging.warning(
@@ -90,6 +100,7 @@ def local_profilers_stop_if_required(
                     (
                         profile_res,
                         profile_res_artifacts_map,
+                        tabular_data_map,
                     ) = profiler_obj.generate_outputs(
                         test_name,
                         details=collection_summary_str,
@@ -99,13 +110,16 @@ def local_profilers_stop_if_required(
                     )
                     if profile_res is True:
                         logging.info(
-                            "Profiler {} for pid {} ran successfully and generated {} artifacts.".format(
+                            "Profiler {} for pid {} ran successfully and generated {} artifacts. Generated also {} tables with data(keys:{}).".format(
                                 profiler_name,
                                 profiler_obj.pid,
                                 len(profile_res_artifacts_map.values()),
+                                len(tabular_data_map.values()),
+                                ",".join(tabular_data_map.keys()),
                             )
                         )
                         overall_artifacts_map.update(profile_res_artifacts_map)
+                        overall_tabular_data_map.update(tabular_data_map)
 
         for (
             artifact_name,
@@ -133,6 +147,7 @@ def local_profilers_stop_if_required(
                     s3_link,
                 ]
             )
+    return overall_artifacts_map, overall_tabular_data_map
 
 
 def local_profilers_start_if_required(

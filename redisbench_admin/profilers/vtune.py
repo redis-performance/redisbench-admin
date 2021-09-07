@@ -137,10 +137,11 @@ class Vtune:
 
     def generate_outputs(self, use_case, **kwargs):
         outputs = {}
+        tabular_data_map = {}
         # binary = kwargs.get("binary")
         # details = kwargs.get("details")
         # if details is None:
         #     details = ""
         result = True
 
-        return result, outputs
+        return result, outputs, tabular_data_map

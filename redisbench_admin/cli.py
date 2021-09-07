@@ -18,6 +18,8 @@ from redisbench_admin.export.args import create_export_arguments
 from redisbench_admin.export.export import export_command_logic
 from redisbench_admin.extract.args import create_extract_arguments
 from redisbench_admin.extract.extract import extract_command_logic
+from redisbench_admin.grafana_api.args import create_grafana_api_arguments
+from redisbench_admin.grafana_api.grafana_api import grafana_api_command_logic
 from redisbench_admin.run_local.args import create_run_local_arguments
 from redisbench_admin.run_local.run_local import run_local_command_logic
 from redisbench_admin.run_remote.args import create_run_remote_arguments
@@ -84,6 +86,8 @@ def main():
         parser = create_compare_arguments(parser)
     elif requested_tool == "watchdog":
         parser = create_watchdog_arguments(parser)
+    elif requested_tool == "grafana-api":
+        parser = create_grafana_api_arguments(parser)
     elif requested_tool == "--version":
         print_version(project_name, project_version)
         sys.exit(0)
@@ -98,6 +102,7 @@ def main():
             "export",
             "extract",
             "watchdog",
+            "grafana-json-ds",
         ]
         print_invalid_tool_option(requested_tool, valid_tool_options)
         sys.exit(1)
@@ -144,6 +149,8 @@ def main():
         watchdog_command_logic(args, project_name, project_version)
     if requested_tool == "compare":
         compare_command_logic(args, project_name, project_version)
+    if requested_tool == "grafana-api":
+        grafana_api_command_logic(args, project_name, project_version)
 
 
 def print_stdout_effective_log_level():

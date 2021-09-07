@@ -6,6 +6,14 @@
 
 import os
 
+from redisbench_admin.run_remote.args import TRIGGERING_ENV
+from redisbench_admin.utils.remote import (
+    PERFORMANCE_RTS_HOST,
+    PERFORMANCE_RTS_AUTH,
+    PERFORMANCE_RTS_PUSH,
+    PERFORMANCE_RTS_PORT,
+)
+
 from redisbench_admin.profilers.profilers import (
     PROFILERS_DEFAULT,
     ALLOWED_PROFILERS,
@@ -86,5 +94,21 @@ def create_run_local_arguments(parser):
         type=str,
         default=ENV,
         help="Comma delimited allowed setups: 'oss-standalone','oss-cluster'",
+    )
+    parser.add_argument("--triggering_env", type=str, default=TRIGGERING_ENV)
+    parser.add_argument(
+        "--redistimeseries_host", type=str, default=PERFORMANCE_RTS_HOST
+    )
+    parser.add_argument(
+        "--redistimeseries_port", type=int, default=PERFORMANCE_RTS_PORT
+    )
+    parser.add_argument(
+        "--redistimeseries_pass", type=str, default=PERFORMANCE_RTS_AUTH
+    )
+    parser.add_argument(
+        "--push_results_redistimeseries",
+        default=PERFORMANCE_RTS_PUSH,
+        action="store_true",
+        help="uploads the results to RedisTimeSeries. Proper credentials are required",
     )
     return parser
