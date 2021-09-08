@@ -90,8 +90,8 @@ def prepare_benchmark_parameters(
         )
     printed_command_str = command_str
     printed_command_arr = command_arr
-    if len(command_str) > 200:
-        printed_command_str = command_str[:200] + "... (trimmed output) ..."
+    if len(command_str) > 500:
+        printed_command_str = command_str[:500] + "... (trimmed output) ..."
         printed_command_arr = printed_command_arr[:1] + ["(...) trimmed output...."]
     logging.info(
         "Running the benchmark with the following parameters:\n\tArgs array: {}\n\tArgs str: {}".format(
@@ -134,8 +134,8 @@ def prepare_benchmark_parameters_specif_tooling(
         )
     if "ycsb" in benchmark_tool:
         if isremote is True:
-            benchmark_tool = "/tmp/ycsb-redisearch-binding-0.18.0-SNAPSHOT/bin/ycsb"
-            current_workdir = "/tmp/ycsb-redisearch-binding-0.18.0-SNAPSHOT"
+            benchmark_tool = "/tmp/ycsb/bin/ycsb"
+            current_workdir = "/tmp/ycsb"
         command_arr, command_str = prepare_ycsb_benchmark_command(
             benchmark_tool,
             server_private_ip,

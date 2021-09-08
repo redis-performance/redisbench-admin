@@ -23,10 +23,11 @@ def setup_remote_benchmark_tool_ycsb_redisearch(
     client_public_ip,
     username,
     private_key,
-    tool_link="https://s3.amazonaws.com/benchmarks.redislabs/redisearch/ycsb/ycsb-redisearch-binding-0.18.0-SNAPSHOT.tar.gz",
+    tool_link,
 ):
     commands = [
         "wget {} -q -O /tmp/ycsb.tar.gz".format(tool_link),
         "tar -xvf /tmp/ycsb.tar.gz -C /tmp",
+        "mv /tmp/ycsb-* /tmp/ycsb",
     ]
     execute_remote_commands(client_public_ip, username, private_key, commands)

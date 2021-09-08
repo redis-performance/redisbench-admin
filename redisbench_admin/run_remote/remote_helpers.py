@@ -61,6 +61,7 @@ def remote_tool_pre_bench_step(
     benchmark_tool,
     client_public_ip,
     username,
+    benchmark_tool_source,
 ):
     logging.info("Settting up remote tool {} requirements".format(benchmark_tool))
     if benchmark_tool == "redisgraph-benchmark-go":
@@ -75,6 +76,7 @@ def remote_tool_pre_bench_step(
             client_public_ip,
             username,
             private_key,
+            benchmark_tool_source,
         )
 
     if "ftsb_" in benchmark_tool:

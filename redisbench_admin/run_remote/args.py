@@ -7,6 +7,11 @@ import os
 import socket
 
 # environment variables
+from redisbench_admin.run_remote.consts import (
+    SERVER_PRV_IP_KEY,
+    SERVER_PUB_IP_KEY,
+    CLIENT_PUB_IP_KEY,
+)
 from redisbench_admin.utils.remote import (
     TERRAFORM_BIN_PATH,
     PERFORMANCE_RTS_HOST,
@@ -18,10 +23,31 @@ from redisbench_admin.utils.remote import (
 
 DEFAULT_TRIGGERING_ENV = socket.gethostname()
 TRIGGERING_ENV = os.getenv("TRIGGERING_ENV", DEFAULT_TRIGGERING_ENV)
+REMOTE_INVENTORY = os.getenv("INVENTORY", None)
+REMOTE_USER = os.getenv("REMOTE_USER", "ubuntu")
 ENV = os.getenv("ENV", "oss-standalone,oss-cluster")
 
 
 def create_run_remote_arguments(parser):
+    minimum_required_inv = "=<value>,".join(
+        [SERVER_PRV_IP_KEY, SERVER_PUB_IP_KEY, CLIENT_PUB_IP_KEY, ""]
+    )
+    parser.add_argument(
+        "--inventory",
+        required=False,
+        default=REMOTE_INVENTORY,
+        type=str,
+        help="specify comma separated kv hosts in the format k=v. At least the following keys should be present: {}".format(
+            minimum_required_inv
+        ),
+    )
+    parser.add_argument(
+        "--user",
+        required=False,
+        default=REMOTE_USER,
+        type=str,
+        help="connect as this user.",
+    )
     parser.add_argument(
         "--module_path",
         required=False,

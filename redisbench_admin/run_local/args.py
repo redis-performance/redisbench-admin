@@ -21,6 +21,7 @@ from redisbench_admin.profilers.profilers import (
 )
 
 PUSH_S3 = bool(os.getenv("PUSH_S3", False))
+PROFILERS_DSO = os.getenv("PROFILERS_DSO", None)
 PROFILERS_ENABLED = bool(os.getenv("PROFILE", 0))
 PROFILERS = os.getenv("PROFILERS", PROFILERS_DEFAULT)
 MAX_PROFILERS_PER_TYPE = int(os.getenv("MAX_PROFILERS", 1))
@@ -36,7 +37,7 @@ def create_run_local_arguments(parser):
         action="append",
         help="path to the module file. " "You can use `--module_path` more than once. ",
     )
-    parser.add_argument("--dso", type=str, required=False, default=None)
+    parser.add_argument("--dso", type=str, required=False, default=PROFILERS_DSO)
     parser.add_argument(
         "--dbdir_folder",
         type=str,
