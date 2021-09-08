@@ -26,6 +26,7 @@ def setup_remote_benchmark_tool_ycsb_redisearch(
     tool_link,
 ):
     commands = [
+        "rm -rf /tmp/ycsb*",
         "wget {} -q -O /tmp/ycsb.tar.gz".format(tool_link),
         "tar -xvf /tmp/ycsb.tar.gz -C /tmp",
         "mv /tmp/ycsb-* /tmp/ycsb",
