@@ -1,0 +1,18 @@
+File: redistimeseries.so
+Build ID: 2767e36bd5633a8780efcf14c8cce3dfbf1f874d
+perf-version:5.4.128
+perf-command:/usr/lib/linux-hwe-5.4-tools-5.4.0-81/perf record -e cycles:pp -g --pid 28508 --output profile_oss-standalone__primary-1-of-1__tsbs-scale100_lastpoint_perf:record_2021-09-07-15-13-02.out --call-graph fp --freq 99
+Type: cycles:pp_event
+Showing nodes accounting for 83159785248, 97.77% of 85054228331 total
+Dropped 36 nodes (cum <= 850542283)
+      flat  flat%   sum%        cum   cum%
+64170302163 75.45% 75.45% 78754839560 92.59%  [redistimeseries.so]
+10820572034 12.72% 88.17% 10844574508 12.75%  __nss_passwd_lookup
+2860153733  3.36% 91.53% 2884259108  3.39%  ReplyWithSeriesLabelsWithLimitC
+2575820319  3.03% 94.56% 2575820319  3.03%  generate_digits (inline)
+2173650569  2.56% 97.12% 2173650569  2.56%  <unknown>
+ 188406902  0.22% 97.34% 3457752904  4.07%  fpconv_dtoa
+ 174999752  0.21% 97.54% 3923705351  4.61%  ReplyWithSample
+ 139745151  0.16% 97.71% 19494550388 22.92%  TSDB_mget
+  32326264 0.038% 97.74% 3175170323  3.73%  grisu2 (inline)
+  23808361 0.028% 97.77% 1670127763  1.96%  __libc_write

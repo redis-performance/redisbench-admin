@@ -102,3 +102,23 @@ def terraform_destroy(remote_envs):
         logging.info("Tearing down setup {}".format(remote_setup_name))
         tf.destroy()
         logging.info("Tear-down completed")
+
+
+def retrieve_inventory_info(inventory_str):
+    inventory_list = inventory_str.split(",")
+    client_public_ip = None
+    server_private_ip = None
+    server_public_ip = None
+    for kv_pair in inventory_list:
+        key = kv_pair.split("=")[0]
+        value = kv_pair.split("=")[1]
+        if key == "client_public_ip":
+            client_public_ip = value
+        if key == "server_private_ip":
+            server_private_ip = value
+        if key == "server_public_ip":
+            server_public_ip = value
+    status = True
+    if client_public_ip is None or client_public_ip is None or client_public_ip is None:
+        status = False
+    return status, client_public_ip, server_private_ip, server_public_ip

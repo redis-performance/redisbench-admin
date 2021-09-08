@@ -280,11 +280,12 @@ class Perf:
 
     def generate_outputs(self, use_case, **kwargs):
         outputs = {}
+        tabular_data_map = {}
         binary = kwargs.get("binary")
         details = kwargs.get("details")
         primary_id = kwargs.get("primary_id")
         total_primaries = kwargs.get("total_primaries")
-        identifier = "primary {} of {}".format(primary_id, total_primaries)
+        identifier = "primary{}_of{}".format(primary_id, total_primaries)
         if details is None:
             details = ""
         result = True
@@ -351,20 +352,22 @@ class Perf:
             else:
                 logging.info("Generating pprof text output")
                 pprof_text_output = self.output + ".pprof.txt"
-                artifact_result, pprof_artifact_text_output = run_pprof(
+                artifact_result, pprof_artifact_text_output, tabular_data = run_pprof(
                     self.pprof_bin,
                     PPROF_FORMAT_TEXT,
                     pprof_text_output,
                     binary,
                     self.output,
                 )
+
                 result &= artifact_result
                 if artifact_result is True:
                     outputs["Top entries in text form"] = pprof_artifact_text_output
+                    tabular_data_map["text"] = tabular_data
 
                 logging.info("Generating pprof per LOC text output")
                 pprof_text_output = self.output + ".pprof.LOC.txt"
-                artifact_result, pprof_artifact_text_output = run_pprof(
+                artifact_result, pprof_artifact_text_output, tabular_data = run_pprof(
                     self.pprof_bin,
                     [PPROF_FORMAT_TEXT, "-lines"],
                     pprof_text_output,
@@ -376,10 +379,10 @@ class Perf:
                     outputs[
                         "Top entries in text form by LOC"
                     ] = pprof_artifact_text_output
-
+                    tabular_data_map["text-lines"] = tabular_data
                 logging.info("Generating pprof png output")
                 pprof_png_output = self.output + ".pprof.png"
-                artifact_result, pprof_artifact_png_output = run_pprof(
+                artifact_result, pprof_artifact_png_output, _ = run_pprof(
                     self.pprof_bin,
                     PPROF_FORMAT_PNG,
                     pprof_png_output,
@@ -392,7 +395,7 @@ class Perf:
                     ] = pprof_artifact_png_output
                 result &= artifact_result
 
-        return result, outputs
+        return result, outputs, tabular_data_map
 
     def generate_flame_graph(self, title="Flame Graph", subtitle="", filename=None):
         result = False

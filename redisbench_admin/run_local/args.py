@@ -6,6 +6,14 @@
 
 import os
 
+from redisbench_admin.run_remote.args import TRIGGERING_ENV
+from redisbench_admin.utils.remote import (
+    PERFORMANCE_RTS_HOST,
+    PERFORMANCE_RTS_AUTH,
+    PERFORMANCE_RTS_PUSH,
+    PERFORMANCE_RTS_PORT,
+)
+
 from redisbench_admin.profilers.profilers import (
     PROFILERS_DEFAULT,
     ALLOWED_PROFILERS,
@@ -13,6 +21,7 @@ from redisbench_admin.profilers.profilers import (
 )
 
 PUSH_S3 = bool(os.getenv("PUSH_S3", False))
+PROFILERS_DSO = os.getenv("PROFILERS_DSO", None)
 PROFILERS_ENABLED = bool(os.getenv("PROFILE", 0))
 PROFILERS = os.getenv("PROFILERS", PROFILERS_DEFAULT)
 MAX_PROFILERS_PER_TYPE = int(os.getenv("MAX_PROFILERS", 1))
@@ -28,7 +37,7 @@ def create_run_local_arguments(parser):
         action="append",
         help="path to the module file. " "You can use `--module_path` more than once. ",
     )
-    parser.add_argument("--dso", type=str, required=False, default=None)
+    parser.add_argument("--dso", type=str, required=False, default=PROFILERS_DSO)
     parser.add_argument(
         "--dbdir_folder",
         type=str,
@@ -86,5 +95,21 @@ def create_run_local_arguments(parser):
         type=str,
         default=ENV,
         help="Comma delimited allowed setups: 'oss-standalone','oss-cluster'",
+    )
+    parser.add_argument("--triggering_env", type=str, default=TRIGGERING_ENV)
+    parser.add_argument(
+        "--redistimeseries_host", type=str, default=PERFORMANCE_RTS_HOST
+    )
+    parser.add_argument(
+        "--redistimeseries_port", type=int, default=PERFORMANCE_RTS_PORT
+    )
+    parser.add_argument(
+        "--redistimeseries_pass", type=str, default=PERFORMANCE_RTS_AUTH
+    )
+    parser.add_argument(
+        "--push_results_redistimeseries",
+        default=PERFORMANCE_RTS_PUSH,
+        action="store_true",
+        help="uploads the results to RedisTimeSeries. Proper credentials are required",
     )
     return parser

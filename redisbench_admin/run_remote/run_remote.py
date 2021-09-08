@@ -48,6 +48,7 @@ from redisbench_admin.run_remote.remote_helpers import (
 from redisbench_admin.run_remote.terraform import (
     terraform_spin_or_reuse_env,
     terraform_destroy,
+    retrieve_inventory_info,
 )
 from redisbench_admin.utils.benchmark_config import (
     extract_benchmark_tool_settings,
@@ -188,26 +189,55 @@ def run_remote_command_logic(args, project_name, project_version):
                         )
                     )
                     if "remote" in benchmark_config:
-                        (
-                            client_public_ip,
-                            deployment_type,
-                            server_plaintext_port,
-                            server_private_ip,
-                            server_public_ip,
-                            username,
-                        ) = terraform_spin_or_reuse_env(
-                            benchmark_config,
-                            remote_envs,
-                            repetition,
-                            test_name,
-                            tf_bin_path,
-                            tf_github_actor,
-                            tf_github_org,
-                            tf_github_repo,
-                            tf_github_sha,
-                            tf_setup_name_sufix,
-                            tf_triggering_env,
-                        )
+                        server_plaintext_port = 6379
+                        username = args.user
+                        if args.inventory is not None:
+                            (
+                                status,
+                                client_public_ip,
+                                server_private_ip,
+                                server_public_ip,
+                            ) = retrieve_inventory_info(args.inventory)
+                            if status is False:
+                                logging.error(
+                                    "Missing one of the required keys for inventory usage. Exiting..."
+                                )
+                                exit(1)
+                            logging.info("Using the following connection addresses.")
+                            logging.info("client_public_ip={}".format(client_public_ip))
+                            logging.info("server_public_ip={}".format(server_public_ip))
+                            logging.info(
+                                "server_private_ip={}".format(server_private_ip)
+                            )
+                            local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
+                                server_plaintext_port,
+                                server_private_ip,
+                                server_public_ip,
+                                username,
+                            )
+                            local_redis_conn.shutdown()
+                            ssh_tunnel.close()  # Close the tunnel
+                        else:
+                            (
+                                client_public_ip,
+                                _,
+                                _,
+                                server_private_ip,
+                                server_public_ip,
+                                username,
+                            ) = terraform_spin_or_reuse_env(
+                                benchmark_config,
+                                remote_envs,
+                                repetition,
+                                test_name,
+                                tf_bin_path,
+                                tf_github_actor,
+                                tf_github_org,
+                                tf_github_repo,
+                                tf_github_sha,
+                                tf_setup_name_sufix,
+                                tf_triggering_env,
+                            )
 
                         # after we've created the env, even on error we should always teardown
                         # in case of some unexpected error we fail the test
@@ -380,6 +410,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                 benchmark_tool,
                                 client_public_ip,
                                 username,
+                                benchmark_tool_source,
                             )
 
                             command, command_str = prepare_benchmark_parameters(
@@ -400,7 +431,7 @@ def run_remote_command_logic(args, project_name, project_version):
                             ) = get_start_time_vars()
                             local_bench_fname = get_run_full_filename(
                                 start_time_str,
-                                deployment_type,
+                                setup_type,
                                 tf_github_org,
                                 tf_github_repo,
                                 tf_github_branch,
@@ -484,7 +515,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                 benchmark_duration_seconds,
                                 dataset_load_duration_seconds,
                                 default_metrics,
-                                deployment_type,
+                                setup_type,
                                 exporter_timemetric_path,
                                 results_dict,
                                 rts,
@@ -499,7 +530,7 @@ def run_remote_command_logic(args, project_name, project_version):
                         except:
                             timeseries_test_failure_flow(
                                 args,
-                                deployment_type,
+                                setup_type,
                                 rts,
                                 start_time_ms,
                                 tf_github_org,
@@ -523,5 +554,6 @@ def run_remote_command_logic(args, project_name, project_version):
                                 test_name
                             )
                         )
-    terraform_destroy(remote_envs)
+    if args.inventory is None:
+        terraform_destroy(remote_envs)
     exit(return_code)

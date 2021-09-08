@@ -1,0 +1,51 @@
+File: redistimeseries.so
+Build ID: 2767e36bd5633a8780efcf14c8cce3dfbf1f874d
+perf-version:5.4.128
+perf-command:/usr/lib/linux-hwe-5.4-tools-5.4.0-81/perf record -e cycles:pp -g --pid 31863 --output profile_oss-standalone__primary-1-of-1__tsbs-scale100_cpu-max-all-1_perf:record_2021-09-07-16-52-16.out --call-graph fp --freq 99
+Type: cycles:pp_event
+Showing nodes accounting for 23201205797, 88.55% of 26202288639 total
+Dropped 68 nodes (cum <= 262022886)
+      flat  flat%   sum%        cum   cum%
+3220733411 12.29% 12.29% 3220733411 12.29%  <unknown>
+2183160902  8.33% 20.62% 22816050280 87.08%  [redistimeseries.so]
+1690321447  6.45% 27.07% 1690321447  6.45%  readFloat /home/fco/redislabs/RedisTimeSeries/src/gorilla.c:457 (inline)
+1563209117  5.97% 33.04% 1563209117  5.97%  Bins_bitoff /home/fco/redislabs/RedisTimeSeries/src/gorilla.c:221 (inline)
+1541191272  5.88% 38.92% 1541191272  5.88%  SeriesIteratorGetNext /home/fco/redislabs/RedisTimeSeries/src/series_iterator.c:160
+1196254782  4.57% 43.49% 1196254782  4.57%  MaxMinAppendValue /home/fco/redislabs/RedisTimeSeries/src/compaction.c:253
+ 962563512  3.67% 47.16% 3154879730 12.04%  AggregationIterator_GetNext /home/fco/redislabs/RedisTimeSeries/src/filter_iterator.c:149
+ 919166381  3.51% 50.67% 1453631753  5.55%  readFloat /home/fco/redislabs/RedisTimeSeries/src/gorilla.c:467 (inline)
+ 863738528  3.30% 53.97%  863738528  3.30%  MaxMinAppendValue /home/fco/redislabs/RedisTimeSeries/src/compaction.c:261
+ 692847150  2.64% 56.61%  692847150  2.64%  Compressed_ChunkIteratorGetNext /home/fco/redislabs/RedisTimeSeries/src/gorilla.c:494
+ 571953160  2.18% 58.79%  571953160  2.18%  MaxMinAppendValue /home/fco/redislabs/RedisTimeSeries/src/compaction.c:258
+ 557211092  2.13% 60.92%  557211092  2.13%  AggregationIterator_GetNext /home/fco/redislabs/RedisTimeSeries/src/filter_iterator.c:136
+ 499562215  1.91% 62.83%  499562215  1.91%  SeriesIteratorGetNext /home/fco/redislabs/RedisTimeSeries/src/series_iterator.c:88
+ 495627274  1.89% 64.72% 5590282760 21.34%  Compressed_ChunkIteratorGetNext /home/fco/redislabs/RedisTimeSeries/src/gorilla.c:508
+ 468335084  1.79% 66.51%  468335084  1.79%  SeriesIteratorGetNext /home/fco/redislabs/RedisTimeSeries/src/series_iterator.c:86
+ 463728450  1.77% 68.27%  463728450  1.77%  AggregationIterator_GetNext /home/fco/redislabs/RedisTimeSeries/src/filter_iterator.c:137
+ 460312411  1.76% 70.03% 1489056156  5.68%  readInteger /home/fco/redislabs/RedisTimeSeries/src/gorilla.c:419 (inline)
+ 432923811  1.65% 71.68%  432923811  1.65%  Compressed_ChunkIteratorGetNext /home/fco/redislabs/RedisTimeSeries/src/gorilla.c:512
+ 429768960  1.64% 73.32% 13480308784 51.45%  AggregationIterator_GetNext /home/fco/redislabs/RedisTimeSeries/src/filter_iterator.c:153
+ 428229578  1.63% 74.96%  428229578  1.63%  SeriesIteratorGetNext /home/fco/redislabs/RedisTimeSeries/src/series_iterator.c:116
+ 426992616  1.63% 76.59%  426992616  1.63%  LSB /home/fco/redislabs/RedisTimeSeries/src/gorilla.c:154 (inline)
+ 397357057  1.52% 78.10%  923662585  3.53%  readFloat /home/fco/redislabs/RedisTimeSeries/src/gorilla.c:471 (inline)
+ 394653706  1.51% 79.61%  394653706  1.51%  SeriesIteratorGetNext /home/fco/redislabs/RedisTimeSeries/src/series_iterator.c:94
+ 333746709  1.27% 80.88%  333746709  1.27%  MaxMinAppendValue /home/fco/redislabs/RedisTimeSeries/src/compaction.c:262
+ 331045924  1.26% 82.15%  331045924  1.26%  readInteger /home/fco/redislabs/RedisTimeSeries/src/gorilla.c:425 (inline)
+ 294835107  1.13% 83.27% 2411693764  9.20%  Compressed_ChunkIteratorGetNext /home/fco/redislabs/RedisTimeSeries/src/gorilla.c:507
+ 292384701  1.12% 84.39%  292384701  1.12%  SeriesIteratorGetNext /home/fco/redislabs/RedisTimeSeries/src/series_iterator.c:93
+ 266265395  1.02% 85.41%  266265395  1.02%  Compressed_ChunkIteratorGetNext /home/fco/redislabs/RedisTimeSeries/src/gorilla.c:500
+ 263566775  1.01% 86.41%  263566775  1.01%  readInteger /home/fco/redislabs/RedisTimeSeries/src/gorilla.c:420 (inline)
+ 232845307  0.89% 87.30% 8998099722 34.34%  SeriesGetNext /home/fco/redislabs/RedisTimeSeries/src/series_iterator.c:66 (inline)
+ 229541866  0.88% 88.18%  262889158  1.00%  readFloat /home/fco/redislabs/RedisTimeSeries/src/gorilla.c:456 (inline)
+  97132097  0.37% 88.55%  361815326  1.38%  readBits /home/fco/redislabs/RedisTimeSeries/src/gorilla.c:251 (inline)
+         0     0% 88.55%  903131073  3.45%  AggregationIterator_GetNext /home/fco/redislabs/RedisTimeSeries/src/filter_iterator.c:119
+         0     0% 88.55% 20668873657 78.88%  ReplySeriesArrayPos /home/fco/redislabs/RedisTimeSeries/src/reply.c:33
+         0     0% 88.55% 20040788388 76.48%  ReplySeriesRange /home/fco/redislabs/RedisTimeSeries/src/reply.c:44
+         0     0% 88.55%  426817966  1.63%  ReplySeriesRange /home/fco/redislabs/RedisTimeSeries/src/reply.c:45
+         0     0% 88.55%  360968620  1.38%  ReplyWithSample /home/fco/redislabs/RedisTimeSeries/src/reply.c:107
+         0     0% 88.55% 8965598374 34.22%  SeriesIteratorGetNext /home/fco/redislabs/RedisTimeSeries/src/series_iterator.c:100
+         0     0% 88.55% 20733526896 79.13%  TSDB_generic_mrange /home/fco/redislabs/RedisTimeSeries/src/module.c:314
+         0     0% 88.55%  333397668  1.27%  __libc_read /build/glibc-S9d2JN/glibc-2.27/sysdeps/unix/sysv/linux/read.c:27
+         0     0% 88.55% 1649816766  6.30%  __libc_write /build/glibc-S9d2JN/glibc-2.27/sysdeps/unix/sysv/linux/write.c:27
+         0     0% 88.55% 1138503844  4.35%  __nss_passwd_lookup /build/glibc-S9d2JN/glibc-2.27/sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S:411
+         0     0% 88.55% 20733526896 79.13%  replyUngroupedMultiRange /home/fco/redislabs/RedisTimeSeries/src/module.c:279 (inline)

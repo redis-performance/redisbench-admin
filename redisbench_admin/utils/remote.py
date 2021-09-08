@@ -32,6 +32,11 @@ PERFORMANCE_RTS_AUTH = os.getenv("PERFORMANCE_RTS_AUTH", None)
 PERFORMANCE_RTS_USER = os.getenv("PERFORMANCE_RTS_USER", None)
 PERFORMANCE_RTS_HOST = os.getenv("PERFORMANCE_RTS_HOST", "localhost")
 PERFORMANCE_RTS_PORT = os.getenv("PERFORMANCE_RTS_PORT", 6379)
+# DB used to authenticate ( read-only/non-dangerous access only )
+REDIS_AUTH_SERVER_HOST = os.getenv("REDIS_AUTH_SERVER_HOST", "localhost")
+REDIS_AUTH_SERVER_PORT = int(os.getenv("REDIS_AUTH_SERVER_PORT", "6380"))
+REDIS_HEALTH_CHECK_INTERVAL = int(os.getenv("REDIS_HEALTH_CHECK_INTERVAL", "15"))
+REDIS_SOCKET_TIMEOUT = int(os.getenv("REDIS_SOCKET_TIMEOUT", "300"))
 TERRAFORM_BIN_PATH = os.getenv("TERRAFORM_BIN_PATH", "terraform")
 
 
