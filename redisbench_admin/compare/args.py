@@ -5,8 +5,8 @@
 #
 
 # environment variables
+from redisbench_admin.run.args import TRIGGERING_ENV
 from redisbench_admin.run.common import get_start_time_vars
-from redisbench_admin.run_remote.args import TRIGGERING_ENV
 from redisbench_admin.utils.remote import (
     PERFORMANCE_RTS_HOST,
     PERFORMANCE_RTS_PORT,
