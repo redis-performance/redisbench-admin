@@ -129,6 +129,9 @@ def run_remote_command_logic(args, project_name, project_version):
             "The github branch information is not present!"
             " This implies that per-branch data is not pushed to the exporters!"
         )
+    else:
+        if type(tf_github_branch) is not str:
+            tf_github_branch = str(tf_github_branch)
     logging.info("\tgithub_sha: {}".format(tf_github_sha))
     logging.info("\ttriggering env: {}".format(tf_triggering_env))
     logging.info("\tprivate_key path: {}".format(private_key))

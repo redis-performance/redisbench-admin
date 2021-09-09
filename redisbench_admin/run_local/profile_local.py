@@ -11,9 +11,9 @@ from pytablewriter import MarkdownTableWriter
 
 from redisbench_admin.profilers.perf import Perf
 from redisbench_admin.profilers.vtune import Vtune
+from redisbench_admin.run.args import PROFILE_FREQ, MAX_PROFILERS_PER_TYPE
 
 from redisbench_admin.run.s3 import get_test_s3_bucket_path
-from redisbench_admin.run_local.args import PROFILE_FREQ, MAX_PROFILERS_PER_TYPE
 from redisbench_admin.utils.utils import upload_artifacts_to_s3
 
 
