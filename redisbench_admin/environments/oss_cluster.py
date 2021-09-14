@@ -16,20 +16,20 @@ from redisbench_admin.utils.utils import wait_for_conn
 def spin_up_local_redis_cluster(
     dbdir,
     shard_count,
+    ip,
     start_port,
     local_module_file,
     configuration_parameters=None,
-    dbdir_folder=None,
     dataset_load_timeout_secs=60,
 ):
     redis_processes = []
-    meet_cmds = []
     redis_conns = []
+
     for master_shard_id in range(1, shard_count + 1):
         shard_port = master_shard_id + start_port - 1
 
         command = generate_cluster_redis_server_args(
-            dbdir, local_module_file, shard_port, configuration_parameters
+            dbdir, local_module_file, ip, shard_port, configuration_parameters
         )
 
         logging.info(
@@ -42,13 +42,33 @@ def spin_up_local_redis_cluster(
         result = wait_for_conn(r, dataset_load_timeout_secs)
         if result is True:
             logging.info("Redis available")
-        meet_cmds.append("CLUSTER MEET {} {}".format("127.0.0.1", shard_port))
         redis_conns.append(r)
         redis_processes.append(redis_process)
+    return redis_processes, redis_conns
 
+
+def setup_redis_cluster_from_conns(redis_conns, shard_count, shard_host, start_port):
+    logging.info("Setting up cluster. Total {} primaries.".format(len(redis_conns)))
+    meet_cmds = generate_meet_cmds(shard_count, shard_host, start_port)
+    status = setup_oss_cluster_from_conns(meet_cmds, redis_conns, shard_count)
+    if status is True:
+        for conn in redis_conns:
+            conn.execute_command("CLUSTER SAVECONFIG")
+    return status
+
+
+def generate_meet_cmds(shard_count, shard_host, start_port):
+    meet_cmds = []
+
+    for master_shard_id in range(1, shard_count + 1):
+        shard_port = master_shard_id + start_port - 1
+        meet_cmds.append("CLUSTER MEET {} {}".format(shard_host, shard_port))
+    return meet_cmds
+
+
+def setup_oss_cluster_from_conns(meet_cmds, redis_conns, shard_count):
+    status = False
     try:
-
-        # redis_conns[0].execute_command("CONFIG SET cluster-enabled yes")
         for redis_conn in redis_conns:
             for cmd in meet_cmds:
                 redis_conn.execute_command(cmd)
@@ -67,8 +87,13 @@ def spin_up_local_redis_cluster(
                     n, node_slots_start, node_slots_end_exclusive_slot - 1
                 )
             )
-            for x in range(node_slots_start, node_slots_end_exclusive_slot):
-                redis_conn.execute_command("CLUSTER ADDSLOTS {}".format(x))
+            shard_slots_str = " ".join(
+                [
+                    "{}".format(x)
+                    for x in range(node_slots_start, node_slots_end_exclusive_slot)
+                ]
+            )
+            redis_conn.execute_command("CLUSTER ADDSLOTS {}".format(shard_slots_str))
 
         for n, redis_conn in enumerate(redis_conns):
             cluster_slots_ok = 0
@@ -80,15 +105,25 @@ def spin_up_local_redis_cluster(
                     "Node {}: Total cluster_slots_ok {}".format(n, cluster_slots_ok)
                 )
                 sleep(1)
+        for n, redis_conn in enumerate(redis_conns):
+            cluster_state_ok = False
+            while cluster_state_ok is False:
+                cluster_state_ok = bool(
+                    redis_conn.execute_command("cluster info")["cluster_state"]
+                )
+                logging.info("Node {}: cluster_state {}".format(n, cluster_state_ok))
+                sleep(1)
+        status = True
     except redis.exceptions.RedisError as e:
         logging.warning("Received an error {}".format(e.__str__()))
-
-    return redis_processes
+        status = False
+    return status
 
 
 def generate_cluster_redis_server_args(
     dbdir,
     local_module_file,
+    ip,
     port,
     configuration_parameters=None,
 ):
@@ -99,12 +134,20 @@ def generate_cluster_redis_server_args(
         "no",
         "--cluster-enabled",
         "yes",
+        "--daemonize",
+        "yes",
         "--dbfilename",
         get_cluster_dbfilename(port),
+        "--protected-mode",
+        "no",
+        "--bind",
+        "{}".format(ip),
         "--cluster-config-file",
         "cluster-node-port-{}.config".format(port),
         "--save",
         '""',
+        "--cluster-announce-ip",
+        "{}".format(ip),
         "--port",
         "{}".format(port),
         "--dir",

@@ -16,7 +16,10 @@ import redis
 from rediscluster import RedisCluster
 from redistimeseries.client import Client
 
-from redisbench_admin.environments.oss_cluster import spin_up_local_redis_cluster
+from redisbench_admin.environments.oss_cluster import (
+    spin_up_local_redis_cluster,
+    setup_redis_cluster_from_conns,
+)
 
 from redisbench_admin.run.cluster import cluster_init_steps
 from redisbench_admin.run.common import (
@@ -135,9 +138,11 @@ def run_local_command_logic(args, project_name, project_version):
                 benchmark_config, "setups", default_specs
             )
             for setup_name, setup_settings in test_setups.items():
-                setup_type, shard_count = get_setup_type_and_primaries_count(
-                    setup_settings
-                )
+                (
+                    setup_name,
+                    setup_type,
+                    shard_count,
+                ) = get_setup_type_and_primaries_count(setup_settings)
                 if setup_type in args.allowed_envs:
                     redis_processes = []
                     logging.info(
@@ -180,31 +185,30 @@ def run_local_command_logic(args, project_name, project_version):
                                 dataset_load_timeout_secs
                             )
                         )
-
+                        redis_conns = []
                         if setup_type == "oss-cluster":
                             cluster_api_enabled = True
-                            # pass
-                            redis_processes = spin_up_local_redis_cluster(
+                            shard_host = "127.0.0.1"
+                            redis_processes, redis_conns = spin_up_local_redis_cluster(
                                 temporary_dir,
                                 shard_count,
+                                shard_host,
                                 args.port,
                                 local_module_file,
                                 redis_configuration_parameters,
-                                dbdir_folder,
                                 dataset_load_timeout_secs,
                             )
-                            for redis_process in redis_processes:
-                                if is_process_alive(redis_process) is False:
-                                    raise Exception(
-                                        "Redis process is not alive. Failing test."
-                                    )
+
+                            status = setup_redis_cluster_from_conns(
+                                redis_conns, shard_count, shard_host, args.port
+                            )
+                            if status is False:
+                                raise Exception(
+                                    "Redis cluster setup failed. Failing test."
+                                )
+
                             # we use node 0 for the checks
                             r = redis.StrictRedis(port=args.port)
-                            r_conns = []
-                            for p in range(args.port, args.port + shard_count):
-                                redis.StrictRedis(port=p).execute_command(
-                                    "CLUSTER SAVECONFIG"
-                                )
 
                         dataset, _, _ = check_dataset_local_requirements(
                             benchmark_config,
@@ -240,11 +244,9 @@ def run_local_command_logic(args, project_name, project_version):
                             if dataset is not None:
                                 contains_rdb = True
                             startup_nodes = cluster_init_steps(
-                                args,
                                 clusterconfig,
+                                redis_conns,
                                 local_module_file,
-                                r_conns,
-                                shard_count,
                                 contains_rdb,
                             )
 
@@ -382,6 +384,8 @@ def run_local_command_logic(args, project_name, project_version):
                     for redis_process in redis_processes:
                         if redis_process is not None:
                             redis_process.kill()
+                    for conn in redis_conns:
+                        conn.shutdown(nosave=True)
                     logging.info("Tear-down completed")
 
     if profilers_enabled:

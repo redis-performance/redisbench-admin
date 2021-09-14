@@ -161,7 +161,9 @@ def test_extract_benchmark_tool_settings_with_resource():
 
 def test_common_exporter_logic():
     # negative test
-    common_exporter_logic(None, None, None, None, None, None, None, None, None, None)
+    common_exporter_logic(
+        None, None, None, None, None, None, None, None, None, None, None
+    )
     try:
         rts = Client()
         rts.redis.ping()
@@ -183,8 +185,10 @@ def test_common_exporter_logic():
                 project_version = "6.2.4"
                 tf_triggering_env = "gh"
                 test_name = "redis-benchmark-full-suite-1Mkeys-100B"
+                deployment_name = "oss-standalone"
                 deployment_type = "oss-standalone"
                 common_exporter_logic(
+                    deployment_name,
                     deployment_type,
                     merged_exporter_timemetric_path,
                     metrics,
@@ -206,6 +210,7 @@ def test_common_exporter_logic():
                     "unstable",
                     tf_github_org,
                     tf_github_repo,
+                    deployment_name,
                     deployment_type,
                     test_name,
                     tf_triggering_env,
@@ -221,6 +226,7 @@ def test_common_exporter_logic():
                 build_variant_name = "variant-1"
 
                 common_exporter_logic(
+                    deployment_name,
                     deployment_type,
                     merged_exporter_timemetric_path,
                     metrics,
@@ -244,6 +250,7 @@ def test_common_exporter_logic():
                     "unstable",
                     tf_github_org,
                     tf_github_repo,
+                    deployment_name,
                     deployment_type,
                     test_name,
                     tf_triggering_env,
@@ -259,6 +266,7 @@ def test_common_exporter_logic():
                 build_variant_name = "variant-1"
 
                 common_exporter_logic(
+                    deployment_name,
                     deployment_type,
                     merged_exporter_timemetric_path,
                     metrics,
@@ -282,6 +290,7 @@ def test_common_exporter_logic():
                     "unstable",
                     tf_github_org,
                     tf_github_repo,
+                    deployment_name,
                     deployment_type,
                     test_name,
                     tf_triggering_env,
@@ -351,7 +360,7 @@ def test_extract_test_feasible_setups():
     ]
     assert standalone_setup_type == "oss-standalone"
     assert standalone_shard_count == 1
-    t, c = get_setup_type_and_primaries_count(test_setups["oss-standalone"])
+    n, t, c = get_setup_type_and_primaries_count(test_setups["oss-standalone"])
     assert standalone_setup_type == t
     assert standalone_shard_count == c
 
@@ -361,6 +370,6 @@ def test_extract_test_feasible_setups():
     osscluster_shard_count = test_setups["oss-cluster-3-primaries"]["redis_topology"][
         "primaries"
     ]
-    t, c = get_setup_type_and_primaries_count(test_setups["oss-cluster-3-primaries"])
+    n, t, c = get_setup_type_and_primaries_count(test_setups["oss-cluster-3-primaries"])
     assert osscluster_setup_type == t
     assert osscluster_shard_count == c

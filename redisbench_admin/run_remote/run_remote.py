@@ -9,10 +9,9 @@ import os
 import sys
 import traceback
 
-from rediscluster.client import RedisCluster
 from redistimeseries.client import Client
 
-# from redisbench_admin.cli import populate_with_poetry_data
+from redisbench_admin.environments.oss_cluster import setup_redis_cluster_from_conns
 from redisbench_admin.run.cluster import (
     spin_up_redis_cluster_remote_redis,
     cluster_init_steps,
@@ -55,12 +54,17 @@ from redisbench_admin.utils.benchmark_config import (
     prepare_benchmark_definitions,
     extract_redis_dbconfig_parameters,
 )
-from redisbench_admin.run_remote.standalone import spin_up_standalone_remote_redis
+from redisbench_admin.run_remote.standalone import (
+    spin_up_standalone_remote_redis,
+    cp_local_dbdir_to_remote,
+    remote_module_files_cp,
+)
 from redisbench_admin.utils.remote import (
     get_run_full_filename,
     get_overall_dashboard_keynames,
     check_ec2_env,
     execute_remote_commands,
+    check_dataset_remote_requirements,
 )
 
 from redisbench_admin.utils.utils import (
@@ -182,9 +186,11 @@ def run_remote_command_logic(args, project_name, project_version):
                 benchmark_config, "setups", default_specs
             )
             for setup_name, setup_settings in test_setups.items():
-                setup_type, shard_count = get_setup_type_and_primaries_count(
-                    setup_settings
-                )
+                (
+                    setup_name,
+                    setup_type,
+                    shard_count,
+                ) = get_setup_type_and_primaries_count(setup_settings)
                 if setup_type in args.allowed_envs:
                     logging.info(
                         "Starting setup named {} of topology type {}. Total primaries: {}".format(
@@ -193,6 +199,8 @@ def run_remote_command_logic(args, project_name, project_version):
                     )
                     if "remote" in benchmark_config:
                         server_plaintext_port = 6379
+                        temporary_dir = "/tmp"
+                        ssh_port = args.ssh_port
                         username = args.user
                         if args.inventory is not None:
                             (
@@ -217,6 +225,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                 server_private_ip,
                                 server_public_ip,
                                 username,
+                                ssh_port,
                             )
                             local_redis_conn.shutdown()
                             ssh_tunnel.close()  # Close the tunnel
@@ -246,17 +255,19 @@ def run_remote_command_logic(args, project_name, project_version):
                         # in case of some unexpected error we fail the test
                         try:
                             # ensure /tmp folder is free of benchmark data from previous runs
-                            remote_working_folder = "/tmp"
                             execute_remote_commands(
                                 server_public_ip,
                                 username,
                                 private_key,
                                 [
-                                    "rm -rf {}/*.log".format(remote_working_folder),
-                                    "rm -rf {}/*.rdb".format(remote_working_folder),
-                                    "rm -rf {}/*.out".format(remote_working_folder),
-                                    "rm -rf {}/*.data".format(remote_working_folder),
+                                    "rm -rf {}/*.log".format(temporary_dir),
+                                    "rm -rf {}/*.config".format(temporary_dir),
+                                    "rm -rf {}/*.rdb".format(temporary_dir),
+                                    "rm -rf {}/*.out".format(temporary_dir),
+                                    "rm -rf {}/*.data".format(temporary_dir),
+                                    "pkill -9 redis-server",
                                 ],
+                                ssh_port,
                             )
                             _, _, testcase_start_time_str = get_start_time_vars()
                             logname = "{}_{}.log".format(
@@ -275,29 +286,58 @@ def run_remote_command_logic(args, project_name, project_version):
                                 benchmark_config, "dbconfig"
                             )
 
+                            logging.info(
+                                "Starting common steps to cluster and standalone..."
+                            )
+                            # common steps to cluster and standalone
+                            # copy the rdb to DB machine
+                            _, dataset, _, _ = check_dataset_remote_requirements(
+                                benchmark_config,
+                                server_public_ip,
+                                username,
+                                private_key,
+                                remote_dataset_file,
+                                dirname,
+                                1,
+                                False,
+                            )
+
+                            cp_local_dbdir_to_remote(
+                                dbdir_folder,
+                                private_key,
+                                server_public_ip,
+                                temporary_dir,
+                                username,
+                            )
+
+                            logging.info(
+                                "Checking if there are modules we need to cp to remote host..."
+                            )
+                            remote_module_files = remote_module_files_cp(
+                                local_module_files,
+                                ssh_port,
+                                private_key,
+                                remote_module_file_dir,
+                                server_public_ip,
+                                username,
+                            )
+
                             cluster_api_enabled = False
                             cluster_start_port = 20000
                             # setup Redis
                             if setup_type == "oss-cluster":
-                                logging.error(
-                                    "Remote cluster is still not implemented =(. We're working hard to get it ASAP =)!!"
-                                )
-                                continue
                                 cluster_api_enabled = True
                                 spin_up_redis_cluster_remote_redis(
-                                    benchmark_config,
                                     server_public_ip,
+                                    server_private_ip,
                                     username,
                                     private_key,
-                                    local_module_files,
-                                    remote_module_file_dir,
-                                    remote_dataset_file,
-                                    logname,
-                                    dirname,
+                                    remote_module_files,
                                     redis_configuration_parameters,
-                                    dbdir_folder,
+                                    temporary_dir,
                                     shard_count,
                                     cluster_start_port,
+                                    ssh_port,
                                 )
                                 dataset_load_start_time = datetime.datetime.now()
 
@@ -307,8 +347,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                     server_private_ip,
                                     server_public_ip,
                                     username,
+                                    ssh_port,
                                 )
-                                r_conns = []
+                                redis_conns = []
                                 for p in range(
                                     cluster_start_port, cluster_start_port + shard_count
                                 ):
@@ -317,24 +358,28 @@ def run_remote_command_logic(args, project_name, project_version):
                                         server_private_ip,
                                         server_public_ip,
                                         username,
+                                        ssh_port,
                                     )
-                                    local_redis_conn.execute_command(
-                                        "CLUSTER SAVECONFIG"
-                                    )
+                                    local_redis_conn.ping()
+                                    redis_conns.append(local_redis_conn)
+
+                                setup_redis_cluster_from_conns(
+                                    redis_conns,
+                                    shard_count,
+                                    server_private_ip,
+                                    cluster_start_port,
+                                )
+                                server_plaintext_port = cluster_start_port
 
                             if setup_type == "oss-standalone":
-                                full_logfile, dataset = spin_up_standalone_remote_redis(
-                                    benchmark_config,
+                                full_logfile = spin_up_standalone_remote_redis(
+                                    temporary_dir,
                                     server_public_ip,
                                     username,
                                     private_key,
-                                    local_module_files,
-                                    remote_module_file_dir,
-                                    remote_dataset_file,
+                                    remote_module_files,
                                     logname,
-                                    dirname,
                                     redis_configuration_parameters,
-                                    dbdir_folder,
                                 )
                                 dataset_load_start_time = datetime.datetime.now()
                                 local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
@@ -342,11 +387,12 @@ def run_remote_command_logic(args, project_name, project_version):
                                     server_private_ip,
                                     server_public_ip,
                                     username,
+                                    ssh_port,
                                 )
+                            logging.info("Starting dataset loading...")
                             result = wait_for_conn(
                                 local_redis_conn, dataset_load_timeout_secs
                             )
-                            logging.info("Starting dataset loading...")
                             dataset_load_end_time = datetime.datetime.now()
                             if result is True:
                                 logging.info("Redis available")
@@ -369,23 +415,11 @@ def run_remote_command_logic(args, project_name, project_version):
                                 contains_rdb = False
                                 if dataset is not None:
                                     contains_rdb = True
-                                startup_nodes = cluster_init_steps(
-                                    args,
+                                cluster_init_steps(
                                     clusterconfig,
+                                    redis_conns,
                                     local_module_files,
-                                    r_conns,
-                                    shard_count,
                                     contains_rdb,
-                                )
-
-                                rc = RedisCluster(
-                                    startup_nodes=startup_nodes, decode_responses=True
-                                )
-                                cluster_info = rc.cluster_info()
-                                logging.info(
-                                    "Cluster info after initialization: {}.".format(
-                                        cluster_info
-                                    )
                                 )
 
                             artifact_version = run_redis_pre_steps(
@@ -434,7 +468,7 @@ def run_remote_command_logic(args, project_name, project_version):
                             ) = get_start_time_vars()
                             local_bench_fname = get_run_full_filename(
                                 start_time_str,
-                                setup_type,
+                                setup_name,
                                 tf_github_org,
                                 tf_github_repo,
                                 tf_github_branch,
@@ -518,6 +552,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                 benchmark_duration_seconds,
                                 dataset_load_duration_seconds,
                                 default_metrics,
+                                setup_name,
                                 setup_type,
                                 exporter_timemetric_path,
                                 results_dict,
@@ -531,8 +566,14 @@ def run_remote_command_logic(args, project_name, project_version):
                             )
 
                         except:
+                            (
+                                start_time,
+                                start_time_ms,
+                                start_time_str,
+                            ) = get_start_time_vars()
                             timeseries_test_failure_flow(
                                 args,
+                                setup_name,
                                 setup_type,
                                 rts,
                                 start_time_ms,

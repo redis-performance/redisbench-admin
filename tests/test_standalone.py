@@ -5,14 +5,14 @@
 #
 import logging
 import os
-import tarfile
 from io import BytesIO
 from time import sleep
 
 import yaml
 
-from redisbench_admin.run_remote.consts import remote_module_file_dir
-from redisbench_admin.run_remote.standalone import spin_up_standalone_remote_redis
+from redisbench_admin.run_remote.standalone import (
+    spin_up_standalone_remote_redis,
+)
 
 
 def get_test_data_module():
@@ -58,33 +58,14 @@ def test_spin_up_standalone_remote_redis():
     logname = "test_spin_up_standalone_remote_redis.log"
     with open("./tests/test_data/redis-benchmark-vanilla.yml", "r") as yml_file:
         benchmark_config = yaml.safe_load(yml_file)
-
-    full_logfile, dataset = spin_up_standalone_remote_redis(
-        benchmark_config,
+    temporary_dir = "/tmp"
+    full_logfile = spin_up_standalone_remote_redis(
+        temporary_dir,
         server_public_ip,
         username,
         private_key,
-        local_module_files,
-        remote_module_file_dir,
         None,
         logname,
-        ".",
-        None,
         None,
         port,
     )
-    import paramiko
-
-    k = paramiko.RSAKey.from_private_key_file(private_key)
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    logging.info("Connecting to remote server {}".format(server_public_ip))
-    client.connect(hostname=server_public_ip, port=port, username=username, pkey=k)
-    _, stdout, _ = client.exec_command("ls /tmp")
-    stdout = [x.strip() for x in stdout.readlines()]
-
-    # ensure we have 2 modules
-    assert len(stdout) == 2
-    assert "redistimeseries.so" in stdout
-    assert "redistimeseries.so.1" in stdout
-    client.close()

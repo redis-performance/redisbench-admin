@@ -234,6 +234,7 @@ def run_remote_benchmark(
 
 
 def common_exporter_logic(
+    deployment_name,
     deployment_type,
     exporter_timemetric_path,
     metrics,
@@ -274,6 +275,7 @@ def common_exporter_logic(
                 artifact_version,
                 tf_github_org,
                 tf_github_repo,
+                deployment_name,
                 deployment_type,
                 test_name,
                 tf_triggering_env,
@@ -294,6 +296,7 @@ def common_exporter_logic(
                 str(tf_github_branch),
                 tf_github_org,
                 tf_github_repo,
+                deployment_name,
                 deployment_type,
                 test_name,
                 tf_triggering_env,
@@ -399,8 +402,9 @@ def extract_test_feasible_setups(
 
 def get_setup_type_and_primaries_count(setup_settings):
     setup_type = setup_settings["type"]
+    setup_name = setup_settings["name"]
     shard_count = setup_settings["redis_topology"]["primaries"]
-    return setup_type, shard_count
+    return setup_name, setup_type, shard_count
 
 
 def merge_default_and_config_metrics(

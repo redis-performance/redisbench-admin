@@ -485,7 +485,20 @@ def exporter_create_ts(rts, time_series, timeseries_name):
         )
         rts.create(timeseries_name, labels=time_series["labels"])
     except redis.exceptions.ResponseError:
-        logging.warning("Timeseries named {} already exists".format(timeseries_name))
+        logging.warning(
+            "Timeseries named {} already exists. Checking that the labels match.".format(
+                timeseries_name
+            )
+        )
+        set1 = set(time_series["labels"].items())
+        set2 = set(rts.info(timeseries_name).labels.items())
+        if len(set1 - set2) > 0 or len(set2 - set1) > 0:
+            logging.warning(
+                "Given the labels don't match using TS.ALTER on {} to update labels to {}".format(
+                    timeseries_name, time_series["labels"]
+                )
+            )
+            rts.alter(timeseries_name, labels=time_series["labels"])
         pass
 
 
@@ -504,6 +517,7 @@ def extract_perversion_timeseries_from_results(
     project_version: str,
     tf_github_org: str,
     tf_github_repo: str,
+    deployment_name: str,
     deployment_type: str,
     test_name: str,
     tf_triggering_env: str,
@@ -518,6 +532,7 @@ def extract_perversion_timeseries_from_results(
         break_by_key,
         break_by_str,
         datapoints_timestamp,
+        deployment_name,
         deployment_type,
         metrics,
         project_version,
@@ -538,9 +553,10 @@ def common_timeseries_extraction(
     break_by_key,
     break_by_str,
     datapoints_timestamp,
+    deployment_name,
     deployment_type,
     metrics,
-    project_version,
+    break_by_value,
     results_dict,
     test_name,
     tf_github_org,
@@ -581,13 +597,17 @@ def common_timeseries_extraction(
                     timeserie_tags = get_project_ts_tags(
                         tf_github_org,
                         tf_github_repo,
+                        deployment_name,
                         deployment_type,
                         tf_triggering_env,
                         metadata_tags,
                         build_variant_name,
                         running_platform,
                     )
-                    timeserie_tags[break_by_key] = project_version
+                    timeserie_tags[break_by_key] = break_by_value
+                    timeserie_tags[
+                        "{}+{}".format("deployment_name", break_by_key)
+                    ] = "{} {}".format(deployment_name, break_by_value)
                     timeserie_tags["test_name"] = str(test_name)
                     timeserie_tags["metric"] = str(metric_name)
                     timeserie_tags["metric_name"] = metric_name
@@ -598,9 +618,10 @@ def common_timeseries_extraction(
 
                     ts_name = get_ts_metric_name(
                         break_by_str,
-                        project_version,
+                        break_by_value,
                         tf_github_org,
                         tf_github_repo,
+                        deployment_name,
                         deployment_type,
                         test_name,
                         tf_triggering_env,
@@ -624,6 +645,7 @@ def common_timeseries_extraction(
 def get_project_ts_tags(
     tf_github_org: str,
     tf_github_repo: str,
+    deployment_name: str,
     deployment_type: str,
     tf_triggering_env: str,
     metadata_tags={},
@@ -635,6 +657,7 @@ def get_project_ts_tags(
         "github_repo": tf_github_repo,
         "github_org/github_repo": "{}/{}".format(tf_github_org, tf_github_repo),
         "deployment_type": deployment_type,
+        "deployment_name": deployment_name,
         "triggering_env": tf_triggering_env,
     }
     if build_variant_name is not None:
@@ -653,6 +676,7 @@ def extract_perbranch_timeseries_from_results(
     tf_github_branch: str,
     tf_github_org: str,
     tf_github_repo: str,
+    deployment_name: str,
     deployment_type: str,
     test_name: str,
     tf_triggering_env: str,
@@ -667,6 +691,7 @@ def extract_perbranch_timeseries_from_results(
         break_by_key,
         break_by_str,
         datapoints_timestamp,
+        deployment_name,
         deployment_type,
         metrics,
         tf_github_branch,

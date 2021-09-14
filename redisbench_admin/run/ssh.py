@@ -15,13 +15,17 @@ from redisbench_admin.utils.remote import check_and_fix_pem_str
 
 
 def ssh_tunnel_redisconn(
-    server_plaintext_port, server_private_ip, server_public_ip, username
+    server_plaintext_port,
+    server_private_ip,
+    server_public_ip,
+    username,
+    ssh_port=22,
 ):
     ssh_pkey = paramiko.RSAKey.from_private_key_file(private_key)
 
     # Use sshtunnelforwarder tunnel to connect redis via springboard
-    server = SSHTunnelForwarder(
-        ssh_address_or_host=(server_public_ip, 22),
+    ssh_tunel = SSHTunnelForwarder(
+        ssh_address_or_host=(server_public_ip, ssh_port),
         ssh_username=username,
         ssh_pkey=ssh_pkey,
         logger=logging.getLogger(),
@@ -29,11 +33,12 @@ def ssh_tunnel_redisconn(
             server_private_ip,
             server_plaintext_port,
         ),  # remote redis server
-        local_bind_address=("0.0.0.0", 10022),  # enable local forwarding port
+        # Bind the socket to port 0. A random free port from 1024 to 65535 will be selected.
+        local_bind_address=("0.0.0.0", 0),  # enable local forwarding port
     )
-    server.start()  # start tunnel
-    r = redis.StrictRedis(host="localhost", port=server.local_bind_port)
-    return r, server
+    ssh_tunel.start()  # start tunnel
+    r = redis.StrictRedis(host="localhost", port=ssh_tunel.local_bind_port)
+    return r, ssh_tunel
 
 
 def ssh_pem_check(EC2_PRIVATE_PEM):

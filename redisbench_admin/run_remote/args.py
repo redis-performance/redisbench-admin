@@ -40,6 +40,13 @@ def create_run_remote_arguments(parser):
         type=str,
         help="connect as this user.",
     )
+    parser.add_argument(
+        "--ssh_port",
+        required=False,
+        default=22,
+        type=int,
+        help="connect using this ssh port.",
+    )
     parser.add_argument("--terraform_bin_path", type=str, default=TERRAFORM_BIN_PATH)
     parser.add_argument("--setup_name_sufix", type=str, default="")
     parser.add_argument(
