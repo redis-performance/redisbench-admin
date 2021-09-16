@@ -21,6 +21,7 @@ from redisbench_admin.utils.remote import (
     extract_perbranch_timeseries_from_results,
     exporter_create_ts,
     get_overall_dashboard_keynames,
+    common_timeseries_extraction,
 )
 
 
@@ -359,3 +360,98 @@ def test_exporter_create_ts():
 
     except redis.exceptions.ConnectionError:
         pass
+
+
+def test_common_timeseries_extraction():
+    # v0.5 format
+    # we're adding on purpose duplicate metrics to test for the de-duplication feature and the str vs dict feature
+    metric_q50 = "Totals.overallQuantiles.all_queries.q50"
+    t1_q50 = 7.18
+    t2_q50 = 8.31
+    self_q50 = 14.228
+    metrics = [
+        "$.{}".format(metric_q50),
+        "$.{}".format(metric_q50),
+        {
+            "$.{}".format(metric_q50): {
+                "target-1": t1_q50,
+                "target-2": t2_q50,
+            }
+        },
+        "$.Totals.overallQuantiles.all_queries.q100",
+    ]
+    results_dict = {
+        "StartTime": 1631785523000,
+        "EndTime": 1631785528000,
+        "DurationMillis": 4933,
+        "Totals": {
+            "burnIn": 0,
+            "limit": 0,
+            "overallQuantiles": {
+                "RedisTimeSeries_max_of_all_CPU_metrics_random_1_hosts_random_8h0m0s_by_1h": {
+                    "q0": 0,
+                    "q100": 39.285,
+                    "q50": 14.228,
+                    "q95": 28.045,
+                    "q99": 33.075,
+                    "q999": 36.537,
+                },
+                "all_queries": {
+                    "q0": 0,
+                    "q100": 39.285,
+                    "q50": self_q50,
+                    "q95": 28.045,
+                    "q99": 33.075,
+                    "q999": 36.537,
+                },
+            },
+            "overallQueryRates": {
+                "RedisTimeSeries_max_of_all_CPU_metrics_random_1_hosts_random_8h0m0s_by_1h": 2027.186427709223,
+                "all_queries": 2027.186427709223,
+            },
+            "prewarmQueries": False,
+        },
+    }
+    break_by_key = "branch"
+    break_by_str = "by.{}".format(break_by_key)
+    datapoints_timestamp = 1631785523000
+    deployment_name = "oss-cluster-03-primaries"
+    deployment_type = "oss-cluster"
+    break_by_value = "master"
+    test_name = "test1"
+    tf_github_org = "redis"
+    tf_github_repo = "redis"
+    tf_triggering_env = "gh"
+
+    timeseries_dict = common_timeseries_extraction(
+        break_by_key,
+        break_by_str,
+        datapoints_timestamp,
+        deployment_name,
+        deployment_type,
+        metrics,
+        break_by_value,
+        results_dict,
+        test_name,
+        tf_github_org,
+        tf_github_repo,
+        tf_triggering_env,
+    )
+    # 3 series for q50, 1 serie for q100 (given there is no target there)
+    assert len(timeseries_dict.keys()) == 4
+    prefix = "ci.benchmarks.redislabs/by.branch/gh/redis/redis/test1/oss-cluster/oss-cluster-03-primaries/master/"
+    key_self_q50 = "{}{}".format(prefix, metric_q50)
+    key_self_t1 = "{}{}/target/target-1".format(prefix, metric_q50)
+    key_self_t2 = "{}{}/target/target-2".format(prefix, metric_q50)
+    assert timeseries_dict[key_self_q50]["data"] == {datapoints_timestamp: self_q50}
+    assert timeseries_dict[key_self_q50]["labels"]["target+branch"] == "{} {}".format(
+        break_by_value, tf_github_repo
+    )
+    assert timeseries_dict[key_self_t1]["data"] == {datapoints_timestamp: t1_q50}
+    assert timeseries_dict[key_self_t1]["labels"]["target+branch"] == "{} {}".format(
+        break_by_value, "target-1"
+    )
+    assert timeseries_dict[key_self_t2]["data"] == {datapoints_timestamp: t2_q50}
+    assert timeseries_dict[key_self_t2]["labels"]["target+branch"] == "{} {}".format(
+        break_by_value, "target-2"
+    )

@@ -25,13 +25,16 @@ def run_command_logic(args):
     benchmark_infra["total-benchmark-machines"] += 1
 
 
-def calculate_benchmark_duration_and_check(benchmark_end_time, benchmark_start_time):
+def calculate_client_tool_duration_and_check(
+    benchmark_end_time, benchmark_start_time, step_name="Benchmark", warn_min=True
+):
     benchmark_duration_seconds = (benchmark_end_time - benchmark_start_time).seconds
-    logging.info("Benchmark duration {} secs.".format(benchmark_duration_seconds))
-    if benchmark_duration_seconds < min_recommended_benchmark_duration:
+    logging.info("{} duration {} secs.".format(step_name, benchmark_duration_seconds))
+    if benchmark_duration_seconds < min_recommended_benchmark_duration and warn_min:
         logging.warning(
-            "Benchmark duration of {} secs is bellow the considered"
+            "{} duration of {} secs is bellow the considered"
             " minimum duration for a stable run ({} secs).".format(
+                step_name,
                 benchmark_duration_seconds,
                 min_recommended_benchmark_duration,
             )

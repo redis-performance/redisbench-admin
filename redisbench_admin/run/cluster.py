@@ -8,19 +8,10 @@ import logging
 from redisbench_admin.utils.remote import execute_remote_commands
 
 from redisbench_admin.environments.oss_cluster import generate_cluster_redis_server_args
+from redisbench_admin.utils.utils import wait_for_conn
 
 
-def cluster_init_steps(
-    clusterconfig,
-    redis_conns,
-    local_module_file,
-    contains_dataset=True,
-):
-    if contains_dataset:
-        for conn in redis_conns:
-            # force debug reload nosave to replace the current database with the contents of an existing RDB file
-            conn.execute_command("DEBUG RELOAD NOSAVE")
-
+def cluster_init_steps(clusterconfig, redis_conns, local_module_file):
     startup_nodes = generate_startup_nodes_array(redis_conns)
 
     if clusterconfig is not None:
@@ -69,6 +60,27 @@ def cluster_init_steps(
                         )
                     )
     return startup_nodes
+
+
+def debug_reload_rdb(dataset_load_timeout_secs, redis_conns):
+    for primary_n, conn in enumerate(redis_conns):
+        host = conn.connection_pool.connection_kwargs["host"]
+        port = conn.connection_pool.connection_kwargs["port"]
+        logging.info(
+            "force debug reload nosave to replace the current database with the contents of an existing RDB file. Doing it for host:{} port:{}".format(
+                host,
+                port,
+            )
+        )
+        # force debug reload nosave to replace the current database with the contents of an existing RDB file
+        conn.execute_command("DEBUG RELOAD NOSAVE")
+    for primary_n, conn in enumerate(redis_conns):
+        logging.info(
+            "Waiting for connection for primary #{}".format(
+                primary_n,
+            )
+        )
+        wait_for_conn(conn, dataset_load_timeout_secs, "PING", True, initial_sleep=0)
 
 
 def generate_startup_nodes_array(redis_conns):

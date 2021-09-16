@@ -18,6 +18,7 @@ from git import Repo
 from jsonpath_ng import parse
 from python_terraform import Terraform
 
+from redisbench_admin.environments.oss_cluster import get_cluster_dbfilename
 from redisbench_admin.utils.local import check_dataset_local_requirements
 from redisbench_admin.utils.utils import (
     get_ts_metric_name,
@@ -146,10 +147,11 @@ def check_dataset_remote_requirements(
     server_public_ip,
     username,
     private_key,
-    remote_dataset_file,
+    remote_dataset_folder,
     dirname,
     number_primaries,
     is_cluster,
+    start_port,
 ):
     res = True
     dataset, fullpath, tmppath = check_dataset_local_requirements(
@@ -159,12 +161,24 @@ def check_dataset_remote_requirements(
         "./datasets",
         "dbconfig",
         number_primaries,
-        is_cluster,
+        False,
     )
     if dataset is not None:
         logging.info(
             'Detected dataset config. Will copy file to remote setup... "{}"'.format(
                 dataset
+            )
+        )
+        if is_cluster:
+            primary_port = start_port
+            remote_dataset_file = "{}/{}".format(
+                remote_dataset_folder, get_cluster_dbfilename(primary_port)
+            )
+        else:
+            remote_dataset_file = "{}/dump.rdb".format(remote_dataset_folder)
+        logging.info(
+            "Copying rdb from {} to remote machine(eip={}) into :{}".format(
+                fullpath, server_public_ip, remote_dataset_file
             )
         )
         res = copy_file_to_remote_setup(
@@ -175,6 +189,30 @@ def check_dataset_remote_requirements(
             remote_dataset_file,
             None,
         )
+        if is_cluster:
+            commands = []
+            for master_shard_id in range(2, number_primaries + 1):
+                primary_port = master_shard_id + start_port - 1
+                second_forward_remote_dataset_file = "{}/{}".format(
+                    remote_dataset_folder, get_cluster_dbfilename(primary_port)
+                )
+                logging.info(
+                    "For primary #{}, reusing the already present rdb in {} and duplicating it into :{}".format(
+                        master_shard_id,
+                        remote_dataset_file,
+                        second_forward_remote_dataset_file,
+                    )
+                )
+                # start redis-server
+                commands.append(
+                    "cp {} {}".format(
+                        remote_dataset_file, second_forward_remote_dataset_file
+                    )
+                )
+            execute_remote_commands(
+                server_public_ip, username, private_key, commands, 22
+            )
+
     return res, dataset, fullpath, tmppath
 
 
@@ -568,9 +606,30 @@ def common_timeseries_extraction(
     testcase_metric_context_paths=[],
 ):
     branch_time_series_dict = {}
+    cleaned_metrics = []
+    already_present_metrics = []
+    # insert first the dict metrics
     for jsonpath in metrics:
+        if type(jsonpath) == dict:
+            cleaned_metrics.append(jsonpath)
+            metric_jsonpath = list(jsonpath.keys())[0]
+            already_present_metrics.append(metric_jsonpath)
+    for jsonpath in metrics:
+        if type(jsonpath) == str:
+            if jsonpath not in already_present_metrics:
+                already_present_metrics.append(jsonpath)
+                cleaned_metrics.append(jsonpath)
+
+    for jsonpath in cleaned_metrics:
+        test_case_targets_dict = {}
+        metric_jsonpath = jsonpath
         try:
-            jsonpath_expr = parse(jsonpath)
+            if type(jsonpath) == str:
+                jsonpath_expr = parse(jsonpath)
+            if type(jsonpath) == dict:
+                metric_jsonpath = list(jsonpath.keys())[0]
+                test_case_targets_dict = jsonpath[metric_jsonpath]
+                jsonpath_expr = parse(metric_jsonpath)
         except Exception:
             pass
         finally:
@@ -582,7 +641,7 @@ def common_timeseries_extraction(
                 for metric in find_res:
                     metric_name = str(metric.path)
                     metric_value = float(metric.value)
-                    metric_jsonpath = jsonpath
+
                     metric_context_path = str(metric.context.path)
                     if metric_jsonpath[0] == "$":
                         metric_jsonpath = metric_jsonpath[1:]
@@ -608,6 +667,10 @@ def common_timeseries_extraction(
                     timeserie_tags[
                         "{}+{}".format("deployment_name", break_by_key)
                     ] = "{} {}".format(deployment_name, break_by_value)
+                    timeserie_tags[break_by_key] = break_by_value
+                    timeserie_tags[
+                        "{}+{}".format("target", break_by_key)
+                    ] = "{} {}".format(break_by_value, tf_github_repo)
                     timeserie_tags["test_name"] = str(test_name)
                     timeserie_tags["metric"] = str(metric_name)
                     timeserie_tags["metric_name"] = metric_name
@@ -635,6 +698,19 @@ def common_timeseries_extraction(
                         "labels": timeserie_tags.copy(),
                         "data": {datapoints_timestamp: metric_value},
                     }
+                    original_ts_name = ts_name
+                    for target_name, target_value in test_case_targets_dict.items():
+                        ts_name = original_ts_name + "/target/{}".format(target_name)
+                        timeserie_tags_target = timeserie_tags.copy()
+                        timeserie_tags_target["is_target"] = "true"
+                        timeserie_tags_target[
+                            "{}+{}".format("target", break_by_key)
+                        ] = "{} {}".format(break_by_value, target_name)
+                        branch_time_series_dict[ts_name] = {
+                            "labels": timeserie_tags_target,
+                            "data": {datapoints_timestamp: target_value},
+                        }
+
             else:
                 logging.warning(
                     "Unable to find metric path {} in result dict".format(jsonpath)

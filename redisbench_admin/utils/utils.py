@@ -256,10 +256,11 @@ def get_ts_metric_name(
     return ts_name
 
 
-def wait_for_conn(conn, retries=20, command="PING", should_be=True):
+def wait_for_conn(conn, retries=20, command="PING", should_be=True, initial_sleep=1):
     """Wait until a given Redis connection is ready"""
     result = False
-    time.sleep(1)  # give extra 1sec in case of RDB loading
+    if initial_sleep > 0:
+        time.sleep(initial_sleep)  # give extra 1sec in case of RDB loading
     while retries > 0 and result is False:
         try:
             if conn.execute_command(command) == should_be:

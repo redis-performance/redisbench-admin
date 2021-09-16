@@ -69,7 +69,12 @@ def generate_meet_cmds(shard_count, shard_host, start_port):
 def setup_oss_cluster_from_conns(meet_cmds, redis_conns, shard_count):
     status = False
     try:
-        for redis_conn in redis_conns:
+        for primary_pos, redis_conn in enumerate(redis_conns):
+            logging.info(
+                "Sending to primary #{} a total of {} MEET commands".format(
+                    primary_pos, len(meet_cmds)
+                )
+            )
             for cmd in meet_cmds:
                 redis_conn.execute_command(cmd)
 
@@ -132,6 +137,8 @@ def generate_cluster_redis_server_args(
         "redis-server",
         "--appendonly",
         "no",
+        "--logfile",
+        "cluster-node-port-{}.log".format(port),
         "--cluster-enabled",
         "yes",
         "--daemonize",

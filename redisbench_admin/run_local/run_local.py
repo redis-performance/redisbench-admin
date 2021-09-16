@@ -8,30 +8,21 @@ import json
 import logging
 import os
 import sys
-import tempfile
 import datetime
 import traceback
 
-import redis
-from rediscluster import RedisCluster
 from redistimeseries.client import Client
 
-from redisbench_admin.environments.oss_cluster import (
-    spin_up_local_redis_cluster,
-    setup_redis_cluster_from_conns,
-)
-
-from redisbench_admin.run.cluster import cluster_init_steps
 from redisbench_admin.run.common import (
     prepare_benchmark_parameters,
     get_start_time_vars,
     BENCHMARK_REPETITIONS,
     extract_test_feasible_setups,
     get_setup_type_and_primaries_count,
-    run_redis_pre_steps,
     dso_check,
 )
-from redisbench_admin.run.run import calculate_benchmark_duration_and_check
+from redisbench_admin.run.run import calculate_client_tool_duration_and_check
+from redisbench_admin.run_local.local_db import local_db_spin
 from redisbench_admin.run_local.local_helpers import (
     run_local_benchmark,
     check_benchmark_binaries_local_requirements,
@@ -47,14 +38,10 @@ from redisbench_admin.run_local.profile_local import (
 from redisbench_admin.utils.benchmark_config import (
     prepare_benchmark_definitions,
     results_dict_kpi_check,
-    extract_redis_dbconfig_parameters,
 )
 from redisbench_admin.utils.local import (
     get_local_run_full_filename,
-    is_process_alive,
-    check_dataset_local_requirements,
 )
-from redisbench_admin.environments.oss_standalone import spin_up_local_redis
 from redisbench_admin.utils.remote import (
     extract_git_vars,
 )
@@ -155,111 +142,22 @@ def run_local_command_logic(args, project_name, project_version):
                     # noinspection PyBroadException
                     try:
                         dirname = "."
-                        # setup Redis
-                        # copy the rdb to DB machine
-                        temporary_dir = tempfile.mkdtemp()
-                        logging.info(
-                            "Using local temporary dir to spin up Redis Instance. Path: {}".format(
-                                temporary_dir
-                            )
-                        )
-                        if dbdir_folder is not None:
-                            from distutils.dir_util import copy_tree
-
-                            copy_tree(dbdir_folder, temporary_dir)
-                            logging.info(
-                                "Copied entire content of {} into temporary path: {}".format(
-                                    dbdir_folder, temporary_dir
-                                )
-                            )
                         (
-                            redis_configuration_parameters,
-                            dataset_load_timeout_secs,
-                        ) = extract_redis_dbconfig_parameters(
-                            benchmark_config, "dbconfig"
-                        )
-                        cluster_api_enabled = False
-
-                        logging.info(
-                            "Using a dataset load timeout of {} seconds.".format(
-                                dataset_load_timeout_secs
-                            )
-                        )
-                        redis_conns = []
-                        if setup_type == "oss-cluster":
-                            cluster_api_enabled = True
-                            shard_host = "127.0.0.1"
-                            redis_processes, redis_conns = spin_up_local_redis_cluster(
-                                temporary_dir,
-                                shard_count,
-                                shard_host,
-                                args.port,
-                                local_module_file,
-                                redis_configuration_parameters,
-                                dataset_load_timeout_secs,
-                            )
-
-                            status = setup_redis_cluster_from_conns(
-                                redis_conns, shard_count, shard_host, args.port
-                            )
-                            if status is False:
-                                raise Exception(
-                                    "Redis cluster setup failed. Failing test."
-                                )
-
-                            # we use node 0 for the checks
-                            r = redis.StrictRedis(port=args.port)
-
-                        dataset, _, _ = check_dataset_local_requirements(
-                            benchmark_config,
-                            temporary_dir,
-                            dirname,
-                            "./datasets",
-                            "dbconfig",
-                            shard_count,
                             cluster_api_enabled,
+                            redis_conns,
+                            redis_processes,
+                        ) = local_db_spin(
+                            args,
+                            benchmark_config,
+                            clusterconfig,
+                            dbdir_folder,
+                            dirname,
+                            local_module_file,
+                            redis_processes,
+                            required_modules,
+                            setup_type,
+                            shard_count,
                         )
-
-                        if setup_type == "oss-standalone":
-                            redis_processes = spin_up_local_redis(
-                                "redis-server",
-                                args.port,
-                                temporary_dir,
-                                local_module_file,
-                                redis_configuration_parameters,
-                                dbdir_folder,
-                                dataset_load_timeout_secs,
-                            )
-
-                            for redis_process in redis_processes:
-                                if is_process_alive(redis_process) is False:
-                                    raise Exception(
-                                        "Redis process is not alive. Failing test."
-                                    )
-
-                            r = redis.StrictRedis(port=args.port)
-
-                        if setup_type == "oss-cluster":
-                            contains_rdb = False
-                            if dataset is not None:
-                                contains_rdb = True
-                            startup_nodes = cluster_init_steps(
-                                clusterconfig,
-                                redis_conns,
-                                local_module_file,
-                                contains_rdb,
-                            )
-
-                            rc = RedisCluster(
-                                startup_nodes=startup_nodes, decode_responses=True
-                            )
-                            cluster_info = rc.cluster_info()
-                            logging.info(
-                                "Cluster info after initialization: {}.".format(
-                                    cluster_info
-                                )
-                            )
-                        run_redis_pre_steps(benchmark_config, r, required_modules)
 
                         # setup the benchmark
                         (
@@ -314,7 +212,7 @@ def run_local_command_logic(args, project_name, project_version):
                         stdout, stderr = run_local_benchmark(benchmark_tool, command)
                         benchmark_end_time = datetime.datetime.now()
                         benchmark_duration_seconds = (
-                            calculate_benchmark_duration_and_check(
+                            calculate_client_tool_duration_and_check(
                                 benchmark_end_time, benchmark_start_time
                             )
                         )
@@ -368,7 +266,8 @@ def run_local_command_logic(args, project_name, project_version):
                             return_code = results_dict_kpi_check(
                                 benchmark_config, results_dict, return_code
                             )
-                        stdout = r.shutdown(save=False)
+                        for conn in redis_conns:
+                            conn.shutdown(save=False)
                     except:
                         return_code |= 1
                         logging.critical(
