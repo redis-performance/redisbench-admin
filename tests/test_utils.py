@@ -52,6 +52,7 @@ def test_get_ts_metric_name():
     tf_github_org = "redis"
     tf_github_repo = "redis"
     deployment_type = "oss-standalone"
+    deployment_name = "oss-standalone"
     test_name = "test-1"
     tf_triggering_env = "ci"
     metric_name = "rps"
@@ -65,6 +66,7 @@ def test_get_ts_metric_name():
             by_value,
             tf_github_org,
             tf_github_repo,
+            deployment_name,
             deployment_type,
             test_name,
             tf_triggering_env,
@@ -85,6 +87,7 @@ def test_get_ts_metric_name():
             tf_github_org,
             tf_github_repo,
             deployment_type,
+            deployment_name,
             test_name,
             tf_triggering_env,
             metric_name,
@@ -101,6 +104,7 @@ def test_get_ts_metric_name():
         by_value,
         tf_github_org,
         tf_github_repo,
+        deployment_name,
         deployment_type,
         test_name,
         tf_triggering_env,

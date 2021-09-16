@@ -5,20 +5,15 @@
 #
 import logging
 
-import redis
+from redisbench_admin.utils.remote import execute_remote_commands
+
+from redisbench_admin.environments.oss_cluster import generate_cluster_redis_server_args
+from redisbench_admin.utils.utils import wait_for_conn
 
 
-def cluster_init_steps(
-    args, clusterconfig, local_module_file, r_conns, shard_count, contains_dataset=True
-):
-    startup_nodes = []
-    for p in range(args.port, args.port + shard_count):
-        primary_conn = redis.StrictRedis(port=p)
-        if contains_dataset:
-            # force debug reload nosave to replace the current database with the contents of an existing RDB file
-            primary_conn.execute_command("DEBUG RELOAD NOSAVE")
-        r_conns.append(primary_conn)
-        startup_nodes.append({"host": "127.0.0.1", "port": "{}".format(p)})
+def cluster_init_steps(clusterconfig, redis_conns, local_module_file):
+    startup_nodes = generate_startup_nodes_array(redis_conns)
+
     if clusterconfig is not None:
         if "init_commands" in clusterconfig:
             for command_group in clusterconfig["init_commands"]:
@@ -48,7 +43,7 @@ def cluster_init_steps(
                     skip = not (m_found)
                 if skip is False:
                     for command in command_group["commands"]:
-                        for conn_n, rc in enumerate(r_conns):
+                        for conn_n, rc in enumerate(redis_conns):
                             rc.execute_command(command)
                             logging.info(
                                 "Cluster node {}: sent command {}".format(
@@ -67,22 +62,73 @@ def cluster_init_steps(
     return startup_nodes
 
 
+def debug_reload_rdb(dataset_load_timeout_secs, redis_conns):
+    for primary_n, conn in enumerate(redis_conns):
+        host = conn.connection_pool.connection_kwargs["host"]
+        port = conn.connection_pool.connection_kwargs["port"]
+        logging.info(
+            "force debug reload nosave to replace the current database with the contents of an existing RDB file. Doing it for host:{} port:{}".format(
+                host,
+                port,
+            )
+        )
+        # force debug reload nosave to replace the current database with the contents of an existing RDB file
+        conn.execute_command("DEBUG RELOAD NOSAVE")
+    for primary_n, conn in enumerate(redis_conns):
+        logging.info(
+            "Waiting for connection for primary #{}".format(
+                primary_n,
+            )
+        )
+        wait_for_conn(conn, dataset_load_timeout_secs, "PING", True, initial_sleep=0)
+
+
+def generate_startup_nodes_array(redis_conns):
+    startup_nodes = []
+    for conn in redis_conns:
+        logging.info(conn)
+        logging.info(conn.connection_pool)
+        logging.info(conn.connection_pool.connection_kwargs)
+        startup_nodes.append(
+            {
+                "host": conn.connection_pool.connection_kwargs["host"],
+                "port": "{}".format(conn.connection_pool.connection_kwargs["port"]),
+            }
+        )
+    return startup_nodes
+
+
 # noinspection PyBroadException
 def spin_up_redis_cluster_remote_redis(
-    benchmark_config,
     server_public_ip,
+    server_private_ip,
     username,
     private_key,
-    local_module_file,
-    remote_module_file,
-    remote_dataset_file,
-    logname,
-    dirname,
+    remote_module_files,
     redis_configuration_parameters,
     dbdir_folder,
     shard_count,
-    port,
+    start_port,
+    ssh_port,
 ):
-    logging.error(
-        "Remote cluster is still not implemented =(. We're working hard to get it ASAP =)!!"
+    logging.info("Generating the remote redis-server command arguments")
+    redis_process_commands = []
+    for master_shard_id in range(1, shard_count + 1):
+        shard_port = master_shard_id + start_port - 1
+
+        command = generate_cluster_redis_server_args(
+            dbdir_folder,
+            remote_module_files,
+            server_private_ip,
+            shard_port,
+            redis_configuration_parameters,
+        )
+        logging.error(
+            "Remote primary shard {} command: {}".format(
+                master_shard_id, " ".join(command)
+            )
+        )
+        redis_process_commands.append(" ".join(command))
+    execute_remote_commands(
+        server_public_ip, username, private_key, redis_process_commands, ssh_port
     )

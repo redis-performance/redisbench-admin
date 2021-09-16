@@ -37,17 +37,17 @@ def absoluteFilePaths(directory):
             yield os.path.abspath(os.path.join(dirpath, f))
 
 
-def benchmark_tools_sanity_check(args, benchmark_tool):
+def benchmark_tools_sanity_check(allowed_tools, benchmark_tool):
     if benchmark_tool is not None:
         logging.info("Detected benchmark config tool {}".format(benchmark_tool))
     else:
         raise Exception(
             "Unable to detect benchmark tool within 'clientconfig' section. Aborting..."
         )
-    if benchmark_tool not in args.allowed_tools.split(","):
+    if benchmark_tool not in allowed_tools.split(","):
         raise Exception(
             "Benchmark tool {} not in the allowed tools list [{}]. Aborting...".format(
-                benchmark_tool, args.allowed_tools
+                benchmark_tool, allowed_tools
             )
         )
 
@@ -62,6 +62,9 @@ def remote_tool_pre_bench_step(
     client_public_ip,
     username,
     benchmark_tool_source,
+    config_key="clientconfig",
+    os_str="linux",
+    arch_str="amd64",
 ):
     logging.info("Settting up remote tool {} requirements".format(benchmark_tool))
     if benchmark_tool == "redisgraph-benchmark-go":
@@ -101,11 +104,9 @@ def remote_tool_pre_bench_step(
         )
 
     if "tsbs_" in benchmark_tool:
-        (
-            queries_file_link,
-            remote_tool_link,
-            tool_link,
-        ) = extract_tsbs_extra_links(benchmark_config, benchmark_tool)
+        (queries_file_link, remote_tool_link, tool_link,) = extract_tsbs_extra_links(
+            benchmark_config, benchmark_tool, config_key, os_str, arch_str
+        )
 
         setup_remote_benchmark_tool_requirements_tsbs(
             client_public_ip,

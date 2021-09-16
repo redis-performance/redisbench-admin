@@ -25,6 +25,7 @@ from redisbench_admin.run.tsbs_run_queries_redistimeseries.tsbs_run_queries_redi
     prepare_tsbs_benchmark_command,
 )
 from redisbench_admin.run.ycsb.ycsb import prepare_ycsb_benchmark_command
+from redisbench_admin.run_remote.consts import private_key
 from redisbench_admin.run_remote.remote_helpers import (
     extract_module_semver_from_info_modules_cmd,
 )
@@ -54,12 +55,13 @@ def prepare_benchmark_parameters(
     isremote=False,
     current_workdir=None,
     cluster_api_enabled=False,
+    config_key="clientconfig",
 ):
     command_arr = None
     command_str = None
     # v0.1 to 0.3 spec
-    if type(benchmark_config["clientconfig"]) == list:
-        for entry in benchmark_config["clientconfig"]:
+    if type(benchmark_config[config_key]) == list:
+        for entry in benchmark_config[config_key]:
             if "parameters" in entry:
                 command_arr, command_str = prepare_benchmark_parameters_specif_tooling(
                     benchmark_tool,
@@ -74,8 +76,8 @@ def prepare_benchmark_parameters(
                     server_private_ip,
                 )
     # v0.4 spec
-    elif type(benchmark_config["clientconfig"]) == dict:
-        entry = benchmark_config["clientconfig"]
+    elif type(benchmark_config[config_key]) == dict:
+        entry = benchmark_config[config_key]
         command_arr, command_str = prepare_benchmark_parameters_specif_tooling(
             benchmark_tool,
             cluster_api_enabled,
@@ -234,6 +236,7 @@ def run_remote_benchmark(
 
 
 def common_exporter_logic(
+    deployment_name,
     deployment_type,
     exporter_timemetric_path,
     metrics,
@@ -274,6 +277,7 @@ def common_exporter_logic(
                 artifact_version,
                 tf_github_org,
                 tf_github_repo,
+                deployment_name,
                 deployment_type,
                 test_name,
                 tf_triggering_env,
@@ -294,6 +298,7 @@ def common_exporter_logic(
                 str(tf_github_branch),
                 tf_github_org,
                 tf_github_repo,
+                deployment_name,
                 deployment_type,
                 test_name,
                 tf_triggering_env,
@@ -330,6 +335,29 @@ def get_start_time_vars(start_time=None):
     start_time_ms = int((start_time - dt.datetime(1970, 1, 1)).total_seconds() * 1000)
     start_time_str = start_time.strftime("%Y-%m-%d-%H-%M-%S")
     return start_time, start_time_ms, start_time_str
+
+
+def check_dbconfig_tool_requirement(benchmark_config, dbconfig_keyname="dbconfig"):
+    required = False
+    if dbconfig_keyname in benchmark_config:
+        for k in benchmark_config[dbconfig_keyname]:
+            if "tool" in k:
+                required = True
+    return required
+
+
+def check_dbconfig_keyspacelen_requirement(
+    benchmark_config, dbconfig_keyname="dbconfig"
+):
+    required = False
+    keyspacelen = None
+    if dbconfig_keyname in benchmark_config:
+        for k in benchmark_config[dbconfig_keyname]:
+            if "check" in k:
+                if "keyspacelen" in k["check"]:
+                    required = True
+                    keyspacelen = int(k["check"]["keyspacelen"])
+    return required, keyspacelen
 
 
 def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
@@ -399,8 +427,9 @@ def extract_test_feasible_setups(
 
 def get_setup_type_and_primaries_count(setup_settings):
     setup_type = setup_settings["type"]
+    setup_name = setup_settings["name"]
     shard_count = setup_settings["redis_topology"]["primaries"]
-    return setup_type, shard_count
+    return setup_name, setup_type, shard_count
 
 
 def merge_default_and_config_metrics(
@@ -497,3 +526,60 @@ def dso_check(dso, local_module_file):
                     )
                 )
     return dso
+
+
+def dbconfig_keyspacelen_check(benchmark_config, redis_conns):
+    (
+        requires_keyspacelen_check,
+        keyspacelen,
+    ) = check_dbconfig_keyspacelen_requirement(benchmark_config)
+    if requires_keyspacelen_check:
+        logging.info(
+            "Ensuring keyspace length requirement = {} is met.".format(keyspacelen)
+        )
+        total_keys = 0
+        for shard_conn in redis_conns:
+            keyspace_dict = shard_conn.info("keyspace")
+            for _, dbdict in keyspace_dict.items():
+                shard_keys = dbdict["keys"]
+                total_keys += shard_keys
+
+        if total_keys == keyspacelen:
+            logging.info(
+                "The total numbers of keys in setup matches the expected spec: {}=={}".format(
+                    keyspacelen, total_keys
+                )
+            )
+        else:
+            logging.error(
+                "The total numbers of keys in setup does not match the expected spec: {}!={}. Aborting...".format(
+                    keyspacelen, total_keys
+                )
+            )
+            raise Exception(
+                "The total numbers of keys in setup does not match the expected spec: {}!={}. Aborting...".format(
+                    keyspacelen, total_keys
+                )
+            )
+
+
+def common_properties_log(
+    tf_bin_path,
+    tf_github_actor,
+    tf_github_branch,
+    tf_github_org,
+    tf_github_repo,
+    tf_github_sha,
+    tf_setup_name_sufix,
+    tf_triggering_env,
+):
+    logging.info("Using the following vars on terraform deployment:")
+    logging.info("\tterraform bin path: {}".format(tf_bin_path))
+    logging.info("\tgithub_actor: {}".format(tf_github_actor))
+    logging.info("\tgithub_org: {}".format(tf_github_org))
+    logging.info("\tgithub_repo: {}".format(tf_github_repo))
+    logging.info("\tgithub_branch: {}".format(tf_github_branch))
+    logging.info("\tgithub_sha: {}".format(tf_github_sha))
+    logging.info("\ttriggering env: {}".format(tf_triggering_env))
+    logging.info("\tprivate_key path: {}".format(private_key))
+    logging.info("\tsetup_name sufix: {}".format(tf_setup_name_sufix))

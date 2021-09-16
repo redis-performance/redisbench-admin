@@ -7,7 +7,6 @@ from redisbench_admin.run.s3 import get_test_s3_bucket_path
 from redisbench_admin.run.tsbs_run_queries_redistimeseries.tsbs_run_queries_redistimeseries import (
     extract_tsbs_extra_links,
 )
-from redisbench_admin.run.redistimeseries import redistimeseries_results_logic
 from redisbench_admin.run.common import merge_default_and_config_metrics
 from redisbench_admin.utils.benchmark_config import process_default_yaml_properties_file
 from redisbench_admin.utils.remote import get_overall_dashboard_keynames
