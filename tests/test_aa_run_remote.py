@@ -1,5 +1,9 @@
+import argparse
+import os
+
 import yaml
 
+from redisbench_admin.run_remote.args import create_run_remote_arguments
 from redisbench_admin.run_remote.remote_helpers import (
     extract_module_semver_from_info_modules_cmd,
 )
@@ -7,8 +11,8 @@ from redisbench_admin.run.s3 import get_test_s3_bucket_path
 from redisbench_admin.run.tsbs_run_queries_redistimeseries.tsbs_run_queries_redistimeseries import (
     extract_tsbs_extra_links,
 )
-from redisbench_admin.run.redistimeseries import redistimeseries_results_logic
 from redisbench_admin.run.common import merge_default_and_config_metrics
+from redisbench_admin.run_remote.run_remote import run_remote_command_logic
 from redisbench_admin.utils.benchmark_config import process_default_yaml_properties_file
 from redisbench_admin.utils.remote import get_overall_dashboard_keynames
 
@@ -167,3 +171,34 @@ def test_extract_tsbs_extra_links():
         assert tool_link == (
             "https://s3.amazonaws.com/benchmarks.redislabs/redistimeseries/tools/tsbs/tsbs_load_redistimeseries_linux_amd64"
         )
+
+
+def test_run_remote_command_logic():
+    private_key = "./tests/test_data/test-ssh/tox_rsa"
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_remote_arguments(parser)
+    db_server_ip = os.getenv("DB_SERVER_HOST", None)
+    client_server_ip = os.getenv("CLIENT_SERVER_HOST", None)
+    if db_server_ip is None or client_server_ip is None:
+        assert False
+    args = parser.parse_args(
+        args=[
+            "--inventory",
+            "server_private_ip={},server_public_ip={},client_public_ip={}".format(
+                db_server_ip, db_server_ip, client_server_ip
+            ),
+            "--db_ssh_port",
+            "2222",
+            "--client_ssh_port",
+            "222",
+            "--test",
+            "./tests/test_data/redis-benchmark-vanilla.yml",
+            "--skip-env-vars-verify",
+            "--private_key",
+            private_key,
+        ]
+    )
+    # run_remote_command_logic(args, "tool", "v0")

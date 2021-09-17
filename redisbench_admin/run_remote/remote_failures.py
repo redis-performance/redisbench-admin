@@ -5,7 +5,6 @@
 #
 import logging
 
-from redisbench_admin.run_remote.consts import private_key
 from redisbench_admin.utils.remote import fetch_file_from_remote_setup
 from redisbench_admin.utils.utils import upload_artifacts_to_s3
 
@@ -19,6 +18,7 @@ def failed_remote_run_artifact_store(
     s3_bucket_name,
     s3_bucket_path,
     username,
+    private_key,
 ):
     local_logfile = "{}/{}".format(dirname, logname)
     logging.error(

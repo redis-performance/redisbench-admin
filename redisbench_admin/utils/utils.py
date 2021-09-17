@@ -214,6 +214,7 @@ def get_ts_metric_name(
     by_value,
     tf_github_org,
     tf_github_repo,
+    deployment_name,
     deployment_type,
     test_name,
     tf_triggering_env,
@@ -231,16 +232,21 @@ def get_ts_metric_name(
     running_platform_str = ""
     if running_platform is not None:
         running_platform_str = "{}/".format(str(running_platform))
+    if deployment_name != deployment_type:
+        deployment_name = "/{}".format(deployment_name)
+    else:
+        deployment_name = ""
     ts_name = (
         "ci.benchmarks.redislabs/{by}/"
         "{triggering_env}/{github_org}/{github_repo}/"
-        "{test_name}/{build_variant_str}{running_platform_str}{deployment_type}/{by_value}/{metric}".format(
+        "{test_name}/{build_variant_str}{running_platform_str}{deployment_type}{deployment_name}/{by_value}/{metric}".format(
             by=by,
             triggering_env=tf_triggering_env,
             github_org=tf_github_org,
             github_repo=tf_github_repo,
             test_name=test_name,
             deployment_type=deployment_type,
+            deployment_name=deployment_name,
             build_variant_str=build_variant_str,
             running_platform_str=running_platform_str,
             by_value=str(by_value),
@@ -250,9 +256,11 @@ def get_ts_metric_name(
     return ts_name
 
 
-def wait_for_conn(conn, retries=20, command="PING", should_be=True):
+def wait_for_conn(conn, retries=20, command="PING", should_be=True, initial_sleep=1):
     """Wait until a given Redis connection is ready"""
     result = False
+    if initial_sleep > 0:
+        time.sleep(initial_sleep)  # give extra 1sec in case of RDB loading
     while retries > 0 and result is False:
         try:
             if conn.execute_command(command) == should_be:
@@ -260,7 +268,11 @@ def wait_for_conn(conn, retries=20, command="PING", should_be=True):
         except redis.exceptions.BusyLoadingError:
             time.sleep(1)  # give extra 1sec in case of RDB loading
         except redis.ConnectionError as err:
-            logging.error(err)
+            logging.error(
+                "Catched error while waiting for connection {}. Retries available {}".format(
+                    err, retries
+                )
+            )
         except redis.ResponseError as err:
             err1 = str(err)
             if not err1.startswith("DENIED"):

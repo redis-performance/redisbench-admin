@@ -167,9 +167,14 @@ def redis_benchmark_ensure_min_version_remote(
     client_public_ip,
     username,
     private_key,
+    client_ssh_port,
 ):
     res = execute_remote_commands(
-        client_public_ip, username, private_key, ["{} --version".format(benchmark_tool)]
+        client_public_ip,
+        username,
+        private_key,
+        ["{} --version".format(benchmark_tool)],
+        client_ssh_port,
     )
     recv_exit_status, stdout, stderr = res[0]
     ensure_redis_benchmark_version_from_input(

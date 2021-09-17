@@ -15,6 +15,7 @@ from redisbench_admin.run.common import (
 from redisbench_admin.utils.remote import (
     get_project_ts_tags,
     get_overall_dashboard_keynames,
+    exporter_create_ts,
 )
 from redisbench_admin.utils.utils import get_ts_metric_name
 
@@ -23,6 +24,7 @@ def redistimeseries_results_logic(
     artifact_version,
     benchmark_config,
     default_metrics,
+    deployment_name,
     deployment_type,
     exporter_timemetric_path,
     results_dict,
@@ -45,6 +47,7 @@ def redistimeseries_results_logic(
         per_branch_time_series_dict,
         testcase_metric_context_paths,
     ) = common_exporter_logic(
+        deployment_name,
         deployment_type,
         exporter_timemetric_path,
         metrics,
@@ -71,6 +74,7 @@ def add_standardized_metric_bybranch(
     metric_name,
     metric_value,
     tf_github_branch,
+    deployment_name,
     deployment_type,
     rts,
     start_time_ms,
@@ -87,6 +91,7 @@ def add_standardized_metric_bybranch(
         tf_github_branch,
         tf_github_org,
         tf_github_repo,
+        deployment_name,
         deployment_type,
         test_name,
         tf_triggering_env,
@@ -99,6 +104,7 @@ def add_standardized_metric_bybranch(
     labels = get_project_ts_tags(
         tf_github_org,
         tf_github_repo,
+        deployment_name,
         deployment_type,
         tf_triggering_env,
         metadata_tags,
@@ -106,6 +112,7 @@ def add_standardized_metric_bybranch(
         running_platform,
     )
     labels["branch"] = tf_github_branch
+    labels["deployment_name+branch"] = "{} {}".format(deployment_name, tf_github_branch)
     labels["test_name"] = str(test_name)
     labels["metric"] = str(metric_name)
     logging.info(
@@ -113,18 +120,8 @@ def add_standardized_metric_bybranch(
             metric_name, metric_value, tsname_use_case_duration
         )
     )
-    try:
-        logging.info(
-            "Creating timeseries named {} with labels {}".format(
-                tsname_use_case_duration, labels
-            )
-        )
-        rts.create(tsname_use_case_duration, labels=labels)
-    except redis.exceptions.ResponseError:
-        logging.warning(
-            "Timeseries named {} already exists".format(tsname_use_case_duration)
-        )
-        pass
+    ts = {"labels": labels}
+    exporter_create_ts(rts, ts, tsname_use_case_duration)
     rts.add(
         tsname_use_case_duration,
         start_time_ms,
@@ -137,6 +134,7 @@ def add_standardized_metric_byversion(
     metric_name,
     metric_value,
     artifact_version,
+    deployment_name,
     deployment_type,
     rts,
     start_time_ms,
@@ -153,6 +151,7 @@ def add_standardized_metric_byversion(
         artifact_version,
         tf_github_org,
         tf_github_repo,
+        deployment_name,
         deployment_type,
         test_name,
         tf_triggering_env,
@@ -165,12 +164,16 @@ def add_standardized_metric_byversion(
     labels = get_project_ts_tags(
         tf_github_org,
         tf_github_repo,
+        deployment_name,
         deployment_type,
         tf_triggering_env,
         metadata_tags,
         build_variant_name,
     )
     labels["version"] = artifact_version
+    labels["deployment_name+version"] = "{} {}".format(
+        deployment_name, artifact_version
+    )
     labels["test_name"] = str(test_name)
     labels["metric"] = str(metric_name)
     logging.info(
@@ -178,18 +181,8 @@ def add_standardized_metric_byversion(
             metric_name, metric_value, tsname_use_case_duration
         )
     )
-    try:
-        logging.info(
-            "Creating timeseries named {} with labels {}".format(
-                tsname_use_case_duration, labels
-            )
-        )
-        rts.create(tsname_use_case_duration, labels=labels)
-    except redis.exceptions.ResponseError:
-        logging.warning(
-            "Timeseries named {} already exists".format(tsname_use_case_duration)
-        )
-        pass
+    ts = {"labels": labels}
+    exporter_create_ts(rts, ts, tsname_use_case_duration)
     rts.add(
         tsname_use_case_duration,
         start_time_ms,
@@ -205,6 +198,7 @@ def timeseries_test_sucess_flow(
     benchmark_duration_seconds,
     dataset_load_duration_seconds,
     default_metrics,
+    deployment_name,
     deployment_type,
     exporter_timemetric_path,
     results_dict,
@@ -225,6 +219,7 @@ def timeseries_test_sucess_flow(
             artifact_version,
             benchmark_config,
             default_metrics,
+            deployment_name,
             deployment_type,
             exporter_timemetric_path,
             results_dict,
@@ -293,6 +288,7 @@ def timeseries_test_sucess_flow(
                 labels=get_project_ts_tags(
                     tf_github_org,
                     tf_github_repo,
+                    deployment_name,
                     deployment_type,
                     tf_triggering_env,
                     metadata_tags,
@@ -305,6 +301,7 @@ def timeseries_test_sucess_flow(
                     "benchmark_duration",
                     benchmark_duration_seconds,
                     str(tf_github_branch),
+                    deployment_name,
                     deployment_type,
                     rts,
                     start_time_ms,
@@ -320,6 +317,7 @@ def timeseries_test_sucess_flow(
                     "dataset_load_duration",
                     dataset_load_duration_seconds,
                     str(tf_github_branch),
+                    deployment_name,
                     deployment_type,
                     rts,
                     start_time_ms,
@@ -336,6 +334,7 @@ def timeseries_test_sucess_flow(
                     "benchmark_duration",
                     benchmark_duration_seconds,
                     artifact_version,
+                    deployment_name,
                     deployment_type,
                     rts,
                     start_time_ms,
@@ -351,6 +350,7 @@ def timeseries_test_sucess_flow(
                     "dataset_load_duration",
                     dataset_load_duration_seconds,
                     artifact_version,
+                    deployment_name,
                     deployment_type,
                     rts,
                     start_time_ms,
@@ -373,6 +373,7 @@ def timeseries_test_sucess_flow(
 
 def timeseries_test_failure_flow(
     args,
+    deployment_name,
     deployment_type,
     rts,
     start_time_ms,
@@ -392,6 +393,7 @@ def timeseries_test_failure_flow(
                 labels=get_project_ts_tags(
                     tf_github_org,
                     tf_github_repo,
+                    deployment_name,
                     deployment_type,
                     tf_triggering_env,
                 ),

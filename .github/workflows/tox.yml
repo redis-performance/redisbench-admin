@@ -34,6 +34,13 @@ jobs:
       run: |
         pip3 install black coverage flake8 tox tox-docker tox-poetry
 
+    - name: Install Snapcraft
+        uses: samuelmeuli/action-snapcraft@v1
+
+    - name: Install Redis
+      run: |
+        snap install redis
+
     - name: Run tox
       run: |
         tox

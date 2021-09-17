@@ -18,6 +18,7 @@ from git import Repo
 from jsonpath_ng import parse
 from python_terraform import Terraform
 
+from redisbench_admin.environments.oss_cluster import get_cluster_dbfilename
 from redisbench_admin.utils.local import check_dataset_local_requirements
 from redisbench_admin.utils.utils import (
     get_ts_metric_name,
@@ -122,14 +123,9 @@ def fetch_file_from_remote_setup(
     )
 
 
-def execute_remote_commands(server_public_ip, username, private_key, commands, port=22):
+def execute_remote_commands(server_public_ip, username, private_key, commands, port):
     res = []
-    k = paramiko.RSAKey.from_private_key_file(private_key)
-    c = paramiko.SSHClient()
-    c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    logging.info("Connecting to remote server {}".format(server_public_ip))
-    c.connect(hostname=server_public_ip, port=port, username=username, pkey=k)
-    logging.info("Connected to remote server {}".format(server_public_ip))
+    c = connect_remote_ssh(port, private_key, server_public_ip, username)
     for command in commands:
         logging.info('Executing remote command "{}"'.format(command))
         stdin, stdout, stderr = c.exec_command(command)
@@ -141,15 +137,27 @@ def execute_remote_commands(server_public_ip, username, private_key, commands, p
     return res
 
 
+def connect_remote_ssh(port, private_key, server_public_ip, username):
+    k = paramiko.RSAKey.from_private_key_file(private_key)
+    c = paramiko.SSHClient()
+    c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    logging.info("Connecting to remote server {}".format(server_public_ip))
+    c.connect(hostname=server_public_ip, port=port, username=username, pkey=k)
+    logging.info("Connected to remote server {}".format(server_public_ip))
+    return c
+
+
 def check_dataset_remote_requirements(
     benchmark_config,
     server_public_ip,
     username,
     private_key,
-    remote_dataset_file,
+    remote_dataset_folder,
     dirname,
     number_primaries,
     is_cluster,
+    start_port,
+    db_ssh_port=22,
 ):
     res = True
     dataset, fullpath, tmppath = check_dataset_local_requirements(
@@ -159,12 +167,24 @@ def check_dataset_remote_requirements(
         "./datasets",
         "dbconfig",
         number_primaries,
-        is_cluster,
+        False,
     )
     if dataset is not None:
         logging.info(
             'Detected dataset config. Will copy file to remote setup... "{}"'.format(
                 dataset
+            )
+        )
+        if is_cluster:
+            primary_port = start_port
+            remote_dataset_file = "{}/{}".format(
+                remote_dataset_folder, get_cluster_dbfilename(primary_port)
+            )
+        else:
+            remote_dataset_file = "{}/dump.rdb".format(remote_dataset_folder)
+        logging.info(
+            "Copying rdb from {} to remote machine(eip={}) into :{}".format(
+                fullpath, server_public_ip, remote_dataset_file
             )
         )
         res = copy_file_to_remote_setup(
@@ -174,7 +194,32 @@ def check_dataset_remote_requirements(
             fullpath,
             remote_dataset_file,
             None,
+            db_ssh_port,
         )
+        if is_cluster:
+            commands = []
+            for master_shard_id in range(2, number_primaries + 1):
+                primary_port = master_shard_id + start_port - 1
+                second_forward_remote_dataset_file = "{}/{}".format(
+                    remote_dataset_folder, get_cluster_dbfilename(primary_port)
+                )
+                logging.info(
+                    "For primary #{}, reusing the already present rdb in {} and duplicating it into :{}".format(
+                        master_shard_id,
+                        remote_dataset_file,
+                        second_forward_remote_dataset_file,
+                    )
+                )
+                # start redis-server
+                commands.append(
+                    "cp {} {}".format(
+                        remote_dataset_file, second_forward_remote_dataset_file
+                    )
+                )
+            execute_remote_commands(
+                server_public_ip, username, private_key, commands, db_ssh_port
+            )
+
     return res, dataset, fullpath, tmppath
 
 
@@ -485,7 +530,20 @@ def exporter_create_ts(rts, time_series, timeseries_name):
         )
         rts.create(timeseries_name, labels=time_series["labels"])
     except redis.exceptions.ResponseError:
-        logging.warning("Timeseries named {} already exists".format(timeseries_name))
+        logging.warning(
+            "Timeseries named {} already exists. Checking that the labels match.".format(
+                timeseries_name
+            )
+        )
+        set1 = set(time_series["labels"].items())
+        set2 = set(rts.info(timeseries_name).labels.items())
+        if len(set1 - set2) > 0 or len(set2 - set1) > 0:
+            logging.warning(
+                "Given the labels don't match using TS.ALTER on {} to update labels to {}".format(
+                    timeseries_name, time_series["labels"]
+                )
+            )
+            rts.alter(timeseries_name, labels=time_series["labels"])
         pass
 
 
@@ -504,6 +562,7 @@ def extract_perversion_timeseries_from_results(
     project_version: str,
     tf_github_org: str,
     tf_github_repo: str,
+    deployment_name: str,
     deployment_type: str,
     test_name: str,
     tf_triggering_env: str,
@@ -518,6 +577,7 @@ def extract_perversion_timeseries_from_results(
         break_by_key,
         break_by_str,
         datapoints_timestamp,
+        deployment_name,
         deployment_type,
         metrics,
         project_version,
@@ -538,9 +598,10 @@ def common_timeseries_extraction(
     break_by_key,
     break_by_str,
     datapoints_timestamp,
+    deployment_name,
     deployment_type,
     metrics,
-    project_version,
+    break_by_value,
     results_dict,
     test_name,
     tf_github_org,
@@ -552,9 +613,30 @@ def common_timeseries_extraction(
     testcase_metric_context_paths=[],
 ):
     branch_time_series_dict = {}
+    cleaned_metrics = []
+    already_present_metrics = []
+    # insert first the dict metrics
     for jsonpath in metrics:
+        if type(jsonpath) == dict:
+            cleaned_metrics.append(jsonpath)
+            metric_jsonpath = list(jsonpath.keys())[0]
+            already_present_metrics.append(metric_jsonpath)
+    for jsonpath in metrics:
+        if type(jsonpath) == str:
+            if jsonpath not in already_present_metrics:
+                already_present_metrics.append(jsonpath)
+                cleaned_metrics.append(jsonpath)
+
+    for jsonpath in cleaned_metrics:
+        test_case_targets_dict = {}
+        metric_jsonpath = jsonpath
         try:
-            jsonpath_expr = parse(jsonpath)
+            if type(jsonpath) == str:
+                jsonpath_expr = parse(jsonpath)
+            if type(jsonpath) == dict:
+                metric_jsonpath = list(jsonpath.keys())[0]
+                test_case_targets_dict = jsonpath[metric_jsonpath]
+                jsonpath_expr = parse(metric_jsonpath)
         except Exception:
             pass
         finally:
@@ -566,7 +648,7 @@ def common_timeseries_extraction(
                 for metric in find_res:
                     metric_name = str(metric.path)
                     metric_value = float(metric.value)
-                    metric_jsonpath = jsonpath
+
                     metric_context_path = str(metric.context.path)
                     if metric_jsonpath[0] == "$":
                         metric_jsonpath = metric_jsonpath[1:]
@@ -581,13 +663,21 @@ def common_timeseries_extraction(
                     timeserie_tags = get_project_ts_tags(
                         tf_github_org,
                         tf_github_repo,
+                        deployment_name,
                         deployment_type,
                         tf_triggering_env,
                         metadata_tags,
                         build_variant_name,
                         running_platform,
                     )
-                    timeserie_tags[break_by_key] = project_version
+                    timeserie_tags[break_by_key] = break_by_value
+                    timeserie_tags[
+                        "{}+{}".format("deployment_name", break_by_key)
+                    ] = "{} {}".format(deployment_name, break_by_value)
+                    timeserie_tags[break_by_key] = break_by_value
+                    timeserie_tags[
+                        "{}+{}".format("target", break_by_key)
+                    ] = "{} {}".format(break_by_value, tf_github_repo)
                     timeserie_tags["test_name"] = str(test_name)
                     timeserie_tags["metric"] = str(metric_name)
                     timeserie_tags["metric_name"] = metric_name
@@ -598,9 +688,10 @@ def common_timeseries_extraction(
 
                     ts_name = get_ts_metric_name(
                         break_by_str,
-                        project_version,
+                        break_by_value,
                         tf_github_org,
                         tf_github_repo,
+                        deployment_name,
                         deployment_type,
                         test_name,
                         tf_triggering_env,
@@ -614,6 +705,19 @@ def common_timeseries_extraction(
                         "labels": timeserie_tags.copy(),
                         "data": {datapoints_timestamp: metric_value},
                     }
+                    original_ts_name = ts_name
+                    for target_name, target_value in test_case_targets_dict.items():
+                        ts_name = original_ts_name + "/target/{}".format(target_name)
+                        timeserie_tags_target = timeserie_tags.copy()
+                        timeserie_tags_target["is_target"] = "true"
+                        timeserie_tags_target[
+                            "{}+{}".format("target", break_by_key)
+                        ] = "{} {}".format(break_by_value, target_name)
+                        branch_time_series_dict[ts_name] = {
+                            "labels": timeserie_tags_target,
+                            "data": {datapoints_timestamp: target_value},
+                        }
+
             else:
                 logging.warning(
                     "Unable to find metric path {} in result dict".format(jsonpath)
@@ -624,6 +728,7 @@ def common_timeseries_extraction(
 def get_project_ts_tags(
     tf_github_org: str,
     tf_github_repo: str,
+    deployment_name: str,
     deployment_type: str,
     tf_triggering_env: str,
     metadata_tags={},
@@ -635,6 +740,7 @@ def get_project_ts_tags(
         "github_repo": tf_github_repo,
         "github_org/github_repo": "{}/{}".format(tf_github_org, tf_github_repo),
         "deployment_type": deployment_type,
+        "deployment_name": deployment_name,
         "triggering_env": tf_triggering_env,
     }
     if build_variant_name is not None:
@@ -653,6 +759,7 @@ def extract_perbranch_timeseries_from_results(
     tf_github_branch: str,
     tf_github_org: str,
     tf_github_repo: str,
+    deployment_name: str,
     deployment_type: str,
     test_name: str,
     tf_triggering_env: str,
@@ -667,6 +774,7 @@ def extract_perbranch_timeseries_from_results(
         break_by_key,
         break_by_str,
         datapoints_timestamp,
+        deployment_name,
         deployment_type,
         metrics,
         tf_github_branch,

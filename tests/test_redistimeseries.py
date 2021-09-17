@@ -19,7 +19,7 @@ from redisbench_admin.run.redistimeseries import timeseries_test_sucess_flow
 
 def test_timeseries_test_sucess_flow():
     try:
-        rts = Client()
+        rts = Client(port=16379)
         rts.redis.ping()
         rts.redis.flushall()
         with open(
@@ -41,6 +41,7 @@ def test_timeseries_test_sucess_flow():
                 tf_triggering_env = "gh"
                 test_name = "redis-benchmark-full-suite-1Mkeys-100B"
                 deployment_type = "oss-standalone"
+                deployment_name = "oss-standalone"
                 datapoints_timestamp = 1000
                 (
                     prefix,
@@ -75,6 +76,7 @@ def test_timeseries_test_sucess_flow():
                     benchmark_duration_seconds,
                     dataset_load_duration_seconds,
                     metrics,
+                    deployment_name,
                     deployment_type,
                     merged_exporter_timemetric_path,
                     results_dict,
@@ -172,6 +174,7 @@ def test_timeseries_test_sucess_flow():
                 benchmark_duration_seconds,
                 dataset_load_duration_seconds,
                 metrics,
+                deployment_name,
                 deployment_type,
                 merged_exporter_timemetric_path,
                 results_dict,

@@ -1,0 +1,8 @@
+FROM ghcr.io/linuxserver/openssh-server
+
+RUN \
+  echo "**** install test packages (redis) ****" && \
+  apk --update add redis
+
+RUN \
+  echo "MaxSessions 500" >> /etc/ssh/sshd_config

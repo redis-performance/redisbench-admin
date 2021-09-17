@@ -4,8 +4,14 @@ import redis
 import yaml
 from redistimeseries.client import Client
 
-from redisbench_admin.run.redistimeseries import redistimeseries_results_logic
-from redisbench_admin.run.common import merge_default_and_config_metrics
+from redisbench_admin.run.redistimeseries import (
+    redistimeseries_results_logic,
+    timeseries_test_sucess_flow,
+)
+from redisbench_admin.run.common import (
+    merge_default_and_config_metrics,
+    get_start_time_vars,
+)
 from redisbench_admin.utils.benchmark_config import process_default_yaml_properties_file
 from redisbench_admin.utils.remote import (
     extract_git_vars,
@@ -13,6 +19,9 @@ from redisbench_admin.utils.remote import (
     push_data_to_redistimeseries,
     extract_perversion_timeseries_from_results,
     extract_perbranch_timeseries_from_results,
+    exporter_create_ts,
+    get_overall_dashboard_keynames,
+    common_timeseries_extraction,
 )
 
 
@@ -100,7 +109,7 @@ def test_fetch_remote_setup_from_config():
 def test_push_data_to_redistimeseries():
     time_series_dict = {}
     try:
-        rts = Client()
+        rts = Client(port=16379)
         rts.redis.ping()
     except redis.exceptions.ConnectionError:
         pass
@@ -149,6 +158,7 @@ def test_extract_perversion_timeseries_from_results():
                 "1.0.0",
                 benchmark_config,
                 default_metrics,
+                "oss-standalone",
                 "oss",
                 exporter_timemetric_path,
                 results_dict,
@@ -163,7 +173,7 @@ def test_extract_perversion_timeseries_from_results():
             assert len(per_version_time_series_dict.keys()) == 2
             for existing_metric in ["Totals.rowRate", "Totals.metricRate"]:
                 assert (
-                    "ci.benchmarks.redislabs/by.version/tf_triggering_env/tf_github_org/tf_github_repo/test_name/oss/1.0.0/{}".format(
+                    "ci.benchmarks.redislabs/by.version/tf_triggering_env/tf_github_org/tf_github_repo/test_name/oss/oss-standalone/1.0.0/{}".format(
                         existing_metric
                     )
                     in per_version_time_series_dict.keys()
@@ -172,7 +182,7 @@ def test_extract_perversion_timeseries_from_results():
             assert len(per_branch_time_series_dict.keys()) == 2
             for existing_metric in ["Totals.rowRate", "Totals.metricRate"]:
                 assert (
-                    "ci.benchmarks.redislabs/by.branch/tf_triggering_env/tf_github_org/tf_github_repo/test_name/oss/tf_github_branch/{}".format(
+                    "ci.benchmarks.redislabs/by.branch/tf_triggering_env/tf_github_org/tf_github_repo/test_name/oss/oss-standalone/tf_github_branch/{}".format(
                         existing_metric
                     )
                     in per_branch_time_series_dict.keys()
@@ -198,6 +208,7 @@ def test_extract_timeseries_from_results():
             project_version = "6.2.4"
             tf_triggering_env = "gh"
             test_name = "redis-benchmark-full-suite-1Mkeys-100B"
+            deployment_name = "oss-standalone"
             deployment_type = "oss-standalone"
             datapoints_timestamp = 1000
             # extract per branch datapoints
@@ -211,6 +222,7 @@ def test_extract_timeseries_from_results():
                 project_version,
                 tf_github_org,
                 tf_github_repo,
+                deployment_name,
                 deployment_type,
                 test_name,
                 tf_triggering_env,
@@ -231,6 +243,7 @@ def test_extract_timeseries_from_results():
                 tf_github_branch,
                 tf_github_org,
                 tf_github_repo,
+                deployment_name,
                 deployment_type,
                 test_name,
                 tf_triggering_env,
@@ -239,3 +252,206 @@ def test_extract_timeseries_from_results():
             assert (len(results_dict["Tests"].keys()) * len(metrics)) == len(
                 per_branch_time_series_dict.keys()
             )
+
+
+def test_exporter_create_ts():
+    try:
+        rts = Client(port=16379)
+        rts.redis.ping()
+        rts.redis.flushall()
+        with open(
+            "./tests/test_data/redis-benchmark-full-suite-1Mkeys-100B.yml", "r"
+        ) as yml_file:
+            benchmark_config = yaml.safe_load(yml_file)
+            merged_exporter_timemetric_path, metrics = merge_default_and_config_metrics(
+                benchmark_config, None, None
+            )
+            with open(
+                "./tests/test_data/results/oss-standalone-2021-07-23-16-15-12-71d4528-redis-benchmark-full-suite-1Mkeys-100B.json",
+                "r",
+            ) as json_file:
+                results_dict = json.load(json_file)
+                tf_github_org = "redis"
+                tf_github_repo = "redis"
+                tf_github_branch = "unstable"
+                project_version = "6.2.4"
+                tf_triggering_env = "gh"
+                test_name = "redis-benchmark-full-suite-1Mkeys-100B"
+                deployment_type = "oss-standalone"
+                deployment_name = "oss-standalone"
+                datapoints_timestamp = 1000
+                (
+                    prefix,
+                    testcases_setname,
+                    tsname_project_total_failures,
+                    tsname_project_total_success,
+                    running_platforms_setname,
+                    build_variant_setname,
+                    testcases_metric_context_path_setname,
+                    testcases_and_metric_context_path_setname,
+                    project_archs_setname,
+                    project_oss_setname,
+                    project_branches_setname,
+                    project_versions_setname,
+                    project_compilers_setname,
+                ) = get_overall_dashboard_keynames(
+                    tf_github_org,
+                    tf_github_repo,
+                    tf_triggering_env,
+                    "build1",
+                    "platform1",
+                    test_name,
+                )
+                benchmark_duration_seconds = 60
+                dataset_load_duration_seconds = 0
+                _, start_time_ms, testcase_start_time_str = get_start_time_vars()
+
+                timeseries_test_sucess_flow(
+                    True,
+                    project_version,
+                    benchmark_config,
+                    benchmark_duration_seconds,
+                    dataset_load_duration_seconds,
+                    metrics,
+                    deployment_name,
+                    deployment_type,
+                    merged_exporter_timemetric_path,
+                    results_dict,
+                    rts,
+                    start_time_ms,
+                    test_name,
+                    tf_github_branch,
+                    tf_github_org,
+                    tf_github_repo,
+                    tf_triggering_env,
+                    {},
+                )
+            ts_key = "ci.benchmarks.redislabs/by.branch/gh/redis/redis/redis-benchmark-full-suite-1Mkeys-100B/oss-standalone/unstable/max_latency_ms/RPOP"
+            initial_labels = rts.info(ts_key).labels
+
+            # test again and change some metadata
+            timeseries_test_sucess_flow(
+                True,
+                project_version,
+                benchmark_config,
+                benchmark_duration_seconds,
+                dataset_load_duration_seconds,
+                metrics,
+                deployment_name,
+                deployment_type,
+                merged_exporter_timemetric_path,
+                results_dict,
+                rts,
+                start_time_ms,
+                test_name,
+                tf_github_branch,
+                tf_github_org,
+                tf_github_repo,
+                tf_triggering_env,
+                {"arch": "arm64", "os": "ubuntu:16.04", "compiler": "icc"},
+            )
+            initial_plus_update = {
+                **initial_labels,
+                "arch": "arm64",
+                "os": "ubuntu:16.04",
+                "compiler": "icc",
+            }
+            assert initial_plus_update == rts.info(ts_key).labels
+
+    except redis.exceptions.ConnectionError:
+        pass
+
+
+def test_common_timeseries_extraction():
+    # v0.5 format
+    # we're adding on purpose duplicate metrics to test for the de-duplication feature and the str vs dict feature
+    metric_q50 = "Totals.overallQuantiles.all_queries.q50"
+    t1_q50 = 7.18
+    t2_q50 = 8.31
+    self_q50 = 14.228
+    metrics = [
+        "$.{}".format(metric_q50),
+        "$.{}".format(metric_q50),
+        {
+            "$.{}".format(metric_q50): {
+                "target-1": t1_q50,
+                "target-2": t2_q50,
+            }
+        },
+        "$.Totals.overallQuantiles.all_queries.q100",
+    ]
+    results_dict = {
+        "StartTime": 1631785523000,
+        "EndTime": 1631785528000,
+        "DurationMillis": 4933,
+        "Totals": {
+            "burnIn": 0,
+            "limit": 0,
+            "overallQuantiles": {
+                "RedisTimeSeries_max_of_all_CPU_metrics_random_1_hosts_random_8h0m0s_by_1h": {
+                    "q0": 0,
+                    "q100": 39.285,
+                    "q50": 14.228,
+                    "q95": 28.045,
+                    "q99": 33.075,
+                    "q999": 36.537,
+                },
+                "all_queries": {
+                    "q0": 0,
+                    "q100": 39.285,
+                    "q50": self_q50,
+                    "q95": 28.045,
+                    "q99": 33.075,
+                    "q999": 36.537,
+                },
+            },
+            "overallQueryRates": {
+                "RedisTimeSeries_max_of_all_CPU_metrics_random_1_hosts_random_8h0m0s_by_1h": 2027.186427709223,
+                "all_queries": 2027.186427709223,
+            },
+            "prewarmQueries": False,
+        },
+    }
+    break_by_key = "branch"
+    break_by_str = "by.{}".format(break_by_key)
+    datapoints_timestamp = 1631785523000
+    deployment_name = "oss-cluster-03-primaries"
+    deployment_type = "oss-cluster"
+    break_by_value = "master"
+    test_name = "test1"
+    tf_github_org = "redis"
+    tf_github_repo = "redis"
+    tf_triggering_env = "gh"
+
+    timeseries_dict = common_timeseries_extraction(
+        break_by_key,
+        break_by_str,
+        datapoints_timestamp,
+        deployment_name,
+        deployment_type,
+        metrics,
+        break_by_value,
+        results_dict,
+        test_name,
+        tf_github_org,
+        tf_github_repo,
+        tf_triggering_env,
+    )
+    # 3 series for q50, 1 serie for q100 (given there is no target there)
+    assert len(timeseries_dict.keys()) == 4
+    prefix = "ci.benchmarks.redislabs/by.branch/gh/redis/redis/test1/oss-cluster/oss-cluster-03-primaries/master/"
+    key_self_q50 = "{}{}".format(prefix, metric_q50)
+    key_self_t1 = "{}{}/target/target-1".format(prefix, metric_q50)
+    key_self_t2 = "{}{}/target/target-2".format(prefix, metric_q50)
+    assert timeseries_dict[key_self_q50]["data"] == {datapoints_timestamp: self_q50}
+    assert timeseries_dict[key_self_q50]["labels"]["target+branch"] == "{} {}".format(
+        break_by_value, tf_github_repo
+    )
+    assert timeseries_dict[key_self_t1]["data"] == {datapoints_timestamp: t1_q50}
+    assert timeseries_dict[key_self_t1]["labels"]["target+branch"] == "{} {}".format(
+        break_by_value, "target-1"
+    )
+    assert timeseries_dict[key_self_t2]["data"] == {datapoints_timestamp: t2_q50}
+    assert timeseries_dict[key_self_t2]["labels"]["target+branch"] == "{} {}".format(
+        break_by_value, "target-2"
+    )

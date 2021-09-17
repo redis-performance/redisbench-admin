@@ -35,8 +35,6 @@ from redisbench_admin.utils.benchmark_config import (
     check_required_modules,
 )
 from redisbench_admin.utils.remote import (
-    execute_remote_commands,
-    fetch_file_from_remote_setup,
     extract_perversion_timeseries_from_results,
     push_data_to_redistimeseries,
     extract_perbranch_timeseries_from_results,
@@ -54,12 +52,13 @@ def prepare_benchmark_parameters(
     isremote=False,
     current_workdir=None,
     cluster_api_enabled=False,
+    config_key="clientconfig",
 ):
     command_arr = None
     command_str = None
     # v0.1 to 0.3 spec
-    if type(benchmark_config["clientconfig"]) == list:
-        for entry in benchmark_config["clientconfig"]:
+    if type(benchmark_config[config_key]) == list:
+        for entry in benchmark_config[config_key]:
             if "parameters" in entry:
                 command_arr, command_str = prepare_benchmark_parameters_specif_tooling(
                     benchmark_tool,
@@ -74,8 +73,8 @@ def prepare_benchmark_parameters(
                     server_private_ip,
                 )
     # v0.4 spec
-    elif type(benchmark_config["clientconfig"]) == dict:
-        entry = benchmark_config["clientconfig"]
+    elif type(benchmark_config[config_key]) == dict:
+        entry = benchmark_config[config_key]
         command_arr, command_str = prepare_benchmark_parameters_specif_tooling(
             benchmark_tool,
             cluster_api_enabled,
@@ -193,47 +192,8 @@ def prepare_benchmark_parameters_specif_tooling(
     return command_arr, command_str
 
 
-def run_remote_benchmark(
-    client_public_ip,
-    username,
-    private_key,
-    remote_results_file,
-    local_results_file,
-    command,
-):
-    remote_run_result = False
-    res = execute_remote_commands(client_public_ip, username, private_key, [command])
-    recv_exit_status, stdout, stderr = res[0]
-
-    if recv_exit_status != 0:
-        logging.error(
-            "Exit status of remote command execution {}. Printing stdout and stderr".format(
-                recv_exit_status
-            )
-        )
-        logging.error("remote process stdout: {}".format(stdout))
-        logging.error("remote process stderr: {}".format(stderr))
-    else:
-        logging.info(
-            "Remote process exited normally. Exit code {}. Printing stdout.".format(
-                recv_exit_status
-            )
-        )
-        logging.info("remote process stdout: {}".format(stdout))
-        logging.info("Extracting the benchmark results")
-        remote_run_result = True
-        if "ycsb" not in command:
-            fetch_file_from_remote_setup(
-                client_public_ip,
-                username,
-                private_key,
-                local_results_file,
-                remote_results_file,
-            )
-    return remote_run_result, stdout, stderr
-
-
 def common_exporter_logic(
+    deployment_name,
     deployment_type,
     exporter_timemetric_path,
     metrics,
@@ -274,6 +234,7 @@ def common_exporter_logic(
                 artifact_version,
                 tf_github_org,
                 tf_github_repo,
+                deployment_name,
                 deployment_type,
                 test_name,
                 tf_triggering_env,
@@ -294,6 +255,7 @@ def common_exporter_logic(
                 str(tf_github_branch),
                 tf_github_org,
                 tf_github_repo,
+                deployment_name,
                 deployment_type,
                 test_name,
                 tf_triggering_env,
@@ -330,6 +292,29 @@ def get_start_time_vars(start_time=None):
     start_time_ms = int((start_time - dt.datetime(1970, 1, 1)).total_seconds() * 1000)
     start_time_str = start_time.strftime("%Y-%m-%d-%H-%M-%S")
     return start_time, start_time_ms, start_time_str
+
+
+def check_dbconfig_tool_requirement(benchmark_config, dbconfig_keyname="dbconfig"):
+    required = False
+    if dbconfig_keyname in benchmark_config:
+        for k in benchmark_config[dbconfig_keyname]:
+            if "tool" in k:
+                required = True
+    return required
+
+
+def check_dbconfig_keyspacelen_requirement(
+    benchmark_config, dbconfig_keyname="dbconfig"
+):
+    required = False
+    keyspacelen = None
+    if dbconfig_keyname in benchmark_config:
+        for k in benchmark_config[dbconfig_keyname]:
+            if "check" in k:
+                if "keyspacelen" in k["check"]:
+                    required = True
+                    keyspacelen = int(k["check"]["keyspacelen"])
+    return required, keyspacelen
 
 
 def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
@@ -399,8 +384,9 @@ def extract_test_feasible_setups(
 
 def get_setup_type_and_primaries_count(setup_settings):
     setup_type = setup_settings["type"]
+    setup_name = setup_settings["name"]
     shard_count = setup_settings["redis_topology"]["primaries"]
-    return setup_type, shard_count
+    return setup_name, setup_type, shard_count
 
 
 def merge_default_and_config_metrics(
@@ -421,60 +407,71 @@ def merge_default_and_config_metrics(
 
 
 def run_redis_pre_steps(benchmark_config, r, required_modules):
-    stdout = r.execute_command("info modules")
-    (
-        module_names,
-        artifact_versions,
-    ) = extract_module_semver_from_info_modules_cmd(stdout)
-    check_required_modules(module_names, required_modules)
-    # run initialization commands before benchmark starts
-    logging.info("Running initialization commands before benchmark starts.")
-    execute_init_commands_start_time = datetime.datetime.now()
-    execute_init_commands(benchmark_config, r)
-    execute_init_commands_duration_seconds = (
-        datetime.datetime.now() - execute_init_commands_start_time
-    ).seconds
-    logging.info(
-        "Running initialization commands took {} secs.".format(
-            execute_init_commands_duration_seconds
-        )
-    )
-    if "search" in module_names:
+    # In case we have modules we use it's artifact version
+    # otherwise we use redis version as artifact version
+    version = "N/A"
+    if required_modules is not None and len(required_modules) > 0:
+        stdout = r.execute_command("info modules")
+        (
+            module_names,
+            artifact_versions,
+        ) = extract_module_semver_from_info_modules_cmd(stdout)
+        check_required_modules(module_names, required_modules)
+        # run initialization commands before benchmark starts
+        logging.info("Running initialization commands before benchmark starts.")
+        execute_init_commands_start_time = datetime.datetime.now()
+        execute_init_commands(benchmark_config, r)
+        execute_init_commands_duration_seconds = (
+            datetime.datetime.now() - execute_init_commands_start_time
+        ).seconds
         logging.info(
-            "Given redisearch was detected, checking for any index that is still indexing."
-        )
-        loading_indices = r.execute_command("ft._list")
-        logging.info("Detected {} indices.".format(len(loading_indices)))
-        while len(loading_indices) > 0:
-            logging.info(
-                "There are still {} indices loading. {}".format(
-                    len(loading_indices), loading_indices
-                )
+            "Running initialization commands took {} secs.".format(
+                execute_init_commands_duration_seconds
             )
-            for index_pos, fts_indexname in enumerate(loading_indices, start=0):
-                if type(fts_indexname) == bytes:
-                    fts_indexname = fts_indexname.decode()
-                ft_info = r.execute_command("ft.info {}".format(fts_indexname))
-                is_indexing = None
-                percent_indexed = "0.0"
-                for arraypos, arrayval in enumerate(ft_info, start=0):
-                    if arrayval == b"percent_indexed" or arrayval == "percent_indexed":
-                        percent_indexed = ft_info[arraypos + 1]
-                    if arrayval == b"indexing" or arrayval == "indexing":
-                        is_indexing = ft_info[arraypos + 1]
-
+        )
+        if "search" in module_names:
+            logging.info(
+                "Given redisearch was detected, checking for any index that is still indexing."
+            )
+            loading_indices = r.execute_command("ft._list")
+            logging.info("Detected {} indices.".format(len(loading_indices)))
+            while len(loading_indices) > 0:
                 logging.info(
-                    "indexing={} ; percent_indexed={}.".format(
-                        is_indexing, percent_indexed
+                    "There are still {} indices loading. {}".format(
+                        len(loading_indices), loading_indices
                     )
                 )
-                if is_indexing == "0" or is_indexing == b"0" or is_indexing == 0:
-                    loading_indices.pop(index_pos)
+                for index_pos, fts_indexname in enumerate(loading_indices, start=0):
+                    if type(fts_indexname) == bytes:
+                        fts_indexname = fts_indexname.decode()
+                    ft_info = r.execute_command("ft.info {}".format(fts_indexname))
+                    is_indexing = None
+                    percent_indexed = "0.0"
+                    for arraypos, arrayval in enumerate(ft_info, start=0):
+                        if (
+                            arrayval == b"percent_indexed"
+                            or arrayval == "percent_indexed"
+                        ):
+                            percent_indexed = ft_info[arraypos + 1]
+                        if arrayval == b"indexing" or arrayval == "indexing":
+                            is_indexing = ft_info[arraypos + 1]
 
-            time.sleep(5)
-        logging.info("Loaded all secondary indices.")
+                    logging.info(
+                        "indexing={} ; percent_indexed={}.".format(
+                            is_indexing, percent_indexed
+                        )
+                    )
+                    if is_indexing == "0" or is_indexing == b"0" or is_indexing == 0:
+                        loading_indices.pop(index_pos)
 
-    return artifact_versions[0]
+                time.sleep(5)
+            logging.info("Loaded all secondary indices.")
+
+        version = artifact_versions[0]
+    else:
+        version = r.info("server")["redis_version"]
+
+    return version
 
 
 def dso_check(dso, local_module_file):
@@ -497,3 +494,65 @@ def dso_check(dso, local_module_file):
                     )
                 )
     return dso
+
+
+def dbconfig_keyspacelen_check(benchmark_config, redis_conns):
+    result = True
+    (
+        requires_keyspacelen_check,
+        keyspacelen,
+    ) = check_dbconfig_keyspacelen_requirement(benchmark_config)
+    if requires_keyspacelen_check:
+        result = False
+        logging.info(
+            "Ensuring keyspace length requirement = {} is met.".format(keyspacelen)
+        )
+        total_keys = 0
+        for shard_conn in redis_conns:
+            keyspace_dict = shard_conn.info("keyspace")
+            for _, dbdict in keyspace_dict.items():
+                shard_keys = dbdict["keys"]
+                total_keys += shard_keys
+
+        if total_keys == keyspacelen:
+            logging.info(
+                "The total numbers of keys in setup matches the expected spec: {}=={}".format(
+                    keyspacelen, total_keys
+                )
+            )
+            result = True
+        else:
+            logging.error(
+                "The total numbers of keys in setup does not match the expected spec: {}!={}. Aborting...".format(
+                    keyspacelen, total_keys
+                )
+            )
+            raise Exception(
+                "The total numbers of keys in setup does not match the expected spec: {}!={}. Aborting...".format(
+                    keyspacelen, total_keys
+                )
+            )
+    return result
+
+
+def common_properties_log(
+    tf_bin_path,
+    tf_github_actor,
+    tf_github_branch,
+    tf_github_org,
+    tf_github_repo,
+    tf_github_sha,
+    tf_setup_name_sufix,
+    tf_triggering_env,
+    private_key,
+):
+    logging.info("Using the following vars on deployment:")
+    logging.info("\tPrivate key path: {}".format(private_key))
+    logging.info("\tterraform bin path: {}".format(tf_bin_path))
+    logging.info("\tgithub_actor: {}".format(tf_github_actor))
+    logging.info("\tgithub_org: {}".format(tf_github_org))
+    logging.info("\tgithub_repo: {}".format(tf_github_repo))
+    logging.info("\tgithub_branch: {}".format(tf_github_branch))
+    logging.info("\tgithub_sha: {}".format(tf_github_sha))
+    logging.info("\ttriggering env: {}".format(tf_triggering_env))
+    logging.info("\tsetup_name sufix: {}".format(tf_setup_name_sufix))

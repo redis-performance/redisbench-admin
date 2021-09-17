@@ -237,7 +237,7 @@ def extract_exporter_metrics(default_config):
     return default_metrics, exporter_timemetric_path
 
 
-def extract_benchmark_tool_settings(benchmark_config):
+def extract_benchmark_tool_settings(benchmark_config, config_key="clientconfig"):
     benchmark_tool = None
     benchmark_tool_source = None
     benchmark_tool_source_inner_path = None
@@ -245,8 +245,8 @@ def extract_benchmark_tool_settings(benchmark_config):
     benchmark_min_tool_version_major = None
     benchmark_min_tool_version_minor = None
     benchmark_min_tool_version_patch = None
-    benchmark_tool_property_map = benchmark_config["clientconfig"]
-    for entry in benchmark_config["clientconfig"]:
+    benchmark_tool_property_map = benchmark_config[config_key]
+    for entry in benchmark_config[config_key]:
         if "tool" in entry:
             benchmark_tool = entry["tool"]
         if "tool_source" in entry:
