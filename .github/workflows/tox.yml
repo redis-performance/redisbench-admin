@@ -34,12 +34,12 @@ jobs:
       run: |
         pip3 install black coverage flake8 tox tox-docker tox-poetry
 
-    - name: Install Snapcraft
-      uses: samuelmeuli/action-snapcraft@v1
-
     - name: Install Redis
       run: |
-        sudo snap install redis
+        sudo add-apt-repository ppa:redislabs/redis
+        sudo apt-get update
+        sudo apt-get install redis -y
+        sudo systemctl stop redis-server
 
     - name: Run tox
       run: |
