@@ -49,6 +49,7 @@ def prepare_redis_benchmark_command(
     server_private_ip: object,
     server_plaintext_port: object,
     benchmark_config: object,
+    cluster_api_enabled: bool,
 ):
     """
     Prepares redis-benchmark command parameters
@@ -67,6 +68,8 @@ def prepare_redis_benchmark_command(
     command_arr.extend(["--csv", "-e"])
     last_append = None
     last_str = ""
+    if cluster_api_enabled:
+        command_arr.extend(["--cluster"])
     for k in benchmark_config["parameters"]:
         if "clients" in k:
             command_arr.extend(["-c", "{}".format(k["clients"])])

@@ -12,6 +12,7 @@ from redisbench_admin.run.common import (
     common_exporter_logic,
     get_start_time_vars,
 )
+from redisbench_admin.run_local.profile_local import get_profilers_rts_key_prefix
 from redisbench_admin.utils.remote import (
     get_project_ts_tags,
     get_overall_dashboard_keynames,
@@ -405,3 +406,63 @@ def timeseries_test_failure_flow(
                 )
             )
             pass
+
+
+def datasink_profile_tabular_data(
+    github_branch,
+    github_org_name,
+    github_repo_name,
+    github_sha,
+    overall_tabular_data_map,
+    rts,
+    setup_type,
+    start_time_ms,
+    start_time_str,
+    test_name,
+    tf_triggering_env,
+):
+    zset_profiles_key_name = get_profilers_rts_key_prefix(
+        tf_triggering_env,
+        github_org_name,
+        github_repo_name,
+    )
+    profile_test_suffix = "{start_time_str}:{test_name}/{setup_type}/{github_branch}/{github_hash}".format(
+        start_time_str=start_time_str,
+        test_name=test_name,
+        setup_type=setup_type,
+        github_branch=github_branch,
+        github_hash=github_sha,
+    )
+    rts.redis.zadd(
+        zset_profiles_key_name,
+        {profile_test_suffix: start_time_ms},
+    )
+    for (
+        profile_tabular_type,
+        tabular_data,
+    ) in overall_tabular_data_map.items():
+        tabular_suffix = "{}:{}".format(profile_tabular_type, profile_test_suffix)
+        logging.info(
+            "Pushing to data-sink tabular data from pprof ({}). Tabular suffix: {}".format(
+                profile_tabular_type, tabular_suffix
+            )
+        )
+
+        table_columns_text_key = "{}:columns:text".format(tabular_suffix)
+        table_columns_type_key = "{}:columns:type".format(tabular_suffix)
+        logging.info(
+            "Pushing list key (named {}) the following column text: {}".format(
+                table_columns_text_key, tabular_data["columns:text"]
+            )
+        )
+        rts.redis.rpush(table_columns_text_key, *tabular_data["columns:text"])
+        logging.info(
+            "Pushing list key (named {}) the following column types: {}".format(
+                table_columns_type_key, tabular_data["columns:type"]
+            )
+        )
+        rts.redis.rpush(table_columns_type_key, *tabular_data["columns:type"])
+        for row_name in tabular_data["columns:text"]:
+            table_row_key = "{}:rows:{}".format(tabular_suffix, row_name)
+            row_values = tabular_data["rows:{}".format(row_name)]
+            rts.redis.rpush(table_row_key, *row_values)

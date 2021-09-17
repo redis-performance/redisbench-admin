@@ -114,7 +114,11 @@ def prepare_benchmark_parameters_specif_tooling(
 ):
     if "redis-benchmark" in benchmark_tool:
         command_arr, command_str = prepare_redis_benchmark_command(
-            benchmark_tool, server_private_ip, server_plaintext_port, entry
+            benchmark_tool,
+            server_private_ip,
+            server_plaintext_port,
+            entry,
+            cluster_api_enabled,
         )
         if isremote is True:
             redirect_file = "> {}".format(remote_results_file)
@@ -361,11 +365,12 @@ def extract_test_feasible_setups(
     if param in benchmark_config:
         feasible_setups_list = benchmark_config[param]
         for setup_name in feasible_setups_list:
-            feasible_setups_map[setup_name] = {}
-            if "setups" in default_specs:
-                for setup in default_specs["setups"]:
-                    if setup_name == setup["name"]:
-                        feasible_setups_map[setup_name] = setup
+            if default_specs is not None:
+                feasible_setups_map[setup_name] = {}
+                if "setups" in default_specs:
+                    for setup in default_specs["setups"]:
+                        if setup_name == setup["name"]:
+                            feasible_setups_map[setup_name] = setup
     if len(feasible_setups_map.keys()) == 0 and backwards_compatible:
         feasible_setups_map["oss-standalone"] = {
             "name": "oss-standalone",

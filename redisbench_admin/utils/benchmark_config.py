@@ -283,7 +283,7 @@ def extract_benchmark_tool_settings(benchmark_config, config_key="clientconfig")
 
 
 def get_testfiles_to_process(args):
-    defaults_filename = "defaults.yml"
+    defaults_filename = args.defaults_filename
     if args.test == "":
         files = pathlib.Path().glob("*.yml")
         files = [str(x) for x in files]

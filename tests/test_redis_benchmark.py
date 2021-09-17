@@ -29,7 +29,7 @@ def test_prepare_redis_benchmark_command():
         for k in benchmark_config["clientconfig"]:
             if "parameters" in k:
                 command_arr, command_str = prepare_redis_benchmark_command(
-                    "redis-benchmark", "localhost", "6380", k
+                    "redis-benchmark", "localhost", "6380", k, False
                 )
                 assert (
                     command_str

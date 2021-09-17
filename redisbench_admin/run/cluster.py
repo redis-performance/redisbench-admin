@@ -21,25 +21,26 @@ def cluster_init_steps(clusterconfig, redis_conns, local_module_file):
                 if "when_modules_present" in command_group:
                     m_found = False
                     for module_required in command_group["when_modules_present"]:
-                        if type(local_module_file) == list:
-                            for local_m in local_module_file:
-                                if module_required in local_m:
+                        if local_module_file is not None:
+                            if type(local_module_file) == list:
+                                for local_m in local_module_file:
+                                    if module_required in local_m:
+                                        m_found = True
+                                        logging.info(
+                                            "Required module {}  found in {}".format(
+                                                module_required,
+                                                local_m,
+                                            )
+                                        )
+                            else:
+                                if module_required in local_module_file:
                                     m_found = True
                                     logging.info(
                                         "Required module {}  found in {}".format(
                                             module_required,
-                                            local_m,
+                                            local_module_file,
                                         )
                                     )
-                        else:
-                            if module_required in local_module_file:
-                                m_found = True
-                                logging.info(
-                                    "Required module {}  found in {}".format(
-                                        module_required,
-                                        local_module_file,
-                                    )
-                                )
                     skip = not (m_found)
                 if skip is False:
                     for command in command_group["commands"]:

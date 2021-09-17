@@ -4,6 +4,15 @@ description: "SET A B"
 remote:
  - type: oss-standalone
  - setup: redisearch-m5d
+
+setups:
+  - oss-cluster-02-primaries
+  - oss-standalone
+
+dbconfig:
+  - check:
+      keyspacelen: 0
+
 clientconfig:
   - tool: redis-benchmark
   - min-tool-version: "6.2.0"

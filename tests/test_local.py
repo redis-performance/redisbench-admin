@@ -89,3 +89,4 @@ def test_spin_up_local_redis():
         spin_up_local_redis("redis-server", port, ".", None)
         r = redis.Redis(host="localhost", port=port)
         assert r.ping() == True
+        r.shutdown(nosave=True)
