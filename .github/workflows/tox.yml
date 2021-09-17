@@ -39,7 +39,7 @@ jobs:
 
     - name: Install Redis
       run: |
-        snap install redis
+        sudo snap install redis
 
     - name: Run tox
       run: |
