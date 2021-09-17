@@ -20,10 +20,7 @@ def setup_remote_benchmark_tool_redisgraph_benchmark_go(
 
 
 def setup_remote_benchmark_tool_ycsb_redisearch(
-    client_public_ip,
-    username,
-    private_key,
-    tool_link,
+    client_public_ip, username, private_key, tool_link, client_ssh_port
 ):
     commands = [
         "rm -rf /tmp/ycsb*",
@@ -31,4 +28,6 @@ def setup_remote_benchmark_tool_ycsb_redisearch(
         "tar -xvf /tmp/ycsb.tar.gz -C /tmp",
         "mv /tmp/ycsb-* /tmp/ycsb",
     ]
-    execute_remote_commands(client_public_ip, username, private_key, commands)
+    execute_remote_commands(
+        client_public_ip, username, private_key, commands, client_ssh_port
+    )

@@ -109,7 +109,7 @@ def test_fetch_remote_setup_from_config():
 def test_push_data_to_redistimeseries():
     time_series_dict = {}
     try:
-        rts = Client()
+        rts = Client(port=16379)
         rts.redis.ping()
     except redis.exceptions.ConnectionError:
         pass
@@ -256,7 +256,7 @@ def test_extract_timeseries_from_results():
 
 def test_exporter_create_ts():
     try:
-        rts = Client()
+        rts = Client(port=16379)
         rts.redis.ping()
         rts.redis.flushall()
         with open(

@@ -5,7 +5,6 @@
 #
 import logging
 
-from redisbench_admin.run.ssh import ssh_tunnel_redisconn
 from redisbench_admin.run_remote.terraform import (
     retrieve_inventory_info,
     terraform_spin_or_reuse_env,
@@ -27,7 +26,8 @@ def remote_env_setup(
     tf_triggering_env,
 ):
     server_plaintext_port = 6379
-    ssh_port = args.ssh_port
+    db_ssh_port = args.db_ssh_port
+    client_ssh_port = args.client_ssh_port
     username = args.user
     if args.inventory is not None:
         (
@@ -45,15 +45,6 @@ def remote_env_setup(
         logging.info("client_public_ip={}".format(client_public_ip))
         logging.info("server_public_ip={}".format(server_public_ip))
         logging.info("server_private_ip={}".format(server_private_ip))
-        local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
-            server_plaintext_port,
-            server_private_ip,
-            server_public_ip,
-            username,
-            ssh_port,
-        )
-        local_redis_conn.shutdown()
-        ssh_tunnel.close()  # Close the tunnel
     else:
         (
             client_public_ip,
@@ -77,11 +68,10 @@ def remote_env_setup(
         )
     return (
         client_public_ip,
-        local_redis_conn,
         server_plaintext_port,
         server_private_ip,
         server_public_ip,
-        ssh_port,
-        ssh_tunnel,
+        db_ssh_port,
+        client_ssh_port,
         username,
     )

@@ -52,6 +52,12 @@ def common_run_args(parser):
         default="",
         help="specify a test to run. By default will run all of them.",
     )
+    parser.add_argument(
+        "--defaults_filename",
+        type=str,
+        default="defaults.yml",
+        help="specify the defaults file containing spec topologies, common metric extractions,etc...",
+    )
     parser.add_argument("--github_actor", type=str, default=None, nargs="?", const="")
     parser.add_argument("--github_repo", type=str, default=None)
     parser.add_argument("--github_org", type=str, default=None)

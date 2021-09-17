@@ -20,7 +20,6 @@ from redisbench_admin.run.common import (
 )
 from redisbench_admin.run.ssh import ssh_tunnel_redisconn
 from redisbench_admin.run_remote.consts import (
-    private_key,
     remote_module_file_dir,
     remote_dataset_folder,
 )
@@ -38,7 +37,9 @@ from redisbench_admin.utils.remote import (
 )
 
 
-def remote_tmpdir_prune(server_public_ip, ssh_port, temporary_dir, username):
+def remote_tmpdir_prune(
+    server_public_ip, ssh_port, temporary_dir, username, private_key
+):
     execute_remote_commands(
         server_public_ip,
         username,
@@ -72,8 +73,8 @@ def remote_db_spin(
     setup_name,
     setup_type,
     shard_count,
-    ssh_port,
-    ssh_tunnel,
+    db_ssh_port,
+    client_ssh_port,
     temporary_dir,
     test_name,
     testcase_start_time_str,
@@ -82,6 +83,7 @@ def remote_db_spin(
     tf_github_repo,
     tf_github_sha,
     username,
+    private_key,
 ):
     (
         redis_configuration_parameters,
@@ -101,7 +103,7 @@ def remote_db_spin(
     logging.info("Checking if there are modules we need to cp to remote host...")
     remote_module_files = remote_module_files_cp(
         local_module_files,
-        ssh_port,
+        db_ssh_port,
         private_key,
         remote_module_file_dir,
         server_public_ip,
@@ -122,7 +124,7 @@ def remote_db_spin(
             temporary_dir,
             shard_count,
             cluster_start_port,
-            ssh_port,
+            db_ssh_port,
         )
 
         for p in range(cluster_start_port, cluster_start_port + shard_count):
@@ -131,7 +133,8 @@ def remote_db_spin(
                 server_private_ip,
                 server_public_ip,
                 username,
-                ssh_port,
+                db_ssh_port,
+                private_key,
             )
             local_redis_conn.ping()
             redis_conns.append(local_redis_conn)
@@ -145,13 +148,15 @@ def remote_db_spin(
             remote_module_files,
             logname,
             redis_configuration_parameters,
+            db_ssh_port,
         )
         local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
             server_plaintext_port,
             server_private_ip,
             server_public_ip,
             username,
-            ssh_port,
+            db_ssh_port,
+            private_key,
         )
         redis_conns.append(local_redis_conn)
 
@@ -185,6 +190,7 @@ def remote_db_spin(
         shard_count,
         cluster_enabled,
         cluster_start_port,
+        db_ssh_port,
     )
     if dataset is not None:
         # force debug reload nosave to replace the current database with the
@@ -240,6 +246,8 @@ def remote_db_spin(
             "amd64",
             "Loading data via client tool",
             False,
+            client_ssh_port,
+            private_key,
         )
         logging.info(
             "Finished loading the data via client tool. Took {} seconds. Result={}".format(

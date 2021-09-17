@@ -8,7 +8,6 @@ import logging
 from python_terraform import Terraform
 
 from redisbench_admin.run.common import BENCHMARK_REPETITIONS
-from redisbench_admin.run.ssh import ssh_tunnel_redisconn
 from redisbench_admin.utils.remote import (
     fetch_remote_setup_from_config,
     setup_remote_environment,
@@ -77,15 +76,6 @@ def terraform_spin_or_reuse_env(
             client_private_ip,
             client_public_ip,
         ) = retrieve_tf_connection_vars(None, tf)
-
-        local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
-            server_plaintext_port,
-            server_private_ip,
-            server_public_ip,
-            username,
-        )
-        local_redis_conn.shutdown()
-        ssh_tunnel.close()  # Close the tunnel
     return (
         client_public_ip,
         deployment_type,

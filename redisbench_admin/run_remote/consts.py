@@ -7,7 +7,7 @@
 remote_dataset_folder = "/tmp"
 remote_module_file_dir = "/tmp"
 local_results_file = "./benchmark-result.out"
-private_key = "/tmp/benchmarks.redislabs.pem"
+DEFAULT_PRIVATE_KEY = "/tmp/benchmarks.redislabs.pem"
 min_recommended_benchmark_duration = 60
 SERVER_PRV_IP_KEY = "server_private_ip"
 SERVER_PUB_IP_KEY = "server_public_ip"

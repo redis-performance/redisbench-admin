@@ -19,7 +19,7 @@ from redisbench_admin.run.redistimeseries import timeseries_test_sucess_flow
 
 def test_timeseries_test_sucess_flow():
     try:
-        rts = Client()
+        rts = Client(port=16379)
         rts.redis.ping()
         rts.redis.flushall()
         with open(

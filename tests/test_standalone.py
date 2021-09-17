@@ -48,20 +48,15 @@ def test_spin_up_standalone_remote_redis():
     port = 2222
     username = "ubuntu"
     private_key = "./tests/test_data/test-ssh/tox_rsa"
-    server_public_ip = "localhost"
-    module_file = get_test_data_module()
-    from shutil import copyfile
+    db_server_ip = os.getenv("DB_SERVER_HOST", None)
+    if db_server_ip is None:
+        assert False
 
-    module2 = "{}.1".format(module_file)
-    copyfile(module_file, module2)
-    local_module_files = [module_file, module2]
     logname = "test_spin_up_standalone_remote_redis.log"
-    with open("./tests/test_data/redis-benchmark-vanilla.yml", "r") as yml_file:
-        benchmark_config = yaml.safe_load(yml_file)
     temporary_dir = "/tmp"
-    full_logfile = spin_up_standalone_remote_redis(
+    spin_up_standalone_remote_redis(
         temporary_dir,
-        server_public_ip,
+        db_server_ip,
         username,
         private_key,
         None,

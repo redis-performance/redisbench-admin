@@ -75,6 +75,7 @@ def run_remote_command_logic(args, project_name, project_version):
     s3_bucket_name = args.s3_bucket_name
     local_module_files = args.module_path
     dbdir_folder = args.dbdir_folder
+    private_key = args.private_key
 
     if args.skip_env_vars_verify is False:
         check_ec2_env()
@@ -99,9 +100,10 @@ def run_remote_command_logic(args, project_name, project_version):
         tf_github_sha,
         tf_setup_name_sufix,
         tf_triggering_env,
+        private_key,
     )
 
-    ssh_pem_check(EC2_PRIVATE_PEM)
+    ssh_pem_check(EC2_PRIVATE_PEM, private_key)
 
     (
         benchmark_definitions,
@@ -164,12 +166,11 @@ def run_remote_command_logic(args, project_name, project_version):
                         temporary_dir = "/tmp"
                         (
                             client_public_ip,
-                            local_redis_conn,
                             server_plaintext_port,
                             server_private_ip,
                             server_public_ip,
-                            ssh_port,
-                            ssh_tunnel,
+                            db_ssh_port,
+                            client_ssh_port,
                             username,
                         ) = remote_env_setup(
                             args,
@@ -191,7 +192,11 @@ def run_remote_command_logic(args, project_name, project_version):
                         try:
                             # ensure /tmp folder is free of benchmark data from previous runs
                             remote_tmpdir_prune(
-                                server_public_ip, ssh_port, temporary_dir, username
+                                server_public_ip,
+                                db_ssh_port,
+                                temporary_dir,
+                                username,
+                                private_key,
                             )
 
                             _, _, testcase_start_time_str = get_start_time_vars()
@@ -233,8 +238,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                 setup_name,
                                 setup_type,
                                 shard_count,
-                                ssh_port,
-                                ssh_tunnel,
+                                db_ssh_port,
+                                client_ssh_port,
                                 temporary_dir,
                                 test_name,
                                 testcase_start_time_str,
@@ -243,6 +248,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                 tf_github_repo,
                                 tf_github_sha,
                                 username,
+                                private_key,
                             )
 
                             (
@@ -288,6 +294,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                 start_time_str,
                                 username,
                                 "clientconfig",
+                                client_ssh_port,
+                                private_key,
                             )
 
                             if args.keep_env_and_topo is False:
@@ -319,6 +327,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                     s3_bucket_name,
                                     s3_bucket_path,
                                     username,
+                                    private_key,
                                 )
 
                             if args.upload_results_s3:

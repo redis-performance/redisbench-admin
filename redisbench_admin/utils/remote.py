@@ -123,14 +123,9 @@ def fetch_file_from_remote_setup(
     )
 
 
-def execute_remote_commands(server_public_ip, username, private_key, commands, port=22):
+def execute_remote_commands(server_public_ip, username, private_key, commands, port):
     res = []
-    k = paramiko.RSAKey.from_private_key_file(private_key)
-    c = paramiko.SSHClient()
-    c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    logging.info("Connecting to remote server {}".format(server_public_ip))
-    c.connect(hostname=server_public_ip, port=port, username=username, pkey=k)
-    logging.info("Connected to remote server {}".format(server_public_ip))
+    c = connect_remote_ssh(port, private_key, server_public_ip, username)
     for command in commands:
         logging.info('Executing remote command "{}"'.format(command))
         stdin, stdout, stderr = c.exec_command(command)
@@ -140,6 +135,16 @@ def execute_remote_commands(server_public_ip, username, private_key, commands, p
         res.append([recv_exit_status, stdout, stderr])
     c.close()
     return res
+
+
+def connect_remote_ssh(port, private_key, server_public_ip, username):
+    k = paramiko.RSAKey.from_private_key_file(private_key)
+    c = paramiko.SSHClient()
+    c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    logging.info("Connecting to remote server {}".format(server_public_ip))
+    c.connect(hostname=server_public_ip, port=port, username=username, pkey=k)
+    logging.info("Connected to remote server {}".format(server_public_ip))
+    return c
 
 
 def check_dataset_remote_requirements(
@@ -152,6 +157,7 @@ def check_dataset_remote_requirements(
     number_primaries,
     is_cluster,
     start_port,
+    db_ssh_port=22,
 ):
     res = True
     dataset, fullpath, tmppath = check_dataset_local_requirements(
@@ -188,6 +194,7 @@ def check_dataset_remote_requirements(
             fullpath,
             remote_dataset_file,
             None,
+            db_ssh_port,
         )
         if is_cluster:
             commands = []
@@ -210,7 +217,7 @@ def check_dataset_remote_requirements(
                     )
                 )
             execute_remote_commands(
-                server_public_ip, username, private_key, commands, 22
+                server_public_ip, username, private_key, commands, db_ssh_port
             )
 
     return res, dataset, fullpath, tmppath

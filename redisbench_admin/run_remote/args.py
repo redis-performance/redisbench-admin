@@ -11,6 +11,7 @@ from redisbench_admin.run_remote.consts import (
     SERVER_PRV_IP_KEY,
     SERVER_PUB_IP_KEY,
     CLIENT_PUB_IP_KEY,
+    DEFAULT_PRIVATE_KEY,
 )
 from redisbench_admin.utils.remote import TERRAFORM_BIN_PATH
 
@@ -49,11 +50,25 @@ def create_run_remote_arguments(parser):
         help="Keep environment and topology up after benchmark.",
     )
     parser.add_argument(
-        "--ssh_port",
+        "--db_ssh_port",
         required=False,
         default=22,
         type=int,
         help="connect using this ssh port.",
+    )
+    parser.add_argument(
+        "--client_ssh_port",
+        required=False,
+        default=22,
+        type=int,
+        help="connect using this ssh port.",
+    )
+    parser.add_argument(
+        "--private_key",
+        required=False,
+        default=DEFAULT_PRIVATE_KEY,
+        type=str,
+        help="Use this key for ssh connections.",
     )
     parser.add_argument("--terraform_bin_path", type=str, default=TERRAFORM_BIN_PATH)
     parser.add_argument("--setup_name_sufix", type=str, default="")

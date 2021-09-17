@@ -2,6 +2,7 @@ import datetime as dt
 import json
 from unittest import TestCase
 
+import argparse
 import redis
 import yaml
 from redistimeseries.client import Client
@@ -20,7 +21,12 @@ from redisbench_admin.run.common import (
     merge_default_and_config_metrics,
     check_dbconfig_tool_requirement,
     check_dbconfig_keyspacelen_requirement,
+    prepare_benchmark_parameters_specif_tooling,
+    dso_check,
+    dbconfig_keyspacelen_check,
+    common_properties_log,
 )
+from redisbench_admin.run_remote.args import create_run_remote_arguments
 
 from redisbench_admin.utils.benchmark_config import (
     process_default_yaml_properties_file,
@@ -167,7 +173,7 @@ def test_common_exporter_logic():
         None, None, None, None, None, None, None, None, None, None, None
     )
     try:
-        rts = Client()
+        rts = Client(port=16379)
         rts.redis.ping()
         with open(
             "./tests/test_data/redis-benchmark-full-suite-1Mkeys-100B.yml", "r"
@@ -411,3 +417,122 @@ def test_check_dbconfig_keyspacelen_requirement():
         ) = check_dbconfig_keyspacelen_requirement(benchmark_config)
         assert requires_keyspacelen_check == True
         assert keyspacelen == 1000
+
+
+def test_prepare_benchmark_parameters_specif_tooling():
+    config_files = [
+        "./tests/test_data/tsbs-devops-ingestion-scale100-4days.yml",
+        "./tests/test_data/tsbs-scale100-cpu-max-all-1.yml",
+        "./tests/test_data/redis-benchmark.yml",
+        "./tests/test_data/redisgraph-benchmark-go.yml",
+        "./tests/test_data/ftsb-1M-enwiki_abstract-hashes-fulltext-simple-1word-query.yml",
+    ]
+    for file in config_files:
+        with open(file, "r") as yml_file:
+            benchmark_config = yaml.safe_load(yml_file)
+            (
+                benchmark_min_tool_version,
+                benchmark_min_tool_version_major,
+                benchmark_min_tool_version_minor,
+                benchmark_min_tool_version_patch,
+                benchmark_tool,
+                benchmark_tool_source,
+                benchmark_tool_source_bin_path,
+                _,
+            ) = extract_benchmark_tool_settings(benchmark_config)
+            assert benchmark_tool is not None
+            remote_results_file = "out.remote.txt"
+            command_arr, command_str = prepare_benchmark_parameters(
+                benchmark_config,
+                benchmark_tool,
+                "9999",
+                "localhost",
+                remote_results_file,
+                True,
+            )
+            assert command_str.endswith(remote_results_file)
+
+
+def test_dso_check():
+    dso = dso_check(None, "redistimeseries.so")
+    assert dso == "redistimeseries.so"
+
+    dso = dso_check(None, ["redistimeseries.so"])
+    assert dso == "redistimeseries.so"
+
+    dso = dso_check(None, ["redisgears.so", "redistimeseries.so"])
+    assert dso == "redisgears.so"
+
+
+def test_dbconfig_keyspacelen_check():
+    from redis import StrictRedis
+    from redis.exceptions import ConnectionError
+
+    redis_port = 16379
+    try:
+        redis = StrictRedis(port=redis_port)
+        redis.ping()
+        redis.flushall()
+        redis_conns = [redis]
+
+        with open(
+            "./tests/test_data/redis-benchmark-full-suite-1Mkeys-100B.yml", "r"
+        ) as yml_file:
+            benchmark_config = yaml.safe_load(yml_file)
+            # no keyspace len check
+            result = dbconfig_keyspacelen_check(benchmark_config, redis_conns)
+            assert result == True
+
+        with open("./tests/test_data/tsbs-targets.yml", "r") as yml_file:
+            benchmark_config = yaml.safe_load(yml_file)
+            # check and fail
+            try:
+                result = dbconfig_keyspacelen_check(benchmark_config, redis_conns)
+            except Exception as e:
+                assert (
+                    e.__str__()
+                    == "The total numbers of keys in setup does not match the expected spec: 1000!=0. Aborting..."
+                )
+
+            # check and pass
+            for x in range(0, 1000):
+                redis.set(x, "A")
+            result = dbconfig_keyspacelen_check(benchmark_config, redis_conns)
+            assert result == True
+
+    except ConnectionError:
+        pass
+
+
+def test_common_properties_log():
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_remote_arguments(parser)
+    args = parser.parse_args(
+        args=[
+            "--inventory",
+            "server_private_ip=10.0.0.1,server_public_ip=1.1.1.1,client_public_ip=2.2.2.2",
+        ]
+    )
+    tf_bin_path = args.terraform_bin_path
+    tf_github_org = args.github_org
+    tf_github_actor = args.github_actor
+    tf_github_repo = args.github_repo
+    tf_github_sha = args.github_sha
+    tf_github_branch = args.github_branch
+    tf_triggering_env = "ci"
+    tf_setup_name_sufix = "suffix"
+    private_key = "key1"
+    common_properties_log(
+        tf_bin_path,
+        tf_github_actor,
+        tf_github_branch,
+        tf_github_org,
+        tf_github_repo,
+        tf_github_sha,
+        tf_setup_name_sufix,
+        tf_triggering_env,
+        private_key,
+    )

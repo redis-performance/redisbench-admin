@@ -18,7 +18,6 @@ from redisbench_admin.run.redis_benchmark.redis_benchmark import (
 from redisbench_admin.run.tsbs_run_queries_redistimeseries.tsbs_run_queries_redistimeseries import (
     extract_tsbs_extra_links,
 )
-from redisbench_admin.run_remote.consts import private_key
 from redisbench_admin.utils.benchmark_config import results_dict_kpi_check
 from redisbench_admin.utils.redisgraph_benchmark_go import (
     setup_remote_benchmark_tool_redisgraph_benchmark_go,
@@ -62,9 +61,11 @@ def remote_tool_pre_bench_step(
     client_public_ip,
     username,
     benchmark_tool_source,
-    config_key="clientconfig",
-    os_str="linux",
-    arch_str="amd64",
+    config_key,
+    os_str,
+    arch_str,
+    client_ssh_port,
+    private_key,
 ):
     logging.info("Settting up remote tool {} requirements".format(benchmark_tool))
     if benchmark_tool == "redisgraph-benchmark-go":
@@ -80,6 +81,7 @@ def remote_tool_pre_bench_step(
             username,
             private_key,
             benchmark_tool_source,
+            client_ssh_port,
         )
 
     if "ftsb_" in benchmark_tool:
@@ -93,7 +95,7 @@ def remote_tool_pre_bench_step(
                 queries_file_link, remote_tool_link, tool_link
             )
         )
-
+        remote_input_file = "/tmp/input.data"
         setup_remote_benchmark_tool_requirements_ftsb(
             client_public_ip,
             username,
@@ -101,13 +103,15 @@ def remote_tool_pre_bench_step(
             tool_link,
             queries_file_link,
             remote_tool_link,
+            remote_input_file,
+            client_ssh_port,
         )
 
     if "tsbs_" in benchmark_tool:
         (queries_file_link, remote_tool_link, tool_link,) = extract_tsbs_extra_links(
             benchmark_config, benchmark_tool, config_key, os_str, arch_str
         )
-
+        remote_input_file = "/tmp/input.data"
         setup_remote_benchmark_tool_requirements_tsbs(
             client_public_ip,
             username,
@@ -115,6 +119,8 @@ def remote_tool_pre_bench_step(
             tool_link,
             queries_file_link,
             remote_tool_link,
+            remote_input_file,
+            client_ssh_port,
         )
     if "aibench_" in benchmark_tool:
         (
@@ -122,7 +128,7 @@ def remote_tool_pre_bench_step(
             remote_tool_link,
             tool_link,
         ) = extract_aibench_extra_links(benchmark_config, benchmark_tool)
-
+        remote_input_file = "/tmp/input.data"
         setup_remote_benchmark_tool_requirements_tsbs(
             client_public_ip,
             username,
@@ -130,6 +136,8 @@ def remote_tool_pre_bench_step(
             tool_link,
             queries_file_link,
             remote_tool_link,
+            remote_input_file,
+            client_ssh_port,
         )
     if benchmark_min_tool_version is not None and benchmark_tool == "redis-benchmark":
         redis_benchmark_ensure_min_version_remote(
@@ -141,6 +149,7 @@ def remote_tool_pre_bench_step(
             client_public_ip,
             username,
             private_key,
+            client_ssh_port,
         )
     logging.info("Finished up remote tool {} requirements".format(benchmark_tool))
 
@@ -153,13 +162,16 @@ def setup_remote_benchmark_tool_requirements_ftsb(
     queries_file_link,
     remote_tool_link,
     remote_input_file="/tmp/input.data",
+    client_ssh_port=22,
 ):
     commands = [
         "wget {} -q -O {}".format(tool_link, remote_tool_link),
         "wget {} -q -O {}".format(queries_file_link, remote_input_file),
         "chmod 755 {}".format(remote_tool_link),
     ]
-    execute_remote_commands(client_public_ip, username, private_key, commands)
+    execute_remote_commands(
+        client_public_ip, username, private_key, commands, client_ssh_port
+    )
 
 
 def setup_remote_benchmark_tool_requirements_tsbs(
@@ -170,22 +182,27 @@ def setup_remote_benchmark_tool_requirements_tsbs(
     queries_file_link,
     remote_tool_link,
     remote_input_file="/tmp/input.data",
+    client_ssh_port=22,
 ):
     commands = [
         "wget {} -q -O {}".format(tool_link, remote_tool_link),
         "wget {} -q -O {}".format(queries_file_link, remote_input_file),
         "chmod 755 {}".format(remote_tool_link),
     ]
-    execute_remote_commands(client_public_ip, username, private_key, commands)
+    execute_remote_commands(
+        client_public_ip, username, private_key, commands, client_ssh_port
+    )
 
 
 def extract_artifact_version_remote(
-    server_public_ip, server_public_port, username, private_key
+    server_public_ip, server_public_port, username, private_key, client_ssh_port
 ):
     commands = [
         "redis-cli -h {} -p {} info modules".format("localhost", server_public_port),
     ]
-    res = execute_remote_commands(server_public_ip, username, private_key, commands)
+    res = execute_remote_commands(
+        server_public_ip, username, private_key, commands, client_ssh_port
+    )
     recv_exit_status, stdout, stderr = res[0]
     print(stdout)
     module_name, version = extract_module_semver_from_info_modules_cmd(stdout)
