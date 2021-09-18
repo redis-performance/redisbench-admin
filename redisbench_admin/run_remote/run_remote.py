@@ -24,6 +24,7 @@ from redisbench_admin.run.redistimeseries import (
 )
 from redisbench_admin.run.s3 import get_test_s3_bucket_path
 from redisbench_admin.run.ssh import ssh_pem_check
+from redisbench_admin.run_remote.consts import min_recommended_benchmark_duration
 from redisbench_admin.run_remote.remote_client import run_remote_client_tool
 from redisbench_admin.run_remote.remote_db import remote_tmpdir_prune, remote_db_spin
 from redisbench_admin.run_remote.remote_env import remote_env_setup
@@ -294,6 +295,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                 start_time_str,
                                 username,
                                 "clientconfig",
+                                "linux",
+                                "amd64",
+                                "Benchmark",
+                                min_recommended_benchmark_duration,
                                 client_ssh_port,
                                 private_key,
                             )
