@@ -10,13 +10,15 @@ from redisbench_admin.utils.remote import (
 
 
 def setup_remote_benchmark_tool_redisgraph_benchmark_go(
-    client_public_ip, username, private_key, redisbenchmark_go_link
+    client_public_ip, username, private_key, redisbenchmark_go_link, client_ssh_port
 ):
     commands = [
         "wget {} -q -O /tmp/redisgraph-benchmark-go".format(redisbenchmark_go_link),
         "chmod 755 /tmp/redisgraph-benchmark-go",
     ]
-    execute_remote_commands(client_public_ip, username, private_key, commands)
+    execute_remote_commands(
+        client_public_ip, username, private_key, commands, client_ssh_port
+    )
 
 
 def setup_remote_benchmark_tool_ycsb_redisearch(

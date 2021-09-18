@@ -74,6 +74,7 @@ def remote_tool_pre_bench_step(
             username,
             private_key,
             redisbenchmark_go_link,
+            client_ssh_port,
         )
     if "ycsb" in benchmark_tool:
         setup_remote_benchmark_tool_ycsb_redisearch(
@@ -161,8 +162,8 @@ def setup_remote_benchmark_tool_requirements_ftsb(
     tool_link,
     queries_file_link,
     remote_tool_link,
-    remote_input_file="/tmp/input.data",
-    client_ssh_port=22,
+    remote_input_file,
+    client_ssh_port,
 ):
     commands = [
         "wget {} -q -O {}".format(tool_link, remote_tool_link),
@@ -181,8 +182,8 @@ def setup_remote_benchmark_tool_requirements_tsbs(
     tool_link,
     queries_file_link,
     remote_tool_link,
-    remote_input_file="/tmp/input.data",
-    client_ssh_port=22,
+    remote_input_file,
+    client_ssh_port,
 ):
     commands = [
         "wget {} -q -O {}".format(tool_link, remote_tool_link),
