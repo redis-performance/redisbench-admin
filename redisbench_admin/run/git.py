@@ -86,6 +86,16 @@ def git_vars_crosscheck(
             )
         )
         tf_github_branch = github_branch
+
+    if tf_github_branch is None or tf_github_branch == "":
+        logging.error(
+            "The github branch information is not present!"
+            " This implies that per-branch data is not pushed to the exporters!"
+        )
+    else:
+        if type(tf_github_branch) is not str:
+            tf_github_branch = str(tf_github_branch)
+
     return (
         tf_github_actor,
         tf_github_branch,

@@ -83,15 +83,6 @@ def run_remote_command_logic(args, project_name, project_version):
 
     redis_modules_check(local_module_files)
 
-    if tf_github_branch is None or tf_github_branch == "":
-        logging.error(
-            "The github branch information is not present!"
-            " This implies that per-branch data is not pushed to the exporters!"
-        )
-    else:
-        if type(tf_github_branch) is not str:
-            tf_github_branch = str(tf_github_branch)
-
     common_properties_log(
         tf_bin_path,
         tf_github_actor,
@@ -306,7 +297,7 @@ def run_remote_command_logic(args, project_name, project_version):
                             if args.keep_env_and_topo is False:
                                 logging.info("Shutting down remote redis.")
                                 for conn in redis_conns:
-                                    conn.shutdown.shutdown(save=False)
+                                    conn.shutdown(save=False)
                                 ssh_tunnel.close()  # Close the tunnel
                             else:
                                 logging.info(

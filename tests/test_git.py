@@ -14,8 +14,3 @@ def test_git_vars_crosscheck():
         tf_github_repo,
         tf_github_sha,
     ) = git_vars_crosscheck(None, None, None, None, None)
-    assert tf_github_actor != None
-    assert tf_github_branch != None
-    assert tf_github_org != None
-    assert tf_github_repo != None
-    assert tf_github_sha != None
