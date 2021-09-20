@@ -52,6 +52,8 @@ def local_db_spin(
             )
         )
     (
+        _,
+        _,
         redis_configuration_parameters,
         dataset_load_timeout_secs,
     ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")

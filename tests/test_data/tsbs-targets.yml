@@ -2,7 +2,6 @@ name: "tsbs-scale100-cpu-max-all-8@588xrps"
 
 metadata:
   labels:
-    test_type: query
     includes_targets: "true"
 
 remote:
@@ -13,6 +12,7 @@ setups:
   - oss-cluster-03-primaries
 
 dbconfig:
+  - dataset_name: "data_redistimeseries_cpu-only_100"
   - tool: tsbs_load_redistimeseries
   - parameters:
     - file: "https://s3.amazonaws.com/benchmarks.redislabs/redistimeseries/tsbs/datasets/devops/scale100/data_redistimeseries_cpu-only_100.dat"
@@ -20,6 +20,7 @@ dbconfig:
       keyspacelen: 1000
 
 clientconfig:
+  - benchmark_type: "read-only"
   - tool: tsbs_run_queries_redistimeseries
   - parameters:
     - workers: 32

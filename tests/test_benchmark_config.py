@@ -52,43 +52,41 @@ def test_extract_redis_configuration_parameters():
     ) as config_fd:
         benchmark_config = yaml.safe_load(config_fd)
         (
+            dbconfig_present,
+            _,
             redis_configuration_parameters,
             dataset_load_timeout_secs,
         ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
         assert redis_configuration_parameters == {}
         assert dataset_load_timeout_secs == 120
-
-        with open(
-            "./tests/test_data/tsbs-devops-ingestion-scale100-4days-keyspace.yml", "r"
-        ) as config_fd:
-            benchmark_config = yaml.safe_load(config_fd)
-            (
-                redis_configuration_parameters,
-                dataset_load_timeout_secs,
-            ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
-            assert dataset_load_timeout_secs == 120
-            assert redis_configuration_parameters == {
-                "notify-keyspace-events": "KEA",
-                "timeout": 0,
-            }
+        assert dbconfig_present == False
 
     with open(
-        "./tests/test_data/redisgraph-benchmark-go-defaults.yml", "r"
+        "./tests/test_data/tsbs-devops-ingestion-scale100-4days-keyspace.yml", "r"
     ) as config_fd:
         benchmark_config = yaml.safe_load(config_fd)
         (
+            dbconfig_present,
+            _,
             redis_configuration_parameters,
             dataset_load_timeout_secs,
         ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
-        assert redis_configuration_parameters == {}
         assert dataset_load_timeout_secs == 120
+        assert dbconfig_present == True
+        assert redis_configuration_parameters == {
+            "notify-keyspace-events": "KEA",
+            "timeout": 0,
+        }
 
-        with open(
-            "./tests/test_data/redisgraph-benchmark-go-dataset-timeout.yml", "r"
-        ) as config_fd:
-            benchmark_config = yaml.safe_load(config_fd)
-            (
-                redis_configuration_parameters,
-                dataset_load_timeout_secs,
-            ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
-            assert dataset_load_timeout_secs == 1200
+    with open(
+        "./tests/test_data/redisgraph-benchmark-go-dataset-timeout.yml", "r"
+    ) as config_fd:
+        benchmark_config = yaml.safe_load(config_fd)
+        (
+            dbconfig_present,
+            _,
+            redis_configuration_parameters,
+            dataset_load_timeout_secs,
+        ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
+        assert dataset_load_timeout_secs == 1200
+        assert dbconfig_present == True

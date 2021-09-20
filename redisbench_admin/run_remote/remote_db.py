@@ -86,10 +86,14 @@ def remote_db_spin(
     private_key,
 ):
     (
+        _,
+        _,
         redis_configuration_parameters,
         dataset_load_timeout_secs,
     ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
+
     cluster_start_port = 20000
+    full_logfiles = []
     cluster_enabled = False
     if setup_type == "oss-cluster":
         cluster_enabled = True
@@ -150,6 +154,7 @@ def remote_db_spin(
             redis_configuration_parameters,
             db_ssh_port,
         )
+        full_logfiles.append(full_logfile)
         local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
             server_plaintext_port,
             server_private_ip,
@@ -278,7 +283,7 @@ def remote_db_spin(
         artifact_version,
         cluster_enabled,
         dataset_load_duration_seconds,
-        full_logfile,
+        full_logfiles,
         redis_conns,
         return_code,
         server_plaintext_port,

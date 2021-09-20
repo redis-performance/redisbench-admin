@@ -17,12 +17,14 @@ from redisbench_admin.run.common import (
     prepare_benchmark_parameters,
     get_start_time_vars,
     BENCHMARK_REPETITIONS,
-    extract_test_feasible_setups,
     get_setup_type_and_primaries_count,
     dso_check,
 )
 from redisbench_admin.run.redistimeseries import datasink_profile_tabular_data
-from redisbench_admin.run.run import calculate_client_tool_duration_and_check
+from redisbench_admin.run.run import (
+    calculate_client_tool_duration_and_check,
+    define_benchmark_plan,
+)
 from redisbench_admin.run_local.local_db import local_db_spin
 from redisbench_admin.run_local.local_helpers import (
     run_local_benchmark,
@@ -114,179 +116,250 @@ def run_local_command_logic(args, project_name, project_version):
 
     return_code = 0
     profilers_artifacts_matrix = []
-    for repetition in range(1, BENCHMARK_REPETITIONS + 1):
-        for test_name, benchmark_config in benchmark_definitions.items():
-            logging.info(
-                "Repetition {} of {}. Running test {}".format(
-                    repetition, BENCHMARK_REPETITIONS, test_name
-                )
-            )
-            test_setups = extract_test_feasible_setups(
-                benchmark_config, "setups", default_specs
-            )
-            for setup_name, setup_settings in test_setups.items():
-                (
-                    setup_name,
-                    setup_type,
-                    shard_count,
-                ) = get_setup_type_and_primaries_count(setup_settings)
-                if setup_type in args.allowed_envs:
-                    redis_processes = []
-                    logging.info(
-                        "Starting setup named {} of topology type {}. Total primaries: {}".format(
-                            setup_name, setup_type, shard_count
+    # we have a map of test-type, dataset-name, topology, test-name
+    benchmark_runs_plan = define_benchmark_plan(benchmark_definitions, default_specs)
+    for benchmark_type, bench_by_dataset_map in benchmark_runs_plan.items():
+        for (
+            dataset_name,
+            bench_by_dataset_and_setup_map,
+        ) in bench_by_dataset_map.items():
+            for setup_name, setup_details in bench_by_dataset_and_setup_map.items():
+                setup_settings = setup_details["setup_settings"]
+                benchmarks_map = setup_details["benchmarks"]
+                # we start with an empty per bench-type/setup-name
+                setup_details["env"] = None
+                for test_name, benchmark_config in benchmarks_map.items():
+                    for repetition in range(1, BENCHMARK_REPETITIONS + 1):
+                        logging.info(
+                            "Repetition {} of {}. Running test {}".format(
+                                repetition, BENCHMARK_REPETITIONS, test_name
+                            )
                         )
-                    )
-                    # after we've spinned Redis, even on error we should always teardown
-                    # in case of some unexpected error we fail the test
-                    # noinspection PyBroadException
-                    try:
-                        dirname = "."
+
                         (
-                            cluster_api_enabled,
-                            redis_conns,
-                            redis_processes,
-                        ) = local_db_spin(
-                            args,
-                            benchmark_config,
-                            clusterconfig,
-                            dbdir_folder,
-                            dirname,
-                            local_module_file,
-                            redis_processes,
-                            required_modules,
+                            setup_name,
                             setup_type,
                             shard_count,
-                        )
+                        ) = get_setup_type_and_primaries_count(setup_settings)
+                        if setup_type in args.allowed_envs:
+                            redis_processes = []
+                            # after we've spinned Redis, even on error we should always teardown
+                            # in case of some unexpected error we fail the test
+                            # noinspection PyBroadException
+                            try:
+                                dirname = "."
+                                if setup_details["env"] is None:
+                                    logging.info(
+                                        "Starting setup named {} of topology type {}. Total primaries: {}".format(
+                                            setup_name, setup_type, shard_count
+                                        )
+                                    )
+                                    (
+                                        cluster_api_enabled,
+                                        redis_conns,
+                                        redis_processes,
+                                    ) = local_db_spin(
+                                        args,
+                                        benchmark_config,
+                                        clusterconfig,
+                                        dbdir_folder,
+                                        dirname,
+                                        local_module_file,
+                                        redis_processes,
+                                        required_modules,
+                                        setup_type,
+                                        shard_count,
+                                    )
+                                    if benchmark_type == "read-only":
+                                        logging.info(
+                                            "Given the benchmark for this setup is ready-only we will prepare to reuse it on the next read-only benchmarks (if any )."
+                                        )
+                                        setup_details["env"] = {}
+                                        setup_details["env"][
+                                            "cluster_api_enabled"
+                                        ] = cluster_api_enabled
+                                        setup_details["env"][
+                                            "redis_conns"
+                                        ] = redis_conns
+                                        setup_details["env"][
+                                            "redis_processes"
+                                        ] = redis_processes
+                                else:
+                                    assert benchmark_type == "read-only"
+                                    logging.info(
+                                        "Given the benchmark for this setup is ready-only, and this setup was already spinned we will reuse the previous, conns and process info."
+                                    )
+                                    cluster_api_enabled = setup_details["env"][
+                                        "cluster_api_enabled"
+                                    ]
+                                    redis_conns = setup_details["env"]["redis_conns"]
+                                    redis_processes = setup_details["env"][
+                                        "redis_processes"
+                                    ]
 
-                        # setup the benchmark
-                        (
-                            start_time,
-                            start_time_ms,
-                            start_time_str,
-                        ) = get_start_time_vars()
-                        local_benchmark_output_filename = get_local_run_full_filename(
-                            start_time_str, github_branch, test_name, setup_name
-                        )
-                        logging.info(
-                            "Will store benchmark json output to local file {}".format(
-                                local_benchmark_output_filename
+                                # setup the benchmark
+                                (
+                                    start_time,
+                                    start_time_ms,
+                                    start_time_str,
+                                ) = get_start_time_vars()
+                                local_benchmark_output_filename = (
+                                    get_local_run_full_filename(
+                                        start_time_str,
+                                        github_branch,
+                                        test_name,
+                                        setup_name,
+                                    )
+                                )
+                                logging.info(
+                                    "Will store benchmark json output to local file {}".format(
+                                        local_benchmark_output_filename
+                                    )
+                                )
+
+                                (
+                                    benchmark_tool,
+                                    full_benchmark_path,
+                                    benchmark_tool_workdir,
+                                ) = check_benchmark_binaries_local_requirements(
+                                    benchmark_config, args.allowed_tools
+                                )
+
+                                # prepare the benchmark command
+                                command, command_str = prepare_benchmark_parameters(
+                                    benchmark_config,
+                                    full_benchmark_path,
+                                    args.port,
+                                    "localhost",
+                                    local_benchmark_output_filename,
+                                    False,
+                                    benchmark_tool_workdir,
+                                    cluster_api_enabled,
+                                )
+
+                                # start the profile
+                                (
+                                    profiler_name,
+                                    profilers_map,
+                                ) = local_profilers_start_if_required(
+                                    profilers_enabled,
+                                    profilers_list,
+                                    redis_processes,
+                                    setup_name,
+                                    start_time_str,
+                                    test_name,
+                                )
+
+                                # run the benchmark
+                                benchmark_start_time = datetime.datetime.now()
+                                stdout, stderr = run_local_benchmark(
+                                    benchmark_tool, command
+                                )
+                                benchmark_end_time = datetime.datetime.now()
+                                benchmark_duration_seconds = (
+                                    calculate_client_tool_duration_and_check(
+                                        benchmark_end_time, benchmark_start_time
+                                    )
+                                )
+
+                                logging.info("Extracting the benchmark results")
+                                logging.info("stdout: {}".format(stdout))
+                                logging.info("stderr: {}".format(stderr))
+
+                                (
+                                    _,
+                                    overall_tabular_data_map,
+                                ) = local_profilers_stop_if_required(
+                                    args,
+                                    benchmark_duration_seconds,
+                                    collection_summary_str,
+                                    dso,
+                                    github_org_name,
+                                    github_repo_name,
+                                    profiler_name,
+                                    profilers_artifacts_matrix,
+                                    profilers_enabled,
+                                    profilers_map,
+                                    redis_processes,
+                                    s3_bucket_name,
+                                    test_name,
+                                )
+                                if (
+                                    profilers_enabled
+                                    and args.push_results_redistimeseries
+                                ):
+                                    datasink_profile_tabular_data(
+                                        github_branch,
+                                        github_org_name,
+                                        github_repo_name,
+                                        github_sha,
+                                        overall_tabular_data_map,
+                                        rts,
+                                        setup_type,
+                                        start_time_ms,
+                                        start_time_str,
+                                        test_name,
+                                        tf_triggering_env,
+                                    )
+
+                                post_process_benchmark_results(
+                                    benchmark_tool,
+                                    local_benchmark_output_filename,
+                                    start_time_ms,
+                                    start_time_str,
+                                    stdout,
+                                )
+
+                                with open(
+                                    local_benchmark_output_filename, "r"
+                                ) as json_file:
+                                    results_dict = json.load(json_file)
+
+                                    # check KPIs
+                                    return_code = results_dict_kpi_check(
+                                        benchmark_config, results_dict, return_code
+                                    )
+                                if setup_details["env"] is None:
+                                    for conn in redis_conns:
+                                        conn.shutdown(save=False)
+                            except:
+                                return_code |= 1
+                                logging.critical(
+                                    "Some unexpected exception was caught "
+                                    "during local work. Failing test...."
+                                )
+                                logging.critical(sys.exc_info()[0])
+                                print("-" * 60)
+                                traceback.print_exc(file=sys.stdout)
+                                print("-" * 60)
+                                setup_details["env"] = None
+
+                            # tear-down
+                            if setup_details["env"] is None:
+                                teardown_local_setup(
+                                    redis_conns, redis_processes, setup_name
+                                )
+
+                        else:
+                            logging.info(
+                                "Setup type {} not in allowed envs: {}".format(
+                                    setup_type, args.allowed_envs
+                                )
                             )
-                        )
-
-                        (
-                            benchmark_tool,
-                            full_benchmark_path,
-                            benchmark_tool_workdir,
-                        ) = check_benchmark_binaries_local_requirements(
-                            benchmark_config, args.allowed_tools
-                        )
-
-                        # prepare the benchmark command
-                        command, command_str = prepare_benchmark_parameters(
-                            benchmark_config,
-                            full_benchmark_path,
-                            args.port,
-                            "localhost",
-                            local_benchmark_output_filename,
-                            False,
-                            benchmark_tool_workdir,
-                            cluster_api_enabled,
-                        )
-
-                        # start the profile
-                        (
-                            profiler_name,
-                            profilers_map,
-                        ) = local_profilers_start_if_required(
-                            profilers_enabled,
-                            profilers_list,
-                            redis_processes,
-                            setup_name,
-                            start_time_str,
-                            test_name,
-                        )
-
-                        # run the benchmark
-                        benchmark_start_time = datetime.datetime.now()
-                        stdout, stderr = run_local_benchmark(benchmark_tool, command)
-                        benchmark_end_time = datetime.datetime.now()
-                        benchmark_duration_seconds = (
-                            calculate_client_tool_duration_and_check(
-                                benchmark_end_time, benchmark_start_time
-                            )
-                        )
-
-                        logging.info("Extracting the benchmark results")
-                        logging.info("stdout: {}".format(stdout))
-                        logging.info("stderr: {}".format(stderr))
-
-                        _, overall_tabular_data_map = local_profilers_stop_if_required(
-                            args,
-                            benchmark_duration_seconds,
-                            collection_summary_str,
-                            dso,
-                            github_org_name,
-                            github_repo_name,
-                            profiler_name,
-                            profilers_artifacts_matrix,
-                            profilers_enabled,
-                            profilers_map,
-                            redis_processes,
-                            s3_bucket_name,
-                            test_name,
-                        )
-                        if profilers_enabled and args.push_results_redistimeseries:
-                            datasink_profile_tabular_data(
-                                github_branch,
-                                github_org_name,
-                                github_repo_name,
-                                github_sha,
-                                overall_tabular_data_map,
-                                rts,
-                                setup_type,
-                                start_time_ms,
-                                start_time_str,
-                                test_name,
-                                tf_triggering_env,
-                            )
-
-                        post_process_benchmark_results(
-                            benchmark_tool,
-                            local_benchmark_output_filename,
-                            start_time_ms,
-                            start_time_str,
-                            stdout,
-                        )
-
-                        with open(local_benchmark_output_filename, "r") as json_file:
-                            results_dict = json.load(json_file)
-
-                            # check KPIs
-                            return_code = results_dict_kpi_check(
-                                benchmark_config, results_dict, return_code
-                            )
-                        for conn in redis_conns:
-                            conn.shutdown(save=False)
-                    except:
-                        return_code |= 1
-                        logging.critical(
-                            "Some unexpected exception was caught "
-                            "during local work. Failing test...."
-                        )
-                        logging.critical(sys.exc_info()[0])
-                        print("-" * 60)
-                        traceback.print_exc(file=sys.stdout)
-                        print("-" * 60)
-                    # tear-down
-                    logging.info("Tearing down setup")
-                    for redis_process in redis_processes:
-                        if redis_process is not None:
-                            redis_process.kill()
-                    for conn in redis_conns:
-                        conn.shutdown(nosave=True)
-                    logging.info("Tear-down completed")
+                if setup_details["env"] is not None:
+                    teardown_local_setup(redis_conns, redis_processes, setup_name)
+                    setup_details["env"] = None
 
     if profilers_enabled:
         local_profilers_print_artifacts_table(profilers_artifacts_matrix)
     exit(return_code)
+
+
+def teardown_local_setup(redis_conns, redis_processes, setup_name):
+    logging.info("Tearing down setup {}".format(setup_name))
+    for redis_process in redis_processes:
+        if redis_process is not None:
+            redis_process.kill()
+    for conn in redis_conns:
+        conn.shutdown(nosave=True)
+    logging.info("Tear-down completed")

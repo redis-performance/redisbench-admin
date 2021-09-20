@@ -166,7 +166,10 @@ def merge_default_and_specific_properties_dict_type(
 def extract_redis_dbconfig_parameters(benchmark_config, dbconfig_keyname):
     redis_configuration_parameters = {}
     dataset_load_timeout_secs = 120
+    dataset_name = None
+    dbconfig_present = False
     if dbconfig_keyname in benchmark_config:
+        dbconfig_present = True
         for k in benchmark_config[dbconfig_keyname]:
             if "configuration-parameters" in k:
                 cp = k["configuration-parameters"]
@@ -175,8 +178,15 @@ def extract_redis_dbconfig_parameters(benchmark_config, dbconfig_keyname):
                         redis_configuration_parameters[k] = v
             if "dataset_load_timeout_secs" in k:
                 dataset_load_timeout_secs = k["dataset_load_timeout_secs"]
+            if "dataset_name" in k:
+                dataset_name = k["dataset_name"]
 
-    return redis_configuration_parameters, dataset_load_timeout_secs
+    return (
+        dbconfig_present,
+        dataset_name,
+        redis_configuration_parameters,
+        dataset_load_timeout_secs,
+    )
 
 
 def process_default_yaml_properties_file(
@@ -235,6 +245,29 @@ def extract_exporter_metrics(default_config):
                 )
             )
     return default_metrics, exporter_timemetric_path
+
+
+def extract_benchmark_type_from_config(
+    benchmark_config,
+    config_key="clientconfig",
+    benchmark_type_key="benchmark_type",
+    default_benchmark_type="mixed",
+):
+    benchmark_config_present = False
+    benchmark_type = None
+    if config_key in benchmark_config:
+        benchmark_config_present = True
+        for entry in benchmark_config[config_key]:
+            if benchmark_type_key in entry:
+                benchmark_type = entry[benchmark_type_key]
+    if benchmark_type is None:
+        logging.info(
+            "Given the '{}' info was not present on {} we will assume the most inclusive default: '{}'".format(
+                benchmark_type_key, config_key, default_benchmark_type
+            )
+        )
+        benchmark_type = default_benchmark_type
+    return benchmark_config_present, benchmark_type
 
 
 def extract_benchmark_tool_settings(benchmark_config, config_key="clientconfig"):
