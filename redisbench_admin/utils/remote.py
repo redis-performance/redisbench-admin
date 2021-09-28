@@ -530,7 +530,7 @@ def exporter_create_ts(rts, time_series, timeseries_name):
         )
         rts.create(timeseries_name, labels=time_series["labels"])
     except redis.exceptions.ResponseError:
-        logging.warning(
+        logging.info(
             "Timeseries named {} already exists. Checking that the labels match.".format(
                 timeseries_name
             )
@@ -538,7 +538,7 @@ def exporter_create_ts(rts, time_series, timeseries_name):
         set1 = set(time_series["labels"].items())
         set2 = set(rts.info(timeseries_name).labels.items())
         if len(set1 - set2) > 0 or len(set2 - set1) > 0:
-            logging.warning(
+            logging.info(
                 "Given the labels don't match using TS.ALTER on {} to update labels to {}".format(
                     timeseries_name, time_series["labels"]
                 )
@@ -630,6 +630,7 @@ def common_timeseries_extraction(
     for jsonpath in cleaned_metrics:
         test_case_targets_dict = {}
         metric_jsonpath = jsonpath
+        find_res = None
         try:
             if type(jsonpath) == str:
                 jsonpath_expr = parse(jsonpath)
@@ -637,16 +638,17 @@ def common_timeseries_extraction(
                 metric_jsonpath = list(jsonpath.keys())[0]
                 test_case_targets_dict = jsonpath[metric_jsonpath]
                 jsonpath_expr = parse(metric_jsonpath)
+            find_res = jsonpath_expr.find(results_dict)
         except Exception:
             pass
         finally:
-            find_res = jsonpath_expr.find(results_dict)
             if find_res is not None:
                 use_metric_context_path = False
                 if len(find_res) > 1:
                     use_metric_context_path = True
                 for metric in find_res:
                     metric_name = str(metric.path)
+
                     metric_value = float(metric.value)
 
                     metric_context_path = str(metric.context.path)
@@ -658,6 +660,11 @@ def common_timeseries_extraction(
                     # retro-compatible naming
                     if use_metric_context_path is False:
                         metric_name = metric_jsonpath
+
+                    metric_name = metric_name.replace("'", "")
+                    metric_name = metric_name.replace('"', "")
+                    metric_name = metric_name.replace(" ", "_")
+                    # metric_name = re.sub(r"\W+", "_", metric_name)
 
                     # prepare tags
                     timeserie_tags = get_project_ts_tags(
@@ -836,7 +843,7 @@ def get_overall_dashboard_keynames(
         prefix,
     )
     testcases_metric_context_path_setname = ""
-    if test_name is None:
+    if test_name is not None:
         testcases_metric_context_path_setname = (
             "{testcases_setname}:metric_context_path:{test_name}".format(
                 testcases_setname=testcases_setname, test_name=test_name

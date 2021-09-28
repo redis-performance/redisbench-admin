@@ -17,14 +17,14 @@ Redis benchmark run helper can help you with the following tasks:
 
 Current supported benchmark tools:
 
-- [redisgraph-benchmark-go](https://github.com/RedisGraph/redisgraph-benchmark-go)
-- [ftsb_redisearch](https://github.com/RediSearch/ftsb)
 - [redis-benchmark](https://github.com/redis/redis)
+- [memtier_benchmark](https://github.com/RedisLabs/memtier_benchmark)
+- [redis-benchmark-go](https://github.com/filipecosta90/redis-benchmark-go)
 - [YCSB](https://github.com/RediSearch/YCSB)
 - [tsbs](https://github.com/RedisTimeSeries/tsbs)
-- [SOON][memtier_benchmark](https://github.com/RedisLabs/memtier_benchmark)
+- [redisgraph-benchmark-go](https://github.com/RedisGraph/redisgraph-benchmark-go)
+- [ftsb_redisearch](https://github.com/RediSearch/ftsb)
 - [SOON][aibench](https://github.com/RedisAI/aibench)
-- [SOON][redis-benchmark-go](https://github.com/filipecosta90/redis-benchmark-go)
 
 ## Installation
 

@@ -15,6 +15,9 @@ from redisbench_admin.run.aibench_run_inference_redisai_vision.aibench_run_infer
     prepare_aibench_benchmark_command,
 )
 from redisbench_admin.run.ftsb.ftsb import prepare_ftsb_benchmark_command
+from redisbench_admin.run.memtier_benchmark.memtier_benchmark import (
+    prepare_memtier_benchmark_command,
+)
 from redisbench_admin.run.redis_benchmark.redis_benchmark import (
     prepare_redis_benchmark_command,
 )
@@ -161,6 +164,15 @@ def prepare_benchmark_parameters_specif_tooling(
             input_data_file,
             isremote,
             cluster_api_enabled,
+        )
+    if "memtier_benchmark" in benchmark_tool:
+        (command_arr, command_str,) = prepare_memtier_benchmark_command(
+            benchmark_tool,
+            server_private_ip,
+            server_plaintext_port,
+            entry,
+            cluster_api_enabled,
+            remote_results_file,
         )
     if "ftsb_" in benchmark_tool:
         input_data_file = None
@@ -400,14 +412,17 @@ def merge_default_and_config_metrics(
     if default_metrics is None:
         default_metrics = []
     metrics = default_metrics
-    if "exporter" in benchmark_config:
-        extra_metrics = parse_exporter_metrics_definition(benchmark_config["exporter"])
-        metrics.extend(extra_metrics)
-        extra_timemetric_path = parse_exporter_timemetric_definition(
-            benchmark_config["exporter"]
-        )
-        if extra_timemetric_path is not None:
-            exporter_timemetric_path = extra_timemetric_path
+    if benchmark_config is not None:
+        if "exporter" in benchmark_config:
+            extra_metrics = parse_exporter_metrics_definition(
+                benchmark_config["exporter"]
+            )
+            metrics.extend(extra_metrics)
+            extra_timemetric_path = parse_exporter_timemetric_definition(
+                benchmark_config["exporter"]
+            )
+            if extra_timemetric_path is not None:
+                exporter_timemetric_path = extra_timemetric_path
     return exporter_timemetric_path, metrics
 
 

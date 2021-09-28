@@ -1,0 +1,12 @@
+version: 0.5
+exporter:
+  redistimeseries:
+    timemetric: "$.'ALL STATS'.Runtime.'Start time'"
+    metrics:
+      - "$.'ALL STATS'.Totals.'Ops/sec'"
+      - "$.'ALL STATS'.Totals.'Percentile Latencies'.'p50.00'"
+      - "$.'ALL STATS'.Totals.'Percentile Latencies'.'p99.00'"
+      - "$.'ALL STATS'.Totals.'Percentile Latencies'.'p99.00'"
+      - "$.'ALL STATS'.Totals.'Average Latency'"
+      - "$.'ALL STATS'.Totals.'Min Latency'"
+      - "$.'ALL STATS'.Totals.'Max Latency'"

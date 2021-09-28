@@ -3,21 +3,55 @@
 #  Copyright (c) 2021., Redis Labs Modules
 #  All rights reserved.
 #
+from redisbench_admin.utils.remote import (
+    PERFORMANCE_RTS_HOST,
+    PERFORMANCE_RTS_PORT,
+    PERFORMANCE_RTS_AUTH,
+)
 
 
 def create_export_arguments(parser):
     parser.add_argument(
-        "--benchmark-result-files",
+        "--benchmark-result-file",
         type=str,
         required=True,
-        help="benchmark results files to read results from. can be a local file, a remote link, or an s3 bucket.",
+        help="benchmark results file to read results from.",
     )
     parser.add_argument(
-        "--steps",
+        "--exporter-spec-file",
         type=str,
-        default="setup,benchmark",
-        help="comma separated list of steps to be analyzed given the benchmark result files",
+        required=True,
+        help="Exporter definition file, containing info of the metrics to extract",
     )
+    parser.add_argument(
+        "--deployment-name",
+        type=str,
+        required=True,
+        help="Deployment name",
+    )
+    parser.add_argument(
+        "--deployment-type",
+        type=str,
+        required=True,
+        help="Deployment Type",
+    )
+    parser.add_argument(
+        "--deployment-version",
+        type=str,
+        default=None,
+        help="semver of the deployed setup. If None then only per branch/ref time-series are created",
+    )
+    parser.add_argument(
+        "--test-name",
+        type=str,
+        required=True,
+        help="Test name",
+    )
+    parser.add_argument("--github_actor", type=str, default=None, nargs="?", const="")
+    parser.add_argument("--github_repo", type=str, default=None)
+    parser.add_argument("--github_org", type=str, default=None)
+    parser.add_argument("--github_branch", type=str, default=None, nargs="?", const="")
+    parser.add_argument("--triggering_env", type=str, default="ci")
     parser.add_argument(
         "--exporter",
         type=str,
@@ -27,9 +61,9 @@ def create_export_arguments(parser):
     parser.add_argument(
         "--results-format",
         type=str,
-        default="redis-benchmark",
+        default="json",
         help="results format of the the benchmark results files to read "
-        "results from ( either memtier_benchmark, redis-benchmark, or ftsb_redisearch )",
+        "results from ( either json, redis-benchmark-txt )",
     )
     parser.add_argument(
         "--use-result",
@@ -44,16 +78,13 @@ def create_export_arguments(parser):
         help="comma separated extra tags in the format of key1=value,key2=value,...",
     )
     parser.add_argument(
-        "--host", type=str, default="localhost", help="redistimeseries host"
-    )
-    parser.add_argument("--port", type=int, default=6379, help="redistimeseries port")
-    parser.add_argument(
-        "--password", type=str, default=None, help="redistimeseries password"
+        "--redistimeseries_host", type=str, default=PERFORMANCE_RTS_HOST
     )
     parser.add_argument(
-        "--input-tags-json",
-        type=str,
-        default="",
-        help="input filename containing the extracted tags from redis.",
+        "--redistimeseries_port", type=int, default=PERFORMANCE_RTS_PORT
     )
+    parser.add_argument(
+        "--redistimeseries_pass", type=str, default=PERFORMANCE_RTS_AUTH
+    )
+    parser.add_argument("--redistimeseries_user", type=str, default=None)
     return parser
