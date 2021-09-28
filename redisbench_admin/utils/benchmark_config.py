@@ -36,8 +36,14 @@ def parse_exporter_timemetric_definition(
 
 
 def parse_exporter_timemetric(metric_path: str, results_dict: dict):
-    jsonpath_expr = parse(metric_path)
-    datapoints_timestamp = int(jsonpath_expr.find(results_dict)[0].value)
+    datapoints_timestamp = None
+    try:
+        jsonpath_expr = parse(metric_path)
+        datapoints_timestamp = int(jsonpath_expr.find(results_dict)[0].value)
+    except Exception as e:
+        logging.error(
+            "Unable to parse time-metric {}. Error: {}".format(metric_path, e.__str__())
+        )
     return datapoints_timestamp
 
 

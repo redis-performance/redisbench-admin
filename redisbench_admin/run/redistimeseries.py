@@ -87,48 +87,58 @@ def add_standardized_metric_bybranch(
     build_variant_name=None,
     running_platform=None,
 ):
-    tsname_use_case_duration = get_ts_metric_name(
-        "by.branch",
-        tf_github_branch,
-        tf_github_org,
-        tf_github_repo,
-        deployment_name,
-        deployment_type,
-        test_name,
-        tf_triggering_env,
-        metric_name,
-        None,
-        False,
-        build_variant_name,
-        running_platform,
-    )
-    labels = get_project_ts_tags(
-        tf_github_org,
-        tf_github_repo,
-        deployment_name,
-        deployment_type,
-        tf_triggering_env,
-        metadata_tags,
-        build_variant_name,
-        running_platform,
-    )
-    labels["branch"] = tf_github_branch
-    labels["deployment_name+branch"] = "{} {}".format(deployment_name, tf_github_branch)
-    labels["test_name"] = str(test_name)
-    labels["metric"] = str(metric_name)
-    logging.info(
-        "Adding metric {}={} to time-serie named {}".format(
-            metric_name, metric_value, tsname_use_case_duration
+    if metric_value is not None:
+        tsname_use_case_duration = get_ts_metric_name(
+            "by.branch",
+            tf_github_branch,
+            tf_github_org,
+            tf_github_repo,
+            deployment_name,
+            deployment_type,
+            test_name,
+            tf_triggering_env,
+            metric_name,
+            None,
+            False,
+            build_variant_name,
+            running_platform,
         )
-    )
-    ts = {"labels": labels}
-    exporter_create_ts(rts, ts, tsname_use_case_duration)
-    rts.add(
-        tsname_use_case_duration,
-        start_time_ms,
-        metric_value,
-        labels=labels,
-    )
+        labels = get_project_ts_tags(
+            tf_github_org,
+            tf_github_repo,
+            deployment_name,
+            deployment_type,
+            tf_triggering_env,
+            metadata_tags,
+            build_variant_name,
+            running_platform,
+        )
+        labels["branch"] = tf_github_branch
+        labels["deployment_name+branch"] = "{} {}".format(
+            deployment_name, tf_github_branch
+        )
+        labels["test_name"] = str(test_name)
+        labels["metric"] = str(metric_name)
+        logging.info(
+            "Adding metric {}={} to time-serie named {}".format(
+                metric_name, metric_value, tsname_use_case_duration
+            )
+        )
+        ts = {"labels": labels}
+        exporter_create_ts(rts, ts, tsname_use_case_duration)
+        logging.error(labels)
+        rts.add(
+            tsname_use_case_duration,
+            start_time_ms,
+            metric_value,
+            labels=labels,
+        )
+    else:
+        logging.warning(
+            "Given that metric {}={} ( is None ) we will skip adding it to timeseries".format(
+                metric_name, metric_value
+            )
+        )
 
 
 def add_standardized_metric_byversion(
@@ -147,49 +157,56 @@ def add_standardized_metric_byversion(
     build_variant_name=None,
     running_platform=None,
 ):
-    tsname_use_case_duration = get_ts_metric_name(
-        "by.version",
-        artifact_version,
-        tf_github_org,
-        tf_github_repo,
-        deployment_name,
-        deployment_type,
-        test_name,
-        tf_triggering_env,
-        metric_name,
-        None,
-        False,
-        build_variant_name,
-        running_platform,
-    )
-    labels = get_project_ts_tags(
-        tf_github_org,
-        tf_github_repo,
-        deployment_name,
-        deployment_type,
-        tf_triggering_env,
-        metadata_tags,
-        build_variant_name,
-    )
-    labels["version"] = artifact_version
-    labels["deployment_name+version"] = "{} {}".format(
-        deployment_name, artifact_version
-    )
-    labels["test_name"] = str(test_name)
-    labels["metric"] = str(metric_name)
-    logging.info(
-        "Adding metric {}={} to time-serie named {}".format(
-            metric_name, metric_value, tsname_use_case_duration
+    if metric_value is not None:
+        tsname_use_case_duration = get_ts_metric_name(
+            "by.version",
+            artifact_version,
+            tf_github_org,
+            tf_github_repo,
+            deployment_name,
+            deployment_type,
+            test_name,
+            tf_triggering_env,
+            metric_name,
+            None,
+            False,
+            build_variant_name,
+            running_platform,
         )
-    )
-    ts = {"labels": labels}
-    exporter_create_ts(rts, ts, tsname_use_case_duration)
-    rts.add(
-        tsname_use_case_duration,
-        start_time_ms,
-        metric_value,
-        labels=labels,
-    )
+        labels = get_project_ts_tags(
+            tf_github_org,
+            tf_github_repo,
+            deployment_name,
+            deployment_type,
+            tf_triggering_env,
+            metadata_tags,
+            build_variant_name,
+        )
+        labels["version"] = artifact_version
+        labels["deployment_name+version"] = "{} {}".format(
+            deployment_name, artifact_version
+        )
+        labels["test_name"] = str(test_name)
+        labels["metric"] = str(metric_name)
+        logging.info(
+            "Adding metric {}={} to time-serie named {}".format(
+                metric_name, metric_value, tsname_use_case_duration
+            )
+        )
+        ts = {"labels": labels}
+        exporter_create_ts(rts, ts, tsname_use_case_duration)
+        rts.add(
+            tsname_use_case_duration,
+            start_time_ms,
+            metric_value,
+            labels=labels,
+        )
+    else:
+        logging.warning(
+            "Given that metric {}={} ( is None ) we will skip adding it to timeseries".format(
+                metric_name, metric_value
+            )
+        )
 
 
 def timeseries_test_sucess_flow(
@@ -269,19 +286,19 @@ def timeseries_test_sucess_flow(
                 rts.redis.sadd(project_branches_setname, tf_github_branch)
             if artifact_version is not None and artifact_version != "":
                 rts.redis.sadd(project_versions_setname, artifact_version)
-
             if running_platform is not None:
                 rts.redis.sadd(running_platforms_setname, running_platform)
             if build_variant_name is not None:
                 rts.redis.sadd(build_variant_setname, build_variant_name)
             for metric_context_path in testcase_metric_context_paths:
-                rts.redis.sadd(
-                    testcases_metric_context_path_setname, metric_context_path
-                )
-                rts.redis.sadd(
-                    testcases_and_metric_context_path_setname,
-                    "{}:{}".format(test_name, metric_context_path),
-                )
+                if testcases_metric_context_path_setname != "":
+                    rts.redis.sadd(
+                        testcases_metric_context_path_setname, metric_context_path
+                    )
+                    rts.redis.sadd(
+                        testcases_and_metric_context_path_setname,
+                        "{}:{}".format(test_name, metric_context_path),
+                    )
             rts.incrby(
                 tsname_project_total_success,
                 1,
