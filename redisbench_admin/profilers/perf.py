@@ -103,7 +103,9 @@ class Perf:
             cmd += ["--freq", "{}".format(frequency)]
         return cmd
 
-    def generate_report_command(self, tid, input, dso, percentage_mode):
+    def generate_report_command(
+        self, tid, input, dso, percentage_mode, extra_options=None
+    ):
         cmd = [self.perf, "report"]
         if dso is not None:
             cmd += ["--dso", dso]
@@ -113,13 +115,20 @@ class Perf:
             "{}".format(tid),
             "--no-children",
             "--stdio",
-            "-g",
-            "none,1.0,caller,function",
             "--percentage",
             percentage_mode,
             "--input",
             input,
         ]
+        if extra_options is None:
+            cmd.extend(
+                [
+                    "-g",
+                    "none,1.0,caller,function",
+                ]
+            )
+        elif type(extra_options) == list:
+            cmd.extend(extra_options)
         return cmd
 
     def start_profile(self, pid, output, frequency=99):
@@ -304,6 +313,68 @@ class Perf:
             )
 
         tid = self.pid
+
+        # generate perf report per dso
+        logging.info(
+            "Generating perf report per name of library or module executed at the time of sample"
+        )
+        perf_report_output = self.output + ".perf-report.dso.txt"
+
+        artifact_result, perf_report_artifact = self.run_perf_report(
+            tid,
+            perf_report_output,
+            None,
+            "absolute",
+            ["--percent-limit", "1", "-s", "dso", "-q", "--call-graph=flat"],
+        )
+
+        # generate perf report per dso,sym
+        logging.info(
+            "Generating perf report per name of function executed at the time of sample"
+        )
+        perf_report_output = self.output + ".perf-report.dso+sym.txt"
+
+        artifact_result, perf_report_artifact = self.run_perf_report(
+            tid,
+            perf_report_output,
+            None,
+            "absolute",
+            ["--percent-limit", "1", "-s", "dso,sym", "-q", "--call-graph=flat"],
+        )
+
+        if artifact_result is True:
+            outputs[
+                "perf report per dso,sym ({})".format(identifier)
+            ] = perf_report_artifact
+        result &= artifact_result
+
+        # generate perf report per dso,sym,srcline
+        logging.info(
+            "Generating perf report per filename and line number executed at the time of sample"
+        )
+        perf_report_output = self.output + ".perf-report.dso+sym+srcline.txt"
+
+        artifact_result, perf_report_artifact = self.run_perf_report(
+            tid,
+            perf_report_output,
+            None,
+            "absolute",
+            [
+                "--percent-limit",
+                "1",
+                "-s",
+                "dso,sym,srcline",
+                "-q",
+                "--call-graph=flat",
+            ],
+        )
+
+        if artifact_result is True:
+            outputs[
+                "perf report per dso,sym,srcline ({})".format(identifier)
+            ] = perf_report_artifact
+        result &= artifact_result
+
         # generate perf report --stdio report
         logging.info("Generating perf report text outputs")
         perf_report_output = self.output + ".perf-report.top-cpu.txt"
@@ -439,10 +510,12 @@ class Perf:
     def get_collapsed_stacks(self):
         return self.collapsed_stacks
 
-    def run_perf_report(self, tid, output, dso, percentage_mode):
+    def run_perf_report(self, tid, output, dso, percentage_mode, extra_options=None):
         status = False
         result_artifact = None
-        args = self.generate_report_command(tid, self.output, dso, percentage_mode)
+        args = self.generate_report_command(
+            tid, self.output, dso, percentage_mode, extra_options
+        )
         logging.info("Running {} report with args {}".format(self.perf, args))
         try:
             stdout, _ = subprocess.Popen(
