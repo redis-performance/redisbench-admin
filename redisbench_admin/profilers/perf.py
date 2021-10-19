@@ -294,7 +294,11 @@ class Perf:
         details = kwargs.get("details")
         primary_id = kwargs.get("primary_id")
         total_primaries = kwargs.get("total_primaries")
-        identifier = "primary{}_of{}".format(primary_id, total_primaries)
+        identifier = "primary_{}_of_{}".format(primary_id, total_primaries)
+
+        # If we have only one primary there is no need to bloat the description of artifacts
+        if primary_id == 1 and primary_id == total_primaries:
+            identifier = ""
         if details is None:
             details = ""
         result = True
@@ -303,14 +307,12 @@ class Perf:
             "Flame Graph: " + use_case, details
         )
         if artifact_result is True:
-            outputs["Flame Graph ({})".format(identifier)] = flame_graph_output
+            outputs["Flame Graph {}".format(identifier)] = flame_graph_output
         result &= artifact_result
 
         # save perf output
         if artifact_result is True:
-            outputs["perf output ({})".format(identifier)] = os.path.abspath(
-                self.output
-            )
+            outputs["perf output {}".format(identifier)] = os.path.abspath(self.output)
 
         tid = self.pid
 
@@ -325,8 +327,12 @@ class Perf:
             perf_report_output,
             None,
             "absolute",
-            ["--percent-limit", "1", "-s", "dso", "-q", "--call-graph=flat"],
+            ["--percent-limit", "1", "-s", "dso", "-q", "--call-graph=none"],
         )
+
+        if artifact_result is True:
+            outputs["perf report per dso {}".format(identifier)] = perf_report_artifact
+        result &= artifact_result
 
         # generate perf report per dso,sym
         logging.info(
@@ -339,12 +345,32 @@ class Perf:
             perf_report_output,
             None,
             "absolute",
+            ["--percent-limit", "1", "-s", "dso,sym", "-q", "--call-graph=none"],
+        )
+
+        if artifact_result is True:
+            outputs[
+                "perf report per dso,sym {}".format(identifier)
+            ] = perf_report_artifact
+        result &= artifact_result
+
+        # generate perf report per dso,sym
+        logging.info(
+            "Generating perf report per name of function executed at the time of sample with callgraph"
+        )
+        perf_report_output = self.output + ".perf-report.dso+sym.callgraph.txt"
+
+        artifact_result, perf_report_artifact = self.run_perf_report(
+            tid,
+            perf_report_output,
+            None,
+            "absolute",
             ["--percent-limit", "1", "-s", "dso,sym", "-q", "--call-graph=flat"],
         )
 
         if artifact_result is True:
             outputs[
-                "perf report per dso,sym ({})".format(identifier)
+                "perf report per dso,sym with callgraph {}".format(identifier)
             ] = perf_report_artifact
         result &= artifact_result
 
@@ -365,13 +391,39 @@ class Perf:
                 "-s",
                 "dso,sym,srcline",
                 "-q",
+                "--call-graph=none",
+            ],
+        )
+
+        if artifact_result is True:
+            outputs[
+                "perf report per dso,sym,srcline {}".format(identifier)
+            ] = perf_report_artifact
+        result &= artifact_result
+
+        logging.info(
+            "Generating perf report per filename and line number executed at the time of sample with callgraph"
+        )
+        perf_report_output = self.output + ".perf-report.dso+sym+srcline.callgraph.txt"
+
+        artifact_result, perf_report_artifact = self.run_perf_report(
+            tid,
+            perf_report_output,
+            None,
+            "absolute",
+            [
+                "--percent-limit",
+                "1",
+                "-s",
+                "dso,sym,srcline",
+                "-q",
                 "--call-graph=flat",
             ],
         )
 
         if artifact_result is True:
             outputs[
-                "perf report per dso,sym,srcline ({})".format(identifier)
+                "perf report per dso,sym,srcline with callgraph {}".format(identifier)
             ] = perf_report_artifact
         result &= artifact_result
 
@@ -385,7 +437,7 @@ class Perf:
 
         if artifact_result is True:
             outputs[
-                "perf report top self-cpu ({})".format(identifier)
+                "perf report top self-cpu {}".format(identifier)
             ] = perf_report_artifact
         result &= artifact_result
 
@@ -517,6 +569,7 @@ class Perf:
             tid, self.output, dso, percentage_mode, extra_options
         )
         logging.info("Running {} report with args {}".format(self.perf, args))
+        logging.info("Final command: {} {}".format(self.perf, " ".join(args)))
         try:
             stdout, _ = subprocess.Popen(
                 args=args, stdout=subprocess.PIPE
