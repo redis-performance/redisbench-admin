@@ -294,7 +294,11 @@ class Perf:
         details = kwargs.get("details")
         primary_id = kwargs.get("primary_id")
         total_primaries = kwargs.get("total_primaries")
-        identifier = "primary{}_of{}".format(primary_id, total_primaries)
+        identifier = "primary_{}_of_{}".format(primary_id, total_primaries)
+
+        # If we have only one primary there is no need to bloat the description of artifacts
+        if primary_id == 1 and primary_id == total_primaries:
+            identifier = ""
         if details is None:
             details = ""
         result = True
@@ -303,14 +307,12 @@ class Perf:
             "Flame Graph: " + use_case, details
         )
         if artifact_result is True:
-            outputs["Flame Graph ({})".format(identifier)] = flame_graph_output
+            outputs["Flame Graph {}".format(identifier)] = flame_graph_output
         result &= artifact_result
 
         # save perf output
         if artifact_result is True:
-            outputs["perf output ({})".format(identifier)] = os.path.abspath(
-                self.output
-            )
+            outputs["perf output {}".format(identifier)] = os.path.abspath(self.output)
 
         tid = self.pid
 
@@ -328,6 +330,10 @@ class Perf:
             ["--percent-limit", "1", "-s", "dso", "-q", "--call-graph=flat"],
         )
 
+        if artifact_result is True:
+            outputs["perf report per dso {}".format(identifier)] = perf_report_artifact
+        result &= artifact_result
+
         # generate perf report per dso,sym
         logging.info(
             "Generating perf report per name of function executed at the time of sample"
@@ -344,7 +350,7 @@ class Perf:
 
         if artifact_result is True:
             outputs[
-                "perf report per dso,sym ({})".format(identifier)
+                "perf report per dso,sym {}".format(identifier)
             ] = perf_report_artifact
         result &= artifact_result
 
@@ -371,7 +377,7 @@ class Perf:
 
         if artifact_result is True:
             outputs[
-                "perf report per dso,sym,srcline ({})".format(identifier)
+                "perf report per dso,sym,srcline {}".format(identifier)
             ] = perf_report_artifact
         result &= artifact_result
 
@@ -385,7 +391,7 @@ class Perf:
 
         if artifact_result is True:
             outputs[
-                "perf report top self-cpu ({})".format(identifier)
+                "perf report top self-cpu {}".format(identifier)
             ] = perf_report_artifact
         result &= artifact_result
 
