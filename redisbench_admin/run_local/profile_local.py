@@ -29,8 +29,9 @@ def local_profilers_print_artifacts_table(profilers_artifacts_matrix):
         artifact = row[2]
         local_file = row[3]
         s3_link = row[4]
-        if len(s3_link) > 0:
-            use_local_file = False
+        if s3_link is not None:
+            if len(s3_link) > 0:
+                use_local_file = False
 
         if test_case not in test_cases:
             test_cases.append(test_case)
