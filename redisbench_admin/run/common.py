@@ -224,16 +224,18 @@ def common_exporter_logic(
     metadata_tags={},
     build_variant_name=None,
     running_platform=None,
+    datapoints_timestamp=None,
 ):
     per_version_time_series_dict = None
     per_branch_time_series_dict = None
     testcase_metric_context_paths = []
 
     if exporter_timemetric_path is not None and len(metrics) > 0:
-        # extract timestamp
-        datapoints_timestamp = parse_exporter_timemetric(
-            exporter_timemetric_path, results_dict
-        )
+        if datapoints_timestamp is None:
+            # extract timestamp
+            datapoints_timestamp = parse_exporter_timemetric(
+                exporter_timemetric_path, results_dict
+            )
         if (
             artifact_version is not None
             and artifact_version != ""

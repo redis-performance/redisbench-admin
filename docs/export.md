@@ -104,7 +104,7 @@ An exporter definition will then consist of:
   
 Bellow you can find a sample exporter definition for `memtier_benchmark`.
 
-## Sample exporter definition for memtier_benchmark:
+## Sample exporter definition for memtier_benchmark > v1.3.0:
 ```yml
 version: 0.5
 exporter:
@@ -118,6 +118,16 @@ exporter:
       - "$.'ALL STATS'.Totals.'Average Latency'"
       - "$.'ALL STATS'.Totals.'Min Latency'"
       - "$.'ALL STATS'.Totals.'Max Latency'"
+```
+
+## Sample exporter definition for memtier_benchmark <= v1.3.0:
+```yml
+version: 0.5
+exporter:
+  redistimeseries:
+    timemetric: "$.'ALL STATS'.Runtime.'Start time'"
+    metrics:
+      - "$.'BEST RUN RESULTS'.Totals.'Ops/sec'"
 ```
 
 # Exporting results

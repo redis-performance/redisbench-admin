@@ -38,6 +38,7 @@ def redistimeseries_results_logic(
     metadata_tags={},
     build_variant_name=None,
     running_platform=None,
+    datapoints_timestamp=None,
 ):
     # check which metrics to extract
     exporter_timemetric_path, metrics = merge_default_and_config_metrics(
@@ -63,6 +64,7 @@ def redistimeseries_results_logic(
         metadata_tags,
         build_variant_name,
         running_platform,
+        datapoints_timestamp,
     )
     return (
         per_version_time_series_dict,
@@ -250,6 +252,7 @@ def timeseries_test_sucess_flow(
             metadata_tags,
             build_variant_name,
             running_platform,
+            start_time_ms,
         )
         (
             _,

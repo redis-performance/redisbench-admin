@@ -7,6 +7,7 @@
 
 import json
 import logging
+import datetime
 
 import redis
 from redistimeseries.client import Client
@@ -76,6 +77,15 @@ def export_command_logic(args, project_name, project_version):
     datapoints_timestamp = parse_exporter_timemetric(
         exporter_timemetric_path, results_dict
     )
+    if datapoints_timestamp is None:
+        datapoints_timestamp = int(
+            datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000.0
+        )
+        logging.warning(
+            "Error while trying to parse datapoints timestamp. Using current system timestamp Error: {}".format(
+                datapoints_timestamp
+            )
+        )
 
     timeseries_test_sucess_flow(
         True,
