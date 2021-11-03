@@ -56,7 +56,7 @@ class Test(TestCase):
 
     def test_split_tags_string(self):
         result = split_tags_string("k1=v1,k2=v2")
-        assert result == [{"k1": "v1"}, {"k2": "v2"}]
+        assert result == {"k1": "v1", "k2": "v2"}
 
     def test_get_or_none(self):
         res = get_or_none({}, "k")

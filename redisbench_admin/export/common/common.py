@@ -48,7 +48,7 @@ def add_datapoint(
 
 
 def split_tags_string(extra_tags):
-    result = []
+    result = {}
     extra_tags = extra_tags.split(",")
     if len(extra_tags) > 0:
         for extra_tag in extra_tags:
@@ -56,7 +56,7 @@ def split_tags_string(extra_tags):
             if len(kv) == 2:
                 k = prepare_tags(kv[0])
                 v = prepare_tags(kv[1])
-                result.append({k: v})
+                result[k] = v
     return result
 
 
