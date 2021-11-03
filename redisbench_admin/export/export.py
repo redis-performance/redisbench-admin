@@ -37,15 +37,7 @@ def export_command_logic(args, project_name, project_version):
     if results_format == "json":
         with open(benchmark_file, "r") as json_file:
             results_dict = json.load(json_file)
-    extra_tags_array = split_tags_string(args.extra_tags)
-    extra_tags_dict = {}
-    for kv_pair in extra_tags_array:
-        kv_tuple = kv_pair.split("=")
-        if len(kv_tuple) < 2:
-            pass
-        key = kv_tuple[0]
-        value = kv_tuple[1]
-        extra_tags_dict[key] = value
+    extra_tags_dict = split_tags_string(args.extra_tags)
     logging.info("Using the following extra tags: {}".format(extra_tags_dict))
 
     logging.info("Checking connection to RedisTimeSeries.")
