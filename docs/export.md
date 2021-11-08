@@ -132,6 +132,23 @@ exporter:
 
 # Exporting results
 
+## Exporting opereto CSV results
+
+Given the sample CSV file
+
+```
+Test Name,OPS/sec,Latency,KB/sec,CPU Average endpoint1,Memory Average KB endpoint1,Memory Average KB endpoint2,CPU Average endpoint2,Average Shard Mem,MAX shard mem,MIN shard mem,Shard-1 memory average
+test_1sh_1wk_dual_ep_mixed_2thr_50conns_persistent_nssl_msetmget_kb_1p,74495.32,1.34,80788.07,23199,1.44,64056,0.06,195708,195708,195708,195708
+test_1sh_1wk_dual_ep_mixed_2thr_50conns_persistent_ssl_msetmget_kb_1p,42985.19,2.32,46659.86,27751,200.0,64100,0.06,281957,281957,281957,281957
+test_1sh_1wk_dual_ep_mixed_2thr_50conns_persistent_mtls_msetmget_kb_1p,43147.05,2.31,46835.18,27728,200.0,64100,0.06,281964,281964,281964,281964
+```
+
+We can easily export it via the following command. Notice that the `--results-format` argument is required.
+```
+redisbench-admin export --results-format csv --deployment-name c5 --deployment-type enterprise --benchmark-result-file ./tests/test_data/2021-10-01.120753test_1sh_1wk_dual_ep_mixed_2thr_50conns_persistent_mtls_msetmget_kb_1p_csv_string.csv --redistimeseries_host localhost --redistimeseries_port 6379 --redistimeseries_pass "" --override-test-time "2021-01-01 11:00:00" 
+```
+
+
 ## Exporting memtier_benchmark results
 
 Assuming you've ran memtier_benchmark with the option `--json-out-file <results file>` at the end of the benchmark
