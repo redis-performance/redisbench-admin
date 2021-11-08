@@ -495,11 +495,12 @@ def fetch_remote_setup_from_config(
     return terraform_working_dir, setup_type, setup
 
 
-def push_data_to_redistimeseries(rts, branch_time_series_dict: dict):
+def push_data_to_redistimeseries(rts, time_series_dict: dict):
+    logging.info(time_series_dict)
     datapoint_errors = 0
     datapoint_inserts = 0
-    if rts is not None:
-        for timeseries_name, time_series in branch_time_series_dict.items():
+    if rts is not None and time_series_dict is not None:
+        for timeseries_name, time_series in time_series_dict.items():
             exporter_create_ts(rts, time_series, timeseries_name)
             for timestamp, value in time_series["data"].items():
                 try:
@@ -612,7 +613,7 @@ def common_timeseries_extraction(
     running_platform=None,
     testcase_metric_context_paths=[],
 ):
-    branch_time_series_dict = {}
+    time_series_dict = {}
     cleaned_metrics = []
     already_present_metrics = []
     # insert first the dict metrics
@@ -666,49 +667,26 @@ def common_timeseries_extraction(
                     metric_name = metric_name.replace(" ", "_")
                     # metric_name = re.sub(r"\W+", "_", metric_name)
 
-                    # prepare tags
-                    timeserie_tags = get_project_ts_tags(
-                        tf_github_org,
-                        tf_github_repo,
-                        deployment_name,
-                        deployment_type,
-                        tf_triggering_env,
-                        metadata_tags,
-                        build_variant_name,
-                        running_platform,
-                    )
-                    timeserie_tags[break_by_key] = break_by_value
-                    timeserie_tags[
-                        "{}+{}".format("deployment_name", break_by_key)
-                    ] = "{} {}".format(deployment_name, break_by_value)
-                    timeserie_tags[break_by_key] = break_by_value
-                    timeserie_tags[
-                        "{}+{}".format("target", break_by_key)
-                    ] = "{} {}".format(break_by_value, tf_github_repo)
-                    timeserie_tags["test_name"] = str(test_name)
-                    timeserie_tags["metric"] = str(metric_name)
-                    timeserie_tags["metric_name"] = metric_name
-                    timeserie_tags["metric_context_path"] = metric_context_path
-                    timeserie_tags["metric_jsonpath"] = metric_jsonpath
-                    if metric_context_path not in testcase_metric_context_paths:
-                        testcase_metric_context_paths.append(metric_context_path)
-
-                    ts_name = get_ts_metric_name(
+                    timeserie_tags, ts_name = get_ts_tags_and_name(
+                        break_by_key,
                         break_by_str,
                         break_by_value,
-                        tf_github_org,
-                        tf_github_repo,
+                        build_variant_name,
                         deployment_name,
                         deployment_type,
-                        test_name,
-                        tf_triggering_env,
-                        metric_name,
+                        metadata_tags,
                         metric_context_path,
-                        use_metric_context_path,
-                        build_variant_name,
+                        metric_jsonpath,
+                        metric_name,
                         running_platform,
+                        test_name,
+                        testcase_metric_context_paths,
+                        tf_github_org,
+                        tf_github_repo,
+                        tf_triggering_env,
+                        use_metric_context_path,
                     )
-                    branch_time_series_dict[ts_name] = {
+                    time_series_dict[ts_name] = {
                         "labels": timeserie_tags.copy(),
                         "data": {datapoints_timestamp: metric_value},
                     }
@@ -720,7 +698,7 @@ def common_timeseries_extraction(
                         timeserie_tags_target[
                             "{}+{}".format("target", break_by_key)
                         ] = "{} {}".format(break_by_value, target_name)
-                        branch_time_series_dict[ts_name] = {
+                        time_series_dict[ts_name] = {
                             "labels": timeserie_tags_target,
                             "data": {datapoints_timestamp: target_value},
                         }
@@ -729,7 +707,70 @@ def common_timeseries_extraction(
                 logging.warning(
                     "Unable to find metric path {} in result dict".format(jsonpath)
                 )
-    return branch_time_series_dict
+    return time_series_dict
+
+
+def get_ts_tags_and_name(
+    break_by_key,
+    break_by_str,
+    break_by_value,
+    build_variant_name,
+    deployment_name,
+    deployment_type,
+    metadata_tags,
+    metric_context_path,
+    metric_jsonpath,
+    metric_name,
+    running_platform,
+    test_name,
+    testcase_metric_context_paths,
+    tf_github_org,
+    tf_github_repo,
+    tf_triggering_env,
+    use_metric_context_path,
+):
+    # prepare tags
+    timeserie_tags = get_project_ts_tags(
+        tf_github_org,
+        tf_github_repo,
+        deployment_name,
+        deployment_type,
+        tf_triggering_env,
+        metadata_tags,
+        build_variant_name,
+        running_platform,
+    )
+    timeserie_tags[break_by_key] = break_by_value
+    timeserie_tags["{}+{}".format("deployment_name", break_by_key)] = "{} {}".format(
+        deployment_name, break_by_value
+    )
+    timeserie_tags[break_by_key] = break_by_value
+    timeserie_tags["{}+{}".format("target", break_by_key)] = "{} {}".format(
+        break_by_value, tf_github_repo
+    )
+    timeserie_tags["test_name"] = str(test_name)
+    timeserie_tags["metric"] = str(metric_name)
+    timeserie_tags["metric_name"] = metric_name
+    timeserie_tags["metric_context_path"] = metric_context_path
+    timeserie_tags["metric_jsonpath"] = metric_jsonpath
+    if metric_context_path not in testcase_metric_context_paths:
+        testcase_metric_context_paths.append(metric_context_path)
+    ts_name = get_ts_metric_name(
+        break_by_str,
+        break_by_value,
+        tf_github_org,
+        tf_github_repo,
+        deployment_name,
+        deployment_type,
+        test_name,
+        tf_triggering_env,
+        metric_name,
+        metric_context_path,
+        use_metric_context_path,
+        build_variant_name,
+        running_platform,
+    )
+    return timeserie_tags, ts_name
 
 
 def get_project_ts_tags(

@@ -5,6 +5,7 @@ from unittest import TestCase
 import argparse
 import redis
 import yaml
+from redisbench_admin.utils.remote import push_data_to_redistimeseries
 from redistimeseries.client import Client
 
 from redisbench_admin.export.common.common import (
@@ -21,7 +22,6 @@ from redisbench_admin.run.common import (
     merge_default_and_config_metrics,
     check_dbconfig_tool_requirement,
     check_dbconfig_keyspacelen_requirement,
-    prepare_benchmark_parameters_specif_tooling,
     dso_check,
     dbconfig_keyspacelen_check,
     common_properties_log,
@@ -169,9 +169,7 @@ def test_extract_benchmark_tool_settings_with_resource():
 
 def test_common_exporter_logic():
     # negative test
-    common_exporter_logic(
-        None, None, None, None, None, None, None, None, None, None, None
-    )
+    common_exporter_logic(None, None, None, None, None, None, None, None, None, None)
     try:
         rts = Client(port=16379)
         rts.redis.ping()
@@ -195,13 +193,16 @@ def test_common_exporter_logic():
                 test_name = "redis-benchmark-full-suite-1Mkeys-100B"
                 deployment_name = "oss-standalone"
                 deployment_type = "oss-standalone"
-                common_exporter_logic(
+                (
+                    per_version_time_series_dict,
+                    per_branch_time_series_dict,
+                    _,
+                ) = common_exporter_logic(
                     deployment_name,
                     deployment_type,
                     merged_exporter_timemetric_path,
                     metrics,
                     results_dict,
-                    rts,
                     test_name,
                     tf_github_branch,
                     tf_github_org,
@@ -209,6 +210,8 @@ def test_common_exporter_logic():
                     tf_triggering_env,
                     project_version,
                 )
+                push_data_to_redistimeseries(rts, per_version_time_series_dict)
+                push_data_to_redistimeseries(rts, per_branch_time_series_dict)
                 metric_name = "rps"
                 use_metric_context_path = True
                 metric_context_path = "MSET"
@@ -233,13 +236,16 @@ def test_common_exporter_logic():
                 # test for build variant
                 build_variant_name = "variant-1"
 
-                common_exporter_logic(
+                (
+                    per_version_time_series_dict,
+                    per_branch_time_series_dict,
+                    _,
+                ) = common_exporter_logic(
                     deployment_name,
                     deployment_type,
                     merged_exporter_timemetric_path,
                     metrics,
                     results_dict,
-                    rts,
                     test_name,
                     tf_github_branch,
                     tf_github_org,
@@ -267,19 +273,28 @@ def test_common_exporter_logic():
                     use_metric_context_path,
                     build_variant_name,
                 )
+                datapoint_errors, datapoint_inserts = push_data_to_redistimeseries(
+                    rts, per_version_time_series_dict
+                )
+                datapoint_errors, datapoint_inserts = push_data_to_redistimeseries(
+                    rts, per_branch_time_series_dict
+                )
                 assert ts_key_name.encode() in rts.redis.keys()
                 rts.redis.flushall()
 
                 # test for build variant and extra metadata flags
                 build_variant_name = "variant-1"
 
-                common_exporter_logic(
+                (
+                    per_version_time_series_dict,
+                    per_branch_time_series_dict,
+                    _,
+                ) = common_exporter_logic(
                     deployment_name,
                     deployment_type,
                     merged_exporter_timemetric_path,
                     metrics,
                     results_dict,
-                    rts,
                     test_name,
                     tf_github_branch,
                     tf_github_org,
@@ -288,6 +303,12 @@ def test_common_exporter_logic():
                     project_version,
                     {"arch": "amd64", "compiler": "icc", "compiler_version": "10.3"},
                     build_variant_name,
+                )
+                datapoint_errors, datapoint_inserts = push_data_to_redistimeseries(
+                    rts, per_version_time_series_dict
+                )
+                datapoint_errors, datapoint_inserts = push_data_to_redistimeseries(
+                    rts, per_branch_time_series_dict
                 )
                 metric_name = "rps"
                 use_metric_context_path = True

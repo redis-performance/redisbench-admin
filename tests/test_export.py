@@ -7,7 +7,10 @@ from redistimeseries.client import Client
 
 from redisbench_admin.export.args import create_export_arguments
 from redisbench_admin.export.common.common import get_timeserie_name
-from redisbench_admin.export.export import export_command_logic
+from redisbench_admin.export.export import (
+    export_command_logic,
+    export_opereto_csv_to_timeseries_dict,
+)
 
 
 class Test(TestCase):
@@ -69,3 +72,23 @@ def test_export_command_logic():
         export_command_logic(args, "tool", "v0")
     except SystemExit as e:
         assert e.code == 0
+
+
+def test_export_opereto_csv_to_timeseries_dict():
+    break_by_dict = {"branch": "master", "version": "6.2.0"}
+    benchmark_file = "./tests/test_data/2021-10-01.120753test_1sh_1wk_dual_ep_mixed_2thr_50conns_persistent_mtls_msetmget_kb_1p_csv_string.csv"
+    results_dict = export_opereto_csv_to_timeseries_dict(
+        benchmark_file,
+        break_by_dict,
+        1,
+        "c5.re",
+        "enterprise",
+        {},
+        "redis",
+        "redis",
+        "ci",
+    )
+    # break by = 2
+    # 3 lines
+    # 11 metrics
+    assert len(results_dict.keys()) == 2 * 3 * 11

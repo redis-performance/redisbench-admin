@@ -17,11 +17,12 @@ from redisbench_admin.utils.remote import (
     get_project_ts_tags,
     get_overall_dashboard_keynames,
     exporter_create_ts,
+    push_data_to_redistimeseries,
 )
 from redisbench_admin.utils.utils import get_ts_metric_name
 
 
-def redistimeseries_results_logic(
+def prepare_timeseries_dict(
     artifact_version,
     benchmark_config,
     default_metrics,
@@ -29,7 +30,6 @@ def redistimeseries_results_logic(
     deployment_type,
     exporter_timemetric_path,
     results_dict,
-    rts,
     test_name,
     tf_github_branch,
     tf_github_org,
@@ -40,6 +40,7 @@ def redistimeseries_results_logic(
     running_platform=None,
     datapoints_timestamp=None,
 ):
+    time_series_dict = {}
     # check which metrics to extract
     exporter_timemetric_path, metrics = merge_default_and_config_metrics(
         benchmark_config, default_metrics, exporter_timemetric_path
@@ -54,7 +55,6 @@ def redistimeseries_results_logic(
         exporter_timemetric_path,
         metrics,
         results_dict,
-        rts,
         test_name,
         tf_github_branch,
         tf_github_org,
@@ -66,9 +66,10 @@ def redistimeseries_results_logic(
         running_platform,
         datapoints_timestamp,
     )
+    time_series_dict.update(per_version_time_series_dict)
+    time_series_dict.update(per_branch_time_series_dict)
     return (
-        per_version_time_series_dict,
-        per_branch_time_series_dict,
+        time_series_dict,
         testcase_metric_context_paths,
     )
 
@@ -232,10 +233,11 @@ def timeseries_test_sucess_flow(
     metadata_tags={},
     build_variant_name=None,
     running_platform=None,
+    timeseries_dict=None,
 ):
-    if push_results_redistimeseries:
-        logging.info("Pushing results to RedisTimeSeries.")
-        _, _, testcase_metric_context_paths = redistimeseries_results_logic(
+    testcase_metric_context_paths = []
+    if timeseries_dict is None:
+        timeseries_dict, testcase_metric_context_paths = prepare_timeseries_dict(
             artifact_version,
             benchmark_config,
             default_metrics,
@@ -243,7 +245,6 @@ def timeseries_test_sucess_flow(
             deployment_type,
             exporter_timemetric_path,
             results_dict,
-            rts,
             test_name,
             tf_github_branch,
             tf_github_org,
@@ -254,45 +255,91 @@ def timeseries_test_sucess_flow(
             running_platform,
             start_time_ms,
         )
-        (
-            _,
-            testcases_setname,
-            _,
-            tsname_project_total_success,
-            running_platforms_setname,
-            build_variant_setname,
-            testcases_metric_context_path_setname,
-            testcases_and_metric_context_path_setname,
-            project_archs_setname,
-            project_oss_setname,
-            project_branches_setname,
-            project_versions_setname,
-            project_compilers_setname,
-        ) = get_overall_dashboard_keynames(
+    if push_results_redistimeseries:
+        logging.info(
+            "Pushing results to RedisTimeSeries. Have {} distinct data-points to insert.".format(
+                len(timeseries_dict.keys())
+            )
+        )
+        push_data_to_redistimeseries(rts, timeseries_dict)
+        update_secondary_result_keys(
+            artifact_version,
+            benchmark_duration_seconds,
+            build_variant_name,
+            dataset_load_duration_seconds,
+            deployment_name,
+            deployment_type,
+            metadata_tags,
+            rts,
+            running_platform,
+            start_time_ms,
+            test_name,
+            testcase_metric_context_paths,
+            tf_github_branch,
             tf_github_org,
             tf_github_repo,
             tf_triggering_env,
-            build_variant_name,
-            running_platform,
-            test_name,
         )
 
-        try:
+
+def update_secondary_result_keys(
+    artifact_version,
+    benchmark_duration_seconds,
+    build_variant_name,
+    dataset_load_duration_seconds,
+    deployment_name,
+    deployment_type,
+    metadata_tags,
+    rts,
+    running_platform,
+    start_time_ms,
+    test_name,
+    testcase_metric_context_paths,
+    tf_github_branch,
+    tf_github_org,
+    tf_github_repo,
+    tf_triggering_env,
+):
+    (
+        _,
+        testcases_setname,
+        _,
+        tsname_project_total_success,
+        running_platforms_setname,
+        build_variant_setname,
+        testcases_metric_context_path_setname,
+        testcases_and_metric_context_path_setname,
+        project_archs_setname,
+        project_oss_setname,
+        project_branches_setname,
+        project_versions_setname,
+        project_compilers_setname,
+    ) = get_overall_dashboard_keynames(
+        tf_github_org,
+        tf_github_repo,
+        tf_triggering_env,
+        build_variant_name,
+        running_platform,
+        test_name,
+    )
+    try:
+        if test_name is not None:
             rts.redis.sadd(testcases_setname, test_name)
-            if "arch" in metadata_tags:
-                rts.redis.sadd(project_archs_setname, metadata_tags["arch"])
-            if "os" in metadata_tags:
-                rts.redis.sadd(project_oss_setname, metadata_tags["os"])
-            if "compiler" in metadata_tags:
-                rts.redis.sadd(project_compilers_setname, metadata_tags["compiler"])
-            if tf_github_branch is not None and tf_github_branch != "":
-                rts.redis.sadd(project_branches_setname, tf_github_branch)
-            if artifact_version is not None and artifact_version != "":
-                rts.redis.sadd(project_versions_setname, artifact_version)
-            if running_platform is not None:
-                rts.redis.sadd(running_platforms_setname, running_platform)
-            if build_variant_name is not None:
-                rts.redis.sadd(build_variant_setname, build_variant_name)
+        if "arch" in metadata_tags:
+            rts.redis.sadd(project_archs_setname, metadata_tags["arch"])
+        if "os" in metadata_tags:
+            rts.redis.sadd(project_oss_setname, metadata_tags["os"])
+        if "compiler" in metadata_tags:
+            rts.redis.sadd(project_compilers_setname, metadata_tags["compiler"])
+        if tf_github_branch is not None and tf_github_branch != "":
+            rts.redis.sadd(project_branches_setname, tf_github_branch)
+        if artifact_version is not None and artifact_version != "":
+            rts.redis.sadd(project_versions_setname, artifact_version)
+        if running_platform is not None:
+            rts.redis.sadd(running_platforms_setname, running_platform)
+        if build_variant_name is not None:
+            rts.redis.sadd(build_variant_setname, build_variant_name)
+        if testcase_metric_context_paths is not None:
             for metric_context_path in testcase_metric_context_paths:
                 if testcases_metric_context_path_setname != "":
                     rts.redis.sadd(
@@ -302,94 +349,92 @@ def timeseries_test_sucess_flow(
                         testcases_and_metric_context_path_setname,
                         "{}:{}".format(test_name, metric_context_path),
                     )
-            rts.incrby(
-                tsname_project_total_success,
-                1,
-                timestamp=start_time_ms,
-                labels=get_project_ts_tags(
-                    tf_github_org,
-                    tf_github_repo,
-                    deployment_name,
-                    deployment_type,
-                    tf_triggering_env,
-                    metadata_tags,
-                    build_variant_name,
-                    running_platform,
-                ),
+        rts.incrby(
+            tsname_project_total_success,
+            1,
+            timestamp=start_time_ms,
+            labels=get_project_ts_tags(
+                tf_github_org,
+                tf_github_repo,
+                deployment_name,
+                deployment_type,
+                tf_triggering_env,
+                metadata_tags,
+                build_variant_name,
+                running_platform,
+            ),
+        )
+        if tf_github_branch is not None and tf_github_branch != "":
+            add_standardized_metric_bybranch(
+                "benchmark_duration",
+                benchmark_duration_seconds,
+                str(tf_github_branch),
+                deployment_name,
+                deployment_type,
+                rts,
+                start_time_ms,
+                test_name,
+                tf_github_org,
+                tf_github_repo,
+                tf_triggering_env,
+                metadata_tags,
+                build_variant_name,
+                running_platform,
             )
-            if tf_github_branch is not None and tf_github_branch != "":
-                add_standardized_metric_bybranch(
-                    "benchmark_duration",
-                    benchmark_duration_seconds,
-                    str(tf_github_branch),
-                    deployment_name,
-                    deployment_type,
-                    rts,
-                    start_time_ms,
-                    test_name,
-                    tf_github_org,
-                    tf_github_repo,
-                    tf_triggering_env,
-                    metadata_tags,
-                    build_variant_name,
-                    running_platform,
-                )
-                add_standardized_metric_bybranch(
-                    "dataset_load_duration",
-                    dataset_load_duration_seconds,
-                    str(tf_github_branch),
-                    deployment_name,
-                    deployment_type,
-                    rts,
-                    start_time_ms,
-                    test_name,
-                    tf_github_org,
-                    tf_github_repo,
-                    tf_triggering_env,
-                    metadata_tags,
-                    build_variant_name,
-                    running_platform,
-                )
-            if artifact_version is not None and artifact_version != "":
-                add_standardized_metric_byversion(
-                    "benchmark_duration",
-                    benchmark_duration_seconds,
-                    artifact_version,
-                    deployment_name,
-                    deployment_type,
-                    rts,
-                    start_time_ms,
-                    test_name,
-                    tf_github_org,
-                    tf_github_repo,
-                    tf_triggering_env,
-                    metadata_tags,
-                    build_variant_name,
-                    running_platform,
-                )
-                add_standardized_metric_byversion(
-                    "dataset_load_duration",
-                    dataset_load_duration_seconds,
-                    artifact_version,
-                    deployment_name,
-                    deployment_type,
-                    rts,
-                    start_time_ms,
-                    test_name,
-                    tf_github_org,
-                    tf_github_repo,
-                    tf_triggering_env,
-                    metadata_tags,
-                    build_variant_name,
-                    running_platform,
-                )
-        except redis.exceptions.ResponseError as e:
-            logging.warning(
-                "Error while updating secondary data structures {}. ".format(
-                    e.__str__()
-                )
+            add_standardized_metric_bybranch(
+                "dataset_load_duration",
+                dataset_load_duration_seconds,
+                str(tf_github_branch),
+                deployment_name,
+                deployment_type,
+                rts,
+                start_time_ms,
+                test_name,
+                tf_github_org,
+                tf_github_repo,
+                tf_triggering_env,
+                metadata_tags,
+                build_variant_name,
+                running_platform,
             )
-            pass
+        if artifact_version is not None and artifact_version != "":
+            add_standardized_metric_byversion(
+                "benchmark_duration",
+                benchmark_duration_seconds,
+                artifact_version,
+                deployment_name,
+                deployment_type,
+                rts,
+                start_time_ms,
+                test_name,
+                tf_github_org,
+                tf_github_repo,
+                tf_triggering_env,
+                metadata_tags,
+                build_variant_name,
+                running_platform,
+            )
+            add_standardized_metric_byversion(
+                "dataset_load_duration",
+                dataset_load_duration_seconds,
+                artifact_version,
+                deployment_name,
+                deployment_type,
+                rts,
+                start_time_ms,
+                test_name,
+                tf_github_org,
+                tf_github_repo,
+                tf_triggering_env,
+                metadata_tags,
+                build_variant_name,
+                running_platform,
+            )
+    except redis.exceptions.ResponseError as e:
+        logging.warning(
+            "Error while updating secondary data structures {}. ".format(e.__str__())
+        )
+        pass
 
 
 def timeseries_test_failure_flow(

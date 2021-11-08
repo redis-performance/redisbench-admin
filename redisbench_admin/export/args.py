@@ -22,7 +22,6 @@ def create_export_arguments(parser):
     parser.add_argument(
         "--exporter-spec-file",
         type=str,
-        required=True,
         help="Exporter definition file, containing info of the metrics to extract",
     )
     parser.add_argument(
@@ -46,7 +45,7 @@ def create_export_arguments(parser):
     parser.add_argument(
         "--test-name",
         type=str,
-        required=True,
+        default=None,
         help="Test name",
     )
     parser.add_argument("--github_actor", type=str, default=None, nargs="?", const="")
@@ -65,7 +64,7 @@ def create_export_arguments(parser):
         type=str,
         default="json",
         help="results format of the the benchmark results files to read "
-        "results from ( either json, redis-benchmark-txt )",
+        "results from ( either csv, json, redis-benchmark-txt )",
     )
     parser.add_argument(
         "--use-result",
