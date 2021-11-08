@@ -61,6 +61,8 @@ def test_export_command_logic():
             "redis",
             "--github_branch",
             "branch-feature-1",
+            "--override-test-time",
+            "2021-01-01 10:00:00",
         ]
     )
     try:
