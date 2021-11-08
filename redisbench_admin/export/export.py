@@ -40,7 +40,11 @@ def export_command_logic(args, project_name, project_version):
     extra_tags_dict = split_tags_string(args.extra_tags)
     logging.info("Using the following extra tags: {}".format(extra_tags_dict))
 
-    logging.info("Checking connection to RedisTimeSeries.")
+    logging.info(
+        "Checking connection to RedisTimeSeries to host: {}:{}".format(
+            args.redistimeseries_host, args.redistimeseries_port
+        )
+    )
     rts = Client(
         host=args.redistimeseries_host,
         port=args.redistimeseries_port,
@@ -65,19 +69,31 @@ def export_command_logic(args, project_name, project_version):
         _,
         _,
     ) = get_defaults(exporter_spec_file)
-
-    datapoints_timestamp = parse_exporter_timemetric(
-        exporter_timemetric_path, results_dict
-    )
-    if datapoints_timestamp is None:
-        datapoints_timestamp = int(
-            datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000.0
-        )
-        logging.warning(
-            "Error while trying to parse datapoints timestamp. Using current system timestamp Error: {}".format(
-                datapoints_timestamp
+    if args.override_test_time:
+        datapoints_timestamp = int(args.override_test_time.timestamp() * 1000.0)
+        logging.info(
+            "Overriding test time with the following date {}. Timestamp {}".format(
+                args.override_test_time, datapoints_timestamp
             )
         )
+    else:
+        logging.info(
+            "Trying to parse the time-metric from path {}".format(
+                exporter_timemetric_path
+            )
+        )
+        datapoints_timestamp = parse_exporter_timemetric(
+            exporter_timemetric_path, results_dict
+        )
+        if datapoints_timestamp is None:
+            datapoints_timestamp = int(
+                datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000.0
+            )
+            logging.warning(
+                "Error while trying to parse datapoints timestamp. Using current system timestamp Error: {}".format(
+                    datapoints_timestamp
+                )
+            )
 
     timeseries_test_sucess_flow(
         True,

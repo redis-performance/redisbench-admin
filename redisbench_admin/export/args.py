@@ -3,6 +3,8 @@
 #  Copyright (c) 2021., Redis Labs Modules
 #  All rights reserved.
 #
+import datetime
+
 from redisbench_admin.utils.remote import (
     PERFORMANCE_RTS_HOST,
     PERFORMANCE_RTS_PORT,
@@ -87,4 +89,9 @@ def create_export_arguments(parser):
         "--redistimeseries_pass", type=str, default=PERFORMANCE_RTS_AUTH
     )
     parser.add_argument("--redistimeseries_user", type=str, default=None)
+    parser.add_argument(
+        "--override-test-time",
+        type=lambda s: datetime.datetime.strptime(s, "%Y-%m-%d %H:%M:%S"),
+        help='Override the test time passing datetime in format "%%Y-%%m-%%d %%H:%%M:%%S". Example valid datetime: "2021-01-01 10:00:00". Times are in UTC TZ. If this argument is set, the parsed test time is overridden.',
+    )
     return parser
