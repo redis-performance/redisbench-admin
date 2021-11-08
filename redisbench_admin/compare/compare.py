@@ -41,8 +41,38 @@ def compare_command_logic(args, project_name, project_version):
     deployment_type = args.deployment_type
     from_ts_ms = args.from_timestamp
     to_ts_ms = args.to_timestamp
+    use_tag = False
+    use_branch = False
     baseline_branch = args.baseline_branch
     comparison_branch = args.comparison_branch
+    by_str = ""
+    baseline_str = ""
+    comparison_str = ""
+    if baseline_branch is not None and comparison_branch is not None:
+        use_branch = True
+        by_str = "branch"
+        baseline_str = baseline_branch
+        comparison_str = comparison_branch
+    baseline_tag = args.baseline_tag
+    comparison_tag = args.comparison_tag
+    if baseline_tag is not None and comparison_tag is not None:
+        use_tag = True
+        by_str = "version"
+        baseline_str = baseline_tag
+        comparison_str = comparison_tag
+    if use_branch is False and use_tag is False:
+        logging.error(
+            "You need to provider either "
+            + "( --baseline-branch and --comparison-branch ) "
+            + "or ( --baseline-tag and --comparison-tag ) args"
+        )
+        exit(1)
+    if use_branch is True and use_tag is True:
+        logging.error(
+            +"( --baseline-branch and --comparison-branch ) "
+            + "and ( --baseline-tag and --comparison-tag ) args are mutually exclusive"
+        )
+        exit(1)
     metric_name = args.metric_name
     metric_mode = args.metric_mode
     (
@@ -86,22 +116,24 @@ def compare_command_logic(args, project_name, project_version):
     for test_name in test_names:
 
         test_name = test_name.decode()
-
+        deployment_name = deployment_type
         ts_name_baseline = get_ts_metric_name(
-            "by.branch",
-            baseline_branch,
+            "by.{}".format(by_str),
+            baseline_str,
             tf_github_org,
             tf_github_repo,
+            deployment_name,
             deployment_type,
             test_name,
             tf_triggering_env,
             metric_name,
         )
         ts_name_comparison = get_ts_metric_name(
-            "by.branch",
-            comparison_branch,
+            "by.{}".format(by_str),
+            comparison_str,
             tf_github_org,
             tf_github_repo,
+            deployment_name,
             deployment_type,
             test_name,
             tf_triggering_env,
@@ -156,12 +188,13 @@ def compare_command_logic(args, project_name, project_version):
                 total_stable = total_stable + 1
 
             if args.print_regressions_only is False or detected_regression:
+                percentage_change_str = "{:.2f}".format(percentage_change)
                 profilers_artifacts_matrix.append(
                     [
                         test_name,
                         baseline_v,
                         comparison_v,
-                        percentage_change,
+                        percentage_change_str,
                     ]
                 )
 
@@ -188,13 +221,13 @@ def compare_command_logic(args, project_name, project_version):
         )
     if total_improvements > 0:
         logging.info(
-            "Detected a total of {} improvements above the improvement water line (> {} %%)".format(
+            "Detected a total of {} improvements above the improvement water line (> {}%)".format(
                 total_improvements, args.regressions_percent_lower_limit
             )
         )
     if total_regressions > 0:
         logging.warning(
-            "Detected a total of {} regressions bellow the regression water line (< -{} %%)".format(
+            "Detected a total of {} regressions bellow the regression water line (< -{}%)".format(
                 total_regressions, args.regressions_percent_lower_limit
             )
         )
