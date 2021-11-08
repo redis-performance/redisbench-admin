@@ -3,6 +3,8 @@
 #  Copyright (c) 2021., Redis Labs Modules
 #  All rights reserved.
 #
+import datetime
+
 from redisbench_admin.utils.remote import (
     PERFORMANCE_RTS_HOST,
     PERFORMANCE_RTS_PORT,
@@ -20,7 +22,6 @@ def create_export_arguments(parser):
     parser.add_argument(
         "--exporter-spec-file",
         type=str,
-        required=True,
         help="Exporter definition file, containing info of the metrics to extract",
     )
     parser.add_argument(
@@ -44,7 +45,7 @@ def create_export_arguments(parser):
     parser.add_argument(
         "--test-name",
         type=str,
-        required=True,
+        default=None,
         help="Test name",
     )
     parser.add_argument("--github_actor", type=str, default=None, nargs="?", const="")
@@ -63,7 +64,7 @@ def create_export_arguments(parser):
         type=str,
         default="json",
         help="results format of the the benchmark results files to read "
-        "results from ( either json, redis-benchmark-txt )",
+        "results from ( either csv, json, redis-benchmark-txt )",
     )
     parser.add_argument(
         "--use-result",
@@ -87,4 +88,9 @@ def create_export_arguments(parser):
         "--redistimeseries_pass", type=str, default=PERFORMANCE_RTS_AUTH
     )
     parser.add_argument("--redistimeseries_user", type=str, default=None)
+    parser.add_argument(
+        "--override-test-time",
+        type=lambda s: datetime.datetime.strptime(s, "%Y-%m-%d %H:%M:%S"),
+        help='Override the test time passing datetime in format "%%Y-%%m-%%d %%H:%%M:%%S". Example valid datetime: "2021-01-01 10:00:00". Times are in UTC TZ. If this argument is set, the parsed test time is overridden.',
+    )
     return parser

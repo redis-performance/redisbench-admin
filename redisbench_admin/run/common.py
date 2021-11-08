@@ -39,7 +39,6 @@ from redisbench_admin.utils.benchmark_config import (
 )
 from redisbench_admin.utils.remote import (
     extract_perversion_timeseries_from_results,
-    push_data_to_redistimeseries,
     extract_perbranch_timeseries_from_results,
 )
 
@@ -214,7 +213,6 @@ def common_exporter_logic(
     exporter_timemetric_path,
     metrics,
     results_dict,
-    rts,
     test_name,
     tf_github_branch,
     tf_github_org,
@@ -226,8 +224,8 @@ def common_exporter_logic(
     running_platform=None,
     datapoints_timestamp=None,
 ):
-    per_version_time_series_dict = None
-    per_branch_time_series_dict = None
+    per_version_time_series_dict = {}
+    per_branch_time_series_dict = {}
     testcase_metric_context_paths = []
 
     if exporter_timemetric_path is not None and len(metrics) > 0:
@@ -243,7 +241,7 @@ def common_exporter_logic(
         ):
             # extract per-version datapoints
             (
-                ok,
+                _,
                 per_version_time_series_dict,
             ) = extract_perversion_timeseries_from_results(
                 datapoints_timestamp,
@@ -261,12 +259,9 @@ def common_exporter_logic(
                 running_platform,
                 testcase_metric_context_paths,
             )
-            if ok:
-                # push per-version data
-                push_data_to_redistimeseries(rts, per_version_time_series_dict)
         if tf_github_branch is not None and tf_github_branch != "":
             # extract per branch datapoints
-            ok, per_branch_time_series_dict = extract_perbranch_timeseries_from_results(
+            _, per_branch_time_series_dict = extract_perbranch_timeseries_from_results(
                 datapoints_timestamp,
                 metrics,
                 results_dict,
@@ -282,9 +277,6 @@ def common_exporter_logic(
                 running_platform,
                 testcase_metric_context_paths,
             )
-            if ok:
-                # push per-branch data
-                push_data_to_redistimeseries(rts, per_branch_time_series_dict)
         else:
             logging.warning(
                 "Requested to push data to RedisTimeSeries but no git"

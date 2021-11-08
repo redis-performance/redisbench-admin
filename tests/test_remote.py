@@ -5,7 +5,7 @@ import yaml
 from redistimeseries.client import Client
 
 from redisbench_admin.run.redistimeseries import (
-    redistimeseries_results_logic,
+    prepare_timeseries_dict,
     timeseries_test_sucess_flow,
 )
 from redisbench_admin.run.common import (
@@ -150,11 +150,7 @@ def test_extract_perversion_timeseries_from_results():
         ) as json_file:
             results_dict = json.load(json_file)
 
-            (
-                per_version_time_series_dict,
-                per_branch_time_series_dict,
-                _,
-            ) = redistimeseries_results_logic(
+            (timeseries_dict, _,) = prepare_timeseries_dict(
                 "1.0.0",
                 benchmark_config,
                 default_metrics,
@@ -162,30 +158,26 @@ def test_extract_perversion_timeseries_from_results():
                 "oss",
                 exporter_timemetric_path,
                 results_dict,
-                None,
                 "test_name",
                 "tf_github_branch",
                 "tf_github_org",
                 "tf_github_repo",
                 "tf_triggering_env",
             )
-            assert per_version_time_series_dict is not None
-            assert len(per_version_time_series_dict.keys()) == 2
+            assert timeseries_dict is not None
+            assert len(timeseries_dict.keys()) == 4
             for existing_metric in ["Totals.rowRate", "Totals.metricRate"]:
                 assert (
                     "ci.benchmarks.redislabs/by.version/tf_triggering_env/tf_github_org/tf_github_repo/test_name/oss/oss-standalone/1.0.0/{}".format(
                         existing_metric
                     )
-                    in per_version_time_series_dict.keys()
+                    in timeseries_dict.keys()
                 )
-            assert per_branch_time_series_dict is not None
-            assert len(per_branch_time_series_dict.keys()) == 2
-            for existing_metric in ["Totals.rowRate", "Totals.metricRate"]:
                 assert (
                     "ci.benchmarks.redislabs/by.branch/tf_triggering_env/tf_github_org/tf_github_repo/test_name/oss/oss-standalone/tf_github_branch/{}".format(
                         existing_metric
                     )
-                    in per_branch_time_series_dict.keys()
+                    in timeseries_dict.keys()
                 )
 
 
