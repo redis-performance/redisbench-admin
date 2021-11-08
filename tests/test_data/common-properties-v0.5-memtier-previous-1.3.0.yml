@@ -1,0 +1,6 @@
+version: 0.5
+exporter:
+  redistimeseries:
+    timemetric: "$.'ALL STATS'.Runtime.'Start time'"
+    metrics:
+      - "$.'BEST RUN RESULTS'.Totals.'Ops/sec'"

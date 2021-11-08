@@ -3,6 +3,8 @@
 #  Copyright (c) 2021., Redis Labs Modules
 #  All rights reserved.
 #
+import datetime
+
 from redisbench_admin.utils.remote import (
     PERFORMANCE_RTS_HOST,
     PERFORMANCE_RTS_PORT,
@@ -87,4 +89,9 @@ def create_export_arguments(parser):
         "--redistimeseries_pass", type=str, default=PERFORMANCE_RTS_AUTH
     )
     parser.add_argument("--redistimeseries_user", type=str, default=None)
+    parser.add_argument(
+        "--override-test-time",
+        type=lambda s: datetime.datetime.strptime(s, "%Y-%m-%d"),
+        help="Override the test time. If this argument is set, the parsed test time is overridden.",
+    )
     return parser
