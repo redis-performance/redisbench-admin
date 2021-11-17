@@ -10,6 +10,7 @@ import logging
 import os
 import time
 import redis
+from pytablewriter import MarkdownTableWriter
 
 from redisbench_admin.run.aibench_run_inference_redisai_vision.aibench_run_inference_redisai_vision import (
     prepare_aibench_benchmark_command,
@@ -18,6 +19,7 @@ from redisbench_admin.run.ftsb.ftsb import prepare_ftsb_benchmark_command
 from redisbench_admin.run.memtier_benchmark.memtier_benchmark import (
     prepare_memtier_benchmark_command,
 )
+from redisbench_admin.run.metrics import extract_results_table
 from redisbench_admin.run.redis_benchmark.redis_benchmark import (
     prepare_redis_benchmark_command,
 )
@@ -570,3 +572,27 @@ def common_properties_log(
     logging.info("\tgithub_sha: {}".format(tf_github_sha))
     logging.info("\ttriggering env: {}".format(tf_triggering_env))
     logging.info("\tsetup_name sufix: {}".format(tf_setup_name_sufix))
+
+
+def print_results_table_stdout(
+    benchmark_config, default_metrics, results_dict, setup_name, test_name
+):
+    # check which metrics to extract
+    (_, metrics,) = merge_default_and_config_metrics(
+        benchmark_config,
+        default_metrics,
+        None,
+    )
+    table_name = "Results for {} test-case on {} topology".format(test_name, setup_name)
+    results_matrix_headers = [
+        "Metric JSON Path",
+        "Metric Value",
+    ]
+    results_matrix = extract_results_table(metrics, results_dict)
+    results_matrix = [[x[0], "{:.3f}".format(x[3])] for x in results_matrix]
+    writer = MarkdownTableWriter(
+        table_name=table_name,
+        headers=results_matrix_headers,
+        value_matrix=results_matrix,
+    )
+    writer.write_table()

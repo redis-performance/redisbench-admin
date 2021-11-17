@@ -19,6 +19,7 @@ from redisbench_admin.run.common import (
     BENCHMARK_REPETITIONS,
     get_setup_type_and_primaries_count,
     dso_check,
+    print_results_table_stdout,
 )
 from redisbench_admin.run.redistimeseries import datasink_profile_tabular_data
 from redisbench_admin.run.run import (
@@ -108,7 +109,7 @@ def run_local_command_logic(args, project_name, project_version):
 
     (
         benchmark_definitions,
-        _,
+        default_metrics,
         _,
         default_specs,
         clusterconfig,
@@ -141,6 +142,15 @@ def run_local_command_logic(args, project_name, project_version):
                             setup_type,
                             shard_count,
                         ) = get_setup_type_and_primaries_count(setup_settings)
+                        if args.allowed_setups != "":
+                            allowed_setups = args.allowed_setups.split()
+                            if setup_name not in allowed_setups:
+                                logging.warning(
+                                    "SKIPPING setup named {} of topology type {}.".format(
+                                        setup_name, setup_type
+                                    )
+                                )
+                                continue
                         if setup_type in args.allowed_envs:
                             redis_processes = []
                             # after we've spinned Redis, even on error we should always teardown
@@ -314,6 +324,13 @@ def run_local_command_logic(args, project_name, project_version):
                                     local_benchmark_output_filename, "r"
                                 ) as json_file:
                                     results_dict = json.load(json_file)
+                                    print_results_table_stdout(
+                                        benchmark_config,
+                                        default_metrics,
+                                        results_dict,
+                                        setup_name,
+                                        test_name,
+                                    )
 
                                     # check KPIs
                                     return_code = results_dict_kpi_check(

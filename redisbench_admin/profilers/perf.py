@@ -170,8 +170,10 @@ class Perf:
             return False
         # Check if child process has terminated. Set and return returncode
         # attribute
-        if process.poll() is None:
+        ret = process.poll()
+        if ret is None:
             return True
+        self.profiler_process_exit_code = ret
         return False
 
     def stop_profile(self, **kwargs):
@@ -182,8 +184,16 @@ class Perf:
         self.profile_end_time = time.time()
         if not self._is_alive(self.profiler_process):
             logging.error(
-                "Profiler process is not alive, might have crash during test execution, "
+                "Profiler process is not alive, might have crash during test execution.  Exit code: {}".format(
+                    self.profiler_process_exit_code
+                )
             )
+            (
+                self.profiler_process_stdout,
+                self.profiler_process_stderr,
+            ) = self.profiler_process.communicate()
+            logging.error("Profiler stderr: {}".format(self.profiler_process_stderr))
+            logging.error("Profiler stdout: {}".format(self.profiler_process_stdout))
             return result
         try:
             self.profiler_process.terminate()

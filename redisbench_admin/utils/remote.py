@@ -19,6 +19,7 @@ from jsonpath_ng import parse
 from python_terraform import Terraform
 
 from redisbench_admin.environments.oss_cluster import get_cluster_dbfilename
+from redisbench_admin.run.metrics import extract_results_table
 from redisbench_admin.utils.local import check_dataset_local_requirements
 from redisbench_admin.utils.utils import (
     get_ts_metric_name,
@@ -614,100 +615,100 @@ def common_timeseries_extraction(
     testcase_metric_context_paths=[],
 ):
     time_series_dict = {}
-    cleaned_metrics = []
-    already_present_metrics = []
-    # insert first the dict metrics
-    for jsonpath in metrics:
-        if type(jsonpath) == dict:
-            cleaned_metrics.append(jsonpath)
-            metric_jsonpath = list(jsonpath.keys())[0]
-            already_present_metrics.append(metric_jsonpath)
-    for jsonpath in metrics:
-        if type(jsonpath) == str:
-            if jsonpath not in already_present_metrics:
-                already_present_metrics.append(jsonpath)
-                cleaned_metrics.append(jsonpath)
+    cleaned_metrics_arr = extract_results_table(metrics, results_dict)
+    for cleaned_metric in cleaned_metrics_arr:
 
-    for jsonpath in cleaned_metrics:
-        test_case_targets_dict = {}
-        metric_jsonpath = jsonpath
-        find_res = None
-        try:
-            if type(jsonpath) == str:
-                jsonpath_expr = parse(jsonpath)
-            if type(jsonpath) == dict:
-                metric_jsonpath = list(jsonpath.keys())[0]
-                test_case_targets_dict = jsonpath[metric_jsonpath]
-                jsonpath_expr = parse(metric_jsonpath)
-            find_res = jsonpath_expr.find(results_dict)
-        except Exception:
-            pass
-        finally:
-            if find_res is not None:
-                use_metric_context_path = False
-                if len(find_res) > 1:
-                    use_metric_context_path = True
-                for metric in find_res:
-                    metric_name = str(metric.path)
+        metric_jsonpath = cleaned_metric[0]
+        metric_context_path = cleaned_metric[1]
+        metric_name = cleaned_metric[2]
+        metric_value = cleaned_metric[3]
+        test_case_targets_dict = cleaned_metric[4]
+        use_metric_context_path = cleaned_metric[5]
 
-                    metric_value = float(metric.value)
-
-                    metric_context_path = str(metric.context.path)
-                    if metric_jsonpath[0] == "$":
-                        metric_jsonpath = metric_jsonpath[1:]
-                    if metric_jsonpath[0] == ".":
-                        metric_jsonpath = metric_jsonpath[1:]
-
-                    # retro-compatible naming
-                    if use_metric_context_path is False:
-                        metric_name = metric_jsonpath
-
-                    metric_name = metric_name.replace("'", "")
-                    metric_name = metric_name.replace('"', "")
-                    metric_name = metric_name.replace(" ", "_")
-                    # metric_name = re.sub(r"\W+", "_", metric_name)
-
-                    timeserie_tags, ts_name = get_ts_tags_and_name(
-                        break_by_key,
-                        break_by_str,
-                        break_by_value,
-                        build_variant_name,
-                        deployment_name,
-                        deployment_type,
-                        metadata_tags,
-                        metric_context_path,
-                        metric_jsonpath,
-                        metric_name,
-                        running_platform,
-                        test_name,
-                        testcase_metric_context_paths,
-                        tf_github_org,
-                        tf_github_repo,
-                        tf_triggering_env,
-                        use_metric_context_path,
-                    )
-                    time_series_dict[ts_name] = {
-                        "labels": timeserie_tags.copy(),
-                        "data": {datapoints_timestamp: metric_value},
-                    }
-                    original_ts_name = ts_name
-                    for target_name, target_value in test_case_targets_dict.items():
-                        ts_name = original_ts_name + "/target/{}".format(target_name)
-                        timeserie_tags_target = timeserie_tags.copy()
-                        timeserie_tags_target["is_target"] = "true"
-                        timeserie_tags_target[
-                            "{}+{}".format("target", break_by_key)
-                        ] = "{} {}".format(break_by_value, target_name)
-                        time_series_dict[ts_name] = {
-                            "labels": timeserie_tags_target,
-                            "data": {datapoints_timestamp: target_value},
-                        }
-
-            else:
-                logging.warning(
-                    "Unable to find metric path {} in result dict".format(jsonpath)
-                )
+        from_metric_kv_to_timeserie(
+            break_by_key,
+            break_by_str,
+            break_by_value,
+            build_variant_name,
+            datapoints_timestamp,
+            deployment_name,
+            deployment_type,
+            metadata_tags,
+            metric_context_path,
+            metric_jsonpath,
+            metric_name,
+            metric_value,
+            running_platform,
+            test_case_targets_dict,
+            test_name,
+            testcase_metric_context_paths,
+            tf_github_org,
+            tf_github_repo,
+            tf_triggering_env,
+            time_series_dict,
+            use_metric_context_path,
+        )
     return time_series_dict
+
+
+def from_metric_kv_to_timeserie(
+    break_by_key,
+    break_by_str,
+    break_by_value,
+    build_variant_name,
+    datapoints_timestamp,
+    deployment_name,
+    deployment_type,
+    metadata_tags,
+    metric_context_path,
+    metric_jsonpath,
+    metric_name,
+    metric_value,
+    running_platform,
+    test_case_targets_dict,
+    test_name,
+    testcase_metric_context_paths,
+    tf_github_org,
+    tf_github_repo,
+    tf_triggering_env,
+    time_series_dict,
+    use_metric_context_path,
+):
+    timeserie_tags, ts_name = get_ts_tags_and_name(
+        break_by_key,
+        break_by_str,
+        break_by_value,
+        build_variant_name,
+        deployment_name,
+        deployment_type,
+        metadata_tags,
+        metric_context_path,
+        metric_jsonpath,
+        metric_name,
+        running_platform,
+        test_name,
+        testcase_metric_context_paths,
+        tf_github_org,
+        tf_github_repo,
+        tf_triggering_env,
+        use_metric_context_path,
+    )
+    time_series_dict[ts_name] = {
+        "labels": timeserie_tags.copy(),
+        "data": {datapoints_timestamp: metric_value},
+    }
+    original_ts_name = ts_name
+    for target_name, target_value in test_case_targets_dict.items():
+        ts_name = original_ts_name + "/target/{}".format(target_name)
+        timeserie_tags_target = timeserie_tags.copy()
+        timeserie_tags_target["is_target"] = "true"
+        timeserie_tags_target["{}+{}".format("target", break_by_key)] = "{} {}".format(
+            break_by_value, target_name
+        )
+        time_series_dict[ts_name] = {
+            "labels": timeserie_tags_target,
+            "data": {datapoints_timestamp: target_value},
+        }
 
 
 def get_ts_tags_and_name(
