@@ -22,6 +22,7 @@ from redisbench_admin.utils.remote import (
 DEFAULT_TRIGGERING_ENV = socket.gethostname()
 TRIGGERING_ENV = os.getenv("TRIGGERING_ENV", DEFAULT_TRIGGERING_ENV)
 ENV = os.getenv("ENV", "oss-standalone,oss-cluster")
+SETUP = os.getenv("SETUP", "")
 PUSH_S3 = bool(os.getenv("PUSH_S3", False))
 PROFILERS_DSO = os.getenv("PROFILERS_DSO", None)
 PROFILERS_ENABLED = bool(os.getenv("PROFILE", 0))
@@ -121,6 +122,12 @@ def common_run_args(parser):
         "--allowed-envs",
         type=str,
         default=ENV,
-        help="Comma delimited allowed setups: 'oss-standalone','oss-cluster'",
+        help="Comma delimited allowed topologies: 'oss-standalone','oss-cluster'",
+    )
+    parser.add_argument(
+        "--allowed-setups",
+        type=str,
+        default=SETUP,
+        help="Comma delimited allowed setups. By default all setups are allowed.",
     )
     return parser

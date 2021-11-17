@@ -14,6 +14,7 @@ from redisbench_admin.run.common import (
     BENCHMARK_REPETITIONS,
     get_setup_type_and_primaries_count,
     common_properties_log,
+    print_results_table_stdout,
 )
 from redisbench_admin.run.git import git_vars_crosscheck
 from redisbench_admin.run.modules import redis_modules_check
@@ -449,6 +450,14 @@ def run_remote_command_logic(args, project_name, project_version):
                                         tf_github_org,
                                         tf_github_repo,
                                         tf_triggering_env,
+                                    )
+
+                                    print_results_table_stdout(
+                                        benchmark_config,
+                                        default_metrics,
+                                        results_dict,
+                                        setup_name,
+                                        test_name,
                                     )
 
                                 except:

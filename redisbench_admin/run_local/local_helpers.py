@@ -29,7 +29,10 @@ def run_local_benchmark(benchmark_tool, command):
 
 
 def check_benchmark_binaries_local_requirements(
-    benchmark_config, allowed_tools, binaries_localtemp_dir="./binaries"
+    benchmark_config,
+    allowed_tools,
+    binaries_localtemp_dir="./binaries",
+    config_key="clientconfig",
 ):
     (
         benchmark_min_tool_version,
@@ -40,7 +43,7 @@ def check_benchmark_binaries_local_requirements(
         tool_source,
         tool_source_bin_path,
         _,
-    ) = extract_benchmark_tool_settings(benchmark_config)
+    ) = extract_benchmark_tool_settings(benchmark_config, config_key)
     which_benchmark_tool = None
     if benchmark_tool is not None:
         logging.info("Detected benchmark config tool {}".format(benchmark_tool))

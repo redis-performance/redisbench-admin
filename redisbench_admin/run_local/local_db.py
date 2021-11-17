@@ -5,8 +5,15 @@
 #
 import logging
 import tempfile
+import datetime
 
 import redis
+
+from redisbench_admin.run.run import calculate_client_tool_duration_and_check
+from redisbench_admin.run_local.local_helpers import (
+    check_benchmark_binaries_local_requirements,
+    run_local_benchmark,
+)
 
 from redisbench_admin.environments.oss_cluster import (
     spin_up_local_redis_cluster,
@@ -14,7 +21,12 @@ from redisbench_admin.environments.oss_cluster import (
 )
 from redisbench_admin.environments.oss_standalone import spin_up_local_redis
 from redisbench_admin.run.cluster import cluster_init_steps
-from redisbench_admin.run.common import run_redis_pre_steps
+from redisbench_admin.run.common import (
+    run_redis_pre_steps,
+    check_dbconfig_tool_requirement,
+    prepare_benchmark_parameters,
+    dbconfig_keyspacelen_check,
+)
 from redisbench_admin.utils.benchmark_config import extract_redis_dbconfig_parameters
 from redisbench_admin.utils.local import (
     check_dataset_local_requirements,
@@ -101,15 +113,64 @@ def local_db_spin(
             dataset_load_timeout_secs,
         )
 
-        for redis_process in redis_processes:
-            if is_process_alive(redis_process) is False:
-                raise Exception("Redis process is not alive. Failing test.")
-
         r = redis.StrictRedis(port=args.port)
         redis_conns.append(r)
+
+    for shardn, redis_process in enumerate(redis_processes):
+        logging.info(
+            "Checking if shard #{} process with pid={} is alive".format(
+                shardn + 1, redis_process.pid
+            )
+        )
+        if is_process_alive(redis_process) is False:
+            raise Exception("Redis process is not alive. Failing test.")
+
     if setup_type == "oss-cluster":
 
         cluster_init_steps(clusterconfig, redis_conns, local_module_file)
 
+    if check_dbconfig_tool_requirement(benchmark_config):
+        logging.info("Detected the requirements to load data via client tool")
+        local_benchmark_output_filename = "{}/load-data.txt".format(temporary_dir)
+        (
+            benchmark_tool,
+            full_benchmark_path,
+            benchmark_tool_workdir,
+        ) = check_benchmark_binaries_local_requirements(
+            benchmark_config, args.allowed_tools, "./binaries", "dbconfig"
+        )
+
+        # prepare the benchmark command
+        command, command_str = prepare_benchmark_parameters(
+            benchmark_config,
+            full_benchmark_path,
+            args.port,
+            "localhost",
+            local_benchmark_output_filename,
+            False,
+            benchmark_tool_workdir,
+            cluster_api_enabled,
+            "dbconfig",
+        )
+
+        # run the benchmark
+        load_via_benchmark_start_time = datetime.datetime.now()
+        run_local_benchmark(benchmark_tool, command)
+        load_via_benchmark_end_time = datetime.datetime.now()
+        load_via_benchmark_duration_seconds = calculate_client_tool_duration_and_check(
+            load_via_benchmark_end_time, load_via_benchmark_start_time
+        )
+        logging.info(
+            "Loading data via benchmark tool took {} secs.".format(
+                load_via_benchmark_duration_seconds
+            )
+        )
+
+    dbconfig_keyspacelen_check(
+        benchmark_config,
+        redis_conns,
+    )
+
     run_redis_pre_steps(benchmark_config, redis_conns[0], required_modules)
+
     return cluster_api_enabled, redis_conns, redis_processes

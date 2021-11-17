@@ -29,7 +29,7 @@ def spin_up_local_redis_cluster(
         shard_port = master_shard_id + start_port - 1
 
         command = generate_cluster_redis_server_args(
-            dbdir, local_module_file, ip, shard_port, configuration_parameters
+            dbdir, local_module_file, ip, shard_port, configuration_parameters, "no"
         )
 
         logging.info(
@@ -41,7 +41,7 @@ def spin_up_local_redis_cluster(
         r = redis.StrictRedis(port=shard_port)
         result = wait_for_conn(r, dataset_load_timeout_secs)
         if result is True:
-            logging.info("Redis available")
+            logging.info("Redis available. pid={}".format(redis_process.pid))
         redis_conns.append(r)
         redis_processes.append(redis_process)
     return redis_processes, redis_conns
@@ -131,6 +131,7 @@ def generate_cluster_redis_server_args(
     ip,
     port,
     configuration_parameters=None,
+    daemonize="yes",
 ):
     # start redis-server
     command = [
@@ -142,7 +143,7 @@ def generate_cluster_redis_server_args(
         "--cluster-enabled",
         "yes",
         "--daemonize",
-        "yes",
+        daemonize,
         "--dbfilename",
         get_cluster_dbfilename(port),
         "--protected-mode",
