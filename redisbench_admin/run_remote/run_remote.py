@@ -7,6 +7,7 @@ import logging
 import sys
 import traceback
 
+import pytablewriter
 from pytablewriter import MarkdownTableWriter
 from redistimeseries.client import Client
 
@@ -168,6 +169,15 @@ def run_remote_command_logic(args, project_name, project_version):
                             setup_type,
                             shard_count,
                         ) = get_setup_type_and_primaries_count(setup_settings)
+                        if args.allowed_setups != "":
+                            allowed_setups = args.allowed_setups.split()
+                            if setup_name not in allowed_setups:
+                                logging.warning(
+                                    "SKIPPING setup named {} of topology type {}.".format(
+                                        setup_name, setup_type
+                                    )
+                                )
+                                continue
                         s3_bucket_path = get_test_s3_bucket_path(
                             s3_bucket_name, test_name, tf_github_org, tf_github_repo
                         )
@@ -206,6 +216,13 @@ def run_remote_command_logic(args, project_name, project_version):
                                 # after we've created the env, even on error we should always teardown
                                 # in case of some unexpected error we fail the test
                                 try:
+                                    if profilers_enabled:
+                                        setup_remote_benchmark_agent(
+                                            server_public_ip,
+                                            username,
+                                            private_key,
+                                            db_ssh_port,
+                                        )
 
                                     (
                                         _,
@@ -339,14 +356,6 @@ def run_remote_command_logic(args, project_name, project_version):
                                         ]
                                         ssh_tunnel = setup_details["env"]["ssh_tunnel"]
 
-                                    if profilers_enabled:
-                                        setup_remote_benchmark_agent(
-                                            client_public_ip,
-                                            username,
-                                            private_key,
-                                            client_ssh_port,
-                                        )
-
                                     (
                                         start_time,
                                         start_time_ms,
@@ -364,7 +373,14 @@ def run_remote_command_logic(args, project_name, project_version):
                                     )
                                     if profilers_enabled:
                                         remote_perf = PerfDaemonRemoteCaller(
-                                            "{}:5000".format(server_public_ip)
+                                            "{}:5000".format(server_public_ip),
+                                            test_name=test_name,
+                                            setup_name=setup_name,
+                                            github_actor=tf_github_actor,
+                                            github_branch=tf_github_branch,
+                                            github_repo_name=tf_github_repo,
+                                            github_org_name=tf_github_org,
+                                            github_sha=tf_github_sha,
                                         )
                                         primary_one_pid = redis_conns[0].info()[
                                             "process_id"
@@ -423,7 +439,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             perf_stop_status,
                                             profile_artifacts,
                                             _,
-                                        ) = remote_perf.generate_outputs()
+                                        ) = remote_perf.generate_outputs(test_name)
                                         logging.info(
                                             "Printing profiler generated artifacts"
                                         )
@@ -432,11 +448,21 @@ def run_remote_command_logic(args, project_name, project_version):
                                         )
                                         headers = ["artifact_name", "s3_link"]
                                         profilers_final_matrix = []
+                                        profilers_final_matrix_html = []
                                         for artifact in profile_artifacts:
                                             profilers_final_matrix.append(
                                                 [
                                                     artifact["artifact_name"],
                                                     artifact["s3_link"],
+                                                ]
+                                            )
+                                            profilers_final_matrix_html.append(
+                                                [
+                                                    artifact["artifact_name"],
+                                                    ' <a href="{}">{}</a>'.format(
+                                                        artifact["s3_link"],
+                                                        artifact["s3_link"],
+                                                    ),
                                                 ]
                                             )
                                         writer = MarkdownTableWriter(
@@ -445,7 +471,16 @@ def run_remote_command_logic(args, project_name, project_version):
                                             value_matrix=profilers_final_matrix,
                                         )
                                         writer.write_table()
-                                        profile_markdown_str = writer.dumps()
+
+                                        htmlwriter = pytablewriter.HtmlTableWriter(
+                                            table_name=table_name,
+                                            headers=headers,
+                                            value_matrix=profilers_final_matrix_html,
+                                        )
+                                        profile_markdown_str = htmlwriter.dumps()
+                                        profile_markdown_str = (
+                                            profile_markdown_str.replace("\n", "")
+                                        )
                                         profile_id = "{}_hash_{}".format(
                                             start_time_str, tf_github_sha
                                         )
@@ -465,7 +500,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             grafana_profile_dashboard,
                                             tf_github_org,
                                             tf_github_repo,
-                                        ) + "&var-profile-id={}&var-profile-test-case={}".format(
+                                        ) + "&var-profile_id={}&var-profile_test_case={}".format(
                                             profile_id,
                                             test_name,
                                         )
@@ -480,6 +515,11 @@ def run_remote_command_logic(args, project_name, project_version):
                                             rts.redis.set(
                                                 profile_string_testcase_markdown_key,
                                                 profile_markdown_str,
+                                            )
+                                            logging.info(
+                                                "Store html table with artifacts in: {}".format(
+                                                    profile_string_testcase_markdown_key
+                                                )
                                             )
                                             logging.info(
                                                 "Published new profile info for this testcase. Access it via: {}".format(

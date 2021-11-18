@@ -62,6 +62,11 @@ class PerfDaemonRemoteCaller:
             "dso": self.dso,
             "test_name": self.test_name,
             "setup_name": self.setup_name,
+            "github_actor": self.github_actor,
+            "github_branch": self.github_branch,
+            "github_repo_name": self.github_repo_name,
+            "github_org_name": self.github_org_name,
+            "github_sha": self.github_sha,
         }
         url = "http://{}/profiler/perf/start/{}?frequency={}".format(
             self.remote_endpoint, pid, frequency
