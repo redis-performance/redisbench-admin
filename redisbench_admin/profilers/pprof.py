@@ -36,10 +36,12 @@ def generate_pprof_cmd_args(
             "{}".format(node_fraction),
             "-output",
             "{}".format(output),
-            main_binary,
-            profile,
         ]
     )
+    if main_binary is not None:
+        if main_binary != "":
+            cmd.append(main_binary)
+    cmd.append(profile)
     return cmd
 
 

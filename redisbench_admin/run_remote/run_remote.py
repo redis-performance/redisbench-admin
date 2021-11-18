@@ -7,8 +7,11 @@ import logging
 import sys
 import traceback
 
+from pytablewriter import MarkdownTableWriter
 from redistimeseries.client import Client
 
+from redisbench_admin.profilers.perf_daemon_caller import PerfDaemonRemoteCaller
+from redisbench_admin.run.args import PROFILE_FREQ
 from redisbench_admin.run.common import (
     get_start_time_vars,
     BENCHMARK_REPETITIONS,
@@ -36,6 +39,7 @@ from redisbench_admin.run_remote.terraform import (
 from redisbench_admin.utils.benchmark_config import (
     prepare_benchmark_definitions,
 )
+from redisbench_admin.utils.redisgraph_benchmark_go import setup_remote_benchmark_agent
 from redisbench_admin.utils.remote import (
     get_run_full_filename,
     get_overall_dashboard_keynames,
@@ -78,6 +82,8 @@ def run_remote_command_logic(args, project_name, project_version):
     local_module_files = args.module_path
     dbdir_folder = args.dbdir_folder
     private_key = args.private_key
+    grafana_profile_dashboard = args.grafana_profile_dashboard
+    profilers_enabled = args.enable_profilers
 
     if args.skip_env_vars_verify is False:
         check_ec2_env()
@@ -151,6 +157,7 @@ def run_remote_command_logic(args, project_name, project_version):
                 setup_details["env"] = None
                 for test_name, benchmark_config in benchmarks_map.items():
                     for repetition in range(1, BENCHMARK_REPETITIONS + 1):
+                        remote_perf = None
                         logging.info(
                             "Repetition {} of {}. Running test {}".format(
                                 repetition, BENCHMARK_REPETITIONS, test_name
@@ -332,6 +339,14 @@ def run_remote_command_logic(args, project_name, project_version):
                                         ]
                                         ssh_tunnel = setup_details["env"]["ssh_tunnel"]
 
+                                    if profilers_enabled:
+                                        setup_remote_benchmark_agent(
+                                            client_public_ip,
+                                            username,
+                                            private_key,
+                                            client_ssh_port,
+                                        )
+
                                     (
                                         start_time,
                                         start_time_ms,
@@ -347,6 +362,25 @@ def run_remote_command_logic(args, project_name, project_version):
                                         test_name,
                                         tf_github_sha,
                                     )
+                                    if profilers_enabled:
+                                        remote_perf = PerfDaemonRemoteCaller(
+                                            "{}:5000".format(server_public_ip)
+                                        )
+                                        primary_one_pid = redis_conns[0].info()[
+                                            "process_id"
+                                        ]
+                                        start_profile_result = (
+                                            remote_perf.start_profile(
+                                                primary_one_pid, "", PROFILE_FREQ
+                                            )
+                                        )
+                                        if start_profile_result is True:
+                                            logging.info(
+                                                "Successfully started remote profile for Redis with PID: {}".format(
+                                                    primary_one_pid
+                                                )
+                                            )
+
                                     logging.info(
                                         "Will store benchmark json output to local file {}".format(
                                             local_bench_fname
@@ -382,6 +416,76 @@ def run_remote_command_logic(args, project_name, project_version):
                                         client_ssh_port,
                                         private_key,
                                     )
+
+                                    if profilers_enabled:
+                                        remote_perf.stop_profile()
+                                        (
+                                            perf_stop_status,
+                                            profile_artifacts,
+                                            _,
+                                        ) = remote_perf.generate_outputs()
+                                        logging.info(
+                                            "Printing profiler generated artifacts"
+                                        )
+                                        table_name = "Profiler artifacts for test case {}".format(
+                                            test_name
+                                        )
+                                        headers = ["artifact_name", "s3_link"]
+                                        profilers_final_matrix = []
+                                        for artifact in profile_artifacts:
+                                            profilers_final_matrix.append(
+                                                [
+                                                    artifact["artifact_name"],
+                                                    artifact["s3_link"],
+                                                ]
+                                            )
+                                        writer = MarkdownTableWriter(
+                                            table_name=table_name,
+                                            headers=headers,
+                                            value_matrix=profilers_final_matrix,
+                                        )
+                                        writer.write_table()
+                                        profile_markdown_str = writer.dumps()
+                                        profile_id = "{}_hash_{}".format(
+                                            start_time_str, tf_github_sha
+                                        )
+                                        profile_string_testcase_markdown_key = (
+                                            "profile:{}:{}".format(
+                                                profile_id, test_name
+                                            )
+                                        )
+                                        zset_profiles = "profiles:{}_{}".format(
+                                            tf_github_org,
+                                            tf_github_repo,
+                                        )
+                                        profile_set_redis_key = (
+                                            "profile:{}:testcases".format(profile_id)
+                                        )
+                                        https_link = "{}?var-org={}&var-repo={}".format(
+                                            grafana_profile_dashboard,
+                                            tf_github_org,
+                                            tf_github_repo,
+                                        ) + "&var-profile-id={}&var-profile-test-case={}".format(
+                                            profile_id,
+                                            test_name,
+                                        )
+                                        if args.push_results_redistimeseries:
+                                            rts.redis.zadd(
+                                                zset_profiles,
+                                                {profile_id: start_time_ms},
+                                            )
+                                            rts.redis.sadd(
+                                                profile_set_redis_key, test_name
+                                            )
+                                            rts.redis.set(
+                                                profile_string_testcase_markdown_key,
+                                                profile_markdown_str,
+                                            )
+                                            logging.info(
+                                                "Published new profile info for this testcase. Access it via: {}".format(
+                                                    https_link
+                                                )
+                                            )
 
                                     if setup_details["env"] is None:
                                         if args.keep_env_and_topo is False:

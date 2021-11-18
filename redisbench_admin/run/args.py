@@ -23,6 +23,7 @@ DEFAULT_TRIGGERING_ENV = socket.gethostname()
 TRIGGERING_ENV = os.getenv("TRIGGERING_ENV", DEFAULT_TRIGGERING_ENV)
 ENV = os.getenv("ENV", "oss-standalone,oss-cluster")
 SETUP = os.getenv("SETUP", "")
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "ci.benchmarks.redislabs")
 PUSH_S3 = bool(os.getenv("PUSH_S3", False))
 PROFILERS_DSO = os.getenv("PROFILERS_DSO", None)
 PROFILERS_ENABLED = bool(os.getenv("PROFILE", 0))
@@ -93,7 +94,7 @@ def common_run_args(parser):
     parser.add_argument(
         "--s3_bucket_name",
         type=str,
-        default="ci.benchmarks.redislabs",
+        default=S3_BUCKET_NAME,
         help="S3 bucket name.",
     )
     parser.add_argument(
@@ -129,5 +130,10 @@ def common_run_args(parser):
         type=str,
         default=SETUP,
         help="Comma delimited allowed setups. By default all setups are allowed.",
+    )
+    parser.add_argument(
+        "--grafana-profile-dashboard",
+        type=str,
+        default="https://benchmarksrediscom.grafana.net/d/uRPZar57k/ci-profiler-viewer",
     )
     return parser

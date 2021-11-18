@@ -67,8 +67,12 @@ class Perf:
         self.retrieve_perf_version()
         self.profile_start_time = None
         self.profile_end_time = None
+        self.logger = logging
 
         self.pprof_bin = whereis("pprof")
+
+    def set_logger(self, logger_app):
+        self.logger = logger_app
 
     def retrieve_perf_version(self):
         try:
@@ -155,7 +159,9 @@ class Perf:
             }
 
             args = self.generate_record_command(pid, output, frequency)
-            logging.info("Starting profile of pid {} with args {}".format(pid, args))
+            self.logger.info(
+                "Starting profile of pid {} with args {}".format(pid, args)
+            )
             self.profiler_process = subprocess.Popen(args=args, **options)
             self.started_profile = True
             result = True
@@ -183,7 +189,7 @@ class Perf:
         result = False
         self.profile_end_time = time.time()
         if not self._is_alive(self.profiler_process):
-            logging.error(
+            self.logger.error(
                 "Profiler process is not alive, might have crash during test execution.  Exit code: {}".format(
                     self.profiler_process_exit_code
                 )
@@ -192,8 +198,12 @@ class Perf:
                 self.profiler_process_stdout,
                 self.profiler_process_stderr,
             ) = self.profiler_process.communicate()
-            logging.error("Profiler stderr: {}".format(self.profiler_process_stderr))
-            logging.error("Profiler stdout: {}".format(self.profiler_process_stdout))
+            self.logger.error(
+                "Profiler stderr: {}".format(self.profiler_process_stderr)
+            )
+            self.logger.error(
+                "Profiler stdout: {}".format(self.profiler_process_stdout)
+            )
             return result
         try:
             self.profiler_process.terminate()
@@ -204,21 +214,23 @@ class Perf:
             ) = self.profiler_process.communicate()
             self.profiler_process_exit_code = self.profiler_process.poll()
             if self.profiler_process_exit_code <= 0:
-                logging.info("Generating trace file from profile.")
+                self.logger.info("Generating trace file from profile.")
                 result = self.generate_trace_file_from_profile()
                 if result is True:
-                    logging.info("Trace file generation ran OK.")
+                    self.logger.info("Trace file generation ran OK.")
                     result = self.stack_collapse()
                     if result is True:
-                        logging.info("Stack collapsing from trace file ran OK.")
+                        self.logger.info("Stack collapsing from trace file ran OK.")
                     else:
-                        logging.error(
+                        self.logger.error(
                             "Something went wrong on stack collapsing from trace file."
                         )
                 else:
-                    logging.error("Stack collapsing from trace file exit with error.")
+                    self.logger.error(
+                        "Stack collapsing from trace file exit with error."
+                    )
             else:
-                logging.error(
+                self.logger.error(
                     "Profiler process exit with error. Exit code: {}\n\n".format(
                         self.profiler_process_exit_code
                     )
@@ -226,7 +238,7 @@ class Perf:
                 )
 
         except OSError as e:
-            logging.error(
+            self.logger.error(
                 "OSError caught while waiting for profiler process to end: {0}".format(
                     e.__str__()
                 )
@@ -267,7 +279,7 @@ class Perf:
                     try:
                         subprocess.Popen(args=args, stdout=outfile).wait()
                     except OSError as e:
-                        logging.error(
+                        self.logger.error(
                             "Unable to run {} script {}".format(self.perf, e.__str__())
                         )
                 result = True
@@ -286,7 +298,7 @@ class Perf:
                     try:
                         subprocess.Popen(args=args, stdout=outfile).wait()
                     except OSError as e:
-                        logging.error(
+                        self.logger.error(
                             "Unable to stack collapse using: {0} {1}. Error {2}".format(
                                 self.stack_collapser, self.trace_file, e.__str__()
                             )
@@ -294,7 +306,7 @@ class Perf:
                 self.stack_collapse_file = filename
                 result = True
             else:
-                logging.error("Unable to open {0}".format(self.trace_file))
+                self.logger.error("Unable to open {0}".format(self.trace_file))
         return result
 
     def generate_outputs(self, use_case, **kwargs):
@@ -327,7 +339,7 @@ class Perf:
         tid = self.pid
 
         # generate perf report per dso
-        logging.info(
+        self.logger.info(
             "Generating perf report per name of library or module executed at the time of sample"
         )
         perf_report_output = self.output + ".perf-report.dso.txt"
@@ -345,7 +357,7 @@ class Perf:
         result &= artifact_result
 
         # generate perf report per dso,sym
-        logging.info(
+        self.logger.info(
             "Generating perf report per name of function executed at the time of sample"
         )
         perf_report_output = self.output + ".perf-report.dso+sym.txt"
@@ -365,7 +377,7 @@ class Perf:
         result &= artifact_result
 
         # generate perf report per dso,sym
-        logging.info(
+        self.logger.info(
             "Generating perf report per name of function executed at the time of sample with callgraph"
         )
         perf_report_output = self.output + ".perf-report.dso+sym.callgraph.txt"
@@ -385,7 +397,7 @@ class Perf:
         result &= artifact_result
 
         # generate perf report per dso,sym,srcline
-        logging.info(
+        self.logger.info(
             "Generating perf report per filename and line number executed at the time of sample"
         )
         perf_report_output = self.output + ".perf-report.dso+sym+srcline.txt"
@@ -411,7 +423,7 @@ class Perf:
             ] = perf_report_artifact
         result &= artifact_result
 
-        logging.info(
+        self.logger.info(
             "Generating perf report per filename and line number executed at the time of sample with callgraph"
         )
         perf_report_output = self.output + ".perf-report.dso+sym+srcline.callgraph.txt"
@@ -438,7 +450,7 @@ class Perf:
         result &= artifact_result
 
         # generate perf report --stdio report
-        logging.info("Generating perf report text outputs")
+        self.logger.info("Generating perf report text outputs")
         perf_report_output = self.output + ".perf-report.top-cpu.txt"
 
         artifact_result, perf_report_artifact = self.run_perf_report(
@@ -453,7 +465,7 @@ class Perf:
 
         # generate perf report --stdio report
         if binary is not None:
-            logging.info(
+            self.logger.info(
                 "Generating perf report text outputs only for dso only ({})".format(
                     identifier
                 )
@@ -471,19 +483,19 @@ class Perf:
         result &= artifact_result
 
         if self.callgraph_mode == "dwarf":
-            logging.warning(
+            self.logger.warning(
                 "Unable to use perf output collected with callgraph dwarf mode in pprof. Skipping artifacts generation."
             )
-            logging.warning(
+            self.logger.warning(
                 "Check https://github.com/google/perf_data_converter/issues/40."
             )
         else:
             if self.pprof_bin is None:
-                logging.error(
+                self.logger.error(
                     "Unable to detect pprof. Some of the capabilities will be disabled"
                 )
             else:
-                logging.info("Generating pprof text output")
+                self.logger.info("Generating pprof text output")
                 pprof_text_output = self.output + ".pprof.txt"
                 artifact_result, pprof_artifact_text_output, tabular_data = run_pprof(
                     self.pprof_bin,
@@ -498,7 +510,7 @@ class Perf:
                     outputs["Top entries in text form"] = pprof_artifact_text_output
                     tabular_data_map["text"] = tabular_data
 
-                logging.info("Generating pprof per LOC text output")
+                self.logger.info("Generating pprof per LOC text output")
                 pprof_text_output = self.output + ".pprof.LOC.txt"
                 artifact_result, pprof_artifact_text_output, tabular_data = run_pprof(
                     self.pprof_bin,
@@ -513,7 +525,7 @@ class Perf:
                         "Top entries in text form by LOC"
                     ] = pprof_artifact_text_output
                     tabular_data_map["text-lines"] = tabular_data
-                logging.info("Generating pprof png output")
+                self.logger.info("Generating pprof png output")
                 pprof_png_output = self.output + ".pprof.png"
                 artifact_result, pprof_artifact_png_output, _ = run_pprof(
                     self.pprof_bin,
@@ -553,7 +565,7 @@ class Perf:
                     try:
                         subprocess.Popen(args=args, stdout=outfile).wait()
                     except OSError as e:
-                        logging.error(
+                        self.logger.error(
                             "Unable t use flamegraph.pl to render a SVG. using: {0} {1}. Error {2}".format(
                                 self.flamegraph_utity,
                                 self.stack_collapse_file,
@@ -562,11 +574,11 @@ class Perf:
                         )
                 result = True
                 result_artifact = os.path.abspath(filename)
-                logging.info(
+                self.logger.info(
                     "Successfully rendered flame graph to {0}".format(result_artifact)
                 )
             else:
-                logging.error("Unable to open {0}".format(self.stack_collapse_file))
+                self.logger.error("Unable to open {0}".format(self.stack_collapse_file))
         return result, result_artifact
 
     def get_collapsed_stacks(self):
@@ -578,19 +590,19 @@ class Perf:
         args = self.generate_report_command(
             tid, self.output, dso, percentage_mode, extra_options
         )
-        logging.info("Running {} report with args {}".format(self.perf, args))
-        logging.info("Final command: {} {}".format(self.perf, " ".join(args)))
+        self.logger.info("Running {} report with args {}".format(self.perf, args))
+        self.logger.info("Final command: {} {}".format(self.perf, " ".join(args)))
         try:
             stdout, _ = subprocess.Popen(
                 args=args, stdout=subprocess.PIPE
             ).communicate()
-            logging.debug(stdout)
+            self.logger.debug(stdout)
             with open(output, "w") as outfile:
                 outfile.write(stdout.decode())
             status = True
             result_artifact = os.path.abspath(output)
         except OSError as e:
-            logging.error(
+            self.logger.error(
                 "Unable to run {} report. Error {}".format(self.perf, e.__str__())
             )
         return status, result_artifact
