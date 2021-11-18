@@ -25,13 +25,16 @@ from tqdm import tqdm
 EPOCH = dt.datetime.utcfromtimestamp(0)
 
 
-def upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path):
+def upload_artifacts_to_s3(
+    artifacts, s3_bucket_name, s3_bucket_path, bucket_location=None
+):
     artifacts_map = {}
     logging.info("-- uploading results to s3 -- ")
     s3 = boto3.resource("s3")
     bucket = s3.Bucket(s3_bucket_name)
     progress = tqdm(unit="files", total=len(artifacts))
-    bucket_location = EC2_REGION
+    if bucket_location is None:
+        bucket_location = EC2_REGION
     for full_artifact_path in artifacts:
         artifact = os.path.basename(full_artifact_path)
         object_key = "{bucket_path}{filename}".format(

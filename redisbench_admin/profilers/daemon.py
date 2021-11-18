@@ -6,11 +6,9 @@
 
 # !/usr/bin/env python3
 import logging
-from threading import Thread
 
 from flask import Flask, request
 import daemonize
-from time import sleep
 import json
 import sys
 import os
@@ -41,10 +39,13 @@ class PerfDaemon:
 
     def main(self):
         app = Flask(__name__)
-        app.debug = False
-        app.use_reloader = True
+        app.use_reloader = False
         self.perf = Perf()
+        self.set_app_loggers(app)
+        self.create_app_endpoints(app)
+        app.run(debug=False, host="0.0.0.0")
 
+    def set_app_loggers(self, app):
         print("Writting log to {}".format(LOGNAME))
         handler = logging.handlers.RotatingFileHandler(LOGNAME, maxBytes=1024 * 1024)
         logging.getLogger("werkzeug").setLevel(logging.DEBUG)
@@ -53,9 +54,14 @@ class PerfDaemon:
         app.logger.addHandler(handler)
         self.perf.set_logger(app.logger)
 
+    def create_app_endpoints(self, app):
         @app.before_first_request
         def before_first_request():
             app.logger.setLevel(logging.INFO)
+
+        @app.get("/ping")
+        def ping():
+            return json.dumps({"result": True})
 
         @app.route("/profiler/<profiler_name>/start/<pid>", methods=["POST"])
         def profile_start(profiler_name, pid):
@@ -146,6 +152,7 @@ class PerfDaemon:
         def profile_stop(profiler_name, pid):
             profile_res = self.perf.stop_profile()
             profilers_artifacts_matrix = []
+            bucket_location = "us-east-2"
             primary_id = 1
             total_primaries = 1
             if profile_res is True:
@@ -196,6 +203,7 @@ class PerfDaemon:
                         [profile_artifact],
                         S3_BUCKET_NAME,
                         s3_bucket_path,
+                        bucket_location,
                     )
                     s3_link = list(url_map.values())[0]
                 profilers_artifacts_matrix.append(
@@ -215,23 +223,14 @@ class PerfDaemon:
             self.perf = Perf()
             return json.dumps(status_dict)
 
-        Thread(target=app.run).start()
-
-        self.loop()
-
-    def loop(self):
-        while True:
-            sleep(1)
-
 
 d = PerfDaemon()
 
 
 def main():
-    global stop
     global d
 
-    def start():
+    def start(foreground=False):
         current_path = os.path.abspath(os.getcwd())
         print(
             "Starting perfdaemon. PID file {}. Daemon workdir: {}".format(
@@ -239,7 +238,11 @@ def main():
             )
         )
         daemonize.Daemonize(
-            app="perfdaemon", pid=PID_FILE, action=d.main, chdir=current_path
+            app="perfdaemon",
+            pid=PID_FILE,
+            action=d.main,
+            chdir=current_path,
+            foreground=foreground,
         ).start()
 
     def stop():
@@ -250,7 +253,7 @@ def main():
         os.system("kill -9 %s" % pid)
 
     def foreground():
-        d.main()
+        start(True)
 
     def usage():
         print("usage: start|stop|restart|foreground")
