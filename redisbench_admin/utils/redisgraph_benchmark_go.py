@@ -9,6 +9,19 @@ from redisbench_admin.utils.remote import (
 )
 
 
+def setup_remote_benchmark_agent(
+    client_public_ip, username, private_key, client_ssh_port
+):
+    commands = [
+        "apt install python3-pip -y",
+        "pip3 install redisbench-admin>=0.5.12",
+        "perf-daemon start",
+    ]
+    execute_remote_commands(
+        client_public_ip, username, private_key, commands, client_ssh_port
+    )
+
+
 def setup_remote_benchmark_tool_redisgraph_benchmark_go(
     client_public_ip, username, private_key, redisbenchmark_go_link, client_ssh_port
 ):

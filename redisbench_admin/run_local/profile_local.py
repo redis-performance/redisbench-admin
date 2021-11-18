@@ -105,7 +105,7 @@ def get_profilers_rts_key_prefix(triggering_env, tf_github_org, tf_github_repo):
     return zset_name
 
 
-def local_profilers_stop_if_required(
+def profilers_stop_if_required(
     args,
     benchmark_duration_seconds,
     collection_summary_str,
@@ -116,7 +116,7 @@ def local_profilers_stop_if_required(
     profilers_artifacts_matrix,
     profilers_enabled,
     profilers_map,
-    redis_processes,
+    redis_pids,
     s3_bucket_name,
     test_name,
 ):
@@ -145,7 +145,7 @@ def local_profilers_stop_if_required(
             github_repo_name,
             "profiles",
         )
-        total_involved_processes = len(redis_processes)
+        total_involved_processes = len(redis_pids)
         for (
             profiler_name,
             profiler_obj_arr,
@@ -219,7 +219,7 @@ def local_profilers_stop_if_required(
     return overall_artifacts_map, overall_tabular_data_map
 
 
-def local_profilers_start_if_required(
+def profilers_start_if_required(
     profilers_enabled,
     profilers_list,
     redis_processes,
@@ -241,7 +241,7 @@ def local_profilers_start_if_required(
             profiler_name,
             profiler_obj_arr,
         ) in profilers_map.items():
-            for setup_process_number, redis_process in enumerate(redis_processes):
+            for setup_process_number, redis_process_pid in enumerate(redis_processes):
                 if (setup_process_number + 1) > len(profiler_obj_arr):
                     continue
                 profiler_obj = profiler_obj_arr[setup_process_number]
@@ -251,7 +251,7 @@ def local_profilers_start_if_required(
                         profiler_name,
                         setup_process_number,
                         total_involved_processes,
-                        redis_process.pid,
+                        redis_process_pid,
                     )
                 )
                 profile_filename = (
@@ -269,7 +269,7 @@ def local_profilers_start_if_required(
                     )
                 )
                 profiler_obj.start_profile(
-                    redis_process.pid,
+                    redis_process_pid,
                     profile_filename,
                     PROFILE_FREQ,
                 )

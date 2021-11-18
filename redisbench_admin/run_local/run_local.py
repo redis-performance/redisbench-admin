@@ -33,8 +33,8 @@ from redisbench_admin.run_local.local_helpers import (
 )
 from redisbench_admin.run_local.profile_local import (
     local_profilers_print_artifacts_table,
-    local_profilers_stop_if_required,
-    local_profilers_start_if_required,
+    profilers_stop_if_required,
+    profilers_start_if_required,
     check_compatible_system_and_kernel_and_prepare_profile,
     local_profilers_platform_checks,
 )
@@ -246,15 +246,18 @@ def run_local_command_logic(args, project_name, project_version):
                                     benchmark_tool_workdir,
                                     cluster_api_enabled,
                                 )
-
+                                redis_pids = [
+                                    redis_process.pid
+                                    for redis_process in redis_processes
+                                ]
                                 # start the profile
                                 (
                                     profiler_name,
                                     profilers_map,
-                                ) = local_profilers_start_if_required(
+                                ) = profilers_start_if_required(
                                     profilers_enabled,
                                     profilers_list,
-                                    redis_processes,
+                                    redis_pids,
                                     setup_name,
                                     start_time_str,
                                     test_name,
@@ -279,7 +282,7 @@ def run_local_command_logic(args, project_name, project_version):
                                 (
                                     _,
                                     overall_tabular_data_map,
-                                ) = local_profilers_stop_if_required(
+                                ) = profilers_stop_if_required(
                                     args,
                                     benchmark_duration_seconds,
                                     collection_summary_str,
@@ -290,7 +293,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     profilers_artifacts_matrix,
                                     profilers_enabled,
                                     profilers_map,
-                                    redis_processes,
+                                    redis_pids,
                                     s3_bucket_name,
                                     test_name,
                                 )
