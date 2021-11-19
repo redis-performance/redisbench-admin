@@ -54,12 +54,13 @@ class PerfDaemon:
         app.logger.addHandler(handler)
         self.perf.set_logger(app.logger)
 
-    def update_vars_from_request(self, request):
+    def update_vars_from_request(self, request, app):
         self.dso = ""
         self.test_name = ""
         self.setup_name = ""
         if request.is_json:
             data = request.get_json()
+            app.logger("Received the JSON payload {}".format(data))
             if "dso" in data:
                 self.dso = data["dso"]
             if "test_name" in data:
@@ -103,7 +104,7 @@ class PerfDaemon:
                 self.github_branch,
                 github_branch_detached,
             ) = extract_git_vars()
-            self.update_vars_from_request(request)
+            self.update_vars_from_request(request, app)
 
             self.collection_summary_str = local_profilers_platform_checks(
                 self.dso,
