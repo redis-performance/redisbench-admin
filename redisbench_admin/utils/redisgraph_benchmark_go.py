@@ -15,7 +15,7 @@ def setup_remote_benchmark_agent(
     commands = [
         "apt install python3-pip -y",
         "pip3 install redisbench-admin>=0.5.12",
-        "perf-daemon start",
+        "/usr/local/bin/perf-daemon start",
     ]
     execute_remote_commands(
         client_public_ip, username, private_key, commands, client_ssh_port

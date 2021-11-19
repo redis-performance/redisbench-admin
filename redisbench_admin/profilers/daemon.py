@@ -54,6 +54,24 @@ class PerfDaemon:
         app.logger.addHandler(handler)
         self.perf.set_logger(app.logger)
 
+    def update_ec2_vars_from_request(self, request):
+        aws_access_key_id = None
+        aws_secret_access_key = None
+        aws_session_token = None
+        region_name = "us-east-2"
+        if request.is_json:
+            data = request.get_json()
+            if "aws_access_key_id" in data:
+                aws_access_key_id = data["aws_access_key_id"]
+            if "aws_secret_access_key" in data:
+                aws_secret_access_key = data["aws_secret_access_key"]
+            if "aws_session_token" in data:
+                aws_session_token = data["aws_session_token"]
+            if "region_name" in data:
+                region_name = data["region_name"]
+
+        return aws_access_key_id, aws_secret_access_key, aws_session_token, region_name
+
     def update_vars_from_request(self, request, app):
         app.logger.info("Updating vars from request")
         self.dso = ""
@@ -158,9 +176,15 @@ class PerfDaemon:
         def profile_stop(profiler_name, pid):
             profile_res = self.perf.stop_profile()
             profilers_artifacts_matrix = []
-            bucket_location = "us-east-2"
+
             primary_id = 1
             total_primaries = 1
+            (
+                aws_access_key_id,
+                aws_secret_access_key,
+                aws_session_token,
+                region_name,
+            ) = self.update_ec2_vars_from_request(request)
             if profile_res is True:
                 # Generate:
                 #  - artifact with Flame Graph SVG
@@ -209,7 +233,10 @@ class PerfDaemon:
                         [profile_artifact],
                         S3_BUCKET_NAME,
                         s3_bucket_path,
-                        bucket_location,
+                        aws_access_key_id,
+                        aws_secret_access_key,
+                        aws_session_token,
+                        region_name,
                     )
                     s3_link = list(url_map.values())[0]
                 profilers_artifacts_matrix.append(

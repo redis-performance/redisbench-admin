@@ -50,6 +50,9 @@ from redisbench_admin.utils.remote import (
 from redisbench_admin.utils.utils import (
     EC2_PRIVATE_PEM,
     upload_artifacts_to_s3,
+    EC2_ACCESS_KEY,
+    EC2_SECRET_KEY,
+    EC2_REGION,
 )
 
 
@@ -381,6 +384,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                             github_repo_name=tf_github_repo,
                                             github_org_name=tf_github_org,
                                             github_sha=tf_github_sha,
+                                            aws_access_key_id=EC2_ACCESS_KEY,
+                                            aws_secret_access_key=EC2_SECRET_KEY,
+                                            region_name=EC2_REGION,
                                         )
                                         primary_one_pid = redis_conns[0].info()[
                                             "process_id"

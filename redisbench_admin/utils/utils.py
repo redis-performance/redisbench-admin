@@ -26,15 +26,28 @@ EPOCH = dt.datetime.utcfromtimestamp(0)
 
 
 def upload_artifacts_to_s3(
-    artifacts, s3_bucket_name, s3_bucket_path, bucket_location=None
+    artifacts,
+    s3_bucket_name,
+    s3_bucket_path,
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
+    aws_session_token=None,
+    region_name=None,
 ):
     artifacts_map = {}
+    if region_name is None:
+        region_name = EC2_REGION
     logging.info("-- uploading results to s3 -- ")
-    s3 = boto3.resource("s3")
+    if aws_access_key_id is not None and aws_secret_access_key is not None:
+        session = boto3.Session(
+            aws_access_key_id, aws_secret_access_key, aws_session_token, region_name
+        )
+        s3 = session.resource("s3")
+    else:
+        s3 = boto3.resource("s3")
     bucket = s3.Bucket(s3_bucket_name)
     progress = tqdm(unit="files", total=len(artifacts))
-    if bucket_location is None:
-        bucket_location = EC2_REGION
+
     for full_artifact_path in artifacts:
         artifact = os.path.basename(full_artifact_path)
         object_key = "{bucket_path}{filename}".format(
@@ -46,7 +59,7 @@ def upload_artifacts_to_s3(
         object_acl.put(ACL="public-read")
         progress.update()
         url = "https://s3.{0}.amazonaws.com/{1}/{2}{3}".format(
-            bucket_location, s3_bucket_name, s3_bucket_path, quote_plus(artifact)
+            region_name, s3_bucket_name, s3_bucket_path, quote_plus(artifact)
         )
         artifacts_map[artifact] = url
     progress.close()
