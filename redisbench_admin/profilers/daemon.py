@@ -55,13 +55,13 @@ class PerfDaemon:
         self.perf.set_logger(app.logger)
 
     def update_vars_from_request(self, request, app):
-        app.logger("Updating vars from request")
+        app.logger.info(("Updating vars from request")
         self.dso = ""
         self.test_name = ""
         self.setup_name = ""
         if request.is_json:
             data = request.get_json()
-            app.logger("Received the JSON payload {}".format(data))
+            app.logger.info(("Received the JSON payload {}".format(data))
             if "dso" in data:
                 self.dso = data["dso"]
             if "test_name" in data:
