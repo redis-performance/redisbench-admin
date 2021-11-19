@@ -133,6 +133,7 @@ class PerfDaemon:
                     start_time_str=start_time_str,
                 )
             )
+            app.logger.info("Storing profile in {}".format(profile_filename))
             result = self.perf.start_profile(
                 pid,
                 profile_filename,
