@@ -7,12 +7,14 @@
 # !/usr/bin/env python3
 import logging
 
+import argparse
 from flask import Flask, request
 import daemonize
 import json
 import sys
 import os
 
+from redisbench_admin.cli import populate_with_poetry_data
 from redisbench_admin.run.args import S3_BUCKET_NAME
 from redisbench_admin.run.s3 import get_test_s3_bucket_path
 from redisbench_admin.utils.remote import extract_git_vars
@@ -34,8 +36,9 @@ LOGNAME = "/tmp/perf-daemon.log"
 
 
 class PerfDaemon:
-    def __init__(self):
-        pass
+    def __init__(self, user=None, group=None):
+        self.user = user
+        self.group = group
 
     def main(self):
         app = Flask(__name__)
@@ -257,25 +260,44 @@ class PerfDaemon:
             return json.dumps(status_dict)
 
 
-d = PerfDaemon()
-
-
 def main():
-    global d
 
+    _, project_description, project_version = populate_with_poetry_data()
+    project_name = "perf-daemon"
+    parser = argparse.ArgumentParser(
+        description=project_description,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    if len(sys.argv) < 2:
+        print(
+            "A minimum of 2 arguments is required: perf-daemon <mode> <arguments>."
+            " Use perf-daemon --help if you need further assistance."
+        )
+        sys.exit(1)
+    requested_tool = sys.argv[1]
+    # common arguments to all tools
+    parser.add_argument("--user", default=None)
+    parser.add_argument("--group", default=None)
+    argv = sys.argv[2:]
+    args = parser.parse_args(args=argv)
+    d = PerfDaemon(args.user, args.group)
     def start(foreground=False):
         current_path = os.path.abspath(os.getcwd())
         print(
-            "Starting perfdaemon. PID file {}. Daemon workdir: {}".format(
-                PID_FILE, current_path
+            "Starting {}. PID file {}. Daemon workdir: {}".format(
+                project_name, PID_FILE, current_path
             )
         )
+        if d.user is not None:
+            print("Specifying user {}. group {}.".format(d.user, d.group))
         daemonize.Daemonize(
-            app="perfdaemon",
+            app=project_name,
             pid=PID_FILE,
             action=d.main,
             chdir=current_path,
             foreground=foreground,
+            user=d.user,
+            group=d.group,
         ).start()
 
     def stop():
@@ -292,19 +314,17 @@ def main():
         print("usage: start|stop|restart|foreground")
         sys.exit(1)
 
-    if len(sys.argv) < 2:
-        usage()
-    if sys.argv[1] == "start":
+    if requested_tool == "start":
         start()
-    elif sys.argv[1] == "stop":
+    elif requested_tool == "stop":
         stop()
-    elif sys.argv[1] == "restart":
+    elif requested_tool == "restart":
         stop()
         start()
-    elif sys.argv[1] == "foreground":
+    elif requested_tool == "foreground":
         foreground()
     else:
-        sys.exit(1)
+        usage()
 
 
 if __name__ == "__main__":
