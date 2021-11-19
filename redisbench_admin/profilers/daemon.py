@@ -55,6 +55,7 @@ class PerfDaemon:
         self.perf.set_logger(app.logger)
 
     def update_vars_from_request(self, request, app):
+        app.logger("Updating vars from request")
         self.dso = ""
         self.test_name = ""
         self.setup_name = ""
