@@ -54,6 +54,31 @@ class PerfDaemon:
         app.logger.addHandler(handler)
         self.perf.set_logger(app.logger)
 
+    def update_vars_from_request(self, request, app):
+        app.logger.info("Updating vars from request")
+        self.dso = ""
+        self.test_name = ""
+        self.setup_name = ""
+        if request.is_json:
+            data = request.get_json()
+            app.logger.info("Received the JSON payload {}".format(data))
+            if "dso" in data:
+                self.dso = data["dso"]
+            if "test_name" in data:
+                self.test_name = data["test_name"]
+            if "setup_name" in data:
+                self.setup_name = data["setup_name"]
+            if "github_actor" in data:
+                self.github_actor = data["github_actor"]
+            if "github_branch" in data:
+                self.github_branch = data["github_branch"]
+            if "github_repo_name" in data:
+                self.github_repo_name = data["github_repo_name"]
+            if "github_org_name" in data:
+                self.github_org_name = data["github_org_name"]
+            if "github_sha" in data:
+                self.github_sha = data["github_sha"]
+
     def create_app_endpoints(self, app):
         @app.before_first_request
         def before_first_request():
@@ -80,27 +105,7 @@ class PerfDaemon:
                 self.github_branch,
                 github_branch_detached,
             ) = extract_git_vars()
-            self.dso = ""
-            self.test_name = ""
-            self.setup_name = ""
-            if request.is_json:
-                data = request.get_json()
-                if "dso" in data:
-                    self.dso = data["dso"]
-                if "test_name" in data:
-                    self.test_name = data["test_name"]
-                if "setup_name" in data:
-                    self.setup_name = data["setup_name"]
-                if "github_actor" in data:
-                    self.github_actor = data["github_actor"]
-                if "github_branch" in data:
-                    self.github_branch = data["github_branch"]
-                if "github_repo_name" in data:
-                    self.github_repo_name = data["github_repo_name"]
-                if "github_org_name" in data:
-                    self.github_org_name = data["github_org_name"]
-                if "github_sha" in data:
-                    self.github_sha = data["github_sha"]
+            self.update_vars_from_request(request, app)
 
             self.collection_summary_str = local_profilers_platform_checks(
                 self.dso,
@@ -130,6 +135,7 @@ class PerfDaemon:
                     start_time_str=start_time_str,
                 )
             )
+            app.logger.info("Storing profile in {}".format(profile_filename))
             result = self.perf.start_profile(
                 pid,
                 profile_filename,
