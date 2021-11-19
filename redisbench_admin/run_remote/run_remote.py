@@ -219,13 +219,6 @@ def run_remote_command_logic(args, project_name, project_version):
                                 # after we've created the env, even on error we should always teardown
                                 # in case of some unexpected error we fail the test
                                 try:
-                                    if profilers_enabled:
-                                        setup_remote_benchmark_agent(
-                                            server_public_ip,
-                                            username,
-                                            private_key,
-                                            db_ssh_port,
-                                        )
 
                                     (
                                         _,
@@ -358,6 +351,14 @@ def run_remote_command_logic(args, project_name, project_version):
                                             "server_plaintext_port"
                                         ]
                                         ssh_tunnel = setup_details["env"]["ssh_tunnel"]
+
+                                    if profilers_enabled:
+                                        setup_remote_benchmark_agent(
+                                            server_public_ip,
+                                            username,
+                                            private_key,
+                                            db_ssh_port,
+                                        )
 
                                     (
                                         start_time,

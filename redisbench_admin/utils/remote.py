@@ -124,15 +124,23 @@ def fetch_file_from_remote_setup(
     )
 
 
-def execute_remote_commands(server_public_ip, username, private_key, commands, port):
+def execute_remote_commands(
+    server_public_ip, username, private_key, commands, port, get_pty=False
+):
     res = []
     c = connect_remote_ssh(port, private_key, server_public_ip, username)
     for command in commands:
         logging.info('Executing remote command "{}"'.format(command))
-        stdin, stdout, stderr = c.exec_command(command)
+        stdin, stdout, stderr = c.exec_command(command, get_pty=get_pty)
         recv_exit_status = stdout.channel.recv_exit_status()  # status is 0
         stdout = stdout.readlines()
         stderr = stderr.readlines()
+        if recv_exit_status != 0:
+            logging.warning(
+                "Exit status: {} for command {}.\n\tSTDERR: {}\n\tSTDOUT: {}".format(
+                    recv_exit_status, command, stdout, stderr
+                )
+            )
         res.append([recv_exit_status, stdout, stderr])
     c.close()
     return res
