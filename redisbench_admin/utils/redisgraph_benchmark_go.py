@@ -13,12 +13,14 @@ def setup_remote_benchmark_agent(
     client_public_ip, username, private_key, client_ssh_port
 ):
     commands = [
-        "apt install python3-pip -y",
-        "pip3 install redisbench-admin>=0.5.12",
-        "/usr/local/bin/perf-daemon start --user root --group root",
+        "sudo apt install python3-pip -y",
+        "sudo pip3 install redisbench-admin>=0.5.12",
+        "sudo /usr/local/bin/perf-daemon start --user root --group root",
     ]
+    # last argument (get_pty) needs to be set to true
+    # check: https://stackoverflow.com/questions/5785353/paramiko-and-sudo
     execute_remote_commands(
-        client_public_ip, username, private_key, commands, client_ssh_port
+        client_public_ip, username, private_key, commands, client_ssh_port, True
     )
 
 

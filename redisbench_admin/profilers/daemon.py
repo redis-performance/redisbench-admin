@@ -34,19 +34,19 @@ LOG_FORMAT = "%(asctime)s %(levelname)-4s %(message)s"
 LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
 LOGNAME = "/tmp/perf-daemon.log"
 
+app = Flask(__name__)
+app.use_reloader = False
 
 class PerfDaemon:
     def __init__(self, user=None, group=None):
         self.user = user
         self.group = group
-
-    def main(self):
-        app = Flask(__name__)
-        app.use_reloader = False
         self.perf = Perf()
         self.set_app_loggers(app)
         self.create_app_endpoints(app)
-        app.run(debug=False, host="0.0.0.0")
+
+    def main(self):
+        app.run(host='0.0.0.0', debug=False, port=5000)
 
     def set_app_loggers(self, app):
         print("Writting log to {}".format(LOGNAME))
@@ -281,6 +281,7 @@ def main():
     argv = sys.argv[2:]
     args = parser.parse_args(args=argv)
     d = PerfDaemon(args.user, args.group)
+
     def start(foreground=False):
         current_path = os.path.abspath(os.getcwd())
         print(
