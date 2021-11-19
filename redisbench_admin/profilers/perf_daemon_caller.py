@@ -72,7 +72,7 @@ class PerfDaemonRemoteCaller:
             self.remote_endpoint, pid, frequency
         )
 
-        response = requests.post(url, data)
+        response = requests.post(url, data=None, json=data)
         if response.status_code == 200:
             self.result = True
 
@@ -88,7 +88,7 @@ class PerfDaemonRemoteCaller:
                 self.remote_endpoint, self.pid
             )
 
-            response = requests.post(url, {})
+            response = requests.post(url)
             if response.status_code == 200:
                 result = True
                 status_dict = response.json()
