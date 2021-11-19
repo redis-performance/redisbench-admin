@@ -30,6 +30,11 @@ class PerfDaemonRemoteCaller:
         self.pid = None
         self.test_name = ""
         self.setup_name = ""
+        self.aws_access_key_id = None
+        self.aws_secret_access_key = None
+        self.aws_session_token = None
+        self.region_name = None
+
         if "dso" in kwargs:
             self.dso = kwargs.get("dso")
         if "test_name" in kwargs:
@@ -46,6 +51,14 @@ class PerfDaemonRemoteCaller:
             self.github_org_name = kwargs.get("github_org_name")
         if "github_sha" in kwargs:
             self.github_sha = kwargs.get("github_sha")
+        if "aws_access_key_id" in kwargs:
+            self.aws_access_key_id = kwargs["aws_access_key_id"]
+        if "aws_secret_access_key" in kwargs:
+            self.aws_secret_access_key = kwargs["aws_secret_access_key"]
+        if "aws_session_token" in kwargs:
+            self.aws_session_token = kwargs["aws_session_token"]
+        if "region_name" in kwargs:
+            self.region_name = kwargs["region_name"]
 
     def set_logger(self, logger_app):
         self.logger = logger_app
@@ -87,8 +100,17 @@ class PerfDaemonRemoteCaller:
             url = "http://{}/profiler/perf/stop/{}".format(
                 self.remote_endpoint, self.pid
             )
+            data = {}
+            if self.aws_access_key_id is not None:
+                data["aws_access_key_id"] = self.aws_access_key_id
+            if self.aws_secret_access_key is not None:
+                data["aws_secret_access_key"] = self.aws_secret_access_key
+            if self.aws_session_token is not None:
+                data["aws_session_token"] = self.aws_session_token
+            if self.region_name is not None:
+                data["region_name"] = self.region_name
 
-            response = requests.post(url)
+            response = requests.post(url, data=None, json=data)
             if response.status_code == 200:
                 result = True
                 status_dict = response.json()
