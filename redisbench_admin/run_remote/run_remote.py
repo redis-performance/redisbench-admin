@@ -481,30 +481,40 @@ def run_remote_command_logic(args, project_name, project_version):
                                         profile_markdown_str = (
                                             profile_markdown_str.replace("\n", "")
                                         )
-                                        profile_id = "{}_hash_{}".format(
-                                            start_time_str, tf_github_sha
+                                        profile_id = "{}_{}_hash_{}".format(
+                                            start_time_str, setup_name, tf_github_sha
                                         )
                                         profile_string_testcase_markdown_key = (
                                             "profile:{}:{}".format(
                                                 profile_id, test_name
                                             )
                                         )
-                                        zset_profiles = "profiles:{}_{}".format(
-                                            tf_github_org,
-                                            tf_github_repo,
+                                        zset_profiles = "profiles:{}_{}_{}".format(
+                                            tf_github_org, tf_github_repo, setup_name
+                                        )
+                                        zset_profiles_setup = (
+                                            "profiles:setups:{}_{}".format(
+                                                tf_github_org,
+                                                tf_github_repo,
+                                            )
                                         )
                                         profile_set_redis_key = (
                                             "profile:{}:testcases".format(profile_id)
                                         )
-                                        https_link = "{}?var-org={}&var-repo={}".format(
+                                        https_link = "{}?var-org={}&var-repo={}&var-setup={}".format(
                                             grafana_profile_dashboard,
                                             tf_github_org,
                                             tf_github_repo,
+                                            setup_name,
                                         ) + "&var-profile_id={}&var-profile_test_case={}".format(
                                             profile_id,
                                             test_name,
                                         )
                                         if args.push_results_redistimeseries:
+                                            rts.redis.zadd(
+                                                zset_profiles_setup,
+                                                {setup_name: start_time_ms},
+                                            )
                                             rts.redis.zadd(
                                                 zset_profiles,
                                                 {profile_id: start_time_ms},
