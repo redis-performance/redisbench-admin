@@ -39,11 +39,13 @@ def upload_artifacts_to_s3(
         region_name = EC2_REGION
     logging.info("-- uploading results to s3 -- ")
     if aws_access_key_id is not None and aws_secret_access_key is not None:
+        logging.info("-- Using REQUEST PROVIDED AWS credentials -- ")
         session = boto3.Session(
             aws_access_key_id, aws_secret_access_key, aws_session_token, region_name
         )
         s3 = session.resource("s3")
     else:
+        logging.info("-- Using default AWS credentials -- ")
         s3 = boto3.resource("s3")
     bucket = s3.Bucket(s3_bucket_name)
     progress = tqdm(unit="files", total=len(artifacts))

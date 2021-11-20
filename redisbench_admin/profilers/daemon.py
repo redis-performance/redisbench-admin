@@ -8,6 +8,8 @@
 import logging
 
 import argparse
+
+import botocore
 from flask import Flask, request
 import daemonize
 import json
@@ -37,6 +39,7 @@ LOGNAME = "/tmp/perf-daemon.log"
 app = Flask(__name__)
 app.use_reloader = False
 
+
 class PerfDaemon:
     def __init__(self, user=None, group=None):
         self.user = user
@@ -46,7 +49,7 @@ class PerfDaemon:
         self.create_app_endpoints(app)
 
     def main(self):
-        app.run(host='0.0.0.0', debug=False, port=5000)
+        app.run(host="0.0.0.0", debug=False, port=5000)
 
     def set_app_loggers(self, app):
         print("Writting log to {}".format(LOGNAME))
@@ -57,7 +60,7 @@ class PerfDaemon:
         app.logger.addHandler(handler)
         self.perf.set_logger(app.logger)
 
-    def update_ec2_vars_from_request(self, request):
+    def update_ec2_vars_from_request(self, request, app):
         aws_access_key_id = None
         aws_secret_access_key = None
         aws_session_token = None
@@ -65,13 +68,24 @@ class PerfDaemon:
         if request.is_json:
             data = request.get_json()
             if "aws_access_key_id" in data:
+                app.logger.info("detected aws_access_key_id in request")
                 aws_access_key_id = data["aws_access_key_id"]
             if "aws_secret_access_key" in data:
+                app.logger.info("detected aws_secret_access_key in request")
                 aws_secret_access_key = data["aws_secret_access_key"]
             if "aws_session_token" in data:
+                app.logger.info("detected aws_session_token in request")
                 aws_session_token = data["aws_session_token"]
             if "region_name" in data:
+                app.logger.info("detected region_name in request")
                 region_name = data["region_name"]
+
+        if aws_access_key_id is not None:
+            app.logger.info("aws_access_key_id is properly set")
+        if aws_secret_access_key is not None:
+            app.logger.info("aws_secret_access_key is properly set")
+        if aws_session_token is not None:
+            app.logger.info("aws_session_token is properly set")
 
         return aws_access_key_id, aws_secret_access_key, aws_session_token, region_name
 
@@ -220,36 +234,43 @@ class PerfDaemon:
                 self.github_repo_name,
                 "profiles",
             )
-            for (
-                artifact_name,
-                profile_artifact,
-            ) in profile_res_artifacts_map.items():
-                s3_link = None
-                upload_results_s3 = True
-                if upload_results_s3:
-                    logging.info(
-                        "Uploading results to s3. s3 bucket name: {}. s3 bucket path: {}".format(
-                            S3_BUCKET_NAME, s3_bucket_path
+            try:
+                for (
+                    artifact_name,
+                    profile_artifact,
+                ) in profile_res_artifacts_map.items():
+                    s3_link = None
+                    upload_results_s3 = True
+                    if upload_results_s3:
+                        app.logger.info(
+                            "Uploading results to s3. s3 bucket name: {}. s3 bucket path: {}".format(
+                                S3_BUCKET_NAME, s3_bucket_path
+                            )
                         )
+                        url_map = upload_artifacts_to_s3(
+                            [profile_artifact],
+                            S3_BUCKET_NAME,
+                            s3_bucket_path,
+                            aws_access_key_id,
+                            aws_secret_access_key,
+                            aws_session_token,
+                            region_name,
+                        )
+                        s3_link = list(url_map.values())[0]
+                    profilers_artifacts_matrix.append(
+                        {
+                            "test_name": self.test_name,
+                            "profiler_name": profiler_name,
+                            "artifact_name": artifact_name,
+                            "s3_link": s3_link,
+                        }
                     )
-                    url_map = upload_artifacts_to_s3(
-                        [profile_artifact],
-                        S3_BUCKET_NAME,
-                        s3_bucket_path,
-                        aws_access_key_id,
-                        aws_secret_access_key,
-                        aws_session_token,
-                        region_name,
-                    )
-                    s3_link = list(url_map.values())[0]
-                profilers_artifacts_matrix.append(
-                    {
-                        "test_name": self.test_name,
-                        "profiler_name": profiler_name,
-                        "artifact_name": artifact_name,
-                        "s3_link": s3_link,
-                    }
+            except botocore.exceptions.NoCredentialsError as e:
+                profile_res = False
+                summary_msg = (
+                    "Unable to push profile artifacts to s3. Missing credentials."
                 )
+                app.logger.error(summary_msg)
 
             status_dict = {
                 "result": profile_res,
