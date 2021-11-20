@@ -149,6 +149,10 @@ def run_remote_command_logic(args, project_name, project_version):
     # we have a map of test-type, dataset-name, topology, test-name
     benchmark_runs_plan = define_benchmark_plan(benchmark_definitions, default_specs)
 
+    profiler_dashboard_table_name = "Profiler dashboard links"
+    profiler_dashboard_table_headers = ["Setup", "Test-case", "Grafana Dashboard"]
+    profiler_dashboard_links = []
+
     for benchmark_type, bench_by_dataset_map in benchmark_runs_plan.items():
         for (
             dataset_name,
@@ -442,125 +446,40 @@ def run_remote_command_logic(args, project_name, project_version):
 
                                     if profilers_enabled:
                                         logging.info("Stopping remote profiler")
-                                        remote_perf.stop_profile()
+                                        profiler_result = remote_perf.stop_profile()
+                                        if profiler_result is False:
+                                            logging.error("Unsuccessful profiler stop")
                                         (
                                             perf_stop_status,
                                             profile_artifacts,
                                             _,
                                         ) = remote_perf.generate_outputs(test_name)
-                                        logging.info(
-                                            "Printing profiler generated artifacts"
-                                        )
-                                        table_name = "Profiler artifacts for test case {}".format(
-                                            test_name
-                                        )
-                                        headers = ["artifact_name", "s3_link"]
-                                        profilers_final_matrix = []
-                                        profilers_final_matrix_html = []
-                                        for artifact in profile_artifacts:
-                                            profilers_final_matrix.append(
-                                                [
-                                                    artifact["artifact_name"],
-                                                    artifact["s3_link"],
-                                                ]
+                                        if len(profile_artifacts) == 0:
+                                            logging.error(
+                                                "No profiler artifact was retrieved"
                                             )
-                                            profilers_final_matrix_html.append(
-                                                [
-                                                    artifact["artifact_name"],
-                                                    ' <a href="{}">{}</a>'.format(
-                                                        artifact["s3_link"],
-                                                        artifact["s3_link"],
-                                                    ),
-                                                ]
-                                            )
-                                        writer = MarkdownTableWriter(
-                                            table_name=table_name,
-                                            headers=headers,
-                                            value_matrix=profilers_final_matrix,
-                                        )
-                                        writer.write_table()
-
-                                        htmlwriter = pytablewriter.HtmlTableWriter(
-                                            table_name=table_name,
-                                            headers=headers,
-                                            value_matrix=profilers_final_matrix_html,
-                                        )
-                                        profile_markdown_str = htmlwriter.dumps()
-                                        profile_markdown_str = (
-                                            profile_markdown_str.replace("\n", "")
-                                        )
-                                        profile_id = "{}_{}_hash_{}".format(
-                                            start_time_str, setup_name, tf_github_sha
-                                        )
-                                        profile_string_testcase_markdown_key = (
-                                            "profile:{}:{}".format(
-                                                profile_id, test_name
-                                            )
-                                        )
-                                        zset_profiles = "profiles:{}_{}_{}".format(
-                                            tf_github_org, tf_github_repo, setup_name
-                                        )
-                                        zset_profiles_setup = (
-                                            "profiles:setups:{}_{}".format(
-                                                tf_github_org,
-                                                tf_github_repo,
-                                            )
-                                        )
-                                        profile_set_redis_key = (
-                                            "profile:{}:testcases".format(profile_id)
-                                        )
-                                        zset_profiles_setups_testcases = (
-                                            "profiles:testcases:{}_{}_{}".format(
-                                                tf_github_org,
-                                                tf_github_repo,
-                                                setup_name,
-                                            )
-                                        )
-                                        zset_profiles_setups_testcases_profileid = (
-                                            "profiles:ids:{}_{}_{}_{}".format(
-                                                tf_github_org,
-                                                tf_github_repo,
-                                                setup_name,
-                                                test_name,
-                                            )
-                                        )
-                                        https_link = "{}?var-org={}&var-repo={}&var-setup={}".format(
-                                            grafana_profile_dashboard,
-                                            tf_github_org,
-                                            tf_github_repo,
-                                            setup_name,
-                                        ) + "&var-test_case={}&var-profile_id={}".format(
-                                            test_name,
-                                            profile_id,
-                                        )
-                                        if args.push_results_redistimeseries:
-                                            rts.redis.zadd(
-                                                zset_profiles_setup,
-                                                {setup_name: start_time_ms},
-                                            )
-                                            rts.redis.zadd(
-                                                zset_profiles_setups_testcases,
-                                                {test_name: start_time_ms},
-                                            )
-                                            rts.redis.zadd(
-                                                zset_profiles_setups_testcases_profileid,
-                                                {profile_id: start_time_ms},
-                                            )
-                                            rts.redis.zadd(
-                                                zset_profiles,
-                                                {profile_id: start_time_ms},
-                                            )
-                                            rts.redis.sadd(
-                                                profile_set_redis_key, test_name
-                                            )
-                                            rts.redis.set(
-                                                profile_string_testcase_markdown_key,
-                                                profile_markdown_str,
-                                            )
-                                            logging.info(
-                                                "Store html table with artifacts in: {}".format(
-                                                    profile_string_testcase_markdown_key
+                                        else:
+                                            https_link = (
+                                                generate_artifacts_table_grafana_redis(
+                                                    args,
+                                                    grafana_profile_dashboard,
+                                                    profile_artifacts,
+                                                    rts,
+                                                    setup_name,
+                                                    start_time_ms,
+                                                    start_time_str,
+                                                    test_name,
+                                                    tf_github_org,
+                                                    tf_github_repo,
+                                                    tf_github_sha,
                                                 )
+                                            )
+                                            profiler_dashboard_links.append(
+                                                [
+                                                    setup_name,
+                                                    test_name,
+                                                    " {} ".format(https_link),
+                                                ]
                                             )
                                             logging.info(
                                                 "Published new profile info for this testcase. Access it via: {}".format(
@@ -678,9 +597,123 @@ def run_remote_command_logic(args, project_name, project_version):
                                         test_name
                                     )
                                 )
+    if args.enable_profilers:
+        writer = MarkdownTableWriter(
+            table_name=profiler_dashboard_table_name,
+            headers=profiler_dashboard_table_headers,
+            value_matrix=profiler_dashboard_links,
+        )
+        writer.write_table()
     if args.inventory is None:
         terraform_destroy(remote_envs)
     exit(return_code)
+
+
+def generate_artifacts_table_grafana_redis(
+    args,
+    grafana_profile_dashboard,
+    profile_artifacts,
+    rts,
+    setup_name,
+    start_time_ms,
+    start_time_str,
+    test_name,
+    tf_github_org,
+    tf_github_repo,
+    tf_github_sha,
+):
+    logging.info("Printing profiler generated artifacts")
+    table_name = "Profiler artifacts for test case {}".format(test_name)
+    headers = ["artifact_name", "s3_link"]
+    profilers_final_matrix = []
+    profilers_final_matrix_html = []
+    for artifact in profile_artifacts:
+        profilers_final_matrix.append(
+            [
+                artifact["artifact_name"],
+                artifact["s3_link"],
+            ]
+        )
+        profilers_final_matrix_html.append(
+            [
+                artifact["artifact_name"],
+                ' <a href="{}">{}</a>'.format(
+                    artifact["s3_link"],
+                    artifact["s3_link"],
+                ),
+            ]
+        )
+    writer = MarkdownTableWriter(
+        table_name=table_name,
+        headers=headers,
+        value_matrix=profilers_final_matrix,
+    )
+    writer.write_table()
+    htmlwriter = pytablewriter.HtmlTableWriter(
+        table_name=table_name,
+        headers=headers,
+        value_matrix=profilers_final_matrix_html,
+    )
+    profile_markdown_str = htmlwriter.dumps()
+    profile_markdown_str = profile_markdown_str.replace("\n", "")
+    profile_id = "{}_{}_hash_{}".format(start_time_str, setup_name, tf_github_sha)
+    profile_string_testcase_markdown_key = "profile:{}:{}".format(profile_id, test_name)
+    zset_profiles = "profiles:{}_{}_{}".format(
+        tf_github_org, tf_github_repo, setup_name
+    )
+    zset_profiles_setup = "profiles:setups:{}_{}".format(
+        tf_github_org,
+        tf_github_repo,
+    )
+    profile_set_redis_key = "profile:{}:testcases".format(profile_id)
+    zset_profiles_setups_testcases = "profiles:testcases:{}_{}_{}".format(
+        tf_github_org,
+        tf_github_repo,
+        setup_name,
+    )
+    zset_profiles_setups_testcases_profileid = "profiles:ids:{}_{}_{}_{}".format(
+        tf_github_org,
+        tf_github_repo,
+        setup_name,
+        test_name,
+    )
+    https_link = "{}?var-org={}&var-repo={}&var-setup={}".format(
+        grafana_profile_dashboard,
+        tf_github_org,
+        tf_github_repo,
+        setup_name,
+    ) + "&var-test_case={}&var-profile_id={}".format(
+        test_name,
+        profile_id,
+    )
+    if args.push_results_redistimeseries:
+        rts.redis.zadd(
+            zset_profiles_setup,
+            {setup_name: start_time_ms},
+        )
+        rts.redis.zadd(
+            zset_profiles_setups_testcases,
+            {test_name: start_time_ms},
+        )
+        rts.redis.zadd(
+            zset_profiles_setups_testcases_profileid,
+            {profile_id: start_time_ms},
+        )
+        rts.redis.zadd(
+            zset_profiles,
+            {profile_id: start_time_ms},
+        )
+        rts.redis.sadd(profile_set_redis_key, test_name)
+        rts.redis.set(
+            profile_string_testcase_markdown_key,
+            profile_markdown_str,
+        )
+        logging.info(
+            "Store html table with artifacts in: {}".format(
+                profile_string_testcase_markdown_key
+            )
+        )
+    return https_link
 
 
 def shutdown_remote_redis(redis_conns, ssh_tunnel):

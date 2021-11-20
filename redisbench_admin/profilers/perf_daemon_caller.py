@@ -3,7 +3,6 @@
 #  Copyright (c) 2021., Redis Labs Modules
 #  All rights reserved.
 #
-
 import logging
 import requests
 from redisbench_admin.utils.remote import extract_git_vars
@@ -60,9 +59,6 @@ class PerfDaemonRemoteCaller:
         if "region_name" in kwargs:
             self.region_name = kwargs["region_name"]
 
-    def set_logger(self, logger_app):
-        self.logger = logger_app
-
     def start_profile(self, pid, output="", frequency=99):
         """
         @param pid: profile events on specified process id
@@ -102,12 +98,16 @@ class PerfDaemonRemoteCaller:
             )
             data = {}
             if self.aws_access_key_id is not None:
+                logging.info("Sending aws_access_key_id stop request")
                 data["aws_access_key_id"] = self.aws_access_key_id
             if self.aws_secret_access_key is not None:
+                logging.info("Sending aws_secret_access_key stop request")
                 data["aws_secret_access_key"] = self.aws_secret_access_key
             if self.aws_session_token is not None:
+                logging.info("Sending aws_session_token stop request")
                 data["aws_session_token"] = self.aws_session_token
             if self.region_name is not None:
+                logging.info("Sending region_name stop request")
                 data["region_name"] = self.region_name
 
             response = requests.post(url, data=None, json=data)
@@ -115,6 +115,12 @@ class PerfDaemonRemoteCaller:
                 result = True
                 status_dict = response.json()
                 self.outputs = status_dict["profiler_artifacts"]
+            else:
+                logging.error(
+                    "Remote profiler status_code {} != 200. Message: {}".format(
+                        response.status_code, response.content
+                    )
+                )
 
         return result
 

@@ -14,7 +14,7 @@ def setup_remote_benchmark_agent(
 ):
     commands = [
         "sudo apt install python3-pip -y",
-        "sudo pip3 install redisbench-admin>=0.5.12",
+        "sudo pip3 install redisbench-admin>=0.5.18",
         "sudo /usr/local/bin/perf-daemon start --user root --group root",
     ]
     # last argument (get_pty) needs to be set to true
