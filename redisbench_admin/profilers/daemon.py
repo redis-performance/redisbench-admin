@@ -201,7 +201,7 @@ class PerfDaemon:
                 aws_secret_access_key,
                 aws_session_token,
                 region_name,
-            ) = self.update_ec2_vars_from_request(request)
+            ) = self.update_ec2_vars_from_request(request, app)
             if profile_res is True:
                 # Generate:
                 #  - artifact with Flame Graph SVG
