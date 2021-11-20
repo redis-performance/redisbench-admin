@@ -3,7 +3,7 @@
 #  Copyright (c) 2021., Redis Labs Modules
 #  All rights reserved.
 #
-
+import json
 import logging
 import requests
 from redisbench_admin.utils.remote import extract_git_vars
@@ -117,12 +117,12 @@ class PerfDaemonRemoteCaller:
                 status_dict = response.json()
                 self.outputs = status_dict["profiler_artifacts"]
             else:
-                json = None
+                response_json = None
                 if response.content is not None:
-                    json = json.loads(response.content)
+                    response_json = json.loads(response.content)
                 logging.error(
                     "Remote profiler status_code {} != 200. Message: {}".format(
-                        response.status_code, json
+                        response.status_code, response_json
                     )
                 )
 
