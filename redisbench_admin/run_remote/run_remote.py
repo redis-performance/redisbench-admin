@@ -446,7 +446,9 @@ def run_remote_command_logic(args, project_name, project_version):
 
                                     if profilers_enabled:
                                         logging.info("Stopping remote profiler")
-                                        remote_perf.stop_profile()
+                                        profiler_result = remote_perf.stop_profile()
+                                        if profiler_result is False:
+                                            logging.error("Unsuccessful profiler stop")
                                         (
                                             perf_stop_status,
                                             profile_artifacts,
