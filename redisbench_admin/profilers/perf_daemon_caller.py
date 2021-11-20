@@ -117,12 +117,9 @@ class PerfDaemonRemoteCaller:
                 status_dict = response.json()
                 self.outputs = status_dict["profiler_artifacts"]
             else:
-                response_json = None
-                if response.content is not None:
-                    response_json = json.loads(response.content)
                 logging.error(
                     "Remote profiler status_code {} != 200. Message: {}".format(
-                        response.status_code, response_json
+                        response.status_code, response.content
                     )
                 )
 
