@@ -266,7 +266,7 @@ class PerfDaemon:
                             "s3_link": s3_link,
                         }
                     )
-            except botocore.exceptions.NoCredentialsError as e:
+            except botocore.exceptions.NoCredentialsError:
                 profile_res = False
                 summary_msg = (
                     "Unable to push profile artifacts to s3. Missing credentials."

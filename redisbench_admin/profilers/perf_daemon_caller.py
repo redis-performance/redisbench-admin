@@ -3,7 +3,6 @@
 #  Copyright (c) 2021., Redis Labs Modules
 #  All rights reserved.
 #
-import json
 import logging
 import requests
 from redisbench_admin.utils.remote import extract_git_vars
