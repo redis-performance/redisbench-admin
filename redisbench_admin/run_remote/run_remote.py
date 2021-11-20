@@ -478,7 +478,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 [
                                                     setup_name,
                                                     test_name,
-                                                    https_link,
+                                                    " {} ".format(https_link),
                                                 ]
                                             )
                                             logging.info(
