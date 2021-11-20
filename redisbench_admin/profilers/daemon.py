@@ -49,6 +49,7 @@ class PerfDaemon:
         self.create_app_endpoints(app)
 
     def main(self):
+        self.set_app_loggers(app)
         app.run(host="0.0.0.0", debug=False, port=5000)
 
     def set_app_loggers(self, app):
