@@ -673,15 +673,19 @@ def generate_artifacts_table_grafana_redis(
         tf_github_repo,
         setup_name,
     )
-    zset_profiles_setups_testcases_profileid = "profiles:ids:{}_{}_{}_{}".format(
+    zset_profiles_setups_testcases_profileid = "profiles:ids:{}_{}_{}_{}_{}".format(
         tf_github_org,
         tf_github_repo,
         setup_name,
         test_name,
+        tf_github_branch,
     )
-    zset_profiles_setups_testcases_branches_profileid = (
-        "profiles:ids:{}_{}_{}_{}_{}".format(
-            tf_github_org, tf_github_repo, setup_name, tf_github_branch, test_name
+    zset_profiles_setups_testcases_branches = "profiles:branches:{}_{}_{}_{}".format(
+        tf_github_org, tf_github_repo, setup_name, test_name
+    )
+    zset_profiles_setups_testcases_branches_latest_link = (
+        "latest_profiles:by.branch:{}_{}_{}_{}".format(
+            tf_github_org, tf_github_repo, setup_name, test_name
         )
     )
     https_link = "{}?var-org={}&var-repo={}&var-setup={}&var-branch={}".format(
@@ -696,7 +700,11 @@ def generate_artifacts_table_grafana_redis(
     )
     if args.push_results_redistimeseries:
         rts.redis.zadd(
-            zset_profiles_setups_testcases_branches_profileid,
+            zset_profiles_setups_testcases_branches,
+            {tf_github_branch: start_time_ms},
+        )
+        rts.redis.zadd(
+            zset_profiles_setups_testcases_branches_latest_link,
             {https_link: start_time_ms},
         )
         rts.redis.zadd(
