@@ -54,8 +54,9 @@ class Perf:
         self.profiler_process_stderr = None
         self.profiler_process_exit_code = None
         self.trace_file = None
-        self.collapsed_stack_file = None
+        self.trace_file_main_thread = None
         self.stack_collapse_file = None
+        self.stack_collapse_file_main_thread = None
         self.collapsed_stacks = []
         self.pid = None
         self.started_profile = False
@@ -282,6 +283,30 @@ class Perf:
                         self.logger.error(
                             "Unable to run {} script {}".format(self.perf, e.__str__())
                         )
+                if self.pid is not None:
+                    filename_main_thread = filename + ".mainthread"
+                    with open(filename_main_thread, "w") as outfile:
+                        args = [
+                            self.perf,
+                            "script",
+                            "--tid",
+                            self.pid,
+                            "-i",
+                            self.output,
+                        ]
+                        try:
+                            subprocess.Popen(args=args, stdout=outfile).wait()
+                            self.trace_file_main_thread = filename_main_thread
+                        except OSError as e:
+                            self.logger.error(
+                                "Unable to run {} script {}".format(
+                                    self.perf, e.__str__()
+                                )
+                            )
+                else:
+                    logging.warning(
+                        "Unable to generate main thread only collapsed stack files given no PID data is available"
+                    )
                 result = True
                 self.trace_file = filename
 
@@ -304,6 +329,26 @@ class Perf:
                             )
                         )
                 self.stack_collapse_file = filename
+                result = True
+            else:
+                self.logger.error("Unable to open {0}".format(self.trace_file))
+        if self.trace_file_main_thread is not None:
+            if os.path.isfile(self.trace_file_main_thread):
+                filename = self.output + ".mainthread.stacks-folded"
+                with open(filename, "w") as outfile:
+                    args = [
+                        self.stack_collapser,
+                        os.path.abspath(self.trace_file_main_thread),
+                    ]
+                    try:
+                        subprocess.Popen(args=args, stdout=outfile).wait()
+                    except OSError as e:
+                        self.logger.error(
+                            "Unable to stack collapse using: {0} {1}. Error {2}".format(
+                                self.stack_collapser, self.trace_file, e.__str__()
+                            )
+                        )
+                self.stack_collapse_file_main_thread = filename
                 result = True
             else:
                 self.logger.error("Unable to open {0}".format(self.trace_file))
@@ -330,6 +375,16 @@ class Perf:
         )
         if artifact_result is True:
             outputs["Flame Graph {}".format(identifier)] = flame_graph_output
+        result &= artifact_result
+
+        # generate main thread flame graph
+        artifact_result, flame_graph_output = self.generate_flame_graph_main_thread(
+            "Main THREAD Flame Graph: " + use_case, details
+        )
+        if artifact_result is True:
+            outputs[
+                "Main THREAD Flame Graph {}".format(identifier)
+            ] = flame_graph_output
         result &= artifact_result
 
         tid = self.pid
@@ -583,6 +638,49 @@ class Perf:
                 )
             else:
                 self.logger.error("Unable to open {0}".format(self.stack_collapse_file))
+        return result, result_artifact
+
+    def generate_flame_graph_main_thread(
+        self, title="MAIN THREAD Flame Graph", subtitle="", filename=None
+    ):
+        result = False
+        result_artifact = None
+        # total_profile_duration = self.profile_end_time - self.profile_start_time
+
+        if self.stack_collapse_file_main_thread is not None:
+            if os.path.isfile(self.stack_collapse_file_main_thread):
+                if filename is None:
+                    filename = self.output + ".mainthread.flamegraph.svg"
+                with open(filename, "w") as outfile:
+                    args = [
+                        self.flamegraph_utity,
+                        "--title",
+                        title,
+                        "--subtitle",
+                        subtitle,
+                        "--width",
+                        "1600",
+                        os.path.abspath(self.stack_collapse_file_main_thread),
+                    ]
+                    try:
+                        subprocess.Popen(args=args, stdout=outfile).wait()
+                    except OSError as e:
+                        self.logger.error(
+                            "Unable t use flamegraph.pl to render a SVG. using: {0} {1}. Error {2}".format(
+                                self.flamegraph_utity,
+                                self.stack_collapse_file_main_thread,
+                                e.__str__(),
+                            )
+                        )
+                result = True
+                result_artifact = os.path.abspath(filename)
+                self.logger.info(
+                    "Successfully rendered flame graph to {0}".format(result_artifact)
+                )
+            else:
+                self.logger.error(
+                    "Unable to open {0}".format(self.stack_collapse_file_main_thread)
+                )
         return result, result_artifact
 
     def get_collapsed_stacks(self):
