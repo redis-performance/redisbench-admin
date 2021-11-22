@@ -229,6 +229,10 @@ def common_exporter_logic(
     per_version_time_series_dict = {}
     per_branch_time_series_dict = {}
     testcase_metric_context_paths = []
+    version_target_table_keyname = None
+    version_target_table_dict = None
+    branch_target_table_keyname = None
+    branch_target_table_dict = None
 
     if exporter_timemetric_path is not None and len(metrics) > 0:
         if datapoints_timestamp is None:
@@ -245,6 +249,8 @@ def common_exporter_logic(
             (
                 _,
                 per_version_time_series_dict,
+                version_target_table_keyname,
+                version_target_table_dict,
             ) = extract_perversion_timeseries_from_results(
                 datapoints_timestamp,
                 metrics,
@@ -263,7 +269,12 @@ def common_exporter_logic(
             )
         if tf_github_branch is not None and tf_github_branch != "":
             # extract per branch datapoints
-            _, per_branch_time_series_dict = extract_perbranch_timeseries_from_results(
+            (
+                _,
+                per_branch_time_series_dict,
+                branch_target_table_keyname,
+                branch_target_table_dict,
+            ) = extract_perbranch_timeseries_from_results(
                 datapoints_timestamp,
                 metrics,
                 results_dict,
@@ -295,6 +306,10 @@ def common_exporter_logic(
         per_version_time_series_dict,
         per_branch_time_series_dict,
         testcase_metric_context_paths,
+        version_target_table_keyname,
+        version_target_table_dict,
+        branch_target_table_keyname,
+        branch_target_table_dict,
     )
 
 

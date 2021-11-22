@@ -49,6 +49,10 @@ def prepare_timeseries_dict(
         per_version_time_series_dict,
         per_branch_time_series_dict,
         testcase_metric_context_paths,
+        version_target_table_keyname,
+        version_target_table_dict,
+        branch_target_table_keyname,
+        branch_target_table_dict,
     ) = common_exporter_logic(
         deployment_name,
         deployment_type,
@@ -71,6 +75,10 @@ def prepare_timeseries_dict(
     return (
         time_series_dict,
         testcase_metric_context_paths,
+        version_target_table_keyname,
+        version_target_table_dict,
+        branch_target_table_keyname,
+        branch_target_table_dict,
     )
 
 
@@ -237,7 +245,14 @@ def timeseries_test_sucess_flow(
 ):
     testcase_metric_context_paths = []
     if timeseries_dict is None:
-        timeseries_dict, testcase_metric_context_paths = prepare_timeseries_dict(
+        (
+            timeseries_dict,
+            testcase_metric_context_paths,
+            version_target_table_keyname,
+            version_target_table_dict,
+            branch_target_table_keyname,
+            branch_target_table_dict,
+        ) = prepare_timeseries_dict(
             artifact_version,
             benchmark_config,
             default_metrics,
@@ -262,6 +277,21 @@ def timeseries_test_sucess_flow(
             )
         )
         push_data_to_redistimeseries(rts, timeseries_dict)
+        if (
+            version_target_table_keyname is not None
+            and version_target_table_dict is not None
+        ):
+            rts.redis.hset(
+                version_target_table_keyname, None, None, version_target_table_dict
+            )
+        if (
+            branch_target_table_keyname is not None
+            and branch_target_table_dict is not None
+        ):
+            rts.redis.hset(
+                branch_target_table_keyname, None, None, branch_target_table_dict
+            )
+
         update_secondary_result_keys(
             artifact_version,
             benchmark_duration_seconds,
