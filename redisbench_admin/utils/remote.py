@@ -583,7 +583,11 @@ def extract_perversion_timeseries_from_results(
 ):
     break_by_key = "version"
     break_by_str = "by.{}".format(break_by_key)
-    branch_time_series_dict = common_timeseries_extraction(
+    (
+        branch_time_series_dict,
+        target_table_keyname,
+        target_table_dict,
+    ) = common_timeseries_extraction(
         break_by_key,
         break_by_str,
         datapoints_timestamp,
@@ -601,7 +605,7 @@ def extract_perversion_timeseries_from_results(
         running_platform,
         testcase_metric_context_paths,
     )
-    return True, branch_time_series_dict
+    return True, branch_time_series_dict, target_table_keyname, target_table_dict
 
 
 def common_timeseries_extraction(
@@ -633,7 +637,7 @@ def common_timeseries_extraction(
         test_case_targets_dict = cleaned_metric[4]
         use_metric_context_path = cleaned_metric[5]
 
-        from_metric_kv_to_timeserie(
+        target_table_keyname, target_table_dict = from_metric_kv_to_timeserie(
             break_by_key,
             break_by_str,
             break_by_value,
@@ -656,7 +660,7 @@ def common_timeseries_extraction(
             time_series_dict,
             use_metric_context_path,
         )
-    return time_series_dict
+    return time_series_dict, target_table_keyname, target_table_dict
 
 
 def from_metric_kv_to_timeserie(
@@ -706,6 +710,16 @@ def from_metric_kv_to_timeserie(
         "data": {datapoints_timestamp: metric_value},
     }
     original_ts_name = ts_name
+    target_table_keyname = "ci.benchmarks.redislabs/{break_by_key}/{break_by_str}/{tf_github_org}/{tf_github_repo}/{deployment_type}/{deployment_name}/{metric_name}".format(
+        break_by_key=break_by_key,
+        break_by_str=break_by_str,
+        tf_github_org=tf_github_org,
+        tf_github_repo=tf_github_repo,
+        deployment_name=deployment_name,
+        deployment_type=deployment_type,
+        metric_name=metric_name,
+    )
+    target_table_dict = {"test-case": test_name, tf_github_repo: metric_value}
     for target_name, target_value in test_case_targets_dict.items():
         ts_name = original_ts_name + "/target/{}".format(target_name)
         timeserie_tags_target = timeserie_tags.copy()
@@ -717,6 +731,26 @@ def from_metric_kv_to_timeserie(
             "labels": timeserie_tags_target,
             "data": {datapoints_timestamp: target_value},
         }
+        if "overallQuantiles" in metric_name:
+            comparison_type = "(lower-better)"
+        else:
+            comparison_type = "(higher-better)"
+        if comparison_type == "(higher-better)":
+            target_value_pct = (
+                (float(metric_value) / float(target_value)) - 1.0
+            ) * 100.0
+        else:
+            target_value_pct = (
+                (float(target_value) / float(metric_value)) - 1.0
+            ) * 100.0
+
+        target_value_pct_str = "{:.2f}".format(target_value_pct)
+
+        target_table_dict[target_name] = target_value
+        target_table_dict[
+            "{}:percent {}".format(target_name, comparison_type)
+        ] = target_value_pct_str
+    return target_table_keyname, target_table_dict
 
 
 def get_ts_tags_and_name(
@@ -827,7 +861,11 @@ def extract_perbranch_timeseries_from_results(
 ):
     break_by_key = "branch"
     break_by_str = "by.{}".format(break_by_key)
-    branch_time_series_dict = common_timeseries_extraction(
+    (
+        branch_time_series_dict,
+        target_table_keyname,
+        target_table_dict,
+    ) = common_timeseries_extraction(
         break_by_key,
         break_by_str,
         datapoints_timestamp,
@@ -845,7 +883,7 @@ def extract_perbranch_timeseries_from_results(
         running_platform,
         testcase_metric_context_paths,
     )
-    return True, branch_time_series_dict
+    return True, branch_time_series_dict, target_table_keyname, target_table_dict
 
 
 def get_overall_dashboard_keynames(
