@@ -583,11 +583,7 @@ def extract_perversion_timeseries_from_results(
 ):
     break_by_key = "version"
     break_by_str = "by.{}".format(break_by_key)
-    (
-        branch_time_series_dict,
-        target_table_keyname,
-        target_table_dict,
-    ) = common_timeseries_extraction(
+    (branch_time_series_dict, target_tables,) = common_timeseries_extraction(
         break_by_key,
         break_by_str,
         datapoints_timestamp,
@@ -605,7 +601,7 @@ def extract_perversion_timeseries_from_results(
         running_platform,
         testcase_metric_context_paths,
     )
-    return True, branch_time_series_dict, target_table_keyname, target_table_dict
+    return True, branch_time_series_dict, target_tables
 
 
 def common_timeseries_extraction(
@@ -627,6 +623,7 @@ def common_timeseries_extraction(
     testcase_metric_context_paths=[],
 ):
     time_series_dict = {}
+    target_tables = {}
     cleaned_metrics_arr = extract_results_table(metrics, results_dict)
     for cleaned_metric in cleaned_metrics_arr:
 
@@ -660,7 +657,9 @@ def common_timeseries_extraction(
             time_series_dict,
             use_metric_context_path,
         )
-    return time_series_dict, target_table_keyname, target_table_dict
+        target_tables[target_table_keyname] = target_table_dict
+
+    return time_series_dict, target_tables
 
 
 def from_metric_kv_to_timeserie(
@@ -710,13 +709,15 @@ def from_metric_kv_to_timeserie(
         "data": {datapoints_timestamp: metric_value},
     }
     original_ts_name = ts_name
-    target_table_keyname = "ci.benchmarks.redislabs/{break_by_key}/{break_by_str}/{tf_github_org}/{tf_github_repo}/{deployment_type}/{deployment_name}/{metric_name}".format(
+    target_table_keyname = "target_tables:{triggering_env}:ci.benchmarks.redislabs/{break_by_key}/{break_by_str}/{tf_github_org}/{tf_github_repo}/{deployment_type}/{deployment_name}/{test_name}/{metric_name}".format(
+        triggering_env=tf_triggering_env,
         break_by_key=break_by_key,
         break_by_str=break_by_str,
         tf_github_org=tf_github_org,
         tf_github_repo=tf_github_repo,
         deployment_name=deployment_name,
         deployment_type=deployment_type,
+        test_name=test_name,
         metric_name=metric_name,
     )
     target_table_dict = {"test-case": test_name, tf_github_repo: metric_value}
@@ -861,11 +862,7 @@ def extract_perbranch_timeseries_from_results(
 ):
     break_by_key = "branch"
     break_by_str = "by.{}".format(break_by_key)
-    (
-        branch_time_series_dict,
-        target_table_keyname,
-        target_table_dict,
-    ) = common_timeseries_extraction(
+    (branch_time_series_dict, target_tables) = common_timeseries_extraction(
         break_by_key,
         break_by_str,
         datapoints_timestamp,
@@ -883,7 +880,7 @@ def extract_perbranch_timeseries_from_results(
         running_platform,
         testcase_metric_context_paths,
     )
-    return True, branch_time_series_dict, target_table_keyname, target_table_dict
+    return True, branch_time_series_dict, target_tables
 
 
 def get_overall_dashboard_keynames(

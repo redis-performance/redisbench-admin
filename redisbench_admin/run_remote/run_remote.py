@@ -472,6 +472,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     tf_github_org,
                                                     tf_github_repo,
                                                     tf_github_sha,
+                                                    tf_github_branch,
                                                 )
                                             )
                                             profiler_dashboard_links.append(
@@ -621,6 +622,7 @@ def generate_artifacts_table_grafana_redis(
     tf_github_org,
     tf_github_repo,
     tf_github_sha,
+    tf_github_branch,
 ):
     logging.info("Printing profiler generated artifacts")
     table_name = "Profiler artifacts for test case {}".format(test_name)
@@ -677,16 +679,26 @@ def generate_artifacts_table_grafana_redis(
         setup_name,
         test_name,
     )
-    https_link = "{}?var-org={}&var-repo={}&var-setup={}".format(
+    zset_profiles_setups_testcases_branches_profileid = (
+        "profiles:ids:{}_{}_{}_{}_{}".format(
+            tf_github_org, tf_github_repo, setup_name, tf_github_branch, test_name
+        )
+    )
+    https_link = "{}?var-org={}&var-repo={}&var-setup={}&var-branch={}".format(
         grafana_profile_dashboard,
         tf_github_org,
         tf_github_repo,
         setup_name,
+        tf_github_branch,
     ) + "&var-test_case={}&var-profile_id={}".format(
         test_name,
         profile_id,
     )
     if args.push_results_redistimeseries:
+        rts.redis.zadd(
+            zset_profiles_setups_testcases_branches_profileid,
+            {https_link: start_time_ms},
+        )
         rts.redis.zadd(
             zset_profiles_setup,
             {setup_name: start_time_ms},

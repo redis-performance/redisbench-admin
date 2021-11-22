@@ -197,6 +197,8 @@ def test_common_exporter_logic():
                     per_version_time_series_dict,
                     per_branch_time_series_dict,
                     _,
+                    _,
+                    _,
                 ) = common_exporter_logic(
                     deployment_name,
                     deployment_type,
@@ -239,6 +241,8 @@ def test_common_exporter_logic():
                 (
                     per_version_time_series_dict,
                     per_branch_time_series_dict,
+                    _,
+                    _,
                     _,
                 ) = common_exporter_logic(
                     deployment_name,
@@ -288,6 +292,8 @@ def test_common_exporter_logic():
                 (
                     per_version_time_series_dict,
                     per_branch_time_series_dict,
+                    _,
+                    _,
                     _,
                 ) = common_exporter_logic(
                     deployment_name,

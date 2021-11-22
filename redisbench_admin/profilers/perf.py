@@ -332,10 +332,6 @@ class Perf:
             outputs["Flame Graph {}".format(identifier)] = flame_graph_output
         result &= artifact_result
 
-        # save perf output
-        if artifact_result is True:
-            outputs["perf output {}".format(identifier)] = os.path.abspath(self.output)
-
         tid = self.pid
 
         # generate perf report per dso
@@ -539,6 +535,14 @@ class Perf:
                         "Output graph image in PNG format"
                     ] = pprof_artifact_png_output
                 result &= artifact_result
+
+        # save stack collapsed
+        outputs["Identical stacks collapsed {}".format(identifier)] = os.path.abspath(
+            self.stack_collapse_file
+        )
+
+        # save perf output
+        outputs["perf output {}".format(identifier)] = os.path.abspath(self.output)
 
         return result, outputs, tabular_data_map
 

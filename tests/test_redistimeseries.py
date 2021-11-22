@@ -29,6 +29,7 @@ def test_timeseries_test_sucess_flow():
             merged_exporter_timemetric_path, metrics = merge_default_and_config_metrics(
                 benchmark_config, None, None
             )
+            len_metrics = len(metrics)
             with open(
                 "./tests/test_data/results/oss-standalone-2021-07-23-16-15-12-71d4528-redis-benchmark-full-suite-1Mkeys-100B.json",
                 "r",
@@ -140,7 +141,7 @@ def test_timeseries_test_sucess_flow():
             # 2 (branch/version) x ( load time + test time  ) + project successes
             number_of_control_ts = 2 + 2 + 1
             # set with test names + per project tag sets ( os, branch, .... )
-            number_of_control_redis = 10
+            number_of_control_redis = 10 + len_metrics
 
             keys = [x.decode() for x in rts.redis.keys()]
             assert (
@@ -159,7 +160,7 @@ def test_timeseries_test_sucess_flow():
             assert total_by_version > 0
             assert (
                 total_by_version
-                == len(results_dict["Tests"].keys()) * total_metrics + 2
+                == len(results_dict["Tests"].keys()) * total_metrics + 2 + len_metrics
             )
             assert total_by_branch > 0
             assert (
