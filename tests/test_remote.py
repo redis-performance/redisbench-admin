@@ -150,7 +150,7 @@ def test_extract_perversion_timeseries_from_results():
         ) as json_file:
             results_dict = json.load(json_file)
 
-            (timeseries_dict, _,) = prepare_timeseries_dict(
+            (timeseries_dict, _, _, _) = prepare_timeseries_dict(
                 "1.0.0",
                 benchmark_config,
                 default_metrics,
@@ -207,6 +207,7 @@ def test_extract_timeseries_from_results():
             (
                 ok,
                 per_version_time_series_dict,
+                _,
             ) = extract_perversion_timeseries_from_results(
                 datapoints_timestamp,
                 metrics,
@@ -228,6 +229,7 @@ def test_extract_timeseries_from_results():
             (
                 ok,
                 per_branch_time_series_dict,
+                _,
             ) = extract_perbranch_timeseries_from_results(
                 datapoints_timestamp,
                 metrics,
@@ -415,7 +417,7 @@ def test_common_timeseries_extraction():
     tf_github_repo = "redis"
     tf_triggering_env = "gh"
 
-    timeseries_dict = common_timeseries_extraction(
+    timeseries_dict, _ = common_timeseries_extraction(
         break_by_key,
         break_by_str,
         datapoints_timestamp,

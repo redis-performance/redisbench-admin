@@ -49,6 +49,8 @@ def prepare_timeseries_dict(
         per_version_time_series_dict,
         per_branch_time_series_dict,
         testcase_metric_context_paths,
+        version_target_tables,
+        branch_target_tables,
     ) = common_exporter_logic(
         deployment_name,
         deployment_type,
@@ -71,6 +73,8 @@ def prepare_timeseries_dict(
     return (
         time_series_dict,
         testcase_metric_context_paths,
+        version_target_tables,
+        branch_target_tables,
     )
 
 
@@ -237,7 +241,12 @@ def timeseries_test_sucess_flow(
 ):
     testcase_metric_context_paths = []
     if timeseries_dict is None:
-        timeseries_dict, testcase_metric_context_paths = prepare_timeseries_dict(
+        (
+            timeseries_dict,
+            testcase_metric_context_paths,
+            version_target_tables,
+            branch_target_tables,
+        ) = prepare_timeseries_dict(
             artifact_version,
             benchmark_config,
             default_metrics,
@@ -262,6 +271,44 @@ def timeseries_test_sucess_flow(
             )
         )
         push_data_to_redistimeseries(rts, timeseries_dict)
+        if version_target_tables is not None:
+            logging.info(
+                "There are a total of {} distinct target tables by version".format(
+                    len(version_target_tables.keys())
+                )
+            )
+            for (
+                version_target_table_keyname,
+                version_target_table_dict,
+            ) in version_target_tables.items():
+                logging.info(
+                    "Setting target table by version on key {}".format(
+                        version_target_table_keyname
+                    )
+                )
+                rts.redis.hset(
+                    version_target_table_keyname, None, None, version_target_table_dict
+                )
+        if branch_target_tables is not None:
+            logging.info(
+                "There are a total of {} distinct target tables by branch".format(
+                    len(branch_target_tables.keys())
+                )
+            )
+            for (
+                branch_target_table_keyname,
+                branch_target_table_dict,
+            ) in version_target_tables.items():
+
+                logging.info(
+                    "Setting target table by branch on key {}".format(
+                        version_target_table_keyname
+                    )
+                )
+                rts.redis.hset(
+                    branch_target_table_keyname, None, None, branch_target_table_dict
+                )
+
         update_secondary_result_keys(
             artifact_version,
             benchmark_duration_seconds,
