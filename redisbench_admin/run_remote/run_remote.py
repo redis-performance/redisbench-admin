@@ -21,6 +21,7 @@ from redisbench_admin.run.common import (
     print_results_table_stdout,
 )
 from redisbench_admin.run.git import git_vars_crosscheck
+from redisbench_admin.run.grafana import generate_artifacts_table_grafana_redis
 from redisbench_admin.run.modules import redis_modules_check
 from redisbench_admin.run.redistimeseries import (
     timeseries_test_sucess_flow,
@@ -153,16 +154,24 @@ def run_remote_command_logic(args, project_name, project_version):
     profiler_dashboard_table_headers = ["Setup", "Test-case", "Grafana Dashboard"]
     profiler_dashboard_links = []
 
+    # contains the overall target-tables ( if any target is defined )
+    overall_tables = {}
+
     for benchmark_type, bench_by_dataset_map in benchmark_runs_plan.items():
         for (
             dataset_name,
             bench_by_dataset_and_setup_map,
         ) in bench_by_dataset_map.items():
             for setup_name, setup_details in bench_by_dataset_and_setup_map.items():
+
                 setup_settings = setup_details["setup_settings"]
                 benchmarks_map = setup_details["benchmarks"]
                 # we start with an empty per bench-type/setup-name
                 setup_details["env"] = None
+
+                # map from setup name to overall target-tables ( if any target is defined )
+                overall_tables[setup_name] = {}
+
                 for test_name, benchmark_config in benchmarks_map.items():
                     for repetition in range(1, BENCHMARK_REPETITIONS + 1):
                         remote_perf = None
@@ -537,7 +546,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                             artifacts, s3_bucket_name, s3_bucket_path
                                         )
 
-                                    timeseries_test_sucess_flow(
+                                    (
+                                        _,
+                                        branch_target_tables,
+                                    ) = timeseries_test_sucess_flow(
                                         args.push_results_redistimeseries,
                                         artifact_version,
                                         benchmark_config,
@@ -556,6 +568,44 @@ def run_remote_command_logic(args, project_name, project_version):
                                         tf_github_repo,
                                         tf_triggering_env,
                                     )
+                                    if branch_target_tables is not None:
+                                        for (
+                                            branch_tt_keyname,
+                                            branch_target_table,
+                                        ) in branch_target_tables.items():
+                                            if (
+                                                branch_target_table["contains-target"]
+                                                is True
+                                            ):
+                                                row = []
+                                                metric_name = branch_target_table[
+                                                    "metric-name"
+                                                ]
+                                                header = []
+                                                for k, v in branch_target_table.items():
+                                                    if k != "contains-target":
+                                                        header.append(k)
+                                                        row.append(v)
+                                                if (
+                                                    metric_name
+                                                    not in overall_tables[setup_name]
+                                                ):
+                                                    overall_tables[setup_name][
+                                                        metric_name
+                                                    ] = {
+                                                        "header": header,
+                                                        "rows": [row],
+                                                    }
+                                                else:
+                                                    assert (
+                                                        header
+                                                        == overall_tables[setup_name][
+                                                            metric_name
+                                                        ]["header"]
+                                                    )
+                                                    overall_tables[setup_name][
+                                                        metric_name
+                                                    ]["rows"].append(row)
 
                                     print_results_table_stdout(
                                         benchmark_config,
@@ -607,133 +657,38 @@ def run_remote_command_logic(args, project_name, project_version):
         writer.write_table()
     if args.inventory is None:
         terraform_destroy(remote_envs)
-    exit(return_code)
 
-
-def generate_artifacts_table_grafana_redis(
-    args,
-    grafana_profile_dashboard,
-    profile_artifacts,
-    rts,
-    setup_name,
-    start_time_ms,
-    start_time_str,
-    test_name,
-    tf_github_org,
-    tf_github_repo,
-    tf_github_sha,
-    tf_github_branch,
-):
-    logging.info("Printing profiler generated artifacts")
-    table_name = "Profiler artifacts for test case {}".format(test_name)
-    headers = ["artifact_name", "s3_link"]
-    profilers_final_matrix = []
-    profilers_final_matrix_html = []
-    for artifact in profile_artifacts:
-        profilers_final_matrix.append(
-            [
-                artifact["artifact_name"],
-                artifact["s3_link"],
-            ]
-        )
-        profilers_final_matrix_html.append(
-            [
-                artifact["artifact_name"],
-                ' <a href="{}">{}</a>'.format(
-                    artifact["s3_link"],
-                    artifact["s3_link"],
-                ),
-            ]
-        )
-    writer = MarkdownTableWriter(
-        table_name=table_name,
-        headers=headers,
-        value_matrix=profilers_final_matrix,
-    )
-    writer.write_table()
-    htmlwriter = pytablewriter.HtmlTableWriter(
-        table_name=table_name,
-        headers=headers,
-        value_matrix=profilers_final_matrix_html,
-    )
-    profile_markdown_str = htmlwriter.dumps()
-    profile_markdown_str = profile_markdown_str.replace("\n", "")
-    profile_id = "{}_{}_hash_{}".format(start_time_str, setup_name, tf_github_sha)
-    profile_string_testcase_markdown_key = "profile:{}:{}".format(profile_id, test_name)
-    zset_profiles = "profiles:{}_{}_{}".format(
-        tf_github_org, tf_github_repo, setup_name
-    )
-    zset_profiles_setup = "profiles:setups:{}_{}".format(
-        tf_github_org,
-        tf_github_repo,
-    )
-    profile_set_redis_key = "profile:{}:testcases".format(profile_id)
-    zset_profiles_setups_testcases = "profiles:testcases:{}_{}_{}".format(
-        tf_github_org,
-        tf_github_repo,
-        setup_name,
-    )
-    zset_profiles_setups_testcases_profileid = "profiles:ids:{}_{}_{}_{}_{}".format(
-        tf_github_org,
-        tf_github_repo,
-        setup_name,
-        test_name,
-        tf_github_branch,
-    )
-    zset_profiles_setups_testcases_branches = "profiles:branches:{}_{}_{}_{}".format(
-        tf_github_org, tf_github_repo, setup_name, test_name
-    )
-    zset_profiles_setups_testcases_branches_latest_link = (
-        "latest_profiles:by.branch:{}_{}_{}_{}".format(
-            tf_github_org, tf_github_repo, setup_name, test_name
-        )
-    )
-    https_link = "{}?var-org={}&var-repo={}&var-setup={}&var-branch={}".format(
-        grafana_profile_dashboard,
-        tf_github_org,
-        tf_github_repo,
-        setup_name,
-        tf_github_branch,
-    ) + "&var-test_case={}&var-profile_id={}".format(
-        test_name,
-        profile_id,
-    )
     if args.push_results_redistimeseries:
-        rts.redis.zadd(
-            zset_profiles_setups_testcases_branches,
-            {tf_github_branch: start_time_ms},
-        )
-        rts.redis.zadd(
-            zset_profiles_setups_testcases_branches_latest_link,
-            {https_link: start_time_ms},
-        )
-        rts.redis.zadd(
-            zset_profiles_setup,
-            {setup_name: start_time_ms},
-        )
-        rts.redis.zadd(
-            zset_profiles_setups_testcases,
-            {test_name: start_time_ms},
-        )
-        rts.redis.zadd(
-            zset_profiles_setups_testcases_profileid,
-            {profile_id: start_time_ms},
-        )
-        rts.redis.zadd(
-            zset_profiles,
-            {profile_id: start_time_ms},
-        )
-        rts.redis.sadd(profile_set_redis_key, test_name)
-        rts.redis.set(
-            profile_string_testcase_markdown_key,
-            profile_markdown_str,
-        )
-        logging.info(
-            "Store html table with artifacts in: {}".format(
-                profile_string_testcase_markdown_key
-            )
-        )
-    return https_link
+        for setup_name, setup_target_table in overall_tables.items():
+            for metric_name, metric_target_dict in setup_target_table.items():
+                target_tables_latest_key = "target_tables:by.branch/{branch}/{org}/{repo}/{setup}/{metric}:latest".format(
+                    branch=tf_github_branch,
+                    org=tf_github_org,
+                    repo=tf_github_repo,
+                    setup=setup_name,
+                    metric=metric_name,
+                )
+                table_name = (
+                    "Target table for setup {} and metric {}. branch={}".format(
+                        setup_name, metric_name, tf_github_branch
+                    )
+                )
+                logging.info(
+                    "Populating overall {}. Used key={}".format(
+                        table_name, target_tables_latest_key
+                    )
+                )
+                headers = metric_target_dict["header"]
+                matrix_html = metric_target_dict["rows"]
+                htmlwriter = pytablewriter.HtmlTableWriter(
+                    table_name=table_name,
+                    headers=headers,
+                    value_matrix=matrix_html,
+                )
+                profile_markdown_str = htmlwriter.dumps()
+                profile_markdown_str = profile_markdown_str.replace("\n", "")
+                rts.redis.set(target_tables_latest_key, profile_markdown_str)
+    exit(return_code)
 
 
 def shutdown_remote_redis(redis_conns, ssh_tunnel):

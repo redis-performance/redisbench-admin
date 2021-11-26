@@ -720,8 +720,14 @@ def from_metric_kv_to_timeserie(
         test_name=test_name,
         metric_name=metric_name,
     )
-    target_table_dict = {"test-case": test_name, tf_github_repo: metric_value}
+    target_table_dict = {
+        "test-case": test_name,
+        "metric-name": metric_name,
+        tf_github_repo: metric_value,
+        "contains-target": False,
+    }
     for target_name, target_value in test_case_targets_dict.items():
+        target_table_dict["contains-target"] = True
         ts_name = original_ts_name + "/target/{}".format(target_name)
         timeserie_tags_target = timeserie_tags.copy()
         timeserie_tags_target["is_target"] = "true"
@@ -748,6 +754,7 @@ def from_metric_kv_to_timeserie(
         target_value_pct_str = "{:.2f}".format(target_value_pct)
 
         target_table_dict[target_name] = target_value
+
         target_table_dict[
             "{}:percent {}".format(target_name, comparison_type)
         ] = target_value_pct_str
