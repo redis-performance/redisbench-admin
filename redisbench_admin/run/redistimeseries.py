@@ -240,6 +240,9 @@ def timeseries_test_sucess_flow(
     timeseries_dict=None,
 ):
     testcase_metric_context_paths = []
+    version_target_tables = None
+    branch_target_tables = None
+
     if timeseries_dict is None:
         (
             timeseries_dict,
@@ -286,6 +289,8 @@ def timeseries_test_sucess_flow(
                         version_target_table_keyname
                     )
                 )
+                if "contains-target" in version_target_table_dict:
+                    del version_target_table_dict["contains-target"]
                 rts.redis.hset(
                     version_target_table_keyname, None, None, version_target_table_dict
                 )
@@ -305,6 +310,8 @@ def timeseries_test_sucess_flow(
                         version_target_table_keyname
                     )
                 )
+                if "contains-target" in branch_target_table_dict:
+                    del branch_target_table_dict["contains-target"]
                 rts.redis.hset(
                     branch_target_table_keyname, None, None, branch_target_table_dict
                 )
@@ -327,6 +334,7 @@ def timeseries_test_sucess_flow(
             tf_github_repo,
             tf_triggering_env,
         )
+    return version_target_tables, branch_target_tables
 
 
 def update_secondary_result_keys(
