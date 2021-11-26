@@ -5,7 +5,7 @@
 #
 import logging
 
-from python_terraform import Terraform
+from python_terraform import Terraform, IsNotFlagged
 
 from redisbench_admin.run.common import BENCHMARK_REPETITIONS
 from redisbench_admin.utils.remote import (
@@ -90,7 +90,12 @@ def terraform_destroy(remote_envs):
     for remote_setup_name, tf in remote_envs.items():
         # tear-down
         logging.info("Tearing down setup {}".format(remote_setup_name))
-        tf.destroy()
+        tf.destroy(
+            capture_output="yes",
+            no_color=IsNotFlagged,
+            force=IsNotFlagged,
+            auto_approve=True,
+        )
         logging.info("Tear-down completed")
 
 
