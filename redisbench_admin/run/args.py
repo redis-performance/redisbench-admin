@@ -30,9 +30,17 @@ PROFILERS_ENABLED = bool(os.getenv("PROFILE", 0))
 PROFILERS = os.getenv("PROFILERS", PROFILERS_DEFAULT)
 MAX_PROFILERS_PER_TYPE = int(os.getenv("MAX_PROFILERS", 1))
 PROFILE_FREQ = os.getenv("PROFILE_FREQ", PROFILE_FREQ_DEFAULT)
+KEEP_ENV = bool(os.getenv("KEEP_ENV", False))
 
 
 def common_run_args(parser):
+    parser.add_argument(
+        "--keep_env_and_topo",
+        required=False,
+        default=KEEP_ENV,
+        action="store_true",
+        help="Keep environment and topology up after benchmark.",
+    )
     parser.add_argument(
         "--dbdir_folder",
         type=str,

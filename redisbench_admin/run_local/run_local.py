@@ -340,8 +340,14 @@ def run_local_command_logic(args, project_name, project_version):
                                         benchmark_config, results_dict, return_code
                                     )
                                 if setup_details["env"] is None:
-                                    for conn in redis_conns:
-                                        conn.shutdown(save=False)
+                                    if args.keep_env_and_topo is False:
+                                        for conn in redis_conns:
+                                            conn.shutdown(save=False)
+                                    else:
+                                        logging.info(
+                                            "Keeping environment and topology active upon request."
+                                        )
+
                             except:
                                 return_code |= 1
                                 logging.critical(
@@ -356,9 +362,14 @@ def run_local_command_logic(args, project_name, project_version):
 
                             # tear-down
                             if setup_details["env"] is None:
-                                teardown_local_setup(
-                                    redis_conns, redis_processes, setup_name
-                                )
+                                if args.keep_env_and_topo is False:
+                                    teardown_local_setup(
+                                        redis_conns, redis_processes, setup_name
+                                    )
+                                else:
+                                    logging.info(
+                                        "Keeping environment and topology active upon request."
+                                    )
 
                         else:
                             logging.info(
@@ -367,8 +378,13 @@ def run_local_command_logic(args, project_name, project_version):
                                 )
                             )
                 if setup_details["env"] is not None:
-                    teardown_local_setup(redis_conns, redis_processes, setup_name)
-                    setup_details["env"] = None
+                    if args.keep_env_and_topo is False:
+                        teardown_local_setup(redis_conns, redis_processes, setup_name)
+                        setup_details["env"] = None
+                    else:
+                        logging.info(
+                            "Keeping environment and topology active upon request."
+                        )
 
     if profilers_enabled:
         local_profilers_print_artifacts_table(profilers_artifacts_matrix)
