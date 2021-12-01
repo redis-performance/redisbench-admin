@@ -18,7 +18,6 @@ from redisbench_admin.utils.remote import TERRAFORM_BIN_PATH
 
 REMOTE_INVENTORY = os.getenv("INVENTORY", None)
 REMOTE_USER = os.getenv("REMOTE_USER", "ubuntu")
-KEEP_ENV = bool(os.getenv("KEEP_ENV", False))
 
 
 def create_run_remote_arguments(parser):
@@ -41,13 +40,6 @@ def create_run_remote_arguments(parser):
         default=REMOTE_USER,
         type=str,
         help="connect as this user.",
-    )
-    parser.add_argument(
-        "--keep_env_and_topo",
-        required=False,
-        default=KEEP_ENV,
-        action="store_true",
-        help="Keep environment and topology up after benchmark.",
     )
     parser.add_argument(
         "--db_ssh_port",
