@@ -39,6 +39,13 @@ def compare_command_logic(args, project_name, project_version):
     tf_github_repo = args.github_repo
     tf_triggering_env = args.triggering_env
     deployment_type = args.deployment_type
+    deployment_name = args.deployment_name
+    logging.info(
+        "Using deployment_type={} and deployment_name={} for the analysis".format(
+            deployment_type,
+            deployment_name,
+        )
+    )
     from_ts_ms = args.from_timestamp
     to_ts_ms = args.to_timestamp
     use_tag = False
@@ -116,7 +123,6 @@ def compare_command_logic(args, project_name, project_version):
     for test_name in test_names:
 
         test_name = test_name.decode()
-        deployment_name = deployment_type
         ts_name_baseline = get_ts_metric_name(
             "by.{}".format(by_str),
             baseline_str,
@@ -157,7 +163,11 @@ def compare_command_logic(args, project_name, project_version):
             pass
         percentage_change = "N/A"
         percentage_change = 0.0
+        baseline_v_str = "N/A"
+        comparison_v_str = "N/A"
         if baseline_v != "N/A" and comparison_v != "N/A":
+            baseline_v_str = "{:.3f}".format(baseline_v)
+            comparison_v_str = "{:.3f}".format(comparison_v)
             if metric_mode == "higher-better":
                 percentage_change = (
                     float(comparison_v) / float(baseline_v) - 1
@@ -192,8 +202,8 @@ def compare_command_logic(args, project_name, project_version):
                 profilers_artifacts_matrix.append(
                     [
                         test_name,
-                        baseline_v,
-                        comparison_v,
+                        baseline_v_str,
+                        comparison_v_str,
                         percentage_change_str,
                     ]
                 )
