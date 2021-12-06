@@ -614,7 +614,13 @@ def run_remote_command_logic(args, project_name, project_version):
                                         setup_name,
                                         test_name,
                                     )
-
+                                except KeyboardInterrupt:
+                                    logging.critical(
+                                        "Detected Keyboard interruput...Destroy all remote envs and exiting right away!"
+                                    )
+                                    if args.inventory is None:
+                                        terraform_destroy(remote_envs)
+                                    exit(1)
                                 except:
                                     (
                                         start_time,

@@ -26,7 +26,22 @@ def prepare_ycsb_benchmark_command(
     workload = None
     threads = None
     override_workload_properties = []
-    for k in benchmark_config["parameters"]:
+    if type(benchmark_config["parameters"]) == list:
+        for k in benchmark_config["parameters"]:
+            if "database" in k:
+                database = k["database"]
+            if "step" in k:
+                step = k["step"]
+            if "workload" in k:
+                workload = k["workload"]
+                if current_workdir is not None and workload.startswith("./"):
+                    workload = "{}{}".format(current_workdir, workload[1:])
+            if "threads" in k:
+                threads = k["threads"]
+            if "override_workload_properties" in k:
+                override_workload_properties = k["override_workload_properties"]
+    if type(benchmark_config["parameters"]) == dict:
+        k = benchmark_config["parameters"]
         if "database" in k:
             database = k["database"]
         if "step" in k:
@@ -47,9 +62,10 @@ def prepare_ycsb_benchmark_command(
     if threads:
         command_arr.extend(["-p", '"threadcount={}"'.format(threads)])
 
-    command_arr.extend(["-p", '"redis.host={}"'.format(server_private_ip)])
-
-    command_arr.extend(["-p", '"redis.port={}"'.format(server_plaintext_port)])
+    if server_private_ip is not None:
+        command_arr.extend(["-p", '"redis.host={}"'.format(server_private_ip)])
+    if server_plaintext_port is not None:
+        command_arr.extend(["-p", '"redis.port={}"'.format(server_plaintext_port)])
 
     for prop in override_workload_properties:
         for k, v in prop.items():
