@@ -39,7 +39,9 @@ def parse_exporter_timemetric(metric_path: str, results_dict: dict):
     datapoints_timestamp = None
     try:
         jsonpath_expr = parse(metric_path)
-        datapoints_timestamp = int(jsonpath_expr.find(results_dict)[0].value)
+        find_res = jsonpath_expr.find(results_dict)
+        if len(find_res) > 0:
+            datapoints_timestamp = int(find_res[0].value)
     except Exception as e:
         logging.error(
             "Unable to parse time-metric {}. Error: {}".format(metric_path, e.__str__())

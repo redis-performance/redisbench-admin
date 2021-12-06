@@ -238,6 +238,15 @@ def common_exporter_logic(
             datapoints_timestamp = parse_exporter_timemetric(
                 exporter_timemetric_path, results_dict
             )
+            if datapoints_timestamp is None:
+                datapoints_timestamp = int(
+                    datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000.0
+                )
+                logging.warning(
+                    "Error while trying to parse datapoints timestamp. Using current system timestamp Error: {}".format(
+                        datapoints_timestamp
+                    )
+                )
         if (
             artifact_version is not None
             and artifact_version != ""
