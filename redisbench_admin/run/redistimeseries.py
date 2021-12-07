@@ -303,11 +303,11 @@ def timeseries_test_sucess_flow(
             for (
                 branch_target_table_keyname,
                 branch_target_table_dict,
-            ) in version_target_tables.items():
+            ) in branch_target_tables.items():
 
                 logging.info(
                     "Setting target table by branch on key {}".format(
-                        version_target_table_keyname
+                        branch_target_table_keyname
                     )
                 )
                 if "contains-target" in branch_target_table_dict:

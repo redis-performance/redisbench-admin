@@ -231,77 +231,68 @@ def common_exporter_logic(
     testcase_metric_context_paths = []
     version_target_tables = None
     branch_target_tables = None
+    used_ts = datapoints_timestamp
 
-    if exporter_timemetric_path is not None and len(metrics) > 0:
-        if datapoints_timestamp is None:
-            # extract timestamp
-            datapoints_timestamp = parse_exporter_timemetric(
-                exporter_timemetric_path, results_dict
+    if exporter_timemetric_path is not None and used_ts is None:
+        # extract timestamp
+        used_ts = parse_exporter_timemetric(exporter_timemetric_path, results_dict)
+
+    if used_ts is None:
+        used_ts = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000.0)
+        logging.warning(
+            "Error while trying to parse datapoints timestamp. Using current system timestamp Error: {}".format(
+                used_ts
             )
-            if datapoints_timestamp is None:
-                datapoints_timestamp = int(
-                    datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000.0
-                )
-                logging.warning(
-                    "Error while trying to parse datapoints timestamp. Using current system timestamp Error: {}".format(
-                        datapoints_timestamp
-                    )
-                )
-        if (
-            artifact_version is not None
-            and artifact_version != ""
-            and artifact_version != "N/A"
-        ):
-            # extract per-version datapoints
-            (
-                _,
-                per_version_time_series_dict,
-                version_target_tables,
-            ) = extract_perversion_timeseries_from_results(
-                datapoints_timestamp,
-                metrics,
-                results_dict,
-                artifact_version,
-                tf_github_org,
-                tf_github_repo,
-                deployment_name,
-                deployment_type,
-                test_name,
-                tf_triggering_env,
-                metadata_tags,
-                build_variant_name,
-                running_platform,
-                testcase_metric_context_paths,
-            )
-        if tf_github_branch is not None and tf_github_branch != "":
-            # extract per branch datapoints
-            (
-                _,
-                per_branch_time_series_dict,
-                branch_target_tables,
-            ) = extract_perbranch_timeseries_from_results(
-                datapoints_timestamp,
-                metrics,
-                results_dict,
-                str(tf_github_branch),
-                tf_github_org,
-                tf_github_repo,
-                deployment_name,
-                deployment_type,
-                test_name,
-                tf_triggering_env,
-                metadata_tags,
-                build_variant_name,
-                running_platform,
-                testcase_metric_context_paths,
-            )
-        else:
-            logging.warning(
-                "Requested to push data to RedisTimeSeries but no git"
-                " branch definition was found. git branch value {}".format(
-                    tf_github_branch
-                )
-            )
+        )
+    assert used_ts != None
+    if (
+        artifact_version is not None
+        and artifact_version != ""
+        and artifact_version != "N/A"
+    ):
+        # extract per-version datapoints
+        (
+            _,
+            per_version_time_series_dict,
+            version_target_tables,
+        ) = extract_perversion_timeseries_from_results(
+            used_ts,
+            metrics,
+            results_dict,
+            artifact_version,
+            tf_github_org,
+            tf_github_repo,
+            deployment_name,
+            deployment_type,
+            test_name,
+            tf_triggering_env,
+            metadata_tags,
+            build_variant_name,
+            running_platform,
+            testcase_metric_context_paths,
+        )
+    if tf_github_branch is not None and tf_github_branch != "":
+        # extract per branch datapoints
+        (
+            _,
+            per_branch_time_series_dict,
+            branch_target_tables,
+        ) = extract_perbranch_timeseries_from_results(
+            used_ts,
+            metrics,
+            results_dict,
+            str(tf_github_branch),
+            tf_github_org,
+            tf_github_repo,
+            deployment_name,
+            deployment_type,
+            test_name,
+            tf_triggering_env,
+            metadata_tags,
+            build_variant_name,
+            running_platform,
+            testcase_metric_context_paths,
+        )
     else:
         logging.error(
             "Requested to push data to RedisTimeSeries but "

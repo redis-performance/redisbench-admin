@@ -178,16 +178,26 @@ def extract_redis_dbconfig_parameters(benchmark_config, dbconfig_keyname):
     dbconfig_present = False
     if dbconfig_keyname in benchmark_config:
         dbconfig_present = True
-        for k in benchmark_config[dbconfig_keyname]:
-            if "configuration-parameters" in k:
-                cp = k["configuration-parameters"]
-                for item in cp:
-                    for k, v in item.items():
-                        redis_configuration_parameters[k] = v
-            if "dataset_load_timeout_secs" in k:
-                dataset_load_timeout_secs = k["dataset_load_timeout_secs"]
-            if "dataset_name" in k:
-                dataset_name = k["dataset_name"]
+        if type(benchmark_config[dbconfig_keyname]) == list:
+            for k in benchmark_config[dbconfig_keyname]:
+                if "configuration-parameters" in k:
+                    cp = k["configuration-parameters"]
+                    for item in cp:
+                        for k, v in item.items():
+                            redis_configuration_parameters[k] = v
+                if "dataset_load_timeout_secs" in k:
+                    dataset_load_timeout_secs = k["dataset_load_timeout_secs"]
+                if "dataset_name" in k:
+                    dataset_name = k["dataset_name"]
+        if type(benchmark_config[dbconfig_keyname]) == dict:
+            if "configuration-parameters" in benchmark_config[dbconfig_keyname]:
+                cp = benchmark_config[dbconfig_keyname]["configuration-parameters"]
+                for k, v in cp.items():
+                    redis_configuration_parameters[k] = v
+                if "dataset_load_timeout_secs" in cp:
+                    dataset_load_timeout_secs = cp["dataset_load_timeout_secs"]
+                if "dataset_name" in cp:
+                    dataset_name = cp["dataset_name"]
 
     return (
         dbconfig_present,
