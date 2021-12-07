@@ -519,6 +519,14 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict):
                         duplicate_policy="last",
                     )
                     datapoint_inserts += 1
+                except redis.exceptions.DataError:
+                    logging.warning(
+                        "Error while inserting datapoint ({} : {}) in timeseries named {}. ".format(
+                            timestamp, value, timeseries_name
+                        )
+                    )
+                    datapoint_errors += 1
+                    pass
                 except redis.exceptions.ResponseError:
                     logging.warning(
                         "Error while inserting datapoint ({} : {}) in timeseries named {}. ".format(
