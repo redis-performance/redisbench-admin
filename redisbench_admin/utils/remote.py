@@ -512,12 +512,20 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict):
             exporter_create_ts(rts, time_series, timeseries_name)
             for timestamp, value in time_series["data"].items():
                 try:
-                    rts.add(
-                        timeseries_name,
-                        timestamp,
-                        value,
-                        duplicate_policy="last",
-                    )
+                    if timestamp is None:
+                        logging.warning("The provided timestamp is null. Using auto-ts")
+                        rts.add(
+                            timeseries_name,
+                            value,
+                            duplicate_policy="last",
+                        )
+                    else:
+                        rts.add(
+                            timeseries_name,
+                            timestamp,
+                            value,
+                            duplicate_policy="last",
+                        )
                     datapoint_inserts += 1
                 except redis.exceptions.DataError:
                     logging.warning(
