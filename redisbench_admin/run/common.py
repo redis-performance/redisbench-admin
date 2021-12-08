@@ -244,7 +244,7 @@ def common_exporter_logic(
                 used_ts
             )
         )
-    assert used_ts != None
+    assert used_ts is not None
     if (
         artifact_version is not None
         and artifact_version != ""

@@ -548,14 +548,14 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict):
 
 def exporter_create_ts(rts, time_series, timeseries_name):
     try:
-        logging.info(
+        logging.debug(
             "Creating timeseries named {} with labels {}".format(
                 timeseries_name, time_series["labels"]
             )
         )
         rts.create(timeseries_name, labels=time_series["labels"])
     except redis.exceptions.ResponseError:
-        logging.info(
+        logging.debug(
             "Timeseries named {} already exists. Checking that the labels match.".format(
                 timeseries_name
             )

@@ -4,6 +4,7 @@
 #  All rights reserved.
 #
 import logging
+import datetime as dt
 
 from jsonpath_ng import parse
 
@@ -81,3 +82,32 @@ def extract_results_table(
                     "Unable to find metric path {} in result dict".format(jsonpath)
                 )
     return results_matrix
+
+
+def collect_redis_metrics(redis_conns, sections=["memory", "cpu"]):
+    start_time = dt.datetime.utcnow()
+    start_time_ms = int((start_time - dt.datetime(1970, 1, 1)).total_seconds() * 1000)
+    res = []
+    overall = {}
+    for conn in redis_conns:
+        conn_res = {}
+        for section in sections:
+            info = conn.info(section)
+            conn_res[section] = info
+            if section not in overall:
+                overall[section] = {}
+            for k, v in info.items():
+                if type(v) is float or type(v) is int:
+                    if k not in overall[section]:
+                        overall[section][k] = 0
+                    overall[section][k] += v
+
+        res.append(conn_res)
+
+    kv_overall = {}
+    for sec, kv_detail in overall.items():
+        for k, metric_value in kv_detail.items():
+            metric_name = "{}_{}".format(sec, k)
+            kv_overall[metric_name] = metric_value
+
+    return start_time_ms, res, kv_overall

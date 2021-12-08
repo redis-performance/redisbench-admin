@@ -4,11 +4,13 @@
 #  All rights reserved.
 #
 import json
+import os
 
 import yaml
+from redistimeseries.client import Client
 
 from redisbench_admin.run.common import merge_default_and_config_metrics
-from redisbench_admin.run.metrics import extract_results_table
+from redisbench_admin.run.metrics import extract_results_table, collect_redis_metrics
 
 
 def test_extract_results_table():
@@ -28,3 +30,25 @@ def test_extract_results_table():
                 metrics,
                 results_dict,
             )
+
+
+def test_collect_redis_metrics():
+    rts_host = os.getenv("RTS_DATASINK_HOST", None)
+    rts_port = 16379
+    if rts_host is None:
+        assert False
+    rts = Client(port=rts_port, host=rts_host)
+    rts.redis.ping()
+    time_ms, metrics_arr, overall_metrics = collect_redis_metrics([rts.redis])
+    assert len(metrics_arr) == 1
+    assert len(metrics_arr[0].keys()) == 2
+    assert "cpu" in metrics_arr[0].keys()
+    assert "memory" in metrics_arr[0].keys()
+    assert "allocator_active" in metrics_arr[0]["memory"]
+    allocator_active = metrics_arr[0]["memory"]["allocator_active"]
+    allocator_active_kv = overall_metrics["memory_allocator_active"]
+    assert allocator_active == allocator_active_kv
+
+    _, _, overall_metrics = collect_redis_metrics([rts.redis, rts.redis])
+    allocator_active_kv = overall_metrics["memory_allocator_active"]
+    assert (2 * allocator_active) == allocator_active_kv
