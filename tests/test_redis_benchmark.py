@@ -23,13 +23,31 @@ def test_prepare_redis_benchmark_command():
                 )
 
 
+def test_prepare_redis_benchmark_command_x():
+    with open("./tests/test_data/redis-benchmark-json.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        for k in benchmark_config["clientconfig"]:
+            if "parameters" in k:
+                command_arr, command_str = prepare_redis_benchmark_command(
+                    "redis-benchmark",
+                    "localhost",
+                    "6380",
+                    k,
+                    False,
+                    "./tests/test_data/",
+                )
+                assert command_str.startswith(
+                    "redis-benchmark -h localhost -p 6380 --csv -e -c 16 -n 5000000 --threads 2 -P 1 -r 1000000 JSON.SET jsonsl-1 $ '"
+                )
+
+
 def test_prepare_redis_benchmark_command():
     with open("./tests/test_data/redis-benchmark2.yml", "r") as yml_file:
         benchmark_config = yaml.safe_load(yml_file)
         for k in benchmark_config["clientconfig"]:
             if "parameters" in k:
                 command_arr, command_str = prepare_redis_benchmark_command(
-                    "redis-benchmark", "localhost", "6380", k, False
+                    "redis-benchmark", "localhost", "6380", k, False, None
                 )
                 assert (
                     command_str

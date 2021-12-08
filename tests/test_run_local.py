@@ -102,6 +102,30 @@ def test_datasink_profile_tabular_data():
         pass
 
 
+def test_run_local_command_logic_redis_benchmark():
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_local_arguments(parser)
+    args = parser.parse_args(
+        args=[
+            "--test",
+            "./tests/test_data/redis-benchmark-json.yml",
+            "--keep_env_and_topo",
+        ]
+    )
+    try:
+        run_local_command_logic(args, "tool", "v0")
+    except SystemExit as e:
+        assert e.code == 0
+
+    r = redis.StrictRedis()
+    total_keys = r.info("keyspace")["db0"]["keys"]
+    r.shutdown(nosave=True)
+    assert total_keys == 1000
+
+
 def test_run_local_command_logic():
     parser = argparse.ArgumentParser(
         description="test",

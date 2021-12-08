@@ -123,6 +123,7 @@ def prepare_benchmark_parameters_specif_tooling(
             server_plaintext_port,
             entry,
             cluster_api_enabled,
+            current_workdir,
         )
         if isremote is True:
             redirect_file = "> {}".format(remote_results_file)

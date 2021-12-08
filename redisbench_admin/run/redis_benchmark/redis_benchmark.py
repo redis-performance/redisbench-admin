@@ -6,6 +6,7 @@
 
 import csv
 import logging
+import os
 import re
 import shlex
 import subprocess
@@ -50,6 +51,7 @@ def prepare_redis_benchmark_command(
     server_plaintext_port: object,
     benchmark_config: object,
     cluster_api_enabled: bool,
+    current_workdir,
 ):
     """
     Prepares redis-benchmark command parameters
@@ -63,6 +65,8 @@ def prepare_redis_benchmark_command(
     command_arr = [executable_path]
     command_arr.extend(["-h", "{}".format(server_private_ip)])
     command_arr.extend(["-p", "{}".format(server_plaintext_port)])
+    if current_workdir is None:
+        current_workdir = os.path.abspath(".")
 
     # we need the csv output
     command_arr.extend(["--csv", "-e"])
@@ -70,6 +74,7 @@ def prepare_redis_benchmark_command(
     last_str = ""
     if cluster_api_enabled:
         command_arr.extend(["--cluster"])
+    minus_x = None
     for k in benchmark_config["parameters"]:
         if "clients" in k:
             command_arr.extend(["-c", "{}".format(k["clients"])])
@@ -81,12 +86,21 @@ def prepare_redis_benchmark_command(
             command_arr.extend(["-P", "{}".format(k["pipeline"])])
         if "keyspacelen" in k:
             command_arr.extend(["-r", "{}".format(k["keyspacelen"])])
+        if "r" in k:
+            command_arr.extend(["-r", "{}".format(k["r"])])
         if "size" in k:
             command_arr.extend(["-d", "{}".format(k["size"])])
+        if "x" in k:
+            with open("{}/{}".format(current_workdir, k["x"]), "r") as fd:
+                minus_x = fd.read()
         # if we have the command keywork then it needs to be at the end of args
         if "command" in k:
             last_str = k["command"]
             last_append = shlex.split(k["command"])
+
+    if minus_x is not None:
+        last_str += " '{}'".format(minus_x)
+        last_append.append(minus_x)
     command_str = " ".join(command_arr)
     if last_append is not None:
         command_arr.extend(last_append)
