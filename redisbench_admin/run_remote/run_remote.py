@@ -22,6 +22,7 @@ from redisbench_admin.run.common import (
 )
 from redisbench_admin.run.git import git_vars_crosscheck
 from redisbench_admin.run.grafana import generate_artifacts_table_grafana_redis
+from redisbench_admin.run.metrics import collect_redis_metrics
 from redisbench_admin.run.modules import redis_modules_check
 from redisbench_admin.run.redistimeseries import (
     timeseries_test_sucess_flow,
@@ -46,6 +47,8 @@ from redisbench_admin.utils.remote import (
     get_run_full_filename,
     get_overall_dashboard_keynames,
     check_ec2_env,
+    get_project_ts_tags,
+    push_data_to_redistimeseries,
 )
 
 from redisbench_admin.utils.utils import (
@@ -374,6 +377,12 @@ def run_remote_command_logic(args, project_name, project_version):
                                         )
 
                                     (
+                                        _,
+                                        _,
+                                        overall_start_time_metrics,
+                                    ) = collect_redis_metrics(redis_conns)
+
+                                    (
                                         start_time,
                                         start_time_ms,
                                         start_time_str,
@@ -497,6 +506,78 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
                                             )
 
+                                    (
+                                        end_time_ms,
+                                        _,
+                                        overall_end_time_metrics,
+                                    ) = collect_redis_metrics(redis_conns)
+
+                                    sprefix = "ci.benchmarks.redislabs/" + "{triggering_env}/{github_org}/{github_repo}".format(
+                                        triggering_env=tf_triggering_env,
+                                        github_org=tf_github_org,
+                                        github_repo=tf_github_repo,
+                                    )
+                                    logging.info(
+                                        "Adding a total of {} server side metrics collected at the end of benchmark".format(
+                                            len(list(overall_end_time_metrics.items()))
+                                        )
+                                    )
+                                    timeseries_dict = {}
+                                    by_variants = {}
+                                    if tf_github_branch is not None:
+                                        by_variants[
+                                            "by.branch/{}".format(tf_github_branch)
+                                        ] = {"branch": tf_github_branch}
+                                    if artifact_version is not None:
+                                        by_variants[
+                                            "by.version/{}".format(artifact_version)
+                                        ] = {"version": artifact_version}
+                                    for (
+                                        by_variant,
+                                        variant_labels_dict,
+                                    ) in by_variants.items():
+                                        for (
+                                            metric_name,
+                                            metric_value,
+                                        ) in overall_end_time_metrics.items():
+                                            tsname_metric = (
+                                                "{}/{}/{}/benchmark_end/{}".format(
+                                                    sprefix,
+                                                    test_name,
+                                                    by_variant,
+                                                    metric_name,
+                                                )
+                                            )
+
+                                            logging.debug(
+                                                "Adding a redis server side metric collected at the end of benchmark."
+                                                + " metric_name={} metric_value={} time-series name: {}".format(
+                                                    metric_name,
+                                                    metric_value,
+                                                    tsname_metric,
+                                                )
+                                            )
+                                            variant_labels_dict["test_name"] = test_name
+                                            variant_labels_dict["metric"] = metric_name
+
+                                            timeseries_dict[tsname_metric] = {
+                                                "labels": get_project_ts_tags(
+                                                    tf_github_org,
+                                                    tf_github_repo,
+                                                    setup_name,
+                                                    setup_type,
+                                                    tf_triggering_env,
+                                                    variant_labels_dict,
+                                                    None,
+                                                    None,
+                                                ),
+                                                "data": {end_time_ms: metric_value},
+                                            }
+                                    if args.push_results_redistimeseries:
+                                        push_data_to_redistimeseries(
+                                            rts, timeseries_dict
+                                        )
+
                                     if setup_details["env"] is None:
                                         if args.keep_env_and_topo is False:
                                             shutdown_remote_redis(
@@ -573,6 +654,11 @@ def run_remote_command_logic(args, project_name, project_version):
                                             branch_tt_keyname,
                                             branch_target_table,
                                         ) in branch_target_tables.items():
+                                            if (
+                                                "contains-target"
+                                                not in branch_target_table
+                                            ):
+                                                continue
                                             if (
                                                 branch_target_table["contains-target"]
                                                 is True
