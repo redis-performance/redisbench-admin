@@ -25,7 +25,7 @@ from redisbench_admin.utils.remote import (
 ) = extract_git_vars()
 
 _, NOW_UTC, _ = get_start_time_vars()
-LAST_WEEK_UTC = NOW_UTC - (24 * 90 * 60 * 60 * 1000)
+LAST_WEEK_UTC = NOW_UTC - (7 * 24 * 60 * 60 * 1000)
 
 
 def create_compare_arguments(parser):
@@ -70,6 +70,11 @@ def create_compare_arguments(parser):
     parser.add_argument(
         "--redistimeseries_user", type=str, default=PERFORMANCE_RTS_USER
     )
-    parser.add_argument("--from_timestamp", type=int, default=LAST_WEEK_UTC)
+    parser.add_argument(
+        "--from_timestamp",
+        type=int,
+        default=LAST_WEEK_UTC,
+        help="The minimum period to use for the the value fetching",
+    )
     parser.add_argument("--to_timestamp", type=int, default=NOW_UTC)
     return parser

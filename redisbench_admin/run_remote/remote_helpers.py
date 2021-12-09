@@ -247,7 +247,7 @@ def post_process_remote_run(
 ):
     if benchmark_tool == "redis-benchmark":
         local_benchmark_output_filename = tmp
-        with open(result_csv_filename, "r") as txt_file:
+        with open(result_csv_filename, "r", encoding="utf-8") as txt_file:
             stdout = txt_file.read()
     if benchmark_tool == "redis-benchmark" or benchmark_tool == "ycsb":
         post_process_benchmark_results(
