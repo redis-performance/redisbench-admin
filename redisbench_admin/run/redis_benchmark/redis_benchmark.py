@@ -91,7 +91,9 @@ def prepare_redis_benchmark_command(
         if "size" in k:
             command_arr.extend(["-d", "{}".format(k["size"])])
         if "x" in k:
-            with open("{}/{}".format(current_workdir, k["x"]), "r") as fd:
+            with open(
+                "{}/{}".format(current_workdir, k["x"]), "r", encoding="utf-8"
+            ) as fd:
                 minus_x = fd.read()
         # if we have the command keywork then it needs to be at the end of args
         if "command" in k:
