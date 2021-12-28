@@ -107,7 +107,11 @@ def watchdog_command_logic(args, project_name, project_version):
         aws_access_key_id=EC2_ACCESS_KEY,
         aws_secret_access_key=EC2_SECRET_KEY,
     )
-    logging.info("Checking connection to RedisTimeSeries.")
+    logging.info(
+        "Checking connection to RedisTimeSeries to host: {}:{}".format(
+            args.redistimeseries_host, args.redistimeseries_port
+        )
+    )
     rts = Client(
         host=args.redistimeseries_host,
         port=args.redistimeseries_port,

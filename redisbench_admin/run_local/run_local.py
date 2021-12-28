@@ -91,7 +91,11 @@ def run_local_command_logic(args, project_name, project_version):
 
     rts = None
     if args.push_results_redistimeseries:
-        logging.info("Checking connection to RedisTimeSeries.")
+        logging.info(
+            "Checking connection to RedisTimeSeries to host: {}:{}".format(
+                args.redistimeseries_host, args.redistimeseries_port
+            )
+        )
         rts = Client(
             host=args.redistimeseries_host,
             port=args.redistimeseries_port,

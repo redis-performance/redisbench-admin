@@ -291,8 +291,8 @@ def compare_command_logic(args, project_name, project_version):
         ),
         headers=[
             "Test Case",
-            "Baseline value",
-            "Comparison Value",
+            "Baseline (median obs. +- std.dev)",
+            "Comparison (median obs. +- std.dev)",
             "% change ({})".format(metric_mode),
             "Note",
         ],
