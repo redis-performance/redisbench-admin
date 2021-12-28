@@ -34,10 +34,10 @@ def test_prepare_redis_benchmark_command_x():
                     "6380",
                     k,
                     False,
-                    "./tests/test_data/",
+                    ".",
                 )
                 assert command_str.startswith(
-                    "redis-benchmark -h localhost -p 6380 --csv -e -c 16 -n 5000000 --threads 2 -P 1 -r 1000000 JSON.SET jsonsl-1 $ '"
+                    "redis-benchmark -h localhost -p 6380 --csv -e -c 16 -n 50000 --threads 2 -P 1 -r 1000 SET __rand_int__ '"
                 )
 
 

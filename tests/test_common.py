@@ -102,7 +102,7 @@ def test_prepare_benchmark_parameters():
         )
         assert (
             command_str
-            == "redis-benchmark -h localhost -p 6380 --csv -e -c 50 -n 100000 --threads 2 -P 1"
+            == "redis-benchmark -h localhost -p 6380 --csv -e -c 50 -n 100000 --threads 2 -P 1 -r 1000000"
         )
 
 

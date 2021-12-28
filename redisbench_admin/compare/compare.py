@@ -317,7 +317,7 @@ def compare_command_logic(args, project_name, project_version):
         )
     if total_regressions > 0:
         logging.warning(
-            "Detected a total of {} regressions bellow the regression water line.".format(
+            "Detected a total of {} regressions bellow the regression water line {}.".format(
                 total_regressions, args.regressions_percent_lower_limit
             )
         )
