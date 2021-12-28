@@ -148,7 +148,7 @@ def test_timeseries_test_sucess_flow():
                 len(results_dict["Tests"].keys()) * len(metrics)
                 + number_of_control_redis
                 + number_of_control_ts
-            ) == (len(keys))
+            ) <= (len(keys))
             total_by_version = 0
             total_by_branch = 0
             total_metrics = 7
@@ -164,7 +164,8 @@ def test_timeseries_test_sucess_flow():
             )
             assert total_by_branch > 0
             assert (
-                total_by_branch == len(results_dict["Tests"].keys()) * total_metrics + 2
+                total_by_branch
+                == len(results_dict["Tests"].keys()) * total_metrics + 2 + len_metrics
             )
 
             # test again and change some metadata
