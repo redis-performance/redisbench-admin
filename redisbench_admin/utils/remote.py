@@ -554,22 +554,30 @@ def exporter_create_ts(rts, time_series, timeseries_name):
             )
         )
         rts.create(timeseries_name, labels=time_series["labels"])
-    except redis.exceptions.ResponseError:
-        logging.debug(
-            "Timeseries named {} already exists. Checking that the labels match.".format(
-                timeseries_name
-            )
-        )
-        set1 = set(time_series["labels"].items())
-        set2 = set(rts.info(timeseries_name).labels.items())
-        if len(set1 - set2) > 0 or len(set2 - set1) > 0:
-            logging.info(
-                "Given the labels don't match using TS.ALTER on {} to update labels to {}".format(
-                    timeseries_name, time_series["labels"]
+    except redis.exceptions.ResponseError as e:
+        if "already exists" in e.__str__():
+            logging.debug(
+                "Timeseries named {} already exists. Checking that the labels match.".format(
+                    timeseries_name
                 )
             )
-            rts.alter(timeseries_name, labels=time_series["labels"])
-        pass
+            set1 = set(time_series["labels"].items())
+            set2 = set(rts.info(timeseries_name).labels.items())
+            if len(set1 - set2) > 0 or len(set2 - set1) > 0:
+                logging.info(
+                    "Given the labels don't match using TS.ALTER on {} to update labels to {}".format(
+                        timeseries_name, time_series["labels"]
+                    )
+                )
+                rts.alter(timeseries_name, labels=time_series["labels"])
+            pass
+        else:
+            logging.error(
+                "While creating timeseries named {} with the following labels: {} this error ocurred: {}".format(
+                    timeseries_name, time_series["labels"], e.__str__()
+                )
+            )
+            raise
 
 
 def extract_redisgraph_version_from_resultdict(results_dict: dict):
