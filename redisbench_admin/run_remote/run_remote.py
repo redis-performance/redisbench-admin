@@ -510,76 +510,25 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
                                             )
 
-                                    (
-                                        end_time_ms,
-                                        _,
-                                        overall_end_time_metrics,
-                                    ) = collect_redis_metrics(redis_conns)
-
-                                    sprefix = "ci.benchmarks.redislabs/" + "{triggering_env}/{github_org}/{github_repo}".format(
-                                        triggering_env=tf_triggering_env,
-                                        github_org=tf_github_org,
-                                        github_repo=tf_github_repo,
-                                    )
-                                    logging.info(
-                                        "Adding a total of {} server side metrics collected at the end of benchmark".format(
-                                            len(list(overall_end_time_metrics.items()))
-                                        )
-                                    )
-                                    timeseries_dict = {}
-                                    by_variants = {}
-                                    if tf_github_branch is not None:
-                                        by_variants[
-                                            "by.branch/{}".format(tf_github_branch)
-                                        ] = {"branch": tf_github_branch}
-                                    if artifact_version is not None:
-                                        by_variants[
-                                            "by.version/{}".format(artifact_version)
-                                        ] = {"version": artifact_version}
-                                    for (
-                                        by_variant,
-                                        variant_labels_dict,
-                                    ) in by_variants.items():
-                                        for (
-                                            metric_name,
-                                            metric_value,
-                                        ) in overall_end_time_metrics.items():
-                                            tsname_metric = (
-                                                "{}/{}/{}/benchmark_end/{}".format(
-                                                    sprefix,
-                                                    test_name,
-                                                    by_variant,
-                                                    metric_name,
-                                                )
-                                            )
-
-                                            logging.debug(
-                                                "Adding a redis server side metric collected at the end of benchmark."
-                                                + " metric_name={} metric_value={} time-series name: {}".format(
-                                                    metric_name,
-                                                    metric_value,
-                                                    tsname_metric,
-                                                )
-                                            )
-                                            variant_labels_dict["test_name"] = test_name
-                                            variant_labels_dict["metric"] = metric_name
-
-                                            timeseries_dict[tsname_metric] = {
-                                                "labels": get_project_ts_tags(
-                                                    tf_github_org,
-                                                    tf_github_repo,
-                                                    setup_name,
-                                                    setup_type,
-                                                    tf_triggering_env,
-                                                    variant_labels_dict,
-                                                    None,
-                                                    None,
-                                                ),
-                                                "data": {end_time_ms: metric_value},
-                                            }
                                     if args.push_results_redistimeseries:
-                                        push_data_to_redistimeseries(
-                                            rts, timeseries_dict
+                                        (
+                                            end_time_ms,
+                                            _,
+                                            overall_end_time_metrics,
+                                        ) = collect_redis_metrics(redis_conns)
+                                        export_redis_metrics(
+                                            args,
+                                            artifact_version,
+                                            end_time_ms,
+                                            overall_end_time_metrics,
+                                            rts,
+                                            setup_name,
+                                            setup_type,
+                                            test_name,
+                                            tf_github_branch,
+                                            tf_github_org,
+                                            tf_github_repo,
+                                            tf_triggering_env,
                                         )
 
                                     if setup_details["env"] is None:
@@ -785,6 +734,89 @@ def run_remote_command_logic(args, project_name, project_version):
                 profile_markdown_str = profile_markdown_str.replace("\n", "")
                 rts.redis.set(target_tables_latest_key, profile_markdown_str)
     exit(return_code)
+
+
+def export_redis_metrics(
+    artifact_version,
+    end_time_ms,
+    overall_end_time_metrics,
+    rts,
+    setup_name,
+    setup_type,
+    test_name,
+    tf_github_branch,
+    tf_github_org,
+    tf_github_repo,
+    tf_triggering_env,
+):
+    datapoint_errors = 0
+    datapoint_inserts = 0
+    sprefix = (
+        "ci.benchmarks.redislabs/"
+        + "{triggering_env}/{github_org}/{github_repo}".format(
+            triggering_env=tf_triggering_env,
+            github_org=tf_github_org,
+            github_repo=tf_github_repo,
+        )
+    )
+    logging.info(
+        "Adding a total of {} server side metrics collected at the end of benchmark".format(
+            len(list(overall_end_time_metrics.items()))
+        )
+    )
+    timeseries_dict = {}
+    by_variants = {}
+    if tf_github_branch is not None and tf_github_branch != "":
+        by_variants["by.branch/{}".format(tf_github_branch)] = {
+            "branch": tf_github_branch
+        }
+    if artifact_version is not None and artifact_version != "":
+        by_variants["by.version/{}".format(artifact_version)] = {
+            "version": artifact_version
+        }
+    for (
+        by_variant,
+        variant_labels_dict,
+    ) in by_variants.items():
+        for (
+            metric_name,
+            metric_value,
+        ) in overall_end_time_metrics.items():
+            tsname_metric = "{}/{}/{}/benchmark_end/{}".format(
+                sprefix,
+                test_name,
+                by_variant,
+                metric_name,
+            )
+
+            logging.debug(
+                "Adding a redis server side metric collected at the end of benchmark."
+                + " metric_name={} metric_value={} time-series name: {}".format(
+                    metric_name,
+                    metric_value,
+                    tsname_metric,
+                )
+            )
+            variant_labels_dict["test_name"] = test_name
+            variant_labels_dict["metric"] = metric_name
+
+            timeseries_dict[tsname_metric] = {
+                "labels": get_project_ts_tags(
+                    tf_github_org,
+                    tf_github_repo,
+                    setup_name,
+                    setup_type,
+                    tf_triggering_env,
+                    variant_labels_dict,
+                    None,
+                    None,
+                ),
+                "data": {end_time_ms: metric_value},
+            }
+    i_errors, i_inserts = push_data_to_redistimeseries(rts, timeseries_dict)
+    datapoint_errors = datapoint_errors + i_errors
+    datapoint_inserts = datapoint_inserts + i_inserts
+    return datapoint_errors, datapoint_inserts
 
 
 def shutdown_remote_redis(redis_conns, ssh_tunnel):
