@@ -517,7 +517,6 @@ def run_remote_command_logic(args, project_name, project_version):
                                             overall_end_time_metrics,
                                         ) = collect_redis_metrics(redis_conns)
                                         export_redis_metrics(
-                                            args,
                                             artifact_version,
                                             end_time_ms,
                                             overall_end_time_metrics,
