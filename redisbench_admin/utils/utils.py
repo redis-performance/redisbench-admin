@@ -25,6 +25,36 @@ from tqdm import tqdm
 EPOCH = dt.datetime.utcfromtimestamp(0)
 
 
+def redis_server_config_module_part(
+    command, local_module_file, modules_configuration_parameters_map
+):
+    command.extend(
+        [
+            "--loadmodule",
+            os.path.abspath(local_module_file),
+        ]
+    )
+    for (
+        module_config_modulename,
+        module_config_dict,
+    ) in modules_configuration_parameters_map.items():
+        if module_config_modulename in local_module_file:
+            for (
+                module_config_parameter_name,
+                module_config_parameter_value,
+            ) in module_config_dict.items():
+                if type(module_config_parameter_value) != str:
+                    module_config_parameter_value = "{}".format(
+                        module_config_parameter_value
+                    )
+                command.extend(
+                    [
+                        module_config_parameter_name,
+                        module_config_parameter_value,
+                    ]
+                )
+
+
 def upload_artifacts_to_s3(
     artifacts,
     s3_bucket_name,

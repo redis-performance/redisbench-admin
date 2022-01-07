@@ -4,12 +4,11 @@
 #  All rights reserved.
 #
 import logging
-import os
 import subprocess
 
 import redis
 
-from redisbench_admin.utils.utils import wait_for_conn
+from redisbench_admin.utils.utils import wait_for_conn, redis_server_config_module_part
 
 
 def spin_up_local_redis(
@@ -20,9 +19,15 @@ def spin_up_local_redis(
     configuration_parameters=None,
     dbdir_folder=None,
     dataset_load_timeout_secs=120,
+    modules_configuration_parameters_map={},
 ):
     command = generate_standalone_redis_server_args(
-        binary, dbdir, local_module_files, port, configuration_parameters
+        binary,
+        dbdir,
+        local_module_files,
+        port,
+        configuration_parameters,
+        modules_configuration_parameters_map,
     )
 
     logging.info(
@@ -38,7 +43,12 @@ def spin_up_local_redis(
 
 
 def generate_standalone_redis_server_args(
-    binary, dbdir, local_module_files, port, configuration_parameters=None
+    binary,
+    dbdir,
+    local_module_files,
+    port,
+    configuration_parameters=None,
+    modules_configuration_parameters_map={},
 ):
     # start redis-server
     command = [
@@ -60,18 +70,12 @@ def generate_standalone_redis_server_args(
             )
     if local_module_files is not None:
         if type(local_module_files) == str:
-            command.extend(
-                [
-                    "--loadmodule",
-                    os.path.abspath(local_module_files),
-                ]
+            redis_server_config_module_part(
+                command, local_module_files, modules_configuration_parameters_map
             )
         if type(local_module_files) == list:
             for mod in local_module_files:
-                command.extend(
-                    [
-                        "--loadmodule",
-                        os.path.abspath(mod),
-                    ]
+                redis_server_config_module_part(
+                    command, mod, modules_configuration_parameters_map
                 )
     return command

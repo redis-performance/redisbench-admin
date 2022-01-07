@@ -67,6 +67,28 @@ def test_generate_standalone_redis_server_args():
         "--loadmodule",
         os.path.abspath(local_module_file),
     ]
+
+    cmd = generate_standalone_redis_server_args(
+        "redis-server",
+        ".",
+        local_module_file,
+        "1010",
+        {"m1": {"CHUNK_SIZE_BYTES": 128}},
+    )
+    assert cmd == [
+        "redis-server",
+        "--save",
+        '""',
+        "--port",
+        "1010",
+        "--dir",
+        ".",
+        "--loadmodule",
+        os.path.abspath(local_module_file),
+        "CHUNK_SIZE_BYTES",
+        "128",
+    ]
+
     cmd = generate_standalone_redis_server_args(
         "redis-server", ".", None, "9999", {"notify-keyspace-events": "KEA"}
     )

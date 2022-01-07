@@ -90,6 +90,7 @@ def remote_db_spin(
         _,
         redis_configuration_parameters,
         dataset_load_timeout_secs,
+        modules_configuration_parameters_map,
     ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
 
     cluster_start_port = 20000
@@ -129,6 +130,7 @@ def remote_db_spin(
             shard_count,
             cluster_start_port,
             db_ssh_port,
+            modules_configuration_parameters_map,
         )
 
         for p in range(cluster_start_port, cluster_start_port + shard_count):
@@ -153,6 +155,7 @@ def remote_db_spin(
             logname,
             redis_configuration_parameters,
             db_ssh_port,
+            modules_configuration_parameters_map,
         )
         full_logfiles.append(full_logfile)
         local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(

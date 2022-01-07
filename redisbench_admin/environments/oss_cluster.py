@@ -4,13 +4,12 @@
 #  All rights reserved.
 #
 import logging
-import os
 import subprocess
 from time import sleep
 
 import redis
 
-from redisbench_admin.utils.utils import wait_for_conn
+from redisbench_admin.utils.utils import wait_for_conn, redis_server_config_module_part
 
 
 def spin_up_local_redis_cluster(
@@ -21,6 +20,7 @@ def spin_up_local_redis_cluster(
     local_module_file,
     configuration_parameters=None,
     dataset_load_timeout_secs=60,
+    modules_configuration_parameters_map={},
 ):
     redis_processes = []
     redis_conns = []
@@ -29,7 +29,13 @@ def spin_up_local_redis_cluster(
         shard_port = master_shard_id + start_port - 1
 
         command = generate_cluster_redis_server_args(
-            dbdir, local_module_file, ip, shard_port, configuration_parameters, "no"
+            dbdir,
+            local_module_file,
+            ip,
+            shard_port,
+            configuration_parameters,
+            "no",
+            modules_configuration_parameters_map,
         )
 
         logging.info(
@@ -132,6 +138,7 @@ def generate_cluster_redis_server_args(
     port,
     configuration_parameters=None,
     daemonize="yes",
+    modules_configuration_parameters_map={},
 ):
     # start redis-server
     command = [
@@ -171,19 +178,13 @@ def generate_cluster_redis_server_args(
             )
     if local_module_file is not None:
         if type(local_module_file) == str:
-            command.extend(
-                [
-                    "--loadmodule",
-                    os.path.abspath(local_module_file),
-                ]
+            redis_server_config_module_part(
+                command, local_module_file, modules_configuration_parameters_map
             )
         if type(local_module_file) == list:
             for mod in local_module_file:
-                command.extend(
-                    [
-                        "--loadmodule",
-                        os.path.abspath(mod),
-                    ]
+                redis_server_config_module_part(
+                    command, mod, modules_configuration_parameters_map
                 )
     return command
 

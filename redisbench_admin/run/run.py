@@ -42,7 +42,7 @@ def define_benchmark_plan(benchmark_definitions, default_specs):
             benchmark_runs_plan[benchmark_type] = {}
 
         # extract dataset-name
-        dbconfig_present, dataset_name, _, _ = extract_redis_dbconfig_parameters(
+        dbconfig_present, dataset_name, _, _, _ = extract_redis_dbconfig_parameters(
             benchmark_config, "dbconfig"
         )
         if dataset_name is None:
