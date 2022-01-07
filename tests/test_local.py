@@ -73,6 +73,7 @@ def test_generate_standalone_redis_server_args():
         ".",
         local_module_file,
         "1010",
+        None,
         {"m1": {"CHUNK_SIZE_BYTES": 128}},
     )
     assert cmd == [
