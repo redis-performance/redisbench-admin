@@ -68,6 +68,7 @@ def local_db_spin(
         _,
         redis_configuration_parameters,
         dataset_load_timeout_secs,
+        modules_configuration_parameters_map,
     ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
     cluster_api_enabled = False
     logging.info(
@@ -85,6 +86,7 @@ def local_db_spin(
             local_module_file,
             redis_configuration_parameters,
             dataset_load_timeout_secs,
+            modules_configuration_parameters_map,
         )
 
         status = setup_redis_cluster_from_conns(
@@ -111,6 +113,7 @@ def local_db_spin(
             redis_configuration_parameters,
             dbdir_folder,
             dataset_load_timeout_secs,
+            modules_configuration_parameters_map,
         )
 
         r = redis.StrictRedis(port=args.port)

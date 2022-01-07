@@ -56,8 +56,10 @@ def test_extract_redis_configuration_parameters():
             _,
             redis_configuration_parameters,
             dataset_load_timeout_secs,
+            modules_configuration_parameters_map,
         ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
         assert redis_configuration_parameters == {}
+        assert modules_configuration_parameters_map == {}
         assert dataset_load_timeout_secs == 120
         assert dbconfig_present == False
 
@@ -70,8 +72,10 @@ def test_extract_redis_configuration_parameters():
             _,
             redis_configuration_parameters,
             dataset_load_timeout_secs,
+            modules_configuration_parameters_map,
         ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
         assert dataset_load_timeout_secs == 120
+        assert modules_configuration_parameters_map == {}
         assert dbconfig_present == True
         assert redis_configuration_parameters == {
             "notify-keyspace-events": "KEA",
@@ -87,6 +91,25 @@ def test_extract_redis_configuration_parameters():
             _,
             redis_configuration_parameters,
             dataset_load_timeout_secs,
+            modules_configuration_parameters_map,
         ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
         assert dataset_load_timeout_secs == 1200
+        assert modules_configuration_parameters_map == {}
+        assert dbconfig_present == True
+
+    with open(
+        "./tests/test_data/tsbs-scale100-cpu-max-all-1@4139rps.yml", "r"
+    ) as config_fd:
+        benchmark_config = yaml.safe_load(config_fd)
+        (
+            dbconfig_present,
+            _,
+            redis_configuration_parameters,
+            dataset_load_timeout_secs,
+            modules_configuration_parameters_map,
+        ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
+        assert dataset_load_timeout_secs == 120
+        assert modules_configuration_parameters_map == {
+            "redistimeseries": {"CHUNK_SIZE_BYTES": 128}
+        }
         assert dbconfig_present == True

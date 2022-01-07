@@ -12,6 +12,7 @@ from redisbench_admin.utils.remote import (
     execute_remote_commands,
 )
 from redisbench_admin.utils.ssh import SSHSession
+from redisbench_admin.utils.utils import redis_server_config_module_part
 
 
 def spin_up_standalone_remote_redis(
@@ -23,10 +24,15 @@ def spin_up_standalone_remote_redis(
     logfile,
     redis_configuration_parameters=None,
     port=22,
+    modules_configuration_parameters_map={},
 ):
 
     full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
-        logfile, redis_configuration_parameters, remote_module_files, temporary_dir
+        logfile,
+        redis_configuration_parameters,
+        remote_module_files,
+        temporary_dir,
+        modules_configuration_parameters_map,
     )
 
     # start redis-server
@@ -84,7 +90,11 @@ def remote_module_files_cp(
 
 
 def generate_remote_standalone_redis_cmd(
-    logfile, redis_configuration_parameters, remote_module_files, temporary_dir
+    logfile,
+    redis_configuration_parameters,
+    remote_module_files,
+    temporary_dir,
+    modules_configuration_parameters_map,
 ):
     initial_redis_cmd = 'redis-server --save "" --logfile {} --dir {} --daemonize yes --protected-mode no'.format(
         logfile, temporary_dir
@@ -98,7 +108,17 @@ def generate_remote_standalone_redis_cmd(
             initial_redis_cmd += " --{} {}".format(
                 configuration_parameter, configuration_value
             )
+    command = []
     if remote_module_files is not None:
-        for remote_module_file in remote_module_files:
-            initial_redis_cmd += " --loadmodule {}".format(remote_module_file)
+        if type(remote_module_files) == str:
+            redis_server_config_module_part(
+                command, remote_module_files, modules_configuration_parameters_map
+            )
+        if type(remote_module_files) == list:
+            for mod in remote_module_files:
+                redis_server_config_module_part(
+                    command, mod, modules_configuration_parameters_map
+                )
+    if remote_module_files is not None:
+        initial_redis_cmd += " ".join(command)
     return full_logfile, initial_redis_cmd
