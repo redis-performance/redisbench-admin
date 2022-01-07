@@ -124,6 +124,7 @@ def spin_up_redis_cluster_remote_redis(
             server_private_ip,
             shard_port,
             redis_configuration_parameters,
+            "yes",
             modules_configuration_parameters_map,
         )
         logging.error(
