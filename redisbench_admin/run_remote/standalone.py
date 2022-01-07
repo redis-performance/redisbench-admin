@@ -120,5 +120,5 @@ def generate_remote_standalone_redis_cmd(
                     command, mod, modules_configuration_parameters_map
                 )
     if remote_module_files is not None:
-        initial_redis_cmd += " ".join(command)
+        initial_redis_cmd += " " + " ".join(command)
     return full_logfile, initial_redis_cmd
