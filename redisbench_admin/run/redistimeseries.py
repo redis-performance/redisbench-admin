@@ -7,12 +7,12 @@ import logging
 
 import redis
 
+from redisbench_admin.profilers.profilers_schema import get_profilers_rts_key_prefix
 from redisbench_admin.run.common import (
     merge_default_and_config_metrics,
     common_exporter_logic,
     get_start_time_vars,
 )
-from redisbench_admin.run_local.profile_local import get_profilers_rts_key_prefix
 from redisbench_admin.utils.remote import (
     get_project_ts_tags,
     get_overall_dashboard_keynames,

@@ -34,6 +34,9 @@ Installation is done using pip, the package installer for Python, in the followi
 python3 -m pip install redisbench-admin
 ```
 
+## Profiler daemon
+
+
 ## Development
 
 1. Install [pypoetry](https://python-poetry.org/) to manage your dependencies and trigger tooling.
