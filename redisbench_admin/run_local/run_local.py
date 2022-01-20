@@ -13,6 +13,9 @@ import traceback
 
 from redistimeseries.client import Client
 
+from redisbench_admin.profilers.profilers_schema import (
+    local_profilers_print_artifacts_table,
+)
 from redisbench_admin.run.common import (
     prepare_benchmark_parameters,
     get_start_time_vars,
@@ -31,8 +34,7 @@ from redisbench_admin.run_local.local_helpers import (
     run_local_benchmark,
     check_benchmark_binaries_local_requirements,
 )
-from redisbench_admin.run_local.profile_local import (
-    local_profilers_print_artifacts_table,
+from redisbench_admin.profilers.profilers_local import (
     profilers_stop_if_required,
     profilers_start_if_required,
     check_compatible_system_and_kernel_and_prepare_profile,

@@ -553,7 +553,7 @@ def exporter_create_ts(rts, time_series, timeseries_name):
                 timeseries_name, time_series["labels"]
             )
         )
-        rts.create(timeseries_name, labels=time_series["labels"])
+        rts.create(timeseries_name, labels=time_series["labels"], chunk_size=128)
     except redis.exceptions.ResponseError as e:
         if "already exists" in e.__str__():
             logging.debug(

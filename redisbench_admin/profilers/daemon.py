@@ -4,27 +4,26 @@
 #  All rights reserved.
 #
 
+import argparse
+import json
+
 # !/usr/bin/env python3
 import logging
-
-import argparse
+import os
+import sys
 
 import botocore
-from flask import Flask, request
 import daemonize
-import json
-import sys
-import os
+from flask import Flask, request
 
 from redisbench_admin.cli import populate_with_poetry_data
+from redisbench_admin.profilers.perf import Perf
+from redisbench_admin.profilers.perf_daemon_caller import PERF_DAEMON_LOGNAME
+from redisbench_admin.profilers.profile_local import local_profilers_platform_checks
 from redisbench_admin.run.args import S3_BUCKET_NAME
+from redisbench_admin.run.common import get_start_time_vars
 from redisbench_admin.run.s3 import get_test_s3_bucket_path
 from redisbench_admin.utils.remote import extract_git_vars
-
-from redisbench_admin.profilers.perf import Perf
-from redisbench_admin.run.common import get_start_time_vars
-
-from redisbench_admin.run_local.profile_local import local_profilers_platform_checks
 from redisbench_admin.utils.utils import upload_artifacts_to_s3
 
 PID_FILE = "/tmp/perfdaemon.pid"
@@ -34,7 +33,6 @@ if os.getenv("VERBOSE", "0") == "0":
     LOG_LEVEL = logging.INFO
 LOG_FORMAT = "%(asctime)s %(levelname)-4s %(message)s"
 LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
-LOGNAME = "/tmp/perf-daemon.log"
 
 app = Flask(__name__)
 app.use_reloader = False
@@ -53,8 +51,10 @@ class PerfDaemon:
         app.run(host="0.0.0.0", debug=False, port=5000)
 
     def set_app_loggers(self, app):
-        print("Writting log to {}".format(LOGNAME))
-        handler = logging.handlers.RotatingFileHandler(LOGNAME, maxBytes=1024 * 1024)
+        print("Writting log to {}".format(PERF_DAEMON_LOGNAME))
+        handler = logging.handlers.RotatingFileHandler(
+            PERF_DAEMON_LOGNAME, maxBytes=1024 * 1024
+        )
         logging.getLogger("werkzeug").setLevel(logging.DEBUG)
         logging.getLogger("werkzeug").addHandler(handler)
         app.logger.setLevel(LOG_LEVEL)

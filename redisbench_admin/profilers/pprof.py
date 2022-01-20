@@ -6,8 +6,8 @@
 
 import logging
 import os
-import subprocess
 import re
+import subprocess
 
 PPROF_FORMAT_TEXT = "-text"
 PPROF_FORMAT_PS = "-ps"

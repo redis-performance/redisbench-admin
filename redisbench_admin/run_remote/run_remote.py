@@ -11,7 +11,10 @@ import pytablewriter
 from pytablewriter import MarkdownTableWriter
 from redistimeseries.client import Client
 
-from redisbench_admin.profilers.perf_daemon_caller import PerfDaemonRemoteCaller
+from redisbench_admin.profilers.perf_daemon_caller import (
+    PerfDaemonRemoteCaller,
+    PERF_DAEMON_LOGNAME,
+)
 from redisbench_admin.run.args import PROFILE_FREQ
 from redisbench_admin.run.common import (
     get_start_time_vars,
@@ -470,7 +473,24 @@ def run_remote_command_logic(args, project_name, project_version):
                                         logging.info("Stopping remote profiler")
                                         profiler_result = remote_perf.stop_profile()
                                         if profiler_result is False:
-                                            logging.error("Unsuccessful profiler stop")
+                                            logging.error(
+                                                "Unsuccessful profiler stop."
+                                                + " Fetching remote perf-daemon logfile {}".format(
+                                                    PERF_DAEMON_LOGNAME
+                                                )
+                                            )
+                                            failed_remote_run_artifact_store(
+                                                args.upload_results_s3,
+                                                server_public_ip,
+                                                dirname,
+                                                PERF_DAEMON_LOGNAME,
+                                                logname,
+                                                s3_bucket_name,
+                                                s3_bucket_path,
+                                                username,
+                                                private_key,
+                                            )
+                                            return_code |= 1
                                         (
                                             perf_stop_status,
                                             profile_artifacts,
@@ -557,8 +577,8 @@ def run_remote_command_logic(args, project_name, project_version):
 
                                     if remote_run_result is False:
                                         failed_remote_run_artifact_store(
-                                            args,
-                                            client_public_ip,
+                                            args.upload_results_s3,
+                                            server_public_ip,
                                             dirname,
                                             full_logfiles[0],
                                             logname,
