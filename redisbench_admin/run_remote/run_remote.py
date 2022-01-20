@@ -535,7 +535,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                             end_time_ms,
                                             _,
                                             overall_end_time_metrics,
-                                        ) = collect_redis_metrics(redis_conns)
+                                        ) = collect_redis_metrics(
+                                            redis_conns, ["cpu", "memory"]
+                                        )
                                         export_redis_metrics(
                                             artifact_version,
                                             end_time_ms,
@@ -548,6 +550,27 @@ def run_remote_command_logic(args, project_name, project_version):
                                             tf_github_org,
                                             tf_github_repo,
                                             tf_triggering_env,
+                                        )
+                                        (
+                                            end_time_ms,
+                                            _,
+                                            overall_commandstats_metrics,
+                                        ) = collect_redis_metrics(
+                                            redis_conns, ["commandstats"]
+                                        )
+                                        export_redis_metrics(
+                                            artifact_version,
+                                            end_time_ms,
+                                            overall_commandstats_metrics,
+                                            rts,
+                                            setup_name,
+                                            setup_type,
+                                            test_name,
+                                            tf_github_branch,
+                                            tf_github_org,
+                                            tf_github_repo,
+                                            tf_triggering_env,
+                                            {"metric-type": "commandstats"},
                                         )
 
                                     if setup_details["env"] is None:
@@ -767,6 +790,7 @@ def export_redis_metrics(
     tf_github_org,
     tf_github_repo,
     tf_triggering_env,
+    metadata_dict=None,
 ):
     datapoint_errors = 0
     datapoint_inserts = 0
@@ -818,6 +842,8 @@ def export_redis_metrics(
             )
             variant_labels_dict["test_name"] = test_name
             variant_labels_dict["metric"] = metric_name
+            if metadata_dict is not None:
+                variant_labels_dict.update(metadata_dict)
 
             timeseries_dict[tsname_metric] = {
                 "labels": get_project_ts_tags(

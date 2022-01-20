@@ -77,6 +77,17 @@ def test_export_redis_metrics():
             tf_github_org,
             tf_github_repo,
             tf_triggering_env,
+            {"metric-type": "test-tag"},
+        )
+        assert (
+            rts.info(
+                "ci.benchmarks.redislabs/env/org/repo/test1/by.version/6.2.3/benchmark_end/commandstats_cmdstat_ping_calls"
+            ).labels["metric-type"]
+            == "test-tag"
+        )
+        assert (
+            "ci.benchmarks.redislabs/env/org/repo/test1/by.version/6.2.3/benchmark_end/commandstats_cmdstat_ping_calls"
+            in rts.queryindex(["metric-type=test-tag"])
         )
         assert datapoint_errors == 0
         assert datapoint_inserts == (1 * len(list(overall_end_time_metrics.keys())))
