@@ -71,7 +71,7 @@ def main():
         "--local-dir", type=str, default="./", help="local dir to use as storage"
     )
     parser.add_argument(
-        "--logname", type=str, default=None, help="logname to write the logs to"
+        "--logname", type=str, default=None, help="local file to write the logs to"
     )
 
     if requested_tool == "run-remote":
