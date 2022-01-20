@@ -84,12 +84,15 @@ def extract_results_table(
     return results_matrix
 
 
-def collect_redis_metrics(redis_conns, sections=["memory", "cpu"]):
+def collect_redis_metrics(redis_conns, sections=["memory", "cpu", "commandstats"]):
     start_time = dt.datetime.utcnow()
     start_time_ms = int((start_time - dt.datetime(1970, 1, 1)).total_seconds() * 1000)
     res = []
     overall = {}
-    for conn in redis_conns:
+    multi_shard = False
+    if len(redis_conns) > 1:
+        multi_shard = True
+    for conn_n, conn in enumerate(redis_conns):
         conn_res = {}
         for section in sections:
             info = conn.info(section)
@@ -101,6 +104,14 @@ def collect_redis_metrics(redis_conns, sections=["memory", "cpu"]):
                     if k not in overall[section]:
                         overall[section][k] = 0
                     overall[section][k] += v
+                if type(v) is dict:
+                    for inner_k, inner_v in v.items():
+                        if type(inner_v) is float or type(inner_v) is int:
+                            final_str_k = "{}_{}".format(k, inner_k)
+                            if multi_shard:
+                                final_str_k += "_shard_{}".format(conn_n + 1)
+                            if final_str_k not in overall[section]:
+                                overall[section][final_str_k] = inner_v
 
         res.append(conn_res)
 

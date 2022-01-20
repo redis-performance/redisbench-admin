@@ -73,7 +73,7 @@ Optional arguments:
                         branch/ref time-series are created (default: None)
   --local-dir LOCAL_DIR
                         local dir to use as storage (default: ./)
-  --logname LOGNAME     logname to write the logs to (default: None)
+  --logfile PERF_DAEMON_LOGNAME     logfile to write the logs to (default: None)
   --github_actor [GITHUB_ACTOR]
   --github_repo GITHUB_REPO
   --github_org GITHUB_ORG

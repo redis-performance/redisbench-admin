@@ -11,7 +11,10 @@ import pytablewriter
 from pytablewriter import MarkdownTableWriter
 from redistimeseries.client import Client
 
-from redisbench_admin.profilers.perf_daemon_caller import PerfDaemonRemoteCaller
+from redisbench_admin.profilers.perf_daemon_caller import (
+    PerfDaemonRemoteCaller,
+    PERF_DAEMON_LOGNAME,
+)
 from redisbench_admin.run.args import PROFILE_FREQ
 from redisbench_admin.run.common import (
     get_start_time_vars,
@@ -470,7 +473,24 @@ def run_remote_command_logic(args, project_name, project_version):
                                         logging.info("Stopping remote profiler")
                                         profiler_result = remote_perf.stop_profile()
                                         if profiler_result is False:
-                                            logging.error("Unsuccessful profiler stop")
+                                            logging.error(
+                                                "Unsuccessful profiler stop."
+                                                + " Fetching remote perf-daemon logfile {}".format(
+                                                    PERF_DAEMON_LOGNAME
+                                                )
+                                            )
+                                            failed_remote_run_artifact_store(
+                                                args.upload_results_s3,
+                                                server_public_ip,
+                                                dirname,
+                                                PERF_DAEMON_LOGNAME,
+                                                logname,
+                                                s3_bucket_name,
+                                                s3_bucket_path,
+                                                username,
+                                                private_key,
+                                            )
+                                            return_code |= 1
                                         (
                                             perf_stop_status,
                                             profile_artifacts,
@@ -515,7 +535,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                             end_time_ms,
                                             _,
                                             overall_end_time_metrics,
-                                        ) = collect_redis_metrics(redis_conns)
+                                        ) = collect_redis_metrics(
+                                            redis_conns, ["cpu", "memory"]
+                                        )
                                         export_redis_metrics(
                                             artifact_version,
                                             end_time_ms,
@@ -528,6 +550,27 @@ def run_remote_command_logic(args, project_name, project_version):
                                             tf_github_org,
                                             tf_github_repo,
                                             tf_triggering_env,
+                                        )
+                                        (
+                                            end_time_ms,
+                                            _,
+                                            overall_commandstats_metrics,
+                                        ) = collect_redis_metrics(
+                                            redis_conns, ["commandstats"]
+                                        )
+                                        export_redis_metrics(
+                                            artifact_version,
+                                            end_time_ms,
+                                            overall_commandstats_metrics,
+                                            rts,
+                                            setup_name,
+                                            setup_type,
+                                            test_name,
+                                            tf_github_branch,
+                                            tf_github_org,
+                                            tf_github_repo,
+                                            tf_triggering_env,
+                                            {"metric-type": "commandstats"},
                                         )
 
                                     if setup_details["env"] is None:
@@ -557,8 +600,8 @@ def run_remote_command_logic(args, project_name, project_version):
 
                                     if remote_run_result is False:
                                         failed_remote_run_artifact_store(
-                                            args,
-                                            client_public_ip,
+                                            args.upload_results_s3,
+                                            server_public_ip,
                                             dirname,
                                             full_logfiles[0],
                                             logname,
@@ -747,6 +790,7 @@ def export_redis_metrics(
     tf_github_org,
     tf_github_repo,
     tf_triggering_env,
+    metadata_dict=None,
 ):
     datapoint_errors = 0
     datapoint_inserts = 0
@@ -798,6 +842,8 @@ def export_redis_metrics(
             )
             variant_labels_dict["test_name"] = test_name
             variant_labels_dict["metric"] = metric_name
+            if metadata_dict is not None:
+                variant_labels_dict.update(metadata_dict)
 
             timeseries_dict[tsname_metric] = {
                 "labels": get_project_ts_tags(

@@ -10,7 +10,7 @@ from redisbench_admin.run_local.args import create_run_local_arguments
 from redisbench_admin.run_local.local_helpers import (
     check_benchmark_binaries_local_requirements,
 )
-from redisbench_admin.run_local.profile_local import get_profilers_rts_key_prefix
+from redisbench_admin.profilers.profilers_schema import get_profilers_rts_key_prefix
 from redisbench_admin.run_local.run_local import (
     run_local_command_logic,
 )

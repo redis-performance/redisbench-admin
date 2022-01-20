@@ -4,10 +4,13 @@
 #  All rights reserved.
 #
 import logging
+
 import requests
+
 from redisbench_admin.utils.remote import extract_git_vars
 
 PERF_CALLGRAPH_MODE_DEFAULT = "fp"
+PERF_DAEMON_LOGNAME = "/tmp/perf-daemon.log"
 
 
 class PerfDaemonRemoteCaller:

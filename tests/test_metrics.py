@@ -41,14 +41,20 @@ def test_collect_redis_metrics():
     rts.redis.ping()
     time_ms, metrics_arr, overall_metrics = collect_redis_metrics([rts.redis])
     assert len(metrics_arr) == 1
-    assert len(metrics_arr[0].keys()) == 2
+    assert len(metrics_arr[0].keys()) == 3
     assert "cpu" in metrics_arr[0].keys()
     assert "memory" in metrics_arr[0].keys()
+    assert "commandstats" in metrics_arr[0].keys()
     assert "allocator_active" in metrics_arr[0]["memory"]
+    assert "cmdstat_ping" in metrics_arr[0]["commandstats"]
     allocator_active = metrics_arr[0]["memory"]["allocator_active"]
     allocator_active_kv = overall_metrics["memory_allocator_active"]
     assert allocator_active == allocator_active_kv
 
-    _, _, overall_metrics = collect_redis_metrics([rts.redis, rts.redis])
+    _, metrics_arr, overall_metrics = collect_redis_metrics([rts.redis, rts.redis])
     allocator_active_kv = overall_metrics["memory_allocator_active"]
     assert (2 * allocator_active) == allocator_active_kv
+    assert "cmdstat_ping" in metrics_arr[0]["commandstats"]
+    assert "cmdstat_ping" in metrics_arr[1]["commandstats"]
+    assert "commandstats_cmdstat_ping_calls_shard_1" in overall_metrics
+    assert "commandstats_cmdstat_ping_calls_shard_2" in overall_metrics
