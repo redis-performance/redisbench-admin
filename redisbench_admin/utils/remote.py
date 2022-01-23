@@ -823,6 +823,10 @@ def get_ts_tags_and_name(
         break_by_value, tf_github_repo
     )
     timeserie_tags["test_name"] = str(test_name)
+    if build_variant_name is not None:
+        timeserie_tags["test_name:build_variant"] = "{}:{}".format(
+            test_name, build_variant_name
+        )
     timeserie_tags["metric"] = str(metric_name)
     timeserie_tags["metric_name"] = metric_name
     timeserie_tags["metric_context_path"] = metric_context_path
