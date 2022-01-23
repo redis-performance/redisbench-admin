@@ -830,6 +830,10 @@ def get_ts_tags_and_name(
     timeserie_tags["metric"] = str(metric_name)
     timeserie_tags["metric_name"] = metric_name
     timeserie_tags["metric_context_path"] = metric_context_path
+    if metric_context_path is not None:
+        timeserie_tags["test_name:metric_context_path"] = "{}:{}".format(
+            test_name, metric_context_path
+        )
     timeserie_tags["metric_jsonpath"] = metric_jsonpath
     if metric_context_path not in testcase_metric_context_paths:
         testcase_metric_context_paths.append(metric_context_path)
