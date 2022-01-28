@@ -866,9 +866,7 @@ def export_redis_metrics(
                 ),
                 "data": {end_time_ms: metric_value},
             }
-    i_errors, i_inserts = push_data_to_redistimeseries(
-        rts, timeseries_dict, expire_msecs
-    )
+    i_errors, i_inserts = push_data_to_redistimeseries(rts, timeseries_dict, expire_ms)
     datapoint_errors = datapoint_errors + i_errors
     datapoint_inserts = datapoint_inserts + i_inserts
     return datapoint_errors, datapoint_inserts
