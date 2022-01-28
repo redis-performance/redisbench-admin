@@ -530,9 +530,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
                                             )
 
-                                    if (
-                                        args.push_results_redistimeseries
-                                        and artifact_version is not None
+                                    if args.push_results_redistimeseries and (
+                                        artifact_version is not None
                                         or tf_github_branch == "master"
                                     ):
                                         (
