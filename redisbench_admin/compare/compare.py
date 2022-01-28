@@ -211,7 +211,7 @@ def compare_command_logic(args, project_name, project_version):
 
         except redis.exceptions.ResponseError:
             pass
-
+        unstable = False
         if baseline_v != "N/A" and comparison_v != "N/A":
             stamp_b = ""
             unstable = False
