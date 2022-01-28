@@ -504,7 +504,7 @@ def fetch_remote_setup_from_config(
     return terraform_working_dir, setup_type, setup
 
 
-def push_data_to_redistimeseries(rts, time_series_dict: dict):
+def push_data_to_redistimeseries(rts, time_series_dict: dict, expire_msecs=0):
     datapoint_errors = 0
     datapoint_inserts = 0
     if rts is not None and time_series_dict is not None:
@@ -543,6 +543,8 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict):
                     )
                     datapoint_errors += 1
                     pass
+            if expire_msecs > 0:
+                rts.redis.pexpire(timeseries_name, expire_msecs)
     return datapoint_errors, datapoint_inserts
 
 

@@ -530,14 +530,19 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
                                             )
 
-                                    if args.push_results_redistimeseries:
+                                    if (
+                                        args.push_results_redistimeseries
+                                        and artifact_version is not None
+                                        or tf_github_branch == "master"
+                                    ):
                                         (
                                             end_time_ms,
                                             _,
                                             overall_end_time_metrics,
                                         ) = collect_redis_metrics(
-                                            redis_conns, ["cpu", "memory"]
+                                            redis_conns, ["memory"]
                                         )
+                                        expire_ms = 7 * 24 * 60 * 60 * 1000
                                         export_redis_metrics(
                                             artifact_version,
                                             end_time_ms,
@@ -550,6 +555,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                             tf_github_org,
                                             tf_github_repo,
                                             tf_triggering_env,
+                                            {"metric-type": "redis-metrics"},
+                                            expire_ms,
                                         )
                                         (
                                             end_time_ms,
@@ -571,6 +578,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             tf_github_repo,
                                             tf_triggering_env,
                                             {"metric-type": "commandstats"},
+                                            expire_ms,
                                         )
 
                                     if setup_details["env"] is None:
@@ -791,6 +799,7 @@ def export_redis_metrics(
     tf_github_repo,
     tf_triggering_env,
     metadata_dict=None,
+    expire_ms=0,
 ):
     datapoint_errors = 0
     datapoint_inserts = 0
@@ -858,7 +867,9 @@ def export_redis_metrics(
                 ),
                 "data": {end_time_ms: metric_value},
             }
-    i_errors, i_inserts = push_data_to_redistimeseries(rts, timeseries_dict)
+    i_errors, i_inserts = push_data_to_redistimeseries(
+        rts, timeseries_dict, expire_msecs
+    )
     datapoint_errors = datapoint_errors + i_errors
     datapoint_inserts = datapoint_inserts + i_inserts
     return datapoint_errors, datapoint_inserts
