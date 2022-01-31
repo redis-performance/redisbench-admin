@@ -449,3 +449,27 @@ def test_common_timeseries_extraction():
     assert timeseries_dict[key_self_t2]["labels"]["target+branch"] == "{} {}".format(
         break_by_value, "target-2"
     )
+
+
+def test_exporter_create_ts():
+    timeseries_name = "ts1"
+    time_series = {"labels": {"metric-type": "commandstats"}}
+    try:
+        rts = Client(port=16379)
+        rts.redis.ping()
+        rts.redis.flushall()
+        assert True == exporter_create_ts(rts, time_series, timeseries_name)
+        assert rts.redis.exists(timeseries_name)
+        # no update
+        assert False == exporter_create_ts(rts, time_series, timeseries_name)
+        # change existing label
+        time_series["labels"]["metric-type"] = "latencystats"
+        assert True == exporter_create_ts(rts, time_series, timeseries_name)
+        # add new label
+        time_series["labels"]["metric-name"] = "latency_usecs"
+        assert True == exporter_create_ts(rts, time_series, timeseries_name)
+        # no update
+        assert False == exporter_create_ts(rts, time_series, timeseries_name)
+
+    except redis.exceptions.ConnectionError:
+        pass

@@ -549,19 +549,22 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict, expire_msecs=0):
 
 
 def exporter_create_ts(rts, time_series, timeseries_name):
+    updated_create = False
     try:
-        if rts.redis.exists(timeseries_name) is False:
+        if rts.redis.exists(timeseries_name):
+            updated_create = check_rts_labels(rts, time_series, timeseries_name)
+        else:
             logging.debug(
                 "Creating timeseries named {} with labels {}".format(
                     timeseries_name, time_series["labels"]
                 )
             )
             rts.create(timeseries_name, labels=time_series["labels"], chunk_size=128)
-        else:
-            check_rts_labels(rts, time_series, timeseries_name)
+            updated_create = True
+
     except redis.exceptions.ResponseError as e:
         if "already exists" in e.__str__():
-            check_rts_labels(rts, time_series, timeseries_name)
+            updated_create = check_rts_labels(rts, time_series, timeseries_name)
             pass
         else:
             logging.error(
@@ -570,9 +573,11 @@ def exporter_create_ts(rts, time_series, timeseries_name):
                 )
             )
             raise
+    return updated_create
 
 
 def check_rts_labels(rts, time_series, timeseries_name):
+    updated_create = False
     logging.debug(
         "Timeseries named {} already exists. Checking that the labels match.".format(
             timeseries_name
@@ -586,7 +591,9 @@ def check_rts_labels(rts, time_series, timeseries_name):
                 timeseries_name, time_series["labels"]
             )
         )
+        updated_create = True
         rts.alter(timeseries_name, labels=time_series["labels"])
+    return updated_create
 
 
 def extract_redisgraph_version_from_resultdict(results_dict: dict):
