@@ -63,6 +63,12 @@ from redisbench_admin.utils.utils import (
 )
 
 
+# 7 days expire
+STALL_INFO_DAYS = 7
+EXPIRE_TIME_SECS_PROFILE_KEYS = 60 * 60 * 24 * STALL_INFO_DAYS
+EXPIRE_TIME_MSECS_PROFILE_KEYS = EXPIRE_TIME_SECS_PROFILE_KEYS * 1000
+
+
 def run_remote_command_logic(args, project_name, project_version):
     logging.info(
         "Using: {project_name} {project_version}".format(
@@ -384,12 +390,6 @@ def run_remote_command_logic(args, project_name, project_version):
                                         )
 
                                     (
-                                        _,
-                                        _,
-                                        overall_start_time_metrics,
-                                    ) = collect_redis_metrics(redis_conns)
-
-                                    (
                                         start_time,
                                         start_time_ms,
                                         start_time_str,
@@ -539,7 +539,14 @@ def run_remote_command_logic(args, project_name, project_version):
                                             _,
                                             overall_end_time_metrics,
                                         ) = collect_redis_metrics(
-                                            redis_conns, ["memory"]
+                                            redis_conns,
+                                            ["memory"],
+                                            {
+                                                "memory": [
+                                                    "used_memory",
+                                                    "used_memory_dataset",
+                                                ]
+                                            },
                                         )
                                         expire_ms = 7 * 24 * 60 * 60 * 1000
                                         export_redis_metrics(
@@ -557,28 +564,29 @@ def run_remote_command_logic(args, project_name, project_version):
                                             {"metric-type": "redis-metrics"},
                                             expire_ms,
                                         )
-                                        (
-                                            end_time_ms,
-                                            _,
-                                            overall_commandstats_metrics,
-                                        ) = collect_redis_metrics(
-                                            redis_conns, ["commandstats"]
-                                        )
-                                        export_redis_metrics(
-                                            artifact_version,
-                                            end_time_ms,
-                                            overall_commandstats_metrics,
-                                            rts,
-                                            setup_name,
-                                            setup_type,
-                                            test_name,
-                                            tf_github_branch,
-                                            tf_github_org,
-                                            tf_github_repo,
-                                            tf_triggering_env,
-                                            {"metric-type": "commandstats"},
-                                            expire_ms,
-                                        )
+                                        if args.collect_commandstats:
+                                            (
+                                                end_time_ms,
+                                                _,
+                                                overall_commandstats_metrics,
+                                            ) = collect_redis_metrics(
+                                                redis_conns, ["commandstats"]
+                                            )
+                                            export_redis_metrics(
+                                                artifact_version,
+                                                end_time_ms,
+                                                overall_commandstats_metrics,
+                                                rts,
+                                                setup_name,
+                                                setup_type,
+                                                test_name,
+                                                tf_github_branch,
+                                                tf_github_org,
+                                                tf_github_repo,
+                                                tf_triggering_env,
+                                                {"metric-type": "commandstats"},
+                                                expire_ms,
+                                            )
 
                                     if setup_details["env"] is None:
                                         if args.keep_env_and_topo is False:
@@ -781,7 +789,11 @@ def run_remote_command_logic(args, project_name, project_version):
                 )
                 profile_markdown_str = htmlwriter.dumps()
                 profile_markdown_str = profile_markdown_str.replace("\n", "")
-                rts.redis.set(target_tables_latest_key, profile_markdown_str)
+                rts.redis.setex(
+                    target_tables_latest_key,
+                    EXPIRE_TIME_SECS_PROFILE_KEYS,
+                    profile_markdown_str,
+                )
     exit(return_code)
 
 

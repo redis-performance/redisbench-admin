@@ -84,7 +84,9 @@ def extract_results_table(
     return results_matrix
 
 
-def collect_redis_metrics(redis_conns, sections=["memory", "cpu", "commandstats"]):
+def collect_redis_metrics(
+    redis_conns, sections=["memory", "cpu", "commandstats"], section_filter=None
+):
     start_time = dt.datetime.utcnow()
     start_time_ms = int((start_time - dt.datetime(1970, 1, 1)).total_seconds() * 1000)
     res = []
@@ -100,11 +102,16 @@ def collect_redis_metrics(redis_conns, sections=["memory", "cpu", "commandstats"
             if section not in overall:
                 overall[section] = {}
             for k, v in info.items():
-                if type(v) is float or type(v) is int:
+                collect = True
+                if section_filter is not None:
+                    if section in section_filter:
+                        if k not in section_filter[section]:
+                            collect = False
+                if collect and type(v) is float or type(v) is int:
                     if k not in overall[section]:
                         overall[section][k] = 0
                     overall[section][k] += v
-                if type(v) is dict:
+                if collect and type(v) is dict:
                     for inner_k, inner_v in v.items():
                         if type(inner_v) is float or type(inner_v) is int:
                             final_str_k = "{}_{}".format(k, inner_k)
