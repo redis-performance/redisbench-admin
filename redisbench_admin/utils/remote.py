@@ -550,28 +550,18 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict, expire_msecs=0):
 
 def exporter_create_ts(rts, time_series, timeseries_name):
     try:
-        logging.debug(
-            "Creating timeseries named {} with labels {}".format(
-                timeseries_name, time_series["labels"]
+        if rts.redis.exists(timeseries_name) is False:
+            logging.debug(
+                "Creating timeseries named {} with labels {}".format(
+                    timeseries_name, time_series["labels"]
+                )
             )
-        )
-        rts.create(timeseries_name, labels=time_series["labels"], chunk_size=128)
+            rts.create(timeseries_name, labels=time_series["labels"], chunk_size=128)
+        else:
+            check_rts_labels(rts, time_series, timeseries_name)
     except redis.exceptions.ResponseError as e:
         if "already exists" in e.__str__():
-            logging.debug(
-                "Timeseries named {} already exists. Checking that the labels match.".format(
-                    timeseries_name
-                )
-            )
-            set1 = set(time_series["labels"].items())
-            set2 = set(rts.info(timeseries_name).labels.items())
-            if len(set1 - set2) > 0 or len(set2 - set1) > 0:
-                logging.info(
-                    "Given the labels don't match using TS.ALTER on {} to update labels to {}".format(
-                        timeseries_name, time_series["labels"]
-                    )
-                )
-                rts.alter(timeseries_name, labels=time_series["labels"])
+            check_rts_labels(rts, time_series, timeseries_name)
             pass
         else:
             logging.error(
@@ -580,6 +570,23 @@ def exporter_create_ts(rts, time_series, timeseries_name):
                 )
             )
             raise
+
+
+def check_rts_labels(rts, time_series, timeseries_name):
+    logging.debug(
+        "Timeseries named {} already exists. Checking that the labels match.".format(
+            timeseries_name
+        )
+    )
+    set1 = set(time_series["labels"].items())
+    set2 = set(rts.info(timeseries_name).labels.items())
+    if len(set1 - set2) > 0 or len(set2 - set1) > 0:
+        logging.info(
+            "Given the labels don't match using TS.ALTER on {} to update labels to {}".format(
+                timeseries_name, time_series["labels"]
+            )
+        )
+        rts.alter(timeseries_name, labels=time_series["labels"])
 
 
 def extract_redisgraph_version_from_resultdict(results_dict: dict):
