@@ -128,6 +128,12 @@ def common_run_args(parser):
         help="uploads the results to RedisTimeSeries. Proper credentials are required",
     )
     parser.add_argument(
+        "--collect_commandstats",
+        default=False,
+        action="store_true",
+        help="Enables commandstats collection.",
+    )
+    parser.add_argument(
         "--allowed-envs",
         type=str,
         default=ENV,
