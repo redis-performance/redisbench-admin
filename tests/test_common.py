@@ -369,7 +369,7 @@ def test_extract_test_feasible_setups():
     ) = get_defaults(defaults_filename)
     usecase_filename = "./tests/test_data/tsbs-devops-ingestion-scale100-4days-v2.yml"
     with open(usecase_filename, "r") as stream:
-        benchmark_config, test_name = get_final_benchmark_config(
+        _, benchmark_config, test_name = get_final_benchmark_config(
             default_kpis, stream, usecase_filename
         )
     assert cluster_config == {
@@ -408,6 +408,14 @@ def test_extract_test_feasible_setups():
     n, t, c = get_setup_type_and_primaries_count(test_setups["oss-cluster-3-primaries"])
     assert osscluster_setup_type == t
     assert osscluster_shard_count == c
+
+    # wrong read
+    res, benchmark_config, test_name = get_final_benchmark_config(
+        default_kpis, stream, "dont exist"
+    )
+    assert res == False
+    assert benchmark_config == None
+    assert benchmark_config == None
 
 
 def test_check_dbconfig_tool_requirement():
