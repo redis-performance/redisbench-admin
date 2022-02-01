@@ -62,10 +62,11 @@ def prepare_benchmark_definitions(args):
     ) = get_defaults(defaults_filename)
     for usecase_filename in files:
         with open(usecase_filename, "r") as stream:
-            benchmark_config, test_name = get_final_benchmark_config(
+            result, benchmark_config, test_name = get_final_benchmark_config(
                 default_kpis, stream, usecase_filename
             )
-            benchmark_definitions[test_name] = benchmark_config
+            if result:
+                benchmark_definitions[test_name] = benchmark_config
     return (
         benchmark_definitions,
         default_metrics,
@@ -109,15 +110,28 @@ def get_defaults(defaults_filename):
 
 
 def get_final_benchmark_config(default_kpis, stream, usecase_filename):
-    os.path.dirname(os.path.abspath(usecase_filename))
-    benchmark_config = yaml.safe_load(stream)
-    kpis_keyname = "kpis"
-    if default_kpis is not None:
-        merge_default_and_specific_properties_dict_type(
-            benchmark_config, default_kpis, kpis_keyname, usecase_filename
+    result = False
+    benchmark_config = None
+    test_name = None
+    try:
+        os.path.dirname(os.path.abspath(usecase_filename))
+        benchmark_config = yaml.safe_load(stream)
+        kpis_keyname = "kpis"
+        if default_kpis is not None:
+            merge_default_and_specific_properties_dict_type(
+                benchmark_config, default_kpis, kpis_keyname, usecase_filename
+            )
+        test_name = benchmark_config["name"]
+        result = True
+    except Exception as e:
+        logging.error(
+            "while loading file {} and error was returned: {}".format(
+                usecase_filename, e.__str__()
+            )
         )
-    test_name = benchmark_config["name"]
-    return benchmark_config, test_name
+        pass
+
+    return result, benchmark_config, test_name
 
 
 def merge_default_and_specific_properties_dict_type(
