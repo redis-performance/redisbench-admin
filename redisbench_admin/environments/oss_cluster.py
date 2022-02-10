@@ -28,7 +28,7 @@ def spin_up_local_redis_cluster(
     for master_shard_id in range(1, shard_count + 1):
         shard_port = master_shard_id + start_port - 1
 
-        command = generate_cluster_redis_server_args(
+        command, _ = generate_cluster_redis_server_args(
             dbdir,
             local_module_file,
             ip,
@@ -139,14 +139,18 @@ def generate_cluster_redis_server_args(
     configuration_parameters=None,
     daemonize="yes",
     modules_configuration_parameters_map={},
+    logname_prefix=None,
 ):
+    if logname_prefix is None:
+        logname_prefix = ""
+    logfile = "{}cluster-node-port-{}.log".format(logname_prefix, port)
     # start redis-server
     command = [
         "redis-server",
         "--appendonly",
         "no",
         "--logfile",
-        "cluster-node-port-{}.log".format(port),
+        logfile,
         "--cluster-enabled",
         "yes",
         "--daemonize",
@@ -186,7 +190,7 @@ def generate_cluster_redis_server_args(
                 redis_server_config_module_part(
                     command, mod, modules_configuration_parameters_map
                 )
-    return command
+    return command, logfile
 
 
 def get_cluster_dbfilename(port):

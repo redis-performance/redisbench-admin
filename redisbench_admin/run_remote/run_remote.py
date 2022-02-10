@@ -317,6 +317,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                             tf_github_sha,
                                             username,
                                             private_key,
+                                            s3_bucket_name,
+                                            s3_bucket_path,
                                         )
                                         if benchmark_type == "read-only":
                                             logging.info(
