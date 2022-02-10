@@ -27,7 +27,7 @@ Current supported benchmark tools to export data from:
 Installation is done using pip, the package installer for Python, in the following manner:
 
 ```bash
-python3 -m pip install redisbench-admin>=0.5.5
+python3 -m pip install redisbench-admin>=0.5.5 --ignore-installed PyYAML
 ```
 
 ## Required minimum arguments 

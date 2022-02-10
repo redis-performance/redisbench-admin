@@ -19,7 +19,7 @@ from flask import Flask, request
 from redisbench_admin.cli import populate_with_poetry_data
 from redisbench_admin.profilers.perf import Perf
 from redisbench_admin.profilers.perf_daemon_caller import PERF_DAEMON_LOGNAME
-from redisbench_admin.profilers.profile_local import local_profilers_platform_checks
+from redisbench_admin.profilers.profilers_local import local_profilers_platform_checks
 from redisbench_admin.run.args import S3_BUCKET_NAME
 from redisbench_admin.run.common import get_start_time_vars
 from redisbench_admin.run.s3 import get_test_s3_bucket_path

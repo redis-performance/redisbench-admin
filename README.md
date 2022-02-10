@@ -36,6 +36,42 @@ python3 -m pip install redisbench-admin
 
 ## Profiler daemon
 
+You can use the profiler daemon by itself in the following manner. 
+On the target machine do as follow:
+
+```bash
+pip3 install --upgrade pip
+pip3 install redisbench-admin --ignore-installed PyYAML
+
+# install perf
+apt install linux-tools-common linux-tools-generic linux-tools-`uname -r` -y
+
+# ensure perf is working
+perf --version
+
+# install awscli
+snap install aws-cli --classic
+
+
+# configure aws
+aws configure
+
+# start the perf-daemon
+perf-daemon start
+WARNING:root:Unable to detected github_actor. caught the following error: No section: 'user'
+Writting log to /tmp/perf-daemon.log
+Starting perf-daemon. PID file /tmp/perfdaemon.pid. Daemon workdir: /root/RedisGraph
+
+# check daemon is working appropriatelly
+curl localhost:5000/ping
+
+# start a profile
+curl -X POST localhost:5000/profiler/perf/start/<pid to profile>
+
+# stop a profile
+curl -X POST -d '{"aws_access_key_id":$AWS_ACCESS_KEY_ID,"aws_secret_access_key":$AWS_SECRET_ACCESS_KEY}' localhost:5000/profiler/perf/stop/<pid to profile>
+```
+
 
 ## Development
 
