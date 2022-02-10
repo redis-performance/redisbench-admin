@@ -6,6 +6,8 @@
 import datetime
 import logging
 
+import redis
+
 from redisbench_admin.environments.oss_cluster import setup_redis_cluster_from_conns
 from redisbench_admin.run.cluster import (
     spin_up_redis_cluster_remote_redis,
@@ -24,6 +26,7 @@ from redisbench_admin.run_remote.consts import (
     remote_dataset_folder,
 )
 from redisbench_admin.run_remote.remote_client import run_remote_client_tool
+from redisbench_admin.run_remote.remote_failures import failed_remote_run_artifact_store
 from redisbench_admin.run_remote.standalone import (
     cp_local_dbdir_to_remote,
     remote_module_files_cp,
@@ -84,6 +87,8 @@ def remote_db_spin(
     tf_github_sha,
     username,
     private_key,
+    s3_bucket_name,
+    s3_bucket_path,
 ):
     (
         _,
@@ -119,7 +124,7 @@ def remote_db_spin(
     redis_conns = []
     topology_setup_start_time = datetime.datetime.now()
     if setup_type == "oss-cluster":
-        spin_up_redis_cluster_remote_redis(
+        logfiles = spin_up_redis_cluster_remote_redis(
             server_public_ip,
             server_private_ip,
             username,
@@ -131,19 +136,39 @@ def remote_db_spin(
             cluster_start_port,
             db_ssh_port,
             modules_configuration_parameters_map,
+            logname,
         )
-
-        for p in range(cluster_start_port, cluster_start_port + shard_count):
-            local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
-                p,
-                server_private_ip,
-                server_public_ip,
+        try:
+            for p in range(cluster_start_port, cluster_start_port + shard_count):
+                local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
+                    p,
+                    server_private_ip,
+                    server_public_ip,
+                    username,
+                    db_ssh_port,
+                    private_key,
+                )
+                local_redis_conn.ping()
+                redis_conns.append(local_redis_conn)
+        except redis.exceptions.ConnectionError as e:
+            logging.error("A error occurred while spinning DB: {}".format(e.__str__()))
+            remote_file = "{}/{}".format(temporary_dir, logfiles[0])
+            logging.error(
+                "Trying to fetch DB remote log {} into {}".format(
+                    remote_file, logfiles[0]
+                )
+            )
+            failed_remote_run_artifact_store(
+                True,
+                client_public_ip,
+                dirname,
+                remote_file,
+                logfiles[0],
+                s3_bucket_name,
+                s3_bucket_path,
                 username,
-                db_ssh_port,
                 private_key,
             )
-            local_redis_conn.ping()
-            redis_conns.append(local_redis_conn)
 
     if setup_type == "oss-standalone":
         full_logfile = spin_up_standalone_remote_redis(
