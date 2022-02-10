@@ -332,7 +332,7 @@ def extract_git_vars(path=None, github_url=None):
         try:
             github_branch = github_repo.active_branch
         except TypeError as e:
-            logging.warning(
+            logging.debug(
                 "Unable to detected github_branch. caught the following error: {}".format(
                     e.__str__()
                 )
@@ -343,14 +343,14 @@ def extract_git_vars(path=None, github_url=None):
         try:
             github_actor = github_repo.config_reader().get_value("user", "name")
         except configparser.NoSectionError as e:
-            logging.warning(
+            logging.debug(
                 "Unable to detected github_actor. caught the following error: {}".format(
                     e.__str__()
                 )
             )
             github_branch_detached = True
     except git.exc.InvalidGitRepositoryError as e:
-        logging.warning(
+        logging.debug(
             "Unable to fill git vars. caught the following error: {}".format(
                 e.__str__()
             )
