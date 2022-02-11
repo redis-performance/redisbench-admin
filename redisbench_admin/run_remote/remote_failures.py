@@ -26,18 +26,22 @@ def failed_remote_run_artifact_store(
             remote_file, local_file_fullpath
         )
     )
-    fetch_file_from_remote_setup(
-        client_public_ip,
-        username,
-        private_key,
-        local_file_fullpath,
-        remote_file,
-    )
-    if upload_results_s3:
-        logging.info(
-            "Uploading file {} to s3. s3 bucket name: {}. s3 bucket path: {}".format(
-                local_file_fullpath, s3_bucket_name, s3_bucket_path
-            )
+    try:
+        fetch_file_from_remote_setup(
+            client_public_ip,
+            username,
+            private_key,
+            local_file_fullpath,
+            remote_file,
         )
-        artifacts = [local_file_fullpath]
-        upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path)
+    except FileNotFoundError as f:
+        logging.error("Unable to fetch remote file: {}".format(f.__str__()))
+    finally:
+        if upload_results_s3:
+            logging.info(
+                "Uploading file {} to s3. s3 bucket name: {}. s3 bucket path: {}".format(
+                    local_file_fullpath, s3_bucket_name, s3_bucket_path
+                )
+            )
+            artifacts = [local_file_fullpath]
+            upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path)
