@@ -138,7 +138,16 @@ def spin_up_redis_cluster_remote_redis(
         )
         logfiles.append(logfile)
         redis_process_commands.append(" ".join(command))
-    execute_remote_commands(
+    res = execute_remote_commands(
         server_public_ip, username, private_key, redis_process_commands, ssh_port
     )
+    for pos, res_pos in enumerate(res):
+        [recv_exit_status, stdout, stderr] = res_pos
+        if recv_exit_status != 0:
+            logging.error(
+                "Remote primary shard {} command returned exit code {}. stdout {}. stderr {}".format(
+                    pos, recv_exit_status, stdout, stderr
+                )
+            )
+
     return logfiles

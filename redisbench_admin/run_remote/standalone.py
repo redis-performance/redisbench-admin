@@ -37,7 +37,17 @@ def spin_up_standalone_remote_redis(
 
     # start redis-server
     commands = [initial_redis_cmd]
-    execute_remote_commands(server_public_ip, username, private_key, commands, port)
+    res = execute_remote_commands(
+        server_public_ip, username, private_key, commands, port
+    )
+    for pos, res_pos in enumerate(res):
+        [recv_exit_status, stdout, stderr] = res_pos
+        if recv_exit_status != 0:
+            logging.error(
+                "Remote primary shard {} command returned exit code {}. stdout {}. stderr {}".format(
+                    pos, recv_exit_status, stdout, stderr
+                )
+            )
     return full_logfile
 
 
