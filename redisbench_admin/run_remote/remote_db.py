@@ -171,27 +171,48 @@ def remote_db_spin(
             )
 
     if setup_type == "oss-standalone":
-        full_logfile = spin_up_standalone_remote_redis(
-            temporary_dir,
-            server_public_ip,
-            username,
-            private_key,
-            remote_module_files,
-            logname,
-            redis_configuration_parameters,
-            db_ssh_port,
-            modules_configuration_parameters_map,
-        )
-        full_logfiles.append(full_logfile)
-        local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
-            server_plaintext_port,
-            server_private_ip,
-            server_public_ip,
-            username,
-            db_ssh_port,
-            private_key,
-        )
-        redis_conns.append(local_redis_conn)
+
+        try:
+            full_logfile = spin_up_standalone_remote_redis(
+                temporary_dir,
+                server_public_ip,
+                username,
+                private_key,
+                remote_module_files,
+                logname,
+                redis_configuration_parameters,
+                db_ssh_port,
+                modules_configuration_parameters_map,
+            )
+            full_logfiles.append(full_logfile)
+            local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
+                server_plaintext_port,
+                server_private_ip,
+                server_public_ip,
+                username,
+                db_ssh_port,
+                private_key,
+            )
+            redis_conns.append(local_redis_conn)
+        except redis.exceptions.ConnectionError as e:
+            logging.error("A error occurred while spinning DB: {}".format(e.__str__()))
+            remote_file = "{}/{}".format(temporary_dir, full_logfile)
+            logging.error(
+                "Trying to fetch DB remote log {} into {}".format(
+                    remote_file, full_logfile
+                )
+            )
+            failed_remote_run_artifact_store(
+                True,
+                client_public_ip,
+                dirname,
+                remote_file,
+                full_logfile,
+                s3_bucket_name,
+                s3_bucket_path,
+                username,
+                private_key,
+            )
 
     if cluster_enabled:
         setup_redis_cluster_from_conns(
