@@ -196,7 +196,7 @@ def remote_db_spin(
             redis_conns.append(local_redis_conn)
         except redis.exceptions.ConnectionError as e:
             logging.error("A error occurred while spinning DB: {}".format(e.__str__()))
-            remote_file = "{}/{}".format(temporary_dir, full_logfile)
+            remote_file = full_logfile
             logging.error(
                 "Trying to fetch DB remote log {} into {}".format(
                     remote_file, full_logfile
@@ -205,9 +205,9 @@ def remote_db_spin(
             failed_remote_run_artifact_store(
                 True,
                 client_public_ip,
-                dirname,
+                "",
                 remote_file,
-                full_logfile,
+                full_logfile[1:],
                 s3_bucket_name,
                 s3_bucket_path,
                 username,
