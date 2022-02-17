@@ -532,89 +532,6 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
                                             )
 
-                                    if args.push_results_redistimeseries and (
-                                        artifact_version is not None
-                                        or tf_github_branch == "master"
-                                    ):
-                                        (
-                                            end_time_ms,
-                                            _,
-                                            overall_end_time_metrics,
-                                        ) = collect_redis_metrics(
-                                            redis_conns,
-                                            ["memory"],
-                                            {
-                                                "memory": [
-                                                    "used_memory",
-                                                    "used_memory_dataset",
-                                                ]
-                                            },
-                                        )
-                                        expire_ms = 7 * 24 * 60 * 60 * 1000
-                                        export_redis_metrics(
-                                            artifact_version,
-                                            end_time_ms,
-                                            overall_end_time_metrics,
-                                            rts,
-                                            setup_name,
-                                            setup_type,
-                                            test_name,
-                                            tf_github_branch,
-                                            tf_github_org,
-                                            tf_github_repo,
-                                            tf_triggering_env,
-                                            {"metric-type": "redis-metrics"},
-                                            expire_ms,
-                                        )
-                                        if args.collect_commandstats:
-                                            (
-                                                end_time_ms,
-                                                _,
-                                                overall_commandstats_metrics,
-                                            ) = collect_redis_metrics(
-                                                redis_conns, ["commandstats"]
-                                            )
-                                            export_redis_metrics(
-                                                artifact_version,
-                                                end_time_ms,
-                                                overall_commandstats_metrics,
-                                                rts,
-                                                setup_name,
-                                                setup_type,
-                                                test_name,
-                                                tf_github_branch,
-                                                tf_github_org,
-                                                tf_github_repo,
-                                                tf_triggering_env,
-                                                {"metric-type": "commandstats"},
-                                                expire_ms,
-                                            )
-
-                                    if setup_details["env"] is None:
-                                        if args.keep_env_and_topo is False:
-                                            shutdown_remote_redis(
-                                                redis_conns, ssh_tunnel
-                                            )
-                                        else:
-                                            logging.info(
-                                                "Keeping environment and topology active upon request."
-                                            )
-                                            logging.info(
-                                                "client_public_ip = {}".format(
-                                                    client_public_ip
-                                                )
-                                            )
-                                            logging.info(
-                                                "server_public_ip = {}".format(
-                                                    server_private_ip
-                                                )
-                                            )
-                                            logging.info(
-                                                "server_private_ip = {}".format(
-                                                    server_public_ip
-                                                )
-                                            )
-
                                     if remote_run_result is False:
                                         failed_remote_run_artifact_store(
                                             args.upload_results_s3,
@@ -627,91 +544,188 @@ def run_remote_command_logic(args, project_name, project_version):
                                             username,
                                             private_key,
                                         )
+                                        return_code |= 1
+                                        raise Exception(
+                                            "Failed to run remote benchmark."
+                                        )
 
-                                    if args.upload_results_s3:
-                                        logging.info(
-                                            "Uploading results to s3. s3 bucket name: {}. s3 bucket path: {}".format(
-                                                s3_bucket_name, s3_bucket_path
+                                    else:
+                                        if args.push_results_redistimeseries and (
+                                            artifact_version is not None
+                                            or tf_github_branch == "master"
+                                        ):
+                                            (
+                                                end_time_ms,
+                                                _,
+                                                overall_end_time_metrics,
+                                            ) = collect_redis_metrics(
+                                                redis_conns,
+                                                ["memory"],
+                                                {
+                                                    "memory": [
+                                                        "used_memory",
+                                                        "used_memory_dataset",
+                                                    ]
+                                                },
                                             )
-                                        )
-                                        artifacts = [local_bench_fname]
-                                        upload_artifacts_to_s3(
-                                            artifacts, s3_bucket_name, s3_bucket_path
-                                        )
+                                            expire_ms = 7 * 24 * 60 * 60 * 1000
+                                            export_redis_metrics(
+                                                artifact_version,
+                                                end_time_ms,
+                                                overall_end_time_metrics,
+                                                rts,
+                                                setup_name,
+                                                setup_type,
+                                                test_name,
+                                                tf_github_branch,
+                                                tf_github_org,
+                                                tf_github_repo,
+                                                tf_triggering_env,
+                                                {"metric-type": "redis-metrics"},
+                                                expire_ms,
+                                            )
+                                            if args.collect_commandstats:
+                                                (
+                                                    end_time_ms,
+                                                    _,
+                                                    overall_commandstats_metrics,
+                                                ) = collect_redis_metrics(
+                                                    redis_conns, ["commandstats"]
+                                                )
+                                                export_redis_metrics(
+                                                    artifact_version,
+                                                    end_time_ms,
+                                                    overall_commandstats_metrics,
+                                                    rts,
+                                                    setup_name,
+                                                    setup_type,
+                                                    test_name,
+                                                    tf_github_branch,
+                                                    tf_github_org,
+                                                    tf_github_repo,
+                                                    tf_triggering_env,
+                                                    {"metric-type": "commandstats"},
+                                                    expire_ms,
+                                                )
 
-                                    (
-                                        _,
-                                        branch_target_tables,
-                                    ) = timeseries_test_sucess_flow(
-                                        args.push_results_redistimeseries,
-                                        artifact_version,
-                                        benchmark_config,
-                                        benchmark_duration_seconds,
-                                        dataset_load_duration_seconds,
-                                        default_metrics,
-                                        setup_name,
-                                        setup_type,
-                                        exporter_timemetric_path,
-                                        results_dict,
-                                        rts,
-                                        start_time_ms,
-                                        test_name,
-                                        tf_github_branch,
-                                        tf_github_org,
-                                        tf_github_repo,
-                                        tf_triggering_env,
-                                    )
-                                    if branch_target_tables is not None:
-                                        for (
-                                            branch_tt_keyname,
-                                            branch_target_table,
-                                        ) in branch_target_tables.items():
-                                            if (
-                                                "contains-target"
-                                                not in branch_target_table
-                                            ):
-                                                continue
-                                            if (
-                                                branch_target_table["contains-target"]
-                                                is True
-                                            ):
-                                                row = []
-                                                metric_name = branch_target_table[
-                                                    "metric-name"
-                                                ]
-                                                header = []
-                                                for k, v in branch_target_table.items():
-                                                    if k != "contains-target":
-                                                        header.append(k)
-                                                        row.append(v)
-                                                if (
-                                                    metric_name
-                                                    not in overall_tables[setup_name]
-                                                ):
-                                                    overall_tables[setup_name][
-                                                        metric_name
-                                                    ] = {
-                                                        "header": header,
-                                                        "rows": [row],
-                                                    }
-                                                else:
-                                                    assert (
-                                                        header
-                                                        == overall_tables[setup_name][
-                                                            metric_name
-                                                        ]["header"]
+                                        if setup_details["env"] is None:
+                                            if args.keep_env_and_topo is False:
+                                                shutdown_remote_redis(
+                                                    redis_conns, ssh_tunnel
+                                                )
+                                            else:
+                                                logging.info(
+                                                    "Keeping environment and topology active upon request."
+                                                )
+                                                logging.info(
+                                                    "client_public_ip = {}".format(
+                                                        client_public_ip
                                                     )
-                                                    overall_tables[setup_name][
-                                                        metric_name
-                                                    ]["rows"].append(row)
+                                                )
+                                                logging.info(
+                                                    "server_public_ip = {}".format(
+                                                        server_private_ip
+                                                    )
+                                                )
+                                                logging.info(
+                                                    "server_private_ip = {}".format(
+                                                        server_public_ip
+                                                    )
+                                                )
 
-                                    print_results_table_stdout(
-                                        benchmark_config,
-                                        default_metrics,
-                                        results_dict,
-                                        setup_name,
-                                        test_name,
-                                    )
+                                        if args.upload_results_s3:
+                                            logging.info(
+                                                "Uploading results to s3. s3 bucket name: {}. s3 bucket path: {}".format(
+                                                    s3_bucket_name, s3_bucket_path
+                                                )
+                                            )
+                                            artifacts = [local_bench_fname]
+                                            upload_artifacts_to_s3(
+                                                artifacts,
+                                                s3_bucket_name,
+                                                s3_bucket_path,
+                                            )
+
+                                        (
+                                            _,
+                                            branch_target_tables,
+                                        ) = timeseries_test_sucess_flow(
+                                            args.push_results_redistimeseries,
+                                            artifact_version,
+                                            benchmark_config,
+                                            benchmark_duration_seconds,
+                                            dataset_load_duration_seconds,
+                                            default_metrics,
+                                            setup_name,
+                                            setup_type,
+                                            exporter_timemetric_path,
+                                            results_dict,
+                                            rts,
+                                            start_time_ms,
+                                            test_name,
+                                            tf_github_branch,
+                                            tf_github_org,
+                                            tf_github_repo,
+                                            tf_triggering_env,
+                                        )
+                                        if branch_target_tables is not None:
+                                            for (
+                                                branch_tt_keyname,
+                                                branch_target_table,
+                                            ) in branch_target_tables.items():
+                                                if (
+                                                    "contains-target"
+                                                    not in branch_target_table
+                                                ):
+                                                    continue
+                                                if (
+                                                    branch_target_table[
+                                                        "contains-target"
+                                                    ]
+                                                    is True
+                                                ):
+                                                    row = []
+                                                    metric_name = branch_target_table[
+                                                        "metric-name"
+                                                    ]
+                                                    header = []
+                                                    for (
+                                                        k,
+                                                        v,
+                                                    ) in branch_target_table.items():
+                                                        if k != "contains-target":
+                                                            header.append(k)
+                                                            row.append(v)
+                                                    if (
+                                                        metric_name
+                                                        not in overall_tables[
+                                                            setup_name
+                                                        ]
+                                                    ):
+                                                        overall_tables[setup_name][
+                                                            metric_name
+                                                        ] = {
+                                                            "header": header,
+                                                            "rows": [row],
+                                                        }
+                                                    else:
+                                                        assert (
+                                                            header
+                                                            == overall_tables[
+                                                                setup_name
+                                                            ][metric_name]["header"]
+                                                        )
+                                                        overall_tables[setup_name][
+                                                            metric_name
+                                                        ]["rows"].append(row)
+
+                                        print_results_table_stdout(
+                                            benchmark_config,
+                                            default_metrics,
+                                            results_dict,
+                                            setup_name,
+                                            test_name,
+                                        )
                                 except KeyboardInterrupt:
                                     logging.critical(
                                         "Detected Keyboard interruput...Destroy all remote envs and exiting right away!"
