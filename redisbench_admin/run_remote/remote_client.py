@@ -102,22 +102,27 @@ def run_remote_client_tool(
     benchmark_duration_seconds = calculate_client_tool_duration_and_check(
         benchmark_end_time, benchmark_start_time, step_name, warn_min_duration
     )
-    (
-        artifact_version,
-        local_bench_fname,
-        results_dict,
-        return_code,
-    ) = post_process_remote_run(
-        artifact_version,
-        benchmark_config,
-        benchmark_tool,
-        local_bench_fname,
-        return_code,
-        start_time_ms,
-        start_time_str,
-        stdout,
-        tmp,
-    )
+    artifact_version = None
+    local_bench_fname = None
+    results_dict = None
+    return_code = None
+    if remote_run_result is True:
+        (
+            artifact_version,
+            local_bench_fname,
+            results_dict,
+            return_code,
+        ) = post_process_remote_run(
+            artifact_version,
+            benchmark_config,
+            benchmark_tool,
+            local_bench_fname,
+            return_code,
+            start_time_ms,
+            start_time_str,
+            stdout,
+            tmp,
+        )
     return (
         artifact_version,
         benchmark_duration_seconds,
