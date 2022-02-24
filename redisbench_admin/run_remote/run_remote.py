@@ -122,6 +122,7 @@ def run_remote_command_logic(args, project_name, project_version):
     ssh_pem_check(EC2_PRIVATE_PEM, private_key)
 
     (
+        benchmark_defs_result,
         benchmark_definitions,
         default_metrics,
         exporter_timemetric_path,
@@ -130,6 +131,12 @@ def run_remote_command_logic(args, project_name, project_version):
     ) = prepare_benchmark_definitions(args)
 
     return_code = 0
+    if benchmark_defs_result is False and args.fail_fast:
+        logging.critical(
+            "Detected errors while preparing benchmark definitions. Exiting right away!"
+        )
+        exit(1)
+
     remote_envs = {}
     dirname = "."
     (

@@ -114,6 +114,7 @@ def run_local_command_logic(args, project_name, project_version):
         )
 
     (
+        _,
         benchmark_definitions,
         default_metrics,
         _,

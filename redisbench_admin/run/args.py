@@ -25,6 +25,7 @@ ENV = os.getenv("ENV", "oss-standalone,oss-cluster")
 SETUP = os.getenv("SETUP", "")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "ci.benchmarks.redislabs")
 PUSH_S3 = bool(os.getenv("PUSH_S3", False))
+FAIL_FAST = bool(os.getenv("FAIL_FAST", False))
 PROFILERS_DSO = os.getenv("PROFILERS_DSO", None)
 PROFILERS_ENABLED = bool(int(os.getenv("PROFILE", 0)))
 PROFILERS = os.getenv("PROFILERS", PROFILERS_DEFAULT)
@@ -41,6 +42,14 @@ def common_run_args(parser):
         action="store_true",
         help="Keep environment and topology up after benchmark.",
     )
+    parser.add_argument(
+        "--fail_fast",
+        required=False,
+        default=FAIL_FAST,
+        action="store_true",
+        help="In case of failure exit immediately. Otherwise run all other tests and then exit on error.",
+    )
+
     parser.add_argument(
         "--dbdir_folder",
         type=str,
