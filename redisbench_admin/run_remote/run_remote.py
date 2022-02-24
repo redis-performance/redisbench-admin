@@ -131,11 +131,13 @@ def run_remote_command_logic(args, project_name, project_version):
     ) = prepare_benchmark_definitions(args)
 
     return_code = 0
-    if benchmark_defs_result is False and args.fail_fast:
-        logging.critical(
-            "Detected errors while preparing benchmark definitions. Exiting right away!"
-        )
-        exit(1)
+    if benchmark_defs_result is False:
+        return_code = 1
+        if args.fail_fast:
+            logging.critical(
+                "Detected errors while preparing benchmark definitions. Exiting right away!"
+            )
+            exit(1)
 
     remote_envs = {}
     dirname = "."
