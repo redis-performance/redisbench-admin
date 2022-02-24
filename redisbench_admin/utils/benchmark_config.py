@@ -51,6 +51,7 @@ def parse_exporter_timemetric(metric_path: str, results_dict: dict):
 
 def prepare_benchmark_definitions(args):
     benchmark_definitions = {}
+    result = True
     defaults_filename, files = get_testfiles_to_process(args)
 
     (
@@ -61,13 +62,15 @@ def prepare_benchmark_definitions(args):
         clusterconfig,
     ) = get_defaults(defaults_filename)
     for usecase_filename in files:
-        with open(usecase_filename, "r") as stream:
-            result, benchmark_config, test_name = get_final_benchmark_config(
+        with open(usecase_filename, "r", encoding="utf8") as stream:
+            test_result, benchmark_config, test_name = get_final_benchmark_config(
                 default_kpis, stream, usecase_filename
             )
-            if result:
+            result &= test_result
+            if test_result:
                 benchmark_definitions[test_name] = benchmark_config
     return (
+        result,
         benchmark_definitions,
         default_metrics,
         exporter_timemetric_path,
