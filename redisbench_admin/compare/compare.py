@@ -4,6 +4,8 @@
 #  All rights reserved.
 #
 import logging
+import re
+
 import pandas as pd
 import redis
 from pytablewriter import MarkdownTableWriter
@@ -99,7 +101,7 @@ def compare_command_logic(args, project_name, project_version):
         _,
         _,
         _,
-        _,
+        testcases_metric_context_path_setname,
         _,
         _,
         _,
@@ -107,21 +109,39 @@ def compare_command_logic(args, project_name, project_version):
         _,
     ) = get_overall_dashboard_keynames(tf_github_org, tf_github_repo, tf_triggering_env)
     test_names = []
+    used_key = testcases_setname
+    test_filter = "test_name"
+
+    if args.use_metric_context_path:
+        test_filter = "test_name:metric_context_path"
+        used_key = testcases_metric_context_path_setname
+
+    tags_regex_string = re.compile(args.testname_regex)
+
     try:
-        test_names = rts.redis.smembers(testcases_setname)
+        test_names = rts.redis.smembers(used_key)
         test_names = list(test_names)
         test_names.sort()
+        final_test_names = []
+        for test_name in test_names:
+            test_name = test_name.decode()
+            match_obj = re.search(tags_regex_string, test_name)
+            if match_obj is not None:
+                final_test_names.append(test_name)
+        test_names = final_test_names
+
+
     except redis.exceptions.ResponseError as e:
         logging.warning(
             "Error while trying to fetch test cases set (key={}) {}. ".format(
-                testcases_setname, e.__str__()
+                used_key, e.__str__()
             )
         )
         pass
 
     logging.warning(
-        "Based on test-cases set (key={}) we have {} distinct benchmarks. ".format(
-            testcases_setname, len(test_names)
+        "Based on test-cases set (key={}) we have {} comparison points. ".format(
+            used_key, len(test_names)
         )
     )
     profilers_artifacts_matrix = []
@@ -131,30 +151,52 @@ def compare_command_logic(args, project_name, project_version):
     total_unstable = 0
     total_regressions = 0
     for test_name in test_names:
+        filters_baseline = [
+            "{}={}".format(by_str, baseline_str),
+            "metric={}".format(metric_name),
+            "{}={}".format(test_filter, test_name),
+        ]
+        filters_comparison = [
+            "{}={}".format(by_str, comparison_str),
+            "metric={}".format(metric_name),
+            "{}={}".format(test_filter, test_name),
+        ]
+        baseline_timeseries = rts.queryindex(filters_baseline)
+        comparison_timeseries = rts.queryindex(filters_comparison)
 
-        test_name = test_name.decode()
-        ts_name_baseline = get_ts_metric_name(
-            "by.{}".format(by_str),
-            baseline_str,
-            tf_github_org,
-            tf_github_repo,
-            deployment_name,
-            deployment_type,
-            test_name,
-            tf_triggering_env,
-            metric_name,
-        )
-        ts_name_comparison = get_ts_metric_name(
-            "by.{}".format(by_str),
-            comparison_str,
-            tf_github_org,
-            tf_github_repo,
-            deployment_name,
-            deployment_type,
-            test_name,
-            tf_triggering_env,
-            metric_name,
-        )
+        if len(baseline_timeseries) != 1:
+            logging.warning("Baseline timeseries {}".format(len(baseline_timeseries)))
+            continue
+        else:
+            ts_name_baseline = baseline_timeseries[0]
+        if len(comparison_timeseries) != 1:
+            logging.warning("Comparison timeseries {}".format(len(comparison_timeseries)))
+            continue
+        else:
+            ts_name_comparison = comparison_timeseries[0]
+
+        # ts_name_baseline = get_ts_metric_name(
+        #     "by.{}".format(by_str),
+        #     baseline_str,
+        #     tf_github_org,
+        #     tf_github_repo,
+        #     deployment_name,
+        #     deployment_type,
+        #     test_name,
+        #     tf_triggering_env,
+        #     metric_name,
+        # )
+        # ts_name_comparison = get_ts_metric_name(
+        #     "by.{}".format(by_str),
+        #     comparison_str,
+        #     tf_github_org,
+        #     tf_github_repo,
+        #     deployment_name,
+        #     deployment_type,
+        #     test_name,
+        #     tf_triggering_env,
+        #     metric_name,
+        # )
         baseline_v = "N/A"
         comparison_v = "N/A"
         baseline_nsamples = 0
@@ -220,14 +262,14 @@ def compare_command_logic(args, project_name, project_version):
                 unstable = True
             if baseline_pct_change > 10.0:
                 stamp_b = "UNSTABLE"
-            baseline_v_str = " {:.3f} +- {:.1f}% {}".format(
-                baseline_v, baseline_pct_change, stamp_b
+            baseline_v_str = " {:.0f} +- {:.1f}% {} ({} datapoints)".format(
+                baseline_v, baseline_pct_change, stamp_b, baseline_nsamples
             )
             stamp_c = ""
             if comparison_pct_change > 10.0:
                 stamp_c = "UNSTABLE"
-            comparison_v_str = " {:.3f} +- {:.1f}% {}".format(
-                comparison_v, comparison_pct_change, stamp_c
+            comparison_v_str = " {:.0f} +- {:.1f}% {} ({} datapoints)".format(
+                comparison_v, comparison_pct_change, stamp_c, comparison_nsamples
             )
             if metric_mode == "higher-better":
                 percentage_change = (
@@ -248,7 +290,7 @@ def compare_command_logic(args, project_name, project_version):
                     total_regressions = total_regressions + 1
                     note = note + " REGRESSION"
                 else:
-                    note = note + " potential REGRESSION"
+                    note = note + " -- no change --"
                 detected_regressions.append(test_name)
             if percentage_change > 0.0 and not unstable:
                 if percentage_change > waterline:
@@ -256,7 +298,7 @@ def compare_command_logic(args, project_name, project_version):
                     total_improvements = total_improvements + 1
                     note = note + " IMPROVEMENT"
                 else:
-                    note = note + " potential IMPROVEMENT"
+                    note = note + " -- no change --"
 
             if (
                 detected_improvement is False
