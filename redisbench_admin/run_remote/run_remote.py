@@ -36,7 +36,11 @@ from redisbench_admin.run.s3 import get_test_s3_bucket_path
 from redisbench_admin.run.ssh import ssh_pem_check
 from redisbench_admin.run_remote.consts import min_recommended_benchmark_duration
 from redisbench_admin.run_remote.remote_client import run_remote_client_tool
-from redisbench_admin.run_remote.remote_db import remote_tmpdir_prune, remote_db_spin
+from redisbench_admin.run_remote.remote_db import (
+    remote_tmpdir_prune,
+    remote_db_spin,
+    db_error_artifacts,
+)
 from redisbench_admin.run_remote.remote_env import remote_env_setup
 from redisbench_admin.run_remote.remote_failures import failed_remote_run_artifact_store
 from redisbench_admin.run_remote.terraform import (
@@ -52,6 +56,7 @@ from redisbench_admin.utils.remote import (
     check_ec2_env,
     get_project_ts_tags,
     push_data_to_redistimeseries,
+    execute_remote_commands,
 )
 
 from redisbench_admin.utils.utils import (
@@ -230,7 +235,15 @@ def run_remote_command_logic(args, project_name, project_version):
                                 )
                             )
                             if "remote" in benchmark_config:
-                                temporary_dir = "/tmp"
+                                import string
+                                import random
+
+                                temporary_dir = "/tmp/{}".format(
+                                    "".join(
+                                        random.choice(string.ascii_lowercase)
+                                        for i in range(20)
+                                    )
+                                )
                                 (
                                     client_public_ip,
                                     server_plaintext_port,
@@ -275,6 +288,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                     logging.info(
                                         "Starting common steps to cluster and standalone..."
                                     )
+                                    full_logfiles = []
                                     if setup_details["env"] is None:
                                         # ensure /tmp folder is free of benchmark data from previous runs
                                         remote_tmpdir_prune(
@@ -329,68 +343,41 @@ def run_remote_command_logic(args, project_name, project_version):
                                             s3_bucket_name,
                                             s3_bucket_path,
                                         )
+
                                         if benchmark_type == "read-only":
-                                            logging.info(
-                                                "Given the benchmark for this setup is ready-only we will prepare to reuse it on the next read-only benchmarks (if any )."
+                                            ro_benchmark_set(
+                                                artifact_version,
+                                                cluster_enabled,
+                                                dataset_load_duration_seconds,
+                                                redis_conns,
+                                                return_code,
+                                                server_plaintext_port,
+                                                setup_details,
+                                                ssh_tunnel,
+                                                full_logfiles,
                                             )
-                                            setup_details["env"] = {}
-                                            setup_details["env"][
-                                                "artifact_version"
-                                            ] = artifact_version
-                                            setup_details["env"][
-                                                "cluster_enabled"
-                                            ] = cluster_enabled
-                                            setup_details["env"][
-                                                "dataset_load_duration_seconds"
-                                            ] = dataset_load_duration_seconds
-
-                                            setup_details["env"][
-                                                "full_logfiles"
-                                            ] = full_logfiles
-
-                                            setup_details["env"][
-                                                "redis_conns"
-                                            ] = redis_conns
-
-                                            setup_details["env"][
-                                                "return_code"
-                                            ] = return_code
-                                            setup_details["env"][
-                                                "server_plaintext_port"
-                                            ] = server_plaintext_port
-
-                                            setup_details["env"][
-                                                "ssh_tunnel"
-                                            ] = ssh_tunnel
-
                                     else:
-                                        assert benchmark_type == "read-only"
-                                        logging.info(
-                                            "Given the benchmark for this setup is ready-only, and this setup was already spinned we will reuse the previous, conns and process info."
+                                        (
+                                            artifact_version,
+                                            cluster_enabled,
+                                            dataset_load_duration_seconds,
+                                            full_logfiles,
+                                            redis_conns,
+                                            return_code,
+                                            server_plaintext_port,
+                                            ssh_tunnel,
+                                        ) = ro_benchmar_reuse(
+                                            artifact_version,
+                                            benchmark_type,
+                                            cluster_enabled,
+                                            dataset_load_duration_seconds,
+                                            full_logfiles,
+                                            redis_conns,
+                                            return_code,
+                                            server_plaintext_port,
+                                            setup_details,
+                                            ssh_tunnel,
                                         )
-
-                                        artifact_version = setup_details["env"][
-                                            "artifact_version"
-                                        ]
-                                        cluster_enabled = setup_details["env"][
-                                            "cluster_enabled"
-                                        ]
-                                        dataset_load_duration_seconds = setup_details[
-                                            "env"
-                                        ]["dataset_load_duration_seconds"]
-                                        full_logfiles = setup_details["env"][
-                                            "full_logfiles"
-                                        ]
-                                        redis_conns = setup_details["env"][
-                                            "redis_conns"
-                                        ]
-                                        return_code = setup_details["env"][
-                                            "return_code"
-                                        ]
-                                        server_plaintext_port = setup_details["env"][
-                                            "server_plaintext_port"
-                                        ]
-                                        ssh_tunnel = setup_details["env"]["ssh_tunnel"]
 
                                     if profilers_enabled:
                                         setup_remote_benchmark_agent(
@@ -542,16 +529,18 @@ def run_remote_command_logic(args, project_name, project_version):
                                             )
 
                                     if remote_run_result is False:
-                                        failed_remote_run_artifact_store(
-                                            args.upload_results_s3,
-                                            server_public_ip,
+                                        db_error_artifacts(
+                                            db_ssh_port,
                                             dirname,
-                                            full_logfiles[0],
+                                            full_logfiles,
                                             logname,
+                                            private_key,
                                             s3_bucket_name,
                                             s3_bucket_path,
+                                            server_public_ip,
+                                            temporary_dir,
+                                            args.upload_results_s3,
                                             username,
-                                            private_key,
                                         )
                                         return_code |= 1
                                         raise Exception(
@@ -820,6 +809,72 @@ def run_remote_command_logic(args, project_name, project_version):
                     profile_markdown_str,
                 )
     exit(return_code)
+
+
+def ro_benchmar_reuse(
+    artifact_version,
+    benchmark_type,
+    cluster_enabled,
+    dataset_load_duration_seconds,
+    full_logfiles,
+    redis_conns,
+    return_code,
+    server_plaintext_port,
+    setup_details,
+    ssh_tunnel,
+):
+    assert benchmark_type == "read-only"
+    logging.info(
+        "Given the benchmark for this setup is ready-only, and this setup was already spinned we will reuse the previous, conns and process info."
+    )
+    artifact_version = setup_details["env"]["artifact_version"]
+    cluster_enabled = setup_details["env"]["cluster_enabled"]
+    dataset_load_duration_seconds = setup_details["env"][
+        "dataset_load_duration_seconds"
+    ]
+    full_logfiles = setup_details["env"]["full_logfiles"]
+    redis_conns = setup_details["env"]["redis_conns"]
+    return_code = setup_details["env"]["return_code"]
+    server_plaintext_port = setup_details["env"]["server_plaintext_port"]
+    ssh_tunnel = setup_details["env"]["ssh_tunnel"]
+    return (
+        artifact_version,
+        cluster_enabled,
+        dataset_load_duration_seconds,
+        full_logfiles,
+        redis_conns,
+        return_code,
+        server_plaintext_port,
+        ssh_tunnel,
+    )
+
+
+def ro_benchmark_set(
+    artifact_version,
+    cluster_enabled,
+    dataset_load_duration_seconds,
+    redis_conns,
+    return_code,
+    server_plaintext_port,
+    setup_details,
+    ssh_tunnel,
+    full_logfiles,
+):
+    logging.info(
+        "Given the benchmark for this setup is ready-only we will prepare to reuse it on the next read-only benchmarks (if any )."
+    )
+    setup_details["env"] = {}
+    setup_details["env"]["full_logfiles"] = full_logfiles
+
+    setup_details["env"]["artifact_version"] = artifact_version
+    setup_details["env"]["cluster_enabled"] = cluster_enabled
+    setup_details["env"][
+        "dataset_load_duration_seconds"
+    ] = dataset_load_duration_seconds
+    setup_details["env"]["redis_conns"] = redis_conns
+    setup_details["env"]["return_code"] = return_code
+    setup_details["env"]["server_plaintext_port"] = server_plaintext_port
+    setup_details["env"]["ssh_tunnel"] = ssh_tunnel
 
 
 def export_redis_metrics(
