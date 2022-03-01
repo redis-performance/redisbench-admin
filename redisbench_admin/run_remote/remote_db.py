@@ -23,7 +23,6 @@ from redisbench_admin.run.common import (
 from redisbench_admin.run.ssh import ssh_tunnel_redisconn
 from redisbench_admin.run_remote.consts import (
     remote_module_file_dir,
-    remote_dataset_folder,
 )
 from redisbench_admin.run_remote.remote_client import run_remote_client_tool
 from redisbench_admin.run_remote.remote_failures import failed_remote_run_artifact_store
@@ -238,7 +237,7 @@ def remote_db_spin(
         server_public_ip,
         username,
         private_key,
-        remote_dataset_folder,
+        temporary_dir,
         dirname,
         shard_count,
         cluster_enabled,

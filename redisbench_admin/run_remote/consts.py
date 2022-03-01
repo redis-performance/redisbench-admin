@@ -4,7 +4,6 @@
 #  All rights reserved.
 #
 
-remote_dataset_folder = "/tmp"
 remote_module_file_dir = "/tmp"
 local_results_file = "./benchmark-result.out"
 DEFAULT_PRIVATE_KEY = "/tmp/benchmarks.redislabs.pem"
