@@ -54,7 +54,7 @@ def generate_standalone_redis_server_args(
     command = [
         binary,
         "--save",
-        '""',
+        "''",
         "--port",
         "{}".format(port),
         "--dir",
