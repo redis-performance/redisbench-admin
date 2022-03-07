@@ -43,7 +43,7 @@ def ssh_tunnel_redisconn(
         local_bind_address=("0.0.0.0", 0),  # enable local forwarding port
     )
     ssh_tunel.start()  # start tunnel
-    redis_conn = redis.StrictRedis(host="localhost", port=ssh_tunel.local_bind_port)
+    redis_conn = redis.Redis(host="localhost", port=ssh_tunel.local_bind_port)
     redis_conn.ping()
     return redis_conn, ssh_tunel
 

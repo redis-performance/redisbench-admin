@@ -301,6 +301,12 @@ class Perf:
                                     self.perf, e.__str__()
                                 )
                             )
+                        except Exception as e:
+                            self.logger.error(
+                                "Unable to run {} script {}".format(
+                                    self.perf, e.__str__()
+                                )
+                            )
                 else:
                     logging.warning(
                         "Unable to generate main thread only collapsed stack files given no PID data is available"

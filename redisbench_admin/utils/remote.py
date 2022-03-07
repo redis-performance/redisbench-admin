@@ -514,13 +514,13 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict, expire_msecs=0):
                 try:
                     if timestamp is None:
                         logging.warning("The provided timestamp is null. Using auto-ts")
-                        rts.add(
+                        rts.ts().add(
                             timeseries_name,
                             value,
                             duplicate_policy="last",
                         )
                     else:
-                        rts.add(
+                        rts.ts().add(
                             timeseries_name,
                             timestamp,
                             value,
@@ -544,14 +544,14 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict, expire_msecs=0):
                     datapoint_errors += 1
                     pass
             if expire_msecs > 0:
-                rts.redis.pexpire(timeseries_name, expire_msecs)
+                rts.pexpire(timeseries_name, expire_msecs)
     return datapoint_errors, datapoint_inserts
 
 
 def exporter_create_ts(rts, time_series, timeseries_name):
     updated_create = False
     try:
-        if rts.redis.exists(timeseries_name):
+        if rts.exists(timeseries_name):
             updated_create = check_rts_labels(rts, time_series, timeseries_name)
         else:
             logging.debug(
@@ -559,7 +559,9 @@ def exporter_create_ts(rts, time_series, timeseries_name):
                     timeseries_name, time_series["labels"]
                 )
             )
-            rts.create(timeseries_name, labels=time_series["labels"], chunk_size=128)
+            rts.ts().create(
+                timeseries_name, labels=time_series["labels"], chunk_size=128
+            )
             updated_create = True
 
     except redis.exceptions.ResponseError as e:
@@ -584,7 +586,7 @@ def check_rts_labels(rts, time_series, timeseries_name):
         )
     )
     set1 = set(time_series["labels"].items())
-    set2 = set(rts.info(timeseries_name).labels.items())
+    set2 = set(rts.ts().info(timeseries_name).labels.items())
     if len(set1 - set2) > 0 or len(set2 - set1) > 0:
         logging.info(
             "Given the labels don't match using TS.ALTER on {} to update labels to {}".format(
@@ -592,7 +594,7 @@ def check_rts_labels(rts, time_series, timeseries_name):
             )
         )
         updated_create = True
-        rts.alter(timeseries_name, labels=time_series["labels"])
+        rts.ts().alter(timeseries_name, labels=time_series["labels"])
     return updated_create
 
 

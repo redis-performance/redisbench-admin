@@ -34,6 +34,10 @@ jobs:
       run: |
         pip3 install black coverage flake8 tox tox-docker tox-poetry
 
+    - name: Set Submodules
+      run: |
+        git submodule update --init --recursive
+
     - name: Install Redis
       run: |
         sudo add-apt-repository ppa:redislabs/redis

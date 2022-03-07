@@ -11,7 +11,7 @@ import humanize
 import datetime as dt
 
 from redisbench_admin.utils.remote import get_overall_dashboard_keynames
-from redistimeseries.client import Client
+
 
 from redisbench_admin.utils.utils import get_ts_metric_name
 
@@ -29,13 +29,13 @@ def compare_command_logic(args, project_name, project_version):
             args.redistimeseries_port,
         )
     )
-    rts = Client(
+    rts = redis.Redis(
         host=args.redistimeseries_host,
         port=args.redistimeseries_port,
         password=args.redistimeseries_pass,
         username=args.redistimeseries_user,
     )
-    rts.redis.ping()
+    rts.ping()
 
     tf_github_org = args.github_org
     tf_github_repo = args.github_repo
@@ -108,7 +108,7 @@ def compare_command_logic(args, project_name, project_version):
     ) = get_overall_dashboard_keynames(tf_github_org, tf_github_repo, tf_triggering_env)
     test_names = []
     try:
-        test_names = rts.redis.smembers(testcases_setname)
+        test_names = rts.smembers(testcases_setname)
         test_names = list(test_names)
         test_names.sort()
     except redis.exceptions.ResponseError as e:

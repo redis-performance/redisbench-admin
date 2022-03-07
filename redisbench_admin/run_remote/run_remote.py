@@ -6,10 +6,10 @@
 import logging
 import sys
 import traceback
-
+import redis
 import pytablewriter
 from pytablewriter import MarkdownTableWriter
-from redistimeseries.client import Client
+
 
 from redisbench_admin.profilers.perf_daemon_caller import (
     PerfDaemonRemoteCaller,
@@ -56,7 +56,6 @@ from redisbench_admin.utils.remote import (
     check_ec2_env,
     get_project_ts_tags,
     push_data_to_redistimeseries,
-    execute_remote_commands,
 )
 
 from redisbench_admin.utils.utils import (
@@ -170,12 +169,12 @@ def run_remote_command_logic(args, project_name, project_version):
                 args.redistimeseries_host, args.redistimeseries_port
             )
         )
-        rts = Client(
+        rts = redis.Redis(
             host=args.redistimeseries_host,
             port=args.redistimeseries_port,
             password=args.redistimeseries_pass,
         )
-        rts.redis.ping()
+        rts.ping()
 
     # we have a map of test-type, dataset-name, topology, test-name
     benchmark_runs_plan = define_benchmark_plan(benchmark_definitions, default_specs)
@@ -803,7 +802,7 @@ def run_remote_command_logic(args, project_name, project_version):
                 )
                 profile_markdown_str = htmlwriter.dumps()
                 profile_markdown_str = profile_markdown_str.replace("\n", "")
-                rts.redis.setex(
+                rts.setex(
                     target_tables_latest_key,
                     EXPIRE_TIME_SECS_PROFILE_KEYS,
                     profile_markdown_str,

@@ -6,7 +6,7 @@ import argparse
 import redis
 import yaml
 from redisbench_admin.utils.remote import push_data_to_redistimeseries
-from redistimeseries.client import Client
+
 
 from redisbench_admin.export.common.common import (
     add_datapoint,
@@ -111,6 +111,7 @@ def test_extract_benchmark_tool_settings():
         "./tests/test_data/ycsb-config.yml",
         "./tests/test_data/redis-benchmark.yml",
         "./tests/test_data/redisgraph-benchmark-go.yml",
+        "./tests/test_data/ann-config.yml",
     ]
     for file in config_files:
         with open(file, "r") as yml_file:
@@ -171,8 +172,8 @@ def test_common_exporter_logic():
     # negative test
     common_exporter_logic(None, None, None, None, None, None, None, None, None, None)
     try:
-        rts = Client(port=16379)
-        rts.redis.ping()
+        rts = redis.Redis(port=16379)
+        rts.ping()
         with open(
             "./tests/test_data/redis-benchmark-full-suite-1Mkeys-100B.yml", "r"
         ) as yml_file:
@@ -232,8 +233,8 @@ def test_common_exporter_logic():
                     use_metric_context_path,
                 )
 
-                assert ts_key_name.encode() in rts.redis.keys()
-                rts.redis.flushall()
+                assert ts_key_name.encode() in rts.keys()
+                rts.flushall()
 
                 # test for build variant
                 build_variant_name = "variant-1"
@@ -283,8 +284,8 @@ def test_common_exporter_logic():
                 datapoint_errors, datapoint_inserts = push_data_to_redistimeseries(
                     rts, per_branch_time_series_dict
                 )
-                assert ts_key_name.encode() in rts.redis.keys()
-                rts.redis.flushall()
+                assert ts_key_name.encode() in rts.keys()
+                rts.flushall()
 
                 # test for build variant and extra metadata flags
                 build_variant_name = "variant-1"
@@ -334,10 +335,10 @@ def test_common_exporter_logic():
                     use_metric_context_path,
                     build_variant_name,
                 )
-                assert ts_key_name.encode() in rts.redis.keys()
-                assert "arch" in rts.info(ts_key_name).labels
-                assert "compiler" in rts.info(ts_key_name).labels
-                assert "compiler_version" in rts.info(ts_key_name).labels
+                assert ts_key_name.encode() in rts.keys()
+                assert "arch" in rts.ts().info(ts_key_name).labels
+                assert "compiler" in rts.ts().info(ts_key_name).labels
+                assert "compiler_version" in rts.ts().info(ts_key_name).labels
 
     except redis.exceptions.ConnectionError:
         pass
