@@ -1,0 +1,3 @@
+[submodule "redisbench_admin/run/ann/pkg"]
+	path = redisbench_admin/run/ann/pkg
+	url = https://github.com/RedisAI/ann-benchmarks
