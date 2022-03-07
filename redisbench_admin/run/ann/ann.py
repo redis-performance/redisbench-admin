@@ -1,5 +1,6 @@
 import pkg_resources
 
+
 ANN_MULTIRUN_PATH = pkg_resources.resource_filename(
     "redisbench_admin", "run/ann/pkg/multirun.py"
 )
@@ -12,8 +13,9 @@ def prepare_ann_benchmark_command(
     benchmark_config: object,
     results_file: str,
     current_workdir: str,
+    ann_path: str,
 ):
-    command_arr = ["python3", ANN_MULTIRUN_PATH]
+    command_arr = ["python3", ann_path]
 
     if "arguments" in benchmark_config:
         command_arr.extend(benchmark_config["arguments"].strip().split(" "))
@@ -29,7 +31,10 @@ def prepare_ann_benchmark_command(
     if cluster_mode:
         command_arr.append("--cluster")
 
-    command_arr.extend(["--json-output", "{}/{}".format(current_workdir, results_file)])
+    json_output = results_file
+    if current_workdir is not None and not (results_file.startswith("/")):
+        json_output = "{}/{}".format(current_workdir, results_file)
+    command_arr.extend(["--json-output", json_output])
 
     command_str = " ".join([str(x) for x in command_arr])
     return command_arr, command_str

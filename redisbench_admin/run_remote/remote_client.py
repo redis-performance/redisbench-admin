@@ -16,6 +16,7 @@ from redisbench_admin.run_remote.remote_helpers import (
     post_process_remote_run,
 )
 from redisbench_admin.utils.benchmark_config import extract_benchmark_tool_settings
+from redisbench_admin.utils.redisgraph_benchmark_go import setup_remote_benchmark_ann
 from redisbench_admin.utils.remote import (
     execute_remote_commands,
     fetch_file_from_remote_setup,
@@ -72,6 +73,14 @@ def run_remote_client_tool(
         client_ssh_port,
         private_key,
     )
+    if "ann-benchmarks" in benchmark_tool:
+        logging.info(
+            "Ensuring that the ann-benchmark being used is the latest version release within the redisbench-admin package"
+        )
+        setup_remote_benchmark_ann(
+            client_public_ip, username, private_key, client_ssh_port
+        )
+
     command, command_str = prepare_benchmark_parameters(
         benchmark_config,
         benchmark_tool,
@@ -82,6 +91,10 @@ def run_remote_client_tool(
         None,
         cluster_api_enabled,
         config_key,
+        client_public_ip,
+        username,
+        private_key,
+        client_ssh_port,
     )
     tmp = None
     if benchmark_tool == "redis-benchmark":

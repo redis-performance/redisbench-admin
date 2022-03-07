@@ -86,17 +86,20 @@ def terraform_spin_or_reuse_env(
     )
 
 
-def terraform_destroy(remote_envs):
-    for remote_setup_name, tf in remote_envs.items():
-        # tear-down
-        logging.info("Tearing down setup {}".format(remote_setup_name))
-        tf.destroy(
-            capture_output="yes",
-            no_color=IsNotFlagged,
-            force=IsNotFlagged,
-            auto_approve=True,
-        )
+def terraform_destroy(remote_envs, keep_env=False):
+    if keep_env is False:
+        for remote_setup_name, tf in remote_envs.items():
+            # tear-down
+            logging.info("Tearing down setup {}".format(remote_setup_name))
+            tf.destroy(
+                capture_output="yes",
+                no_color=IsNotFlagged,
+                force=IsNotFlagged,
+                auto_approve=True,
+            )
         logging.info("Tear-down completed")
+    else:
+        logging.info("Keeping the environment UP uppon request")
 
 
 def retrieve_inventory_info(inventory_str):
