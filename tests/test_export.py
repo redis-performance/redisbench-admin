@@ -1,9 +1,8 @@
 import os
 from unittest import TestCase
-
+import redis
 import argparse
 
-from redistimeseries.client import Client
 
 from redisbench_admin.export.args import create_export_arguments
 from redisbench_admin.export.common.common import get_timeserie_name
@@ -30,9 +29,9 @@ def test_export_command_logic():
     rts_pass = ""
     if rts_host is None:
         assert False
-    rts = Client(port=16379, host=rts_host)
-    rts.redis.ping()
-    rts.redis.flushall()
+    rts = redis.Redis(port=16379, host=rts_host)
+    rts.ping()
+    rts.flushall()
     parser = argparse.ArgumentParser(
         description="test",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,

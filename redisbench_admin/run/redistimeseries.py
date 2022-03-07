@@ -134,7 +134,7 @@ def add_standardized_metric_bybranch(
         ts = {"labels": labels}
         exporter_create_ts(rts, ts, tsname_use_case_duration)
         logging.error(labels)
-        rts.add(
+        rts.ts().add(
             tsname_use_case_duration,
             start_time_ms,
             metric_value,
@@ -202,7 +202,7 @@ def add_standardized_metric_byversion(
         )
         ts = {"labels": labels}
         exporter_create_ts(rts, ts, tsname_use_case_duration)
-        rts.add(
+        rts.ts().add(
             tsname_use_case_duration,
             start_time_ms,
             metric_value,
@@ -291,7 +291,7 @@ def timeseries_test_sucess_flow(
                 )
                 if "contains-target" in version_target_table_dict:
                     del version_target_table_dict["contains-target"]
-                rts.redis.hset(
+                rts.hset(
                     version_target_table_keyname, None, None, version_target_table_dict
                 )
         if branch_target_tables is not None:
@@ -312,7 +312,7 @@ def timeseries_test_sucess_flow(
                 )
                 if "contains-target" in branch_target_table_dict:
                     del branch_target_table_dict["contains-target"]
-                rts.redis.hset(
+                rts.hset(
                     branch_target_table_keyname, None, None, branch_target_table_dict
                 )
 
@@ -379,32 +379,30 @@ def update_secondary_result_keys(
     )
     try:
         if test_name is not None:
-            rts.redis.sadd(testcases_setname, test_name)
+            rts.sadd(testcases_setname, test_name)
         if "arch" in metadata_tags:
-            rts.redis.sadd(project_archs_setname, metadata_tags["arch"])
+            rts.sadd(project_archs_setname, metadata_tags["arch"])
         if "os" in metadata_tags:
-            rts.redis.sadd(project_oss_setname, metadata_tags["os"])
+            rts.sadd(project_oss_setname, metadata_tags["os"])
         if "compiler" in metadata_tags:
-            rts.redis.sadd(project_compilers_setname, metadata_tags["compiler"])
+            rts.sadd(project_compilers_setname, metadata_tags["compiler"])
         if tf_github_branch is not None and tf_github_branch != "":
-            rts.redis.sadd(project_branches_setname, tf_github_branch)
+            rts.sadd(project_branches_setname, tf_github_branch)
         if artifact_version is not None and artifact_version != "":
-            rts.redis.sadd(project_versions_setname, artifact_version)
+            rts.sadd(project_versions_setname, artifact_version)
         if running_platform is not None:
-            rts.redis.sadd(running_platforms_setname, running_platform)
+            rts.sadd(running_platforms_setname, running_platform)
         if build_variant_name is not None:
-            rts.redis.sadd(build_variant_setname, build_variant_name)
+            rts.sadd(build_variant_setname, build_variant_name)
         if testcase_metric_context_paths is not None:
             for metric_context_path in testcase_metric_context_paths:
                 if testcases_metric_context_path_setname != "":
-                    rts.redis.sadd(
-                        testcases_metric_context_path_setname, metric_context_path
-                    )
-                    rts.redis.sadd(
+                    rts.sadd(testcases_metric_context_path_setname, metric_context_path)
+                    rts.sadd(
                         testcases_and_metric_context_path_setname,
                         "{}:{}".format(test_name, metric_context_path),
                     )
-        rts.incrby(
+        rts.ts().incrby(
             tsname_project_total_success,
             1,
             timestamp=start_time_ms,
@@ -507,7 +505,7 @@ def timeseries_test_failure_flow(
         if start_time_ms is None:
             _, start_time_ms, _ = get_start_time_vars()
         try:
-            rts.incrby(
+            rts.ts().incrby(
                 tsname_project_total_failures,
                 1,
                 timestamp=start_time_ms,
@@ -553,7 +551,7 @@ def datasink_profile_tabular_data(
         github_branch=github_branch,
         github_hash=github_sha,
     )
-    rts.redis.zadd(
+    rts.zadd(
         zset_profiles_key_name,
         {profile_test_suffix: start_time_ms},
     )
@@ -575,14 +573,14 @@ def datasink_profile_tabular_data(
                 table_columns_text_key, tabular_data["columns:text"]
             )
         )
-        rts.redis.rpush(table_columns_text_key, *tabular_data["columns:text"])
+        rts.rpush(table_columns_text_key, *tabular_data["columns:text"])
         logging.info(
             "Pushing list key (named {}) the following column types: {}".format(
                 table_columns_type_key, tabular_data["columns:type"]
             )
         )
-        rts.redis.rpush(table_columns_type_key, *tabular_data["columns:type"])
+        rts.rpush(table_columns_type_key, *tabular_data["columns:type"])
         for row_name in tabular_data["columns:text"]:
             table_row_key = "{}:rows:{}".format(tabular_suffix, row_name)
             row_values = tabular_data["rows:{}".format(row_name)]
-            rts.redis.rpush(table_row_key, *row_values)
+            rts.rpush(table_row_key, *row_values)

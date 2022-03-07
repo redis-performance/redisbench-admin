@@ -44,7 +44,7 @@ def spin_up_local_redis_cluster(
             )
         )
         redis_process = subprocess.Popen(command)
-        r = redis.StrictRedis(port=shard_port)
+        r = redis.Redis(port=shard_port)
         result = wait_for_conn(r, dataset_load_timeout_secs)
         if result is True:
             logging.info("Redis available. pid={}".format(redis_process.pid))

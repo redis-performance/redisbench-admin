@@ -324,30 +324,43 @@ def extract_benchmark_tool_settings(benchmark_config, config_key="clientconfig")
     benchmark_min_tool_version_minor = None
     benchmark_min_tool_version_patch = None
     benchmark_tool_property_map = benchmark_config[config_key]
-    for entry in benchmark_config[config_key]:
-        if "tool" in entry:
-            benchmark_tool = entry["tool"]
-        if "tool_source" in entry:
-            for inner_entry in entry["tool_source"]:
-                if "remote" in inner_entry:
-                    benchmark_tool_source = inner_entry["remote"]
-                if "bin_path" in inner_entry:
-                    benchmark_tool_source_inner_path = inner_entry["bin_path"]
-
-        if "min-tool-version" in entry:
-            benchmark_min_tool_version = entry["min-tool-version"]
-            p = re.compile(r"(\d+)\.(\d+)\.(\d+)")
-            m = p.match(benchmark_min_tool_version)
-            if m is None:
-                logging.error(
-                    "Unable to extract semversion from 'min-tool-version'."
-                    " Will not enforce version"
-                )
-                benchmark_min_tool_version = None
-            else:
-                benchmark_min_tool_version_major = m.group(1)
-                benchmark_min_tool_version_minor = m.group(2)
-                benchmark_min_tool_version_patch = m.group(3)
+    if type(benchmark_tool_property_map) == dict:
+        (
+            benchmark_min_tool_version,
+            benchmark_min_tool_version_major,
+            benchmark_min_tool_version_minor,
+            benchmark_min_tool_version_patch,
+            benchmark_tool,
+            benchmark_tool_source,
+            benchmark_tool_source_inner_path,
+        ) = tool_entry_check(
+            benchmark_min_tool_version_major,
+            benchmark_min_tool_version_minor,
+            benchmark_min_tool_version_patch,
+            benchmark_tool,
+            benchmark_tool_source,
+            benchmark_tool_source_inner_path,
+            benchmark_tool_property_map,
+        )
+    elif type(benchmark_tool_property_map) == list:
+        for entry in benchmark_config[config_key]:
+            (
+                benchmark_min_tool_version,
+                benchmark_min_tool_version_major,
+                benchmark_min_tool_version_minor,
+                benchmark_min_tool_version_patch,
+                benchmark_tool,
+                benchmark_tool_source,
+                benchmark_tool_source_inner_path,
+            ) = tool_entry_check(
+                benchmark_min_tool_version_major,
+                benchmark_min_tool_version_minor,
+                benchmark_min_tool_version_patch,
+                benchmark_tool,
+                benchmark_tool_source,
+                benchmark_tool_source_inner_path,
+                entry,
+            )
     return (
         benchmark_min_tool_version,
         benchmark_min_tool_version_major,
@@ -357,6 +370,74 @@ def extract_benchmark_tool_settings(benchmark_config, config_key="clientconfig")
         benchmark_tool_source,
         benchmark_tool_source_inner_path,
         benchmark_tool_property_map,
+    )
+
+
+def tool_entry_check(
+    benchmark_min_tool_version_major,
+    benchmark_min_tool_version_minor,
+    benchmark_min_tool_version_patch,
+    benchmark_tool,
+    benchmark_tool_source,
+    benchmark_tool_source_inner_path,
+    entry,
+):
+    benchmark_min_tool_version = None
+    if "tool" in entry:
+        benchmark_tool = entry["tool"]
+    if "tool_source" in entry:
+        for inner_entry in entry["tool_source"]:
+            if "remote" in inner_entry:
+                benchmark_tool_source = inner_entry["remote"]
+            if "bin_path" in inner_entry:
+                benchmark_tool_source_inner_path = inner_entry["bin_path"]
+    if "min-tool-version" in entry:
+        benchmark_min_tool_version = entry["min-tool-version"]
+        (
+            benchmark_min_tool_version,
+            benchmark_min_tool_version_major,
+            benchmark_min_tool_version_minor,
+            benchmark_min_tool_version_patch,
+        ) = min_ver_check(
+            benchmark_min_tool_version,
+            benchmark_min_tool_version_major,
+            benchmark_min_tool_version_minor,
+            benchmark_min_tool_version_patch,
+        )
+    return (
+        benchmark_min_tool_version,
+        benchmark_min_tool_version_major,
+        benchmark_min_tool_version_minor,
+        benchmark_min_tool_version_patch,
+        benchmark_tool,
+        benchmark_tool_source,
+        benchmark_tool_source_inner_path,
+    )
+
+
+def min_ver_check(
+    benchmark_min_tool_version,
+    benchmark_min_tool_version_major,
+    benchmark_min_tool_version_minor,
+    benchmark_min_tool_version_patch,
+):
+    p = re.compile(r"(\d+)\.(\d+)\.(\d+)")
+    m = p.match(benchmark_min_tool_version)
+    if m is None:
+        logging.error(
+            "Unable to extract semversion from 'min-tool-version'."
+            " Will not enforce version"
+        )
+        benchmark_min_tool_version = None
+    else:
+        benchmark_min_tool_version_major = m.group(1)
+        benchmark_min_tool_version_minor = m.group(2)
+        benchmark_min_tool_version_patch = m.group(3)
+    return (
+        benchmark_min_tool_version,
+        benchmark_min_tool_version_major,
+        benchmark_min_tool_version_minor,
+        benchmark_min_tool_version_patch,
     )
 
 

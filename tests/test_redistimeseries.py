@@ -8,7 +8,7 @@ import json
 import redis
 import yaml
 from redisbench_admin.utils.remote import get_overall_dashboard_keynames
-from redistimeseries.client import Client
+
 
 from redisbench_admin.run.common import (
     merge_default_and_config_metrics,
@@ -19,9 +19,9 @@ from redisbench_admin.run.redistimeseries import timeseries_test_sucess_flow
 
 def test_timeseries_test_sucess_flow():
     try:
-        rts = Client(port=16379)
-        rts.redis.ping()
-        rts.redis.flushall()
+        rts = redis.Redis(port=16379)
+        rts.ping()
+        rts.flushall()
         with open(
             "./tests/test_data/redis-benchmark-full-suite-1Mkeys-100B.yml", "r"
         ) as yml_file:
@@ -93,37 +93,32 @@ def test_timeseries_test_sucess_flow():
                     "platform1",
                 )
 
-            assert rts.redis.exists(testcases_and_metric_context_path_setname)
-            assert rts.redis.exists(testcases_metric_context_path_setname)
-            assert rts.redis.exists(testcases_setname)
-            assert rts.redis.exists(running_platforms_setname)
-            assert rts.redis.exists(build_variant_setname)
+            assert rts.exists(testcases_and_metric_context_path_setname)
+            assert rts.exists(testcases_metric_context_path_setname)
+            assert rts.exists(testcases_setname)
+            assert rts.exists(running_platforms_setname)
+            assert rts.exists(build_variant_setname)
 
-            assert "amd64".encode() in rts.redis.smembers(project_archs_setname)
-            assert "debian:8".encode() in rts.redis.smembers(project_oss_setname)
-            assert "gcc".encode() in rts.redis.smembers(project_compilers_setname)
-            assert project_version.encode() in rts.redis.smembers(
-                project_versions_setname
+            assert "amd64".encode() in rts.smembers(project_archs_setname)
+            assert "debian:8".encode() in rts.smembers(project_oss_setname)
+            assert "gcc".encode() in rts.smembers(project_compilers_setname)
+            assert project_version.encode() in rts.smembers(project_versions_setname)
+            assert tf_github_branch.encode() in rts.smembers(project_branches_setname)
+            assert "build1".encode() in rts.smembers(build_variant_setname)
+            assert test_name.encode() in rts.smembers(testcases_setname)
+            assert len(rts.smembers(testcases_setname)) == 1
+            assert len(rts.smembers(project_branches_setname)) == 1
+            assert len(rts.smembers(project_versions_setname)) == 1
+            assert "platform1".encode() in rts.smembers(running_platforms_setname)
+            assert len(rts.smembers(testcases_and_metric_context_path_setname)) == len(
+                results_dict["Tests"].keys()
             )
-            assert tf_github_branch.encode() in rts.redis.smembers(
-                project_branches_setname
-            )
-            assert "build1".encode() in rts.redis.smembers(build_variant_setname)
-            assert test_name.encode() in rts.redis.smembers(testcases_setname)
-            assert len(rts.redis.smembers(testcases_setname)) == 1
-            assert len(rts.redis.smembers(project_branches_setname)) == 1
-            assert len(rts.redis.smembers(project_versions_setname)) == 1
-            assert "platform1".encode() in rts.redis.smembers(running_platforms_setname)
-            assert len(
-                rts.redis.smembers(testcases_and_metric_context_path_setname)
-            ) == len(results_dict["Tests"].keys())
             testcases_and_metric_context_path_members = [
                 x.decode()
-                for x in rts.redis.smembers(testcases_and_metric_context_path_setname)
+                for x in rts.smembers(testcases_and_metric_context_path_setname)
             ]
             metric_context_path_members = [
-                x.decode()
-                for x in rts.redis.smembers(testcases_metric_context_path_setname)
+                x.decode() for x in rts.smembers(testcases_metric_context_path_setname)
             ]
             for metric_context_path in results_dict["Tests"].keys():
                 assert (
@@ -135,15 +130,13 @@ def test_timeseries_test_sucess_flow():
             assert len(metric_context_path_members) == len(
                 testcases_and_metric_context_path_members
             )
-            assert [x.decode() for x in rts.redis.smembers(testcases_setname)] == [
-                test_name
-            ]
+            assert [x.decode() for x in rts.smembers(testcases_setname)] == [test_name]
             # 2 (branch/version) x ( load time + test time  ) + project successes
             number_of_control_ts = 2 + 2 + 1
             # set with test names + per project tag sets ( os, branch, .... )
             number_of_control_redis = 10 + len_metrics
 
-            keys = [x.decode() for x in rts.redis.keys()]
+            keys = [x.decode() for x in rts.keys()]
             assert (
                 len(results_dict["Tests"].keys()) * len(metrics)
                 + number_of_control_redis
@@ -191,20 +184,20 @@ def test_timeseries_test_sucess_flow():
                 "build",
                 "platform2",
             )
-            assert "arm64".encode() in rts.redis.smembers(project_archs_setname)
-            assert "ubuntu:16.04".encode() in rts.redis.smembers(project_oss_setname)
-            assert "icc".encode() in rts.redis.smembers(project_compilers_setname)
-            assert "build".encode() in rts.redis.smembers(build_variant_setname)
-            assert "platform2".encode() in rts.redis.smembers(running_platforms_setname)
+            assert "arm64".encode() in rts.smembers(project_archs_setname)
+            assert "ubuntu:16.04".encode() in rts.smembers(project_oss_setname)
+            assert "icc".encode() in rts.smembers(project_compilers_setname)
+            assert "build".encode() in rts.smembers(build_variant_setname)
+            assert "platform2".encode() in rts.smembers(running_platforms_setname)
 
-            assert len(rts.redis.smembers(project_archs_setname)) == 2
-            assert len(rts.redis.smembers(project_oss_setname)) == 2
-            assert len(rts.redis.smembers(project_compilers_setname)) == 2
-            assert len(rts.redis.smembers(build_variant_setname)) == 2
-            assert len(rts.redis.smembers(running_platforms_setname)) == 2
-            assert len(rts.redis.smembers(testcases_setname)) == 1
-            assert len(rts.redis.smembers(project_branches_setname)) == 1
-            assert len(rts.redis.smembers(project_versions_setname)) == 1
+            assert len(rts.smembers(project_archs_setname)) == 2
+            assert len(rts.smembers(project_oss_setname)) == 2
+            assert len(rts.smembers(project_compilers_setname)) == 2
+            assert len(rts.smembers(build_variant_setname)) == 2
+            assert len(rts.smembers(running_platforms_setname)) == 2
+            assert len(rts.smembers(testcases_setname)) == 1
+            assert len(rts.smembers(project_branches_setname)) == 1
+            assert len(rts.smembers(project_versions_setname)) == 1
 
     except redis.exceptions.ConnectionError:
         pass

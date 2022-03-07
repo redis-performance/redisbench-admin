@@ -10,8 +10,7 @@ import os
 import sys
 import datetime
 import traceback
-
-from redistimeseries.client import Client
+import redis
 
 from redisbench_admin.profilers.profilers_schema import (
     local_profilers_print_artifacts_table,
@@ -98,12 +97,12 @@ def run_local_command_logic(args, project_name, project_version):
                 args.redistimeseries_host, args.redistimeseries_port
             )
         )
-        rts = Client(
+        rts = redis.Redis(
             host=args.redistimeseries_host,
             port=args.redistimeseries_port,
             password=args.redistimeseries_pass,
         )
-        rts.redis.ping()
+        rts.ping()
 
     dso = dso_check(args.dso, local_module_file)
     # start the profile
@@ -247,7 +246,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     benchmark_config,
                                     full_benchmark_path,
                                     args.port,
-                                    "localhost",
+                                    "127.0.0.1",
                                     local_benchmark_output_filename,
                                     False,
                                     benchmark_tool_workdir,

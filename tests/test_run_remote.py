@@ -7,7 +7,7 @@ import os
 
 import redis
 from redisbench_admin.run.metrics import collect_redis_metrics
-from redistimeseries.client import Client
+
 
 from redisbench_admin.run_remote.run_remote import export_redis_metrics
 
@@ -28,8 +28,8 @@ def test_export_redis_metrics():
         rts_port = 16379
         if rts_host is None:
             assert False
-        rts = Client(port=rts_port, host=rts_host)
-        rts.redis.ping()
+        rts = redis.Redis(port=rts_port, host=rts_host)
+        rts.ping()
         datapoint_errors, datapoint_inserts = export_redis_metrics(
             artifact_version,
             end_time_ms,
@@ -63,7 +63,7 @@ def test_export_redis_metrics():
         assert datapoint_errors == 0
         assert datapoint_inserts == 0
 
-        time_ms, _, overall_end_time_metrics = collect_redis_metrics([rts.redis])
+        time_ms, _, overall_end_time_metrics = collect_redis_metrics([rts])
         artifact_version = "6.2.3"
         datapoint_errors, datapoint_inserts = export_redis_metrics(
             artifact_version,
@@ -80,14 +80,15 @@ def test_export_redis_metrics():
             {"metric-type": "test-tag"},
         )
         assert (
-            rts.info(
+            rts.ts()
+            .info(
                 "ci.benchmarks.redislabs/env/org/repo/test1/by.version/6.2.3/benchmark_end/commandstats_cmdstat_ping_calls"
-            ).labels["metric-type"]
+            )
+            .labels["metric-type"]
             == "test-tag"
         )
-        assert (
-            "ci.benchmarks.redislabs/env/org/repo/test1/by.version/6.2.3/benchmark_end/commandstats_cmdstat_ping_calls"
-            in rts.queryindex(["metric-type=test-tag"])
+        assert "ci.benchmarks.redislabs/env/org/repo/test1/by.version/6.2.3/benchmark_end/commandstats_cmdstat_ping_calls" in rts.ts().queryindex(
+            ["metric-type=test-tag"]
         )
         assert datapoint_errors == 0
         assert datapoint_inserts == (1 * len(list(overall_end_time_metrics.keys())))

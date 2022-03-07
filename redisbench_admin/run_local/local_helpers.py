@@ -7,6 +7,7 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 
 import wget
 
@@ -18,13 +19,29 @@ from redisbench_admin.utils.utils import get_decompressed_filename, decompress_f
 
 
 def run_local_benchmark(benchmark_tool, command):
-    if benchmark_tool == "redis-benchmark" or benchmark_tool == "ycsb":
-        benchmark_client_process = subprocess.Popen(
-            args=command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    try:
+        if benchmark_tool == "redis-benchmark" or benchmark_tool == "ycsb":
+            benchmark_client_process = subprocess.Popen(
+                args=command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            )
+        else:
+            benchmark_client_process = subprocess.Popen(args=command)
+        (stdout, sterr) = benchmark_client_process.communicate()
+        if sterr:
+            logging.critical(
+                "Error while running {}. Error: {}".format(command, sterr.strip())
+            )
+    except OSError as error:
+        errorMessage = (
+            ">>> Error while executing:\n"
+            + command
+            + "\n>>> Returned with error:\n"
+            + str(error.output)
         )
-    else:
-        benchmark_client_process = subprocess.Popen(args=command)
-    (stdout, sterr) = benchmark_client_process.communicate()
+        logging.error(errorMessage)
+    except:
+        logging.error("Error > ", sys.exc_info()[0])
+
     return stdout, sterr
 
 
@@ -89,7 +106,10 @@ def check_benchmark_binaries_local_requirements(
             benchmark_min_tool_version_minor,
             benchmark_min_tool_version_patch,
         )
-    which_benchmark_tool = os.path.abspath(which_benchmark_tool)
+    if which_benchmark_tool is not None:
+        which_benchmark_tool = os.path.abspath(which_benchmark_tool)
+    else:
+        which_benchmark_tool = benchmark_tool
     return benchmark_tool, which_benchmark_tool, benchmark_tool_workdir
 
 
@@ -101,50 +121,57 @@ def fetch_benchmark_tool_from_source_to_local(
     bin_path,
     which_benchmark_tool,
 ):
-    if tool_source is not None and bin_path is not None:
-        logging.info(
-            "Tool {} was not detected on path. Using remote source to retrieve it: {}".format(
-                benchmark_tool, tool_source
-            )
-        )
-        if tool_source.startswith("http"):
-            if not os.path.isdir(binaries_localtemp_dir):
-                os.mkdir(binaries_localtemp_dir)
-            filename = tool_source.split("/")[-1]
-            full_path = "{}/{}".format(binaries_localtemp_dir, filename)
-            if not os.path.exists(full_path):
-                logging.info(
-                    "Retrieving remote file from {} to {}. Using the dir {} as a cache for next time.".format(
-                        tool_source, full_path, binaries_localtemp_dir
-                    )
-                )
-                wget.download(tool_source, full_path)
+    benchmark_tool_workdir = benchmark_tool_workdir
+    which_benchmark_tool = None
+    if "ann" not in benchmark_tool:
+        if tool_source is not None and bin_path is not None:
             logging.info(
-                "Decompressing {} into {}.".format(full_path, binaries_localtemp_dir)
+                "Tool {} was not detected on path. Using remote source to retrieve it: {}".format(
+                    benchmark_tool, tool_source
+                )
             )
-            if not os.path.exists(get_decompressed_filename(full_path)):
-                full_path = decompress_file(full_path, binaries_localtemp_dir)
-            else:
-                full_path = get_decompressed_filename(full_path)
-            benchmark_tool_workdir = os.path.abspath(full_path)
-            which_benchmark_tool = os.path.abspath(
-                "{}/{}".format(benchmark_tool_workdir, bin_path)
-            )
-            if which_benchmark_tool is None:
-                raise Exception(
-                    "Benchmark tool {} was not acessible at {}. Aborting...".format(
-                        benchmark_tool, full_path
+            if tool_source.startswith("http"):
+                if not os.path.isdir(binaries_localtemp_dir):
+                    os.mkdir(binaries_localtemp_dir)
+                filename = tool_source.split("/")[-1]
+                full_path = "{}/{}".format(binaries_localtemp_dir, filename)
+                if not os.path.exists(full_path):
+                    logging.info(
+                        "Retrieving remote file from {} to {}. Using the dir {} as a cache for next time.".format(
+                            tool_source, full_path, binaries_localtemp_dir
+                        )
+                    )
+                    wget.download(tool_source, full_path)
+                logging.info(
+                    "Decompressing {} into {}.".format(
+                        full_path, binaries_localtemp_dir
                     )
                 )
-            else:
-                logging.info(
-                    "Reusing cached remote file (located at {} ).".format(full_path)
+                if not os.path.exists(get_decompressed_filename(full_path)):
+                    full_path = decompress_file(full_path, binaries_localtemp_dir)
+                else:
+                    full_path = get_decompressed_filename(full_path)
+                benchmark_tool_workdir = os.path.abspath(full_path)
+                which_benchmark_tool = os.path.abspath(
+                    "{}/{}".format(benchmark_tool_workdir, bin_path)
                 )
+                if which_benchmark_tool is None:
+                    raise Exception(
+                        "Benchmark tool {} was not acessible at {}. Aborting...".format(
+                            benchmark_tool, full_path
+                        )
+                    )
+                else:
+                    logging.info(
+                        "Reusing cached remote file (located at {} ).".format(full_path)
+                    )
 
-    else:
-        raise Exception(
-            "Benchmark tool {} was not acessible. Aborting...".format(benchmark_tool)
-        )
+        else:
+            raise Exception(
+                "Benchmark tool {} was not acessible. Aborting...".format(
+                    benchmark_tool
+                )
+            )
     return benchmark_tool_workdir, which_benchmark_tool
 
 

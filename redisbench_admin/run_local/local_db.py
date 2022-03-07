@@ -116,7 +116,7 @@ def local_db_spin(
             modules_configuration_parameters_map,
         )
 
-        r = redis.StrictRedis(port=args.port)
+        r = redis.Redis(port=args.port)
         redis_conns.append(r)
 
     for shardn, redis_process in enumerate(redis_processes):

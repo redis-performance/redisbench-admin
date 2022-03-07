@@ -5,9 +5,9 @@
 #
 import json
 import os
-
+import redis
 import yaml
-from redistimeseries.client import Client
+
 
 from redisbench_admin.run.common import merge_default_and_config_metrics
 from redisbench_admin.run.metrics import extract_results_table, collect_redis_metrics
@@ -37,9 +37,9 @@ def test_collect_redis_metrics():
     rts_port = 16379
     if rts_host is None:
         assert False
-    rts = Client(port=rts_port, host=rts_host)
-    rts.redis.ping()
-    time_ms, metrics_arr, overall_metrics = collect_redis_metrics([rts.redis])
+    rts = redis.Redis(port=rts_port, host=rts_host)
+    rts.ping()
+    time_ms, metrics_arr, overall_metrics = collect_redis_metrics([rts])
     assert len(metrics_arr) == 1
     assert len(metrics_arr[0].keys()) == 3
     assert "cpu" in metrics_arr[0].keys()
@@ -51,7 +51,7 @@ def test_collect_redis_metrics():
     allocator_active_kv = overall_metrics["memory_allocator_active"]
     assert allocator_active == allocator_active_kv
 
-    _, metrics_arr, overall_metrics = collect_redis_metrics([rts.redis, rts.redis])
+    _, metrics_arr, overall_metrics = collect_redis_metrics([rts, rts])
     allocator_active_kv = overall_metrics["memory_allocator_active"]
     assert (2 * allocator_active) == allocator_active_kv
     assert "cmdstat_ping" in metrics_arr[0]["commandstats"]

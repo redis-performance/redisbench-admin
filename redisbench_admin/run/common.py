@@ -15,6 +15,7 @@ from pytablewriter import MarkdownTableWriter
 from redisbench_admin.run.aibench_run_inference_redisai_vision.aibench_run_inference_redisai_vision import (
     prepare_aibench_benchmark_command,
 )
+from redisbench_admin.run.ann.ann import prepare_ann_benchmark_command
 from redisbench_admin.run.ftsb.ftsb import prepare_ftsb_benchmark_command
 from redisbench_admin.run.memtier_benchmark.memtier_benchmark import (
     prepare_memtier_benchmark_command,
@@ -175,6 +176,15 @@ def prepare_benchmark_parameters_specif_tooling(
             entry,
             cluster_api_enabled,
             remote_results_file,
+        )
+    if "ann" in benchmark_tool:
+        (command_arr, command_str,) = prepare_ann_benchmark_command(
+            server_private_ip,
+            server_plaintext_port,
+            cluster_api_enabled,
+            entry,
+            remote_results_file,
+            current_workdir,
         )
     if "ftsb_" in benchmark_tool:
         input_data_file = None

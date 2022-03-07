@@ -11,7 +11,7 @@ import time
 
 import boto3
 import redis
-from redistimeseries.client import Client
+
 
 from redisbench_admin.run.common import get_start_time_vars
 from redisbench_admin.utils.remote import (
@@ -112,12 +112,12 @@ def watchdog_command_logic(args, project_name, project_version):
             args.redistimeseries_host, args.redistimeseries_port
         )
     )
-    rts = Client(
+    rts = redis.Redis(
         host=args.redistimeseries_host,
         port=args.redistimeseries_port,
         password=args.redistimeseries_pass,
     )
-    rts.redis.ping()
+    rts.ping()
     ec2_client = boto3.client("ec2")
     update_interval = args.update_interval
     logging.info(
@@ -134,7 +134,7 @@ def watchdog_command_logic(args, project_name, project_version):
             ec2_client, ci_machines_prefix, "running"
         )
         try:
-            rts.add(
+            rts.ts().add(
                 tsname_overall_running,
                 start_time_ms,
                 running_count,

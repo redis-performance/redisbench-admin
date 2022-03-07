@@ -9,7 +9,7 @@ import logging
 import datetime
 
 import redis
-from redistimeseries.client import Client
+
 
 from redisbench_admin.export.common.common import split_tags_string
 from redisbench_admin.run.git import git_vars_crosscheck
@@ -118,13 +118,13 @@ def export_command_logic(args, project_name, project_version):
             args.redistimeseries_host, args.redistimeseries_port
         )
     )
-    rts = Client(
+    rts = redis.Redis(
         host=args.redistimeseries_host,
         port=args.redistimeseries_port,
         password=args.redistimeseries_pass,
     )
     try:
-        rts.redis.ping()
+        rts.ping()
     except redis.exceptions.ConnectionError as e:
         logging.error(
             "Error while connecting to RedisTimeSeries data sink at: {}:{}. Error: {}".format(

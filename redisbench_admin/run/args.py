@@ -62,7 +62,7 @@ def common_run_args(parser):
         default="redis-benchmark,redisgraph-benchmark-go,ycsb,"
         + "tsbs_run_queries_redistimeseries,tsbs_load_redistimeseries,"
         + "ftsb_redisearch,"
-        + "aibench_run_inference_redisai_vision",
+        + "aibench_run_inference_redisai_vision,ann-benchmarks",
         help="comma separated list of allowed tools for this module. By default all the supported are allowed.",
     )
     parser.add_argument(
