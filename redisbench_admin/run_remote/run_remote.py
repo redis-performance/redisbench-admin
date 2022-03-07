@@ -105,6 +105,7 @@ def run_remote_command_logic(args, project_name, project_version):
     private_key = args.private_key
     grafana_profile_dashboard = args.grafana_profile_dashboard
     profilers_enabled = args.enable_profilers
+    keep_env_and_topo = args.keep_env_and_topo
 
     if args.skip_env_vars_verify is False:
         check_ec2_env()
@@ -606,7 +607,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
 
                                         if setup_details["env"] is None:
-                                            if args.keep_env_and_topo is False:
+                                            if keep_env_and_topo is False:
                                                 shutdown_remote_redis(
                                                     redis_conns, ssh_tunnel
                                                 )
@@ -728,7 +729,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                         "Detected Keyboard interruput...Destroy all remote envs and exiting right away!"
                                     )
                                     if args.inventory is None:
-                                        terraform_destroy(remote_envs)
+                                        terraform_destroy(
+                                            remote_envs, keep_env_and_topo
+                                        )
                                     exit(1)
                                 except:
                                     (
@@ -771,7 +774,7 @@ def run_remote_command_logic(args, project_name, project_version):
         )
         writer.write_table()
     if args.inventory is None:
-        terraform_destroy(remote_envs)
+        terraform_destroy(remote_envs, keep_env_and_topo)
 
     if args.push_results_redistimeseries:
         for setup_name, setup_target_table in overall_tables.items():
