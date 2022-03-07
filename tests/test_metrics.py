@@ -52,8 +52,7 @@ def test_collect_redis_metrics():
     assert allocator_active == allocator_active_kv
 
     _, metrics_arr, overall_metrics = collect_redis_metrics([rts, rts])
-    allocator_active_kv = overall_metrics["memory_allocator_active"]
-    assert (2 * allocator_active) == allocator_active_kv
+    assert "memory_allocator_active" in overall_metrics
     assert "cmdstat_ping" in metrics_arr[0]["commandstats"]
     assert "cmdstat_ping" in metrics_arr[1]["commandstats"]
     assert "commandstats_cmdstat_ping_calls_shard_1" in overall_metrics
