@@ -444,7 +444,7 @@ def min_ver_check(
 def get_testfiles_to_process(args):
     defaults_filename = args.defaults_filename
     if args.test == "":
-        files = pathlib.Path().glob("*.yml")
+        files = pathlib.Path().glob(args.test_glob)
         files = [str(x) for x in files]
         if defaults_filename in files:
             files.remove(defaults_filename)
