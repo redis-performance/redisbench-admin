@@ -15,7 +15,7 @@ def prepare_ann_benchmark_command(
     current_workdir: str,
     ann_path: str,
 ):
-    command_arr = ["python3", ann_path]
+    command_arr = ["sudo", "python3", ann_path]
 
     if "arguments" in benchmark_config:
         command_arr.extend(benchmark_config["arguments"].strip().split(" "))
