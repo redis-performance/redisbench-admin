@@ -23,6 +23,7 @@ DEFAULT_TRIGGERING_ENV = socket.gethostname()
 TRIGGERING_ENV = os.getenv("TRIGGERING_ENV", DEFAULT_TRIGGERING_ENV)
 ENV = os.getenv("ENV", "oss-standalone,oss-cluster")
 SETUP = os.getenv("SETUP", "")
+BENCHMARK_GLOB = os.getenv("BENCHMARK_GLOB", "*.yml")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "ci.benchmarks.redislabs")
 PUSH_S3 = bool(os.getenv("PUSH_S3", False))
 FAIL_FAST = bool(os.getenv("FAIL_FAST", False))
@@ -71,6 +72,13 @@ def common_run_args(parser):
         default="",
         help="specify a test to run. By default will run all of them.",
     )
+    parser.add_argument(
+        "--test-glob",
+        type=str,
+        default=BENCHMARK_GLOB,
+        help="specify a test glob pattern to use on the tests directory. by default uses *.yml. If --test is defined this options has no effect.",
+    )
+
     parser.add_argument(
         "--defaults_filename",
         type=str,
