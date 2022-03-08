@@ -169,7 +169,7 @@ def check_dataset_remote_requirements(
     db_ssh_port=22,
 ):
     res = True
-    dataset, fullpath, tmppath = check_dataset_local_requirements(
+    dataset, dataset_name, fullpath, tmppath = check_dataset_local_requirements(
         benchmark_config,
         ".",
         dirname,

@@ -23,7 +23,7 @@ def test_prepare_ann_benchmark_command():
             ".",
         )
         assert (
-            " ".join(command_arr[2:])
+            " ".join(command_arr[3:])
             == "--algorithm redisearch-hnsw --dataset mnist-784-euclidean --run-group M-4 --count 1 --build-clients 1 --test-clients 0 --host localhost --port 6379 --json-output ./result.json"
         )
 

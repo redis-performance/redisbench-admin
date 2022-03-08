@@ -23,12 +23,15 @@ def check_dataset_local_requirements(
     is_cluster=False,
 ):
     dataset = None
+    dataset_name = None
     full_path = None
     tmp_path = None
     if dbconfig_keyname in benchmark_config:
         for k in benchmark_config[dbconfig_keyname]:
             if "dataset" in k:
                 dataset = k["dataset"]
+            if "dataset_name" in k:
+                dataset_name = k["dataset_name"]
         if dataset is not None:
             full_path = check_if_needs_remote_fetch(
                 dataset, datasets_localtemp_dir, dirname
@@ -50,7 +53,7 @@ def check_dataset_local_requirements(
                     )
                     copyfile(full_path, tmp_path)
 
-    return dataset, full_path, tmp_path
+    return dataset, dataset_name, full_path, tmp_path
 
 
 def check_if_needs_remote_fetch(
