@@ -21,6 +21,7 @@ def check_dataset_local_requirements(
     dbconfig_keyname="dbconfig",
     number_primaries=1,
     is_cluster=False,
+    is_remote=False,
 ):
     dataset = None
     dataset_name = None
@@ -34,7 +35,7 @@ def check_dataset_local_requirements(
                 dataset_name = k["dataset_name"]
         if dataset is not None:
             full_path = check_if_needs_remote_fetch(
-                dataset, datasets_localtemp_dir, dirname
+                dataset, datasets_localtemp_dir, dirname, None, is_remote
             )
 
             if is_cluster is False:

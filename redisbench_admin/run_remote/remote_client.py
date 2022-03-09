@@ -133,6 +133,18 @@ def run_remote_client_tool(
             stdout,
             tmp,
         )
+    else:
+        logging.error(
+            "Given the remote tool failed, inspecting the remote results file content ({})".format(
+                remote_results_file
+            )
+        )
+        command = ["cat {}".format(remote_results_file)]
+        recv_exit_status, stdout, stderr = execute_remote_commands(
+            client_public_ip, username, private_key, [command], client_ssh_port
+        )[0]
+        logging.warning("Remote results file content: {}".format(stdout))
+
     return (
         artifact_version,
         benchmark_duration_seconds,
