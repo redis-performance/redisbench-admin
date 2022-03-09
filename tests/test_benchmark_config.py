@@ -6,6 +6,7 @@ from redisbench_admin.utils.benchmark_config import (
     results_dict_kpi_check,
     check_required_modules,
     extract_redis_dbconfig_parameters,
+    extract_benchmark_type_from_config,
 )
 
 
@@ -113,3 +114,21 @@ def test_extract_redis_configuration_parameters():
             "redistimeseries": {"CHUNK_SIZE_BYTES": 128}
         }
         assert dbconfig_present == True
+
+
+def test_extract_benchmark_type_from_config():
+    with open("./tests/test_data/vecsim-memtier.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        benchmark_config_present, benchmark_type = extract_benchmark_type_from_config(
+            benchmark_config
+        )
+        assert benchmark_type == "read-only"
+        assert benchmark_config_present == True
+
+    with open("./tests/test_data/redis-benchmark.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        benchmark_config_present, benchmark_type = extract_benchmark_type_from_config(
+            benchmark_config
+        )
+        assert benchmark_type == "mixed"
+        assert benchmark_config_present == False
