@@ -60,7 +60,7 @@ def common_run_args(parser):
     parser.add_argument(
         "--allowed-tools",
         type=str,
-        default="redis-benchmark,redisgraph-benchmark-go,ycsb,"
+        default="memtier_benchmark,redis-benchmark,redisgraph-benchmark-go,ycsb,"
         + "tsbs_run_queries_redistimeseries,tsbs_load_redistimeseries,"
         + "ftsb_redisearch,"
         + "aibench_run_inference_redisai_vision,ann-benchmarks",
