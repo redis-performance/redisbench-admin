@@ -6,7 +6,6 @@
 import yaml
 
 from redisbench_admin.run.common import prepare_benchmark_parameters
-from redisbench_admin.run_remote.remote_client import run_remote_benchmark
 from redisbench_admin.utils.benchmark_config import extract_benchmark_tool_settings
 
 

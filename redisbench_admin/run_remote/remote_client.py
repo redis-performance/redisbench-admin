@@ -16,7 +16,10 @@ from redisbench_admin.run_remote.remote_helpers import (
     post_process_remote_run,
 )
 from redisbench_admin.utils.benchmark_config import extract_benchmark_tool_settings
-from redisbench_admin.utils.redisgraph_benchmark_go import setup_remote_benchmark_ann
+from redisbench_admin.utils.redisgraph_benchmark_go import (
+    setup_remote_benchmark_ann,
+    get_redisbench_admin_remote_path,
+)
 from redisbench_admin.utils.remote import (
     execute_remote_commands,
     fetch_file_from_remote_setup,
@@ -100,6 +103,34 @@ def run_remote_client_tool(
     if benchmark_tool == "redis-benchmark":
         tmp = local_bench_fname
         local_bench_fname = "result.csv"
+    commands = [command_str]
+    local_output_artifacts = []
+    remote_output_artifacts = []
+    if "ann" in benchmark_tool:
+        [recv_exit_status, stdout, stderr] = get_redisbench_admin_remote_path(
+            client_public_ip, username, private_key, client_ssh_port
+        )[0]
+        pkg_path = stdout[0].strip()
+        benchmark_suffix = local_bench_fname[: len(local_bench_fname) - 5]
+        create_website_path = pkg_path + "/run/ann/pkg/"
+        logging.info("Remote create website path: {}".format(create_website_path))
+        website_outputdir = "/tmp/website-{}".format(benchmark_suffix)
+        website_outputdir_zip = "/tmp/website-{}.zip".format(benchmark_suffix)
+        mkdir_command = "mkdir -p {}".format(website_outputdir)
+        create_website_command = (
+            "cd {} && sudo python3 create_website.py --outputdir {}".format(
+                create_website_path, create_website_path, website_outputdir
+            )
+        )
+        zip_website_command = "zip -r {} {}".format(
+            website_outputdir_zip, website_outputdir
+        )
+        commands.append(mkdir_command)
+        commands.append(create_website_command)
+        commands.append(zip_website_command)
+        local_output_artifacts.append(website_outputdir_zip)
+        remote_output_artifacts.append(website_outputdir_zip)
+
     benchmark_start_time = datetime.datetime.now()
     # run the benchmark
     remote_run_result, stdout, _ = run_remote_benchmark(
@@ -108,7 +139,7 @@ def run_remote_client_tool(
         private_key,
         remote_results_file,
         local_bench_fname,
-        command_str,
+        commands,
         client_ssh_port,
     )
     benchmark_end_time = datetime.datetime.now()
@@ -159,16 +190,16 @@ def run_remote_benchmark(
     client_public_ip,
     username,
     private_key,
-    remote_results_file,
-    local_results_file,
-    command,
+    remote_results_files,
+    local_results_files,
+    commands,
     ssh_port=22,
 ):
     remote_run_result = False
     res = execute_remote_commands(
-        client_public_ip, username, private_key, [command], ssh_port
+        client_public_ip, username, private_key, commands, ssh_port
     )
-    recv_exit_status, stdout, stderr = res[0]
+    recv_exit_status, _, _ = res[0]
 
     if recv_exit_status != 0:
         logging.error(
@@ -176,23 +207,57 @@ def run_remote_benchmark(
                 recv_exit_status
             )
         )
-        logging.error("remote process stdout: {}".format(stdout))
-        logging.error("remote process stderr: {}".format(stderr))
+        stderr, stdout = print_commands_outputs(commands, True, res)
     else:
         logging.info(
             "Remote process exited normally. Exit code {}. Printing stdout.".format(
                 recv_exit_status
             )
         )
-        logging.info("remote process stdout: {}".format(stdout))
+        stderr, stdout = print_commands_outputs(commands, False, res)
+
         logging.info("Extracting the benchmark results")
         remote_run_result = True
-        if "ycsb" not in command:
-            fetch_file_from_remote_setup(
-                client_public_ip,
-                username,
-                private_key,
-                local_results_file,
-                remote_results_file,
-            )
+        if "ycsb" not in commands[0]:
+            if type(local_results_files) == str:
+                local_results_file = local_results_files
+                remote_results_file = remote_results_files
+                fetch_file_from_remote_setup(
+                    client_public_ip,
+                    username,
+                    private_key,
+                    local_results_file,
+                    remote_results_file,
+                )
+            if type(local_results_files) == list:
+                assert len(local_results_files) == len(remote_results_files)
+                for pos, local_results_file in enumerate(local_results_files):
+                    remote_results_file = remote_results_files[pos]
+                    fetch_file_from_remote_setup(
+                        client_public_ip,
+                        username,
+                        private_key,
+                        local_results_file,
+                        remote_results_file,
+                    )
     return remote_run_result, stdout, stderr
+
+
+def print_commands_outputs(commands, print_err, res):
+    bench_stdout = ""
+    bench_stderr = ""
+    for pos, res_tuple in enumerate(res):
+        recv_exit_status, stdout, stderr = res_tuple
+        if pos == 0:
+            stderr, stdout = stderr, stdout
+        logging.info(
+            "Exit status for command {}: {}".format(commands[pos], recv_exit_status)
+        )
+        logging.info("\tremote process stdout:")
+        for line in stdout:
+            print(line.strip())
+        if print_err:
+            logging.error("\tremote process stderr:")
+            for line in stderr:
+                print(line.strip())
+    return bench_stderr, bench_stdout

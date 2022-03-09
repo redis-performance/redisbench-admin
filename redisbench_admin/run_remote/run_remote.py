@@ -186,6 +186,10 @@ def run_remote_command_logic(args, project_name, project_version):
     profiler_dashboard_table_headers = ["Setup", "Test-case", "Grafana Dashboard"]
     profiler_dashboard_links = []
 
+    benchmark_artifacts_table_name = "Benchmark client artifacts"
+    benchmark_artifacts_table_headers = ["Setup", "Test-case", "Artifact", "link"]
+    benchmark_artifacts_links = []
+
     # contains the overall target-tables ( if any target is defined )
     overall_tables = {}
 
@@ -762,6 +766,15 @@ def run_remote_command_logic(args, project_name, project_version):
                                         test_name
                                     )
                                 )
+
+    if len(benchmark_artifacts_links) > 0:
+        writer = MarkdownTableWriter(
+            table_name=benchmark_artifacts_table_name,
+            headers=benchmark_artifacts_table_headers,
+            value_matrix=benchmark_artifacts_links,
+        )
+        writer.write_table()
+
     if args.enable_profilers:
         writer = MarkdownTableWriter(
             table_name=profiler_dashboard_table_name,
