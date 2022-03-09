@@ -21,6 +21,7 @@ def test_prepare_ann_benchmark_command():
             benchmark_config["clientconfig"],
             "result.json",
             ".",
+            "ann",
         )
         assert (
             " ".join(command_arr[3:])
