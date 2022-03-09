@@ -119,7 +119,7 @@ def run_remote_client_tool(
         mkdir_command = "mkdir -p {}".format(website_outputdir)
         create_website_command = (
             "cd {} && sudo python3 create_website.py --outputdir {}".format(
-                create_website_path, create_website_path, website_outputdir
+                create_website_path, website_outputdir
             )
         )
         zip_website_command = "zip -r {} {}".format(
