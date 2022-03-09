@@ -301,10 +301,16 @@ def extract_benchmark_type_from_config(
     benchmark_config_present = False
     benchmark_type = None
     if config_key in benchmark_config:
-        benchmark_config_present = True
-        for entry in benchmark_config[config_key]:
-            if benchmark_type_key in entry:
-                benchmark_type = entry[benchmark_type_key]
+
+        if type(benchmark_config[config_key]) == list:
+            for entry in benchmark_config[config_key]:
+                if benchmark_type_key in entry:
+                    benchmark_type = entry[benchmark_type_key]
+                    benchmark_config_present = True
+        elif type(benchmark_config[config_key]) == dict:
+            if benchmark_type_key in benchmark_config[config_key]:
+                benchmark_type = benchmark_config[config_key][benchmark_type_key]
+                benchmark_config_present = True
     if benchmark_type is None:
         logging.info(
             "Given the '{}' info was not present on {} we will assume the most inclusive default: '{}'".format(
