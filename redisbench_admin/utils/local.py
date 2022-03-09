@@ -31,9 +31,10 @@ def check_dataset_local_requirements(
         for k in benchmark_config[dbconfig_keyname]:
             if "dataset" in k:
                 dataset = k["dataset"]
+                full_path = k["dataset"]
             if "dataset_name" in k:
                 dataset_name = k["dataset_name"]
-        if dataset is not None:
+        if dataset is not None and is_remote is False:
             full_path = check_if_needs_remote_fetch(
                 dataset, datasets_localtemp_dir, dirname, None, is_remote
             )
