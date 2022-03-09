@@ -4,6 +4,8 @@
 #  All rights reserved.
 #
 import logging
+import random
+import string
 import sys
 import traceback
 import redis
@@ -188,10 +190,12 @@ def run_remote_command_logic(args, project_name, project_version):
     overall_tables = {}
 
     for benchmark_type, bench_by_dataset_map in benchmark_runs_plan.items():
+        logging.info("Running benchmarks of type {}.".format(benchmark_type))
         for (
             dataset_name,
             bench_by_dataset_and_setup_map,
         ) in bench_by_dataset_map.items():
+            logging.info("Running benchmarks for dataset {}.".format(dataset_name))
             for setup_name, setup_details in bench_by_dataset_and_setup_map.items():
 
                 setup_settings = setup_details["setup_settings"]
@@ -235,15 +239,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                 )
                             )
                             if "remote" in benchmark_config:
-                                import string
-                                import random
-
-                                temporary_dir = "/tmp/{}".format(
-                                    "".join(
-                                        random.choice(string.ascii_lowercase)
-                                        for i in range(20)
-                                    )
-                                )
+                                temporary_dir = get_tmp_folder_rnd()
                                 (
                                     client_public_ip,
                                     server_plaintext_port,
@@ -366,7 +362,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             return_code,
                                             server_plaintext_port,
                                             ssh_tunnel,
-                                        ) = ro_benchmar_reuse(
+                                        ) = ro_benchmark_reuse(
                                             artifact_version,
                                             benchmark_type,
                                             cluster_enabled,
@@ -813,7 +809,14 @@ def run_remote_command_logic(args, project_name, project_version):
     exit(return_code)
 
 
-def ro_benchmar_reuse(
+def get_tmp_folder_rnd():
+    temporary_dir = "/tmp/{}".format(
+        "".join(random.choice(string.ascii_lowercase) for i in range(20))
+    )
+    return temporary_dir
+
+
+def ro_benchmark_reuse(
     artifact_version,
     benchmark_type,
     cluster_enabled,

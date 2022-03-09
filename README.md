@@ -24,6 +24,7 @@ Current supported benchmark tools:
 - [tsbs](https://github.com/RedisTimeSeries/tsbs)
 - [redisgraph-benchmark-go](https://github.com/RedisGraph/redisgraph-benchmark-go)
 - [ftsb_redisearch](https://github.com/RediSearch/ftsb)
+- [ann-benchmarks](https://github.com/RedisAI/ann-benchmarks)
 - [SOON][aibench](https://github.com/RedisAI/aibench)
 
 ## Installation

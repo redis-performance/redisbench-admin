@@ -95,7 +95,7 @@ def local_db_spin(
         if status is False:
             raise Exception("Redis cluster setup failed. Failing test.")
 
-    dataset, _, _ = check_dataset_local_requirements(
+    dataset, dataset_name, _, _ = check_dataset_local_requirements(
         benchmark_config,
         temporary_dir,
         dirname,

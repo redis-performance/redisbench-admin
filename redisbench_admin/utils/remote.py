@@ -169,7 +169,7 @@ def check_dataset_remote_requirements(
     db_ssh_port=22,
 ):
     res = True
-    dataset, fullpath, tmppath = check_dataset_local_requirements(
+    dataset, dataset_name, fullpath, tmppath = check_dataset_local_requirements(
         benchmark_config,
         ".",
         dirname,
@@ -177,6 +177,7 @@ def check_dataset_remote_requirements(
         "dbconfig",
         number_primaries,
         False,
+        True,
     )
     if dataset is not None:
         logging.info(
@@ -196,15 +197,28 @@ def check_dataset_remote_requirements(
                 fullpath, server_public_ip, remote_dataset_file
             )
         )
-        res = copy_file_to_remote_setup(
-            server_public_ip,
-            username,
-            private_key,
-            fullpath,
-            remote_dataset_file,
-            None,
-            db_ssh_port,
-        )
+        if "https" in dataset:
+            logging.info(
+                "Given dataset is a remote one ( {} ), copying it directly to DB machine ( {} ).".format(
+                    dataset,
+                    remote_dataset_file,
+                )
+            )
+            commands = []
+            commands.append("wget -O {} {}".format(remote_dataset_file, dataset))
+            execute_remote_commands(
+                server_public_ip, username, private_key, commands, db_ssh_port
+            )
+        else:
+            res = copy_file_to_remote_setup(
+                server_public_ip,
+                username,
+                private_key,
+                fullpath,
+                remote_dataset_file,
+                None,
+                db_ssh_port,
+            )
         if is_cluster:
             commands = []
             for master_shard_id in range(2, number_primaries + 1):
