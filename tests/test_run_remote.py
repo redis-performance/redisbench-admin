@@ -6,10 +6,13 @@
 import os
 
 import redis
+import yaml
+
 from redisbench_admin.run.metrics import collect_redis_metrics
 
-
-from redisbench_admin.run_remote.run_remote import export_redis_metrics
+from redisbench_admin.run_remote.run_remote import (
+    export_redis_metrics,
+)
 
 
 def test_export_redis_metrics():

@@ -292,6 +292,13 @@ def extract_exporter_metrics(default_config):
     return default_metrics, exporter_timemetric_path
 
 
+def get_metadata_tags(benchmark_config):
+    metadata_tags = {}
+    if "metadata" in benchmark_config:
+        metadata_tags = benchmark_config["metadata"]
+    return metadata_tags
+
+
 def extract_benchmark_type_from_config(
     benchmark_config,
     config_key="clientconfig",

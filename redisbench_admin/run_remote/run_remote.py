@@ -50,6 +50,7 @@ from redisbench_admin.run_remote.terraform import (
 )
 from redisbench_admin.utils.benchmark_config import (
     prepare_benchmark_definitions,
+    get_metadata_tags,
 )
 from redisbench_admin.utils.redisgraph_benchmark_go import setup_remote_benchmark_agent
 from redisbench_admin.utils.remote import (
@@ -211,6 +212,12 @@ def run_remote_command_logic(args, project_name, project_version):
                 overall_tables[setup_name] = {}
 
                 for test_name, benchmark_config in benchmarks_map.items():
+                    metadata_tags = get_metadata_tags(benchmark_config)
+                    logging.info(
+                        "Including the extra metadata tags into this test generated time-series: {}".format(
+                            metadata_tags
+                        )
+                    )
                     for repetition in range(1, BENCHMARK_REPETITIONS + 1):
                         remote_perf = None
                         logging.info(
@@ -665,6 +672,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             tf_github_org,
                                             tf_github_repo,
                                             tf_triggering_env,
+                                            metadata_tags,
                                         )
                                         if branch_target_tables is not None:
                                             for (
