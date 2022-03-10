@@ -7,6 +7,7 @@ from redisbench_admin.utils.benchmark_config import (
     check_required_modules,
     extract_redis_dbconfig_parameters,
     extract_benchmark_type_from_config,
+    get_metadata_tags,
 )
 
 
@@ -132,3 +133,15 @@ def test_extract_benchmark_type_from_config():
         )
         assert benchmark_type == "mixed"
         assert benchmark_config_present == False
+
+
+def test_get_metadata_tags():
+    with open("./tests/test_data/vecsim-memtier.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        metadata_tags = get_metadata_tags(benchmark_config)
+        assert metadata_tags == {"component": "vecsim"}
+
+    with open("./tests/test_data/redis-benchmark.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        metadata_tags = get_metadata_tags(benchmark_config)
+        assert metadata_tags == {}
