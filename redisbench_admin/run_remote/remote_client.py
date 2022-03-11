@@ -112,25 +112,25 @@ def run_remote_client_tool(
         benchmark_suffix = local_bench_fname[: len(local_bench_fname) - 5]
         create_website_path = pkg_path + "/run/ann/pkg/"
         logging.info("Remote create website path: {}".format(create_website_path))
-        website_outputdir = "/tmp/website-{}".format(benchmark_suffix)
+        website_outputdir = "website-{}".format(benchmark_suffix)
         website_outputdir_zip = "/tmp/website-{}.zip".format(benchmark_suffix)
         website_outputdir_zip_local = "website-{}.zip".format(benchmark_suffix)
-        results_outputdir = pkg_path + "/run/ann/pkg/results"
+        results_outputdir = pkg_path + "/run/ann/pkg"
         results_outputdir_zip = "/tmp/results-{}.zip".format(benchmark_suffix)
         results_outputdir_zip_local = "results-{}.zip".format(benchmark_suffix)
 
-        mkdir_command = "mkdir -p {}".format(website_outputdir)
+        mkdir_command = "mkdir -p /tmp/{}".format(website_outputdir)
         create_website_command = (
-            "cd {} && sudo python3 create_website.py --outputdir {}".format(
+            "cd {} && sudo python3 create_website.py --outputdir /tmp/{}".format(
                 create_website_path, website_outputdir
             )
         )
-        zip_website_command = "zip -r {} {}".format(
+        zip_website_command = "cd /tmp && zip -r {} {}/*".format(
             website_outputdir_zip, website_outputdir
         )
 
-        zip_results_command = "zip -r {} {}".format(
-            results_outputdir_zip, results_outputdir
+        zip_results_command = "cd {} && zip -r {} results/*".format(
+            results_outputdir, results_outputdir_zip
         )
         commands.append(mkdir_command)
         commands.append(create_website_command)
@@ -238,7 +238,7 @@ def setup_remote_benchmark_ann(
     )
     logging.info("ensuring there is a clean results folder on ann-benchmarks pkg")
     commands = [
-        "sudo rm -rf {}/results/*".format(pkg_path),
+        "sudo rm -rf {}/run/ann/pkg/results/*".format(pkg_path),
     ]
     execute_remote_commands(
         client_public_ip, username, private_key, commands, client_ssh_port, True
