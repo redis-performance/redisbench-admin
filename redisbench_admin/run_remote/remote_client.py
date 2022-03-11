@@ -17,7 +17,6 @@ from redisbench_admin.run_remote.remote_helpers import (
 )
 from redisbench_admin.utils.benchmark_config import extract_benchmark_tool_settings
 from redisbench_admin.utils.redisgraph_benchmark_go import (
-    setup_remote_benchmark_ann,
     get_redisbench_admin_remote_path,
 )
 from redisbench_admin.utils.remote import (
@@ -59,6 +58,8 @@ def run_remote_client_tool(
         _,
     ) = extract_benchmark_tool_settings(benchmark_config, config_key)
     benchmark_tools_sanity_check(allowed_tools, benchmark_tool)
+    local_output_artifacts = []
+    remote_output_artifacts = []
     # setup the benchmark tool
     remote_tool_pre_bench_step(
         benchmark_config,
@@ -104,18 +105,20 @@ def run_remote_client_tool(
         tmp = local_bench_fname
         local_bench_fname = "result.csv"
     commands = [command_str]
-    local_output_artifacts = []
-    remote_output_artifacts = []
     if "ann" in benchmark_tool:
-        [recv_exit_status, stdout, stderr] = get_redisbench_admin_remote_path(
-            client_public_ip, username, private_key, client_ssh_port
-        )[0]
-        pkg_path = stdout[0].strip()
+        pkg_path = get_ann_remote_pkg_path(
+            client_public_ip, client_ssh_port, private_key, username
+        )
         benchmark_suffix = local_bench_fname[: len(local_bench_fname) - 5]
         create_website_path = pkg_path + "/run/ann/pkg/"
         logging.info("Remote create website path: {}".format(create_website_path))
         website_outputdir = "/tmp/website-{}".format(benchmark_suffix)
         website_outputdir_zip = "/tmp/website-{}.zip".format(benchmark_suffix)
+        website_outputdir_zip_local = "website-{}.zip".format(benchmark_suffix)
+        results_outputdir = pkg_path + "/run/ann/pkg/results"
+        results_outputdir_zip = "/tmp/results-{}.zip".format(benchmark_suffix)
+        results_outputdir_zip_local = "results-{}.zip".format(benchmark_suffix)
+
         mkdir_command = "mkdir -p {}".format(website_outputdir)
         create_website_command = (
             "cd {} && sudo python3 create_website.py --outputdir {}".format(
@@ -125,11 +128,19 @@ def run_remote_client_tool(
         zip_website_command = "zip -r {} {}".format(
             website_outputdir_zip, website_outputdir
         )
+
+        zip_results_command = "zip -r {} {}".format(
+            results_outputdir_zip, results_outputdir
+        )
         commands.append(mkdir_command)
         commands.append(create_website_command)
         commands.append(zip_website_command)
-        local_output_artifacts.append(website_outputdir_zip)
+        commands.append(zip_results_command)
+
+        local_output_artifacts.append(website_outputdir_zip_local)
+        local_output_artifacts.append(results_outputdir_zip_local)
         remote_output_artifacts.append(website_outputdir_zip)
+        remote_output_artifacts.append(results_outputdir_zip)
 
     benchmark_start_time = datetime.datetime.now()
     # run the benchmark
@@ -176,6 +187,29 @@ def run_remote_client_tool(
         )[0]
         logging.warning("Remote results file content: {}".format(stdout))
 
+    final_local_output_artifacts = []
+    if len(remote_output_artifacts) > 0:
+        logging.info(
+            "Retrieving a total of {} remote client artifacts".format(
+                len(remote_output_artifacts)
+            )
+        )
+    for client_artifact_n, client_remote_artifact in enumerate(remote_output_artifacts):
+        client_local_artifact = local_output_artifacts[client_artifact_n]
+        logging.info(
+            "Retrieving remote client artifact: {} into local file {}".format(
+                client_remote_artifact, client_local_artifact
+            )
+        )
+        fetch_file_from_remote_setup(
+            client_public_ip,
+            username,
+            private_key,
+            client_local_artifact,
+            client_remote_artifact,
+        )
+        final_local_output_artifacts.append(client_local_artifact)
+
     return (
         artifact_version,
         benchmark_duration_seconds,
@@ -183,7 +217,40 @@ def run_remote_client_tool(
         remote_run_result,
         results_dict,
         return_code,
+        final_local_output_artifacts,
     )
+
+
+def setup_remote_benchmark_ann(
+    client_public_ip, username, private_key, client_ssh_port
+):
+    commands = [
+        "sudo apt install python3-pip -y",
+        "sudo pip3 install redisbench-admin>=0.7.0",
+    ]
+    # last argument (get_pty) needs to be set to true
+    # check: https://stackoverflow.com/questions/5785353/paramiko-and-sudo
+    execute_remote_commands(
+        client_public_ip, username, private_key, commands, client_ssh_port, True
+    )
+    pkg_path = get_ann_remote_pkg_path(
+        client_public_ip, client_ssh_port, private_key, username
+    )
+    logging.info("ensuring there is a clean results folder on ann-benchmarks pkg")
+    commands = [
+        "sudo rm -rf {}/results/*".format(pkg_path),
+    ]
+    execute_remote_commands(
+        client_public_ip, username, private_key, commands, client_ssh_port, True
+    )
+
+
+def get_ann_remote_pkg_path(client_public_ip, client_ssh_port, private_key, username):
+    [recv_exit_status, stdout, stderr] = get_redisbench_admin_remote_path(
+        client_public_ip, username, private_key, client_ssh_port
+    )[0]
+    pkg_path = stdout[0].strip()
+    return pkg_path
 
 
 def run_remote_benchmark(

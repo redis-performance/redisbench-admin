@@ -22,20 +22,6 @@ def get_redisbench_admin_remote_path(
     )
 
 
-def setup_remote_benchmark_ann(
-    client_public_ip, username, private_key, client_ssh_port
-):
-    commands = [
-        "sudo apt install python3-pip -y",
-        "sudo pip3 install redisbench-admin>=0.7.0",
-    ]
-    # last argument (get_pty) needs to be set to true
-    # check: https://stackoverflow.com/questions/5785353/paramiko-and-sudo
-    execute_remote_commands(
-        client_public_ip, username, private_key, commands, client_ssh_port, True
-    )
-
-
 def setup_remote_benchmark_agent(
     client_public_ip, username, private_key, client_ssh_port
 ):
