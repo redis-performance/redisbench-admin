@@ -145,3 +145,10 @@ def test_get_metadata_tags():
         benchmark_config = yaml.safe_load(yml_file)
         metadata_tags = get_metadata_tags(benchmark_config)
         assert metadata_tags == {}
+
+    with open(
+        "./tests/test_data/tsbs-scale100-cpu-max-all-1@4139rps.yml", "r"
+    ) as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        metadata_tags = get_metadata_tags(benchmark_config)
+        assert metadata_tags == {"includes_targets": "true", "test_type": "query"}

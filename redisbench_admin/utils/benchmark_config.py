@@ -296,6 +296,9 @@ def get_metadata_tags(benchmark_config):
     metadata_tags = {}
     if "metadata" in benchmark_config:
         metadata_tags = benchmark_config["metadata"]
+    if "labels" in metadata_tags:
+        if type(metadata_tags["labels"]) == dict:
+            metadata_tags = metadata_tags["labels"]
     return metadata_tags
 
 
