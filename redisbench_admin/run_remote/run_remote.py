@@ -250,6 +250,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                 )
                             )
                             if "remote" in benchmark_config:
+                                client_artifacts = []
+                                client_artifacts_map = {}
                                 temporary_dir = get_tmp_folder_rnd()
                                 (
                                     client_public_ip,
@@ -451,6 +453,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                         remote_run_result,
                                         results_dict,
                                         return_code,
+                                        client_output_artifacts,
                                     ) = run_remote_client_tool(
                                         allowed_tools,
                                         artifact_version,
@@ -638,19 +641,6 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     )
                                                 )
 
-                                        if args.upload_results_s3:
-                                            logging.info(
-                                                "Uploading results to s3. s3 bucket name: {}. s3 bucket path: {}".format(
-                                                    s3_bucket_name, s3_bucket_path
-                                                )
-                                            )
-                                            artifacts = [local_bench_fname]
-                                            upload_artifacts_to_s3(
-                                                artifacts,
-                                                s3_bucket_name,
-                                                s3_bucket_path,
-                                            )
-
                                         (
                                             _,
                                             branch_target_tables,
@@ -732,6 +722,42 @@ def run_remote_command_logic(args, project_name, project_version):
                                             setup_name,
                                             test_name,
                                         )
+                                    client_artifacts.append(local_bench_fname)
+                                    client_artifacts.extend(client_output_artifacts)
+
+                                    if args.upload_results_s3:
+                                        logging.info(
+                                            "Uploading CLIENT results to s3. s3 bucket name: {}. s3 bucket path: {}".format(
+                                                s3_bucket_name, s3_bucket_path
+                                            )
+                                        )
+                                        client_artifacts_map = upload_artifacts_to_s3(
+                                            client_artifacts,
+                                            s3_bucket_name,
+                                            s3_bucket_path,
+                                        )
+
+                                    benchmark_artifacts_table_headers = [
+                                        "Setup",
+                                        "Test-case",
+                                        "Artifact",
+                                        "link",
+                                    ]
+                                    for client_artifact in client_artifacts:
+                                        client_artifact_link = "- n/a -"
+                                        if client_artifact in client_artifacts_map:
+                                            client_artifact_link = client_artifacts_map[
+                                                client_artifact
+                                            ]
+                                        benchmark_artifacts_links.append(
+                                            [
+                                                setup_name,
+                                                test_name,
+                                                client_artifact,
+                                                " {} ".format(client_artifact_link),
+                                            ]
+                                        )
+
                                 except KeyboardInterrupt:
                                     logging.critical(
                                         "Detected Keyboard interruput...Destroy all remote envs and exiting right away!"
