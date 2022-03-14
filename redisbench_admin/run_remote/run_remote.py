@@ -51,7 +51,6 @@ from redisbench_admin.run_remote.terraform import (
 from redisbench_admin.utils.benchmark_config import (
     prepare_benchmark_definitions,
     get_metadata_tags,
-    get_termination_timeout_secs,
     process_benchmark_definitions_remote_timeouts,
 )
 from redisbench_admin.utils.redisgraph_benchmark_go import setup_remote_benchmark_agent
@@ -61,7 +60,6 @@ from redisbench_admin.utils.remote import (
     check_ec2_env,
     get_project_ts_tags,
     push_data_to_redistimeseries,
-    fetch_remote_setup_from_config,
     fetch_remote_id_from_config,
 )
 
