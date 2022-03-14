@@ -254,6 +254,7 @@ def setup_remote_environment(
     tf_github_org,
     tf_github_repo,
     tf_triggering_env,
+    tf_timeout_secs=7200,
 ):
     # key    = "benchmarks/infrastructure/tf-oss-redisgraph-standalone-r5.tfstate"
     _, _, _ = tf.init(
@@ -287,6 +288,7 @@ def setup_remote_environment(
             "github_org": tf_github_org,
             "github_repo": tf_github_repo,
             "triggering_env": tf_triggering_env,
+            "timeout_secs": tf_timeout_secs,
         },
     )
     return retrieve_tf_connection_vars(return_code, tf)
@@ -491,6 +493,16 @@ def get_run_full_filename(
         )
     )
     return benchmark_output_filename
+
+
+def fetch_remote_id_from_config(
+    remote_setup_config,
+):
+    setup = None
+    for remote_setup_property in remote_setup_config:
+        if "setup" in remote_setup_property:
+            setup = remote_setup_property["setup"]
+    return setup
 
 
 def fetch_remote_setup_from_config(
