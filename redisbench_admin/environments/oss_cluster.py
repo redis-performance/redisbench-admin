@@ -48,6 +48,7 @@ def spin_up_local_redis_cluster(
         result = wait_for_conn(r, dataset_load_timeout_secs)
         if result is True:
             logging.info("Redis available. pid={}".format(redis_process.pid))
+            r.client_setname("redisbench-admin-cluster-#{}".format(master_shard_id))
         redis_conns.append(r)
         redis_processes.append(redis_process)
     return redis_processes, redis_conns
