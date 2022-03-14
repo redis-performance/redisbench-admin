@@ -147,7 +147,8 @@ def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
             total_cpu_usage = end_total_cpu - start_total_cpu
             avg_cpu_pct = 100.0 * (total_cpu_usage / total_secs)
         res[shard_n] = avg_cpu_pct
-        total_avg_cpu_pct += avg_cpu_pct
+        if avg_cpu_pct is not None:
+            total_avg_cpu_pct += avg_cpu_pct
     return total_avg_cpu_pct, res
 
 
