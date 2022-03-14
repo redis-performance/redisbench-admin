@@ -27,6 +27,7 @@ def terraform_spin_or_reuse_env(
     tf_github_sha,
     tf_setup_name_sufix,
     tf_triggering_env,
+    tf_timeout_secs=7200,
 ):
     (
         remote_setup,
@@ -62,6 +63,7 @@ def terraform_spin_or_reuse_env(
             tf_github_org,
             tf_github_repo,
             tf_triggering_env,
+            tf_timeout_secs,
         )
         remote_envs[remote_id] = tf
     else:

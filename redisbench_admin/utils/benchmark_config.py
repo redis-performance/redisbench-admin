@@ -12,7 +12,10 @@ import re
 import yaml
 from jsonpath_ng import parse
 
-from redisbench_admin.utils.remote import validate_result_expectations
+from redisbench_admin.utils.remote import (
+    validate_result_expectations,
+    fetch_remote_id_from_config,
+)
 
 
 def parse_exporter_metrics_definition(
@@ -77,6 +80,21 @@ def prepare_benchmark_definitions(args):
         default_specs,
         clusterconfig,
     )
+
+
+def process_benchmark_definitions_remote_timeouts(benchmark_definitions):
+    remote_envs_timeout = {}
+    # prepare the timeout for each different remote type
+    for test_name, benchmark_config in benchmark_definitions.items():
+        if "remote" in benchmark_config:
+            remote_id = fetch_remote_id_from_config(benchmark_config["remote"])
+            termination_timeout_secs = get_termination_timeout_secs(benchmark_config)
+            if remote_id not in remote_envs_timeout:
+                remote_envs_timeout[remote_id] = 0
+            remote_envs_timeout[remote_id] = (
+                remote_envs_timeout[remote_id] + termination_timeout_secs
+            )
+    return remote_envs_timeout
 
 
 def get_defaults(defaults_filename):
@@ -300,6 +318,13 @@ def get_metadata_tags(benchmark_config):
         if type(metadata_tags["labels"]) == dict:
             metadata_tags = metadata_tags["labels"]
     return metadata_tags
+
+
+def get_termination_timeout_secs(benchmark_config):
+    timeout_seconds = 600
+    if "timeout_seconds" in benchmark_config:
+        timeout_seconds = int(benchmark_config["timeout_seconds"])
+    return timeout_seconds
 
 
 def extract_benchmark_type_from_config(

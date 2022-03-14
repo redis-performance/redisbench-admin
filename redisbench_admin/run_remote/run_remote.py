@@ -51,6 +51,7 @@ from redisbench_admin.run_remote.terraform import (
 from redisbench_admin.utils.benchmark_config import (
     prepare_benchmark_definitions,
     get_metadata_tags,
+    process_benchmark_definitions_remote_timeouts,
 )
 from redisbench_admin.utils.redisgraph_benchmark_go import setup_remote_benchmark_agent
 from redisbench_admin.utils.remote import (
@@ -59,6 +60,7 @@ from redisbench_admin.utils.remote import (
     check_ec2_env,
     get_project_ts_tags,
     push_data_to_redistimeseries,
+    fetch_remote_id_from_config,
 )
 
 from redisbench_admin.utils.utils import (
@@ -180,6 +182,17 @@ def run_remote_command_logic(args, project_name, project_version):
         )
         rts.ping()
 
+    remote_envs_timeout = process_benchmark_definitions_remote_timeouts(
+        benchmark_definitions
+    )
+
+    for remote_id, termination_timeout_secs in remote_envs_timeout.items():
+        logging.info(
+            "Using a timeout of {} seconds for remote setup: {}".format(
+                termination_timeout_secs, remote_id
+            )
+        )
+
     # we have a map of test-type, dataset-name, topology, test-name
     benchmark_runs_plan = define_benchmark_plan(benchmark_definitions, default_specs)
 
@@ -250,6 +263,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                 )
                             )
                             if "remote" in benchmark_config:
+                                remote_id = fetch_remote_id_from_config(
+                                    benchmark_config["remote"]
+                                )
+                                tf_timeout_secs = remote_envs_timeout[remote_id]
                                 client_artifacts = []
                                 client_artifacts_map = {}
                                 temporary_dir = get_tmp_folder_rnd()
@@ -274,6 +291,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                     tf_github_sha,
                                     tf_setup_name_sufix,
                                     tf_triggering_env,
+                                    tf_timeout_secs,
                                 )
 
                                 # after we've created the env, even on error we should always teardown
