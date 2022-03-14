@@ -5,11 +5,13 @@
 #
 import datetime
 import logging
+import threading
 
 import redisbench_admin
 from redisbench_admin.run.common import (
     prepare_benchmark_parameters,
 )
+from redisbench_admin.run.metrics import collect_cpu_data
 from redisbench_admin.run.run import calculate_client_tool_duration_and_check
 from redisbench_admin.run_remote.remote_helpers import (
     benchmark_tools_sanity_check,
@@ -47,7 +49,8 @@ def run_remote_client_tool(
     warn_min_duration,
     client_ssh_port,
     private_key,
-    cpu_stats_thread=None,
+    collect_cpu_stats_thread=False,
+    redis_conns=[],
 ):
     (
         benchmark_min_tool_version,
@@ -144,6 +147,16 @@ def run_remote_client_tool(
         local_output_artifacts.append(results_outputdir_zip_local)
         remote_output_artifacts.append(website_outputdir_zip)
         remote_output_artifacts.append(results_outputdir_zip)
+    cpu_stats_thread = None
+    if collect_cpu_stats_thread is True:
+        # run the benchmark
+        cpu_stats_thread = threading.Thread(
+            target=collect_cpu_data,
+            args=(redis_conns, 5.0, 1.0),
+        )
+        redisbench_admin.run.metrics.BENCHMARK_RUNNING_GLOBAL = True
+        logging.info("Starting CPU collecing thread")
+        cpu_stats_thread.start()
 
     benchmark_start_time = datetime.datetime.now()
     # run the benchmark
@@ -253,15 +266,15 @@ def run_remote_client_tool(
 def setup_remote_benchmark_ann(
     client_public_ip, username, private_key, client_ssh_port
 ):
-    commands = [
-        "sudo apt install python3-pip -y",
-        "sudo pip3 install redisbench-admin>=0.7.0",
-    ]
-    # last argument (get_pty) needs to be set to true
-    # check: https://stackoverflow.com/questions/5785353/paramiko-and-sudo
-    execute_remote_commands(
-        client_public_ip, username, private_key, commands, client_ssh_port, True
-    )
+    # commands = [
+    #     "sudo apt install python3-pip -y",
+    #     "sudo pip3 install redisbench-admin>=0.7.0",
+    # ]
+    # # last argument (get_pty) needs to be set to true
+    # # check: https://stackoverflow.com/questions/5785353/paramiko-and-sudo
+    # execute_remote_commands(
+    #     client_public_ip, username, private_key, commands, client_ssh_port, True
+    # )
     pkg_path = get_ann_remote_pkg_path(
         client_public_ip, client_ssh_port, private_key, username
     )

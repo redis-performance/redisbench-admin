@@ -7,7 +7,6 @@ import logging
 import random
 import string
 import sys
-import threading
 import traceback
 import redis
 import pytablewriter
@@ -16,7 +15,6 @@ import redisbench_admin.run.metrics
 from redisbench_admin.run.metrics import (
     from_info_to_overall_shard_cpu,
     collect_redis_metrics,
-    collect_cpu_data,
 )
 from redisbench_admin.profilers.perf_daemon_caller import (
     PerfDaemonRemoteCaller,
@@ -467,16 +465,6 @@ def run_remote_command_logic(args, project_name, project_version):
                                             local_bench_fname
                                         )
                                     )
-                                    # run the benchmark
-                                    cpu_stats_thread = threading.Thread(
-                                        target=collect_cpu_data,
-                                        args=(redis_conns, 5.0, 1.0),
-                                    )
-                                    redisbench_admin.run.metrics.BENCHMARK_RUNNING_GLOBAL = (
-                                        True
-                                    )
-                                    logging.info("Starting CPU collecing thread")
-                                    cpu_stats_thread.start()
 
                                     (
                                         artifact_version,
@@ -507,7 +495,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                         min_recommended_benchmark_duration,
                                         client_ssh_port,
                                         private_key,
-                                        cpu_stats_thread,
+                                        True,
+                                        redis_conns,
                                     )
 
                                     if profilers_enabled:
