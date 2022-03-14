@@ -117,6 +117,8 @@ def local_db_spin(
         )
 
         r = redis.Redis(port=args.port)
+        r.ping()
+        r.client_setname("redisbench-admin-stadalone")
         redis_conns.append(r)
 
     for shardn, redis_process in enumerate(redis_processes):

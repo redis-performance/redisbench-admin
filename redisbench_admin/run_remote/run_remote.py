@@ -7,12 +7,17 @@ import logging
 import random
 import string
 import sys
+import threading
 import traceback
 import redis
 import pytablewriter
 from pytablewriter import MarkdownTableWriter
-
-
+import redisbench_admin.run.metrics
+from redisbench_admin.run.metrics import (
+    from_info_to_overall_shard_cpu,
+    collect_redis_metrics,
+    collect_cpu_data,
+)
 from redisbench_admin.profilers.perf_daemon_caller import (
     PerfDaemonRemoteCaller,
     PERF_DAEMON_LOGNAME,
@@ -27,7 +32,6 @@ from redisbench_admin.run.common import (
 )
 from redisbench_admin.run.git import git_vars_crosscheck
 from redisbench_admin.run.grafana import generate_artifacts_table_grafana_redis
-from redisbench_admin.run.metrics import collect_redis_metrics
 from redisbench_admin.run.modules import redis_modules_check
 from redisbench_admin.run.redistimeseries import (
     timeseries_test_sucess_flow,
@@ -463,6 +467,16 @@ def run_remote_command_logic(args, project_name, project_version):
                                             local_bench_fname
                                         )
                                     )
+                                    # run the benchmark
+                                    cpu_stats_thread = threading.Thread(
+                                        target=collect_cpu_data,
+                                        args=(redis_conns, 5.0, 1.0),
+                                    )
+                                    redisbench_admin.run.metrics.BENCHMARK_RUNNING_GLOBAL = (
+                                        True
+                                    )
+                                    logging.info("Starting CPU collecing thread")
+                                    cpu_stats_thread.start()
 
                                     (
                                         artifact_version,
@@ -493,6 +507,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                         min_recommended_benchmark_duration,
                                         client_ssh_port,
                                         private_key,
+                                        cpu_stats_thread,
                                     )
 
                                     if profilers_enabled:
@@ -556,6 +571,18 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
                                             )
 
+                                    (
+                                        total_shards_cpu_usage,
+                                        cpu_usage_map,
+                                    ) = from_info_to_overall_shard_cpu(
+                                        redisbench_admin.run.metrics.BENCHMARK_CPU_STATS_GLOBAL
+                                    )
+                                    logging.info(
+                                        "Total CPU usage ({:.3f} %)".format(
+                                            total_shards_cpu_usage
+                                        )
+                                    )
+
                                     if remote_run_result is False:
                                         db_error_artifacts(
                                             db_ssh_port,
@@ -594,6 +621,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     ]
                                                 },
                                             )
+                                            overall_end_time_metrics[
+                                                "total_shards_used_cpu_pct"
+                                            ] = total_shards_cpu_usage
                                             expire_ms = 7 * 24 * 60 * 60 * 1000
                                             export_redis_metrics(
                                                 artifact_version,
@@ -739,6 +769,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             results_dict,
                                             setup_name,
                                             test_name,
+                                            total_shards_cpu_usage,
                                         )
                                     client_artifacts.append(local_bench_fname)
                                     client_artifacts.extend(client_output_artifacts)

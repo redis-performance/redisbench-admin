@@ -129,3 +129,51 @@ def collect_redis_metrics(
             kv_overall[metric_name] = metric_value
 
     return start_time_ms, res, kv_overall
+
+
+def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
+    total_avg_cpu_pct = 0.0
+    res = {}
+    for shard_n, cpu_stats_arr in benchmark_cpu_stats.items():
+        # we need at least 2 elements to compute the cpu usage
+        if len(cpu_stats_arr) < 2:
+            avg_cpu_pct = None
+        else:
+            start_ts_micros = cpu_stats_arr[0]["server_time_usec"]
+            start_total_cpu = get_total_cpu(cpu_stats_arr[0])
+            end_ts_micros = cpu_stats_arr[len(cpu_stats_arr) - 1]["server_time_usec"]
+            end_total_cpu = get_total_cpu(cpu_stats_arr[len(cpu_stats_arr) - 1])
+            total_secs = (end_ts_micros - start_ts_micros) / 1000000
+            total_cpu_usage = end_total_cpu - start_total_cpu
+            avg_cpu_pct = 100.0 * (total_cpu_usage / total_secs)
+        res[shard_n] = avg_cpu_pct
+        total_avg_cpu_pct += avg_cpu_pct
+    return total_avg_cpu_pct, res
+
+
+def get_total_cpu(info_data):
+    total_cpu = 0.0
+    total_cpu = total_cpu + info_data["used_cpu_sys"]
+    total_cpu = total_cpu + info_data["used_cpu_user"]
+    return total_cpu
+
+
+BENCHMARK_RUNNING_GLOBAL = False
+BENCHMARK_CPU_STATS_GLOBAL = {}
+
+
+def collect_cpu_data(redis_conns=[], delta_secs: float = 5.0, delay_start: float = 1.0):
+    global BENCHMARK_CPU_STATS_GLOBAL
+    global BENCHMARK_RUNNING_GLOBAL
+    import time
+
+    counter = 0
+    time.sleep(delay_start)
+    while BENCHMARK_RUNNING_GLOBAL:
+        for shard_n, redis_conn in enumerate(redis_conns, 1):
+            keyname = "{}".format(shard_n)
+            if keyname not in BENCHMARK_CPU_STATS_GLOBAL:
+                BENCHMARK_CPU_STATS_GLOBAL[keyname] = []
+            BENCHMARK_CPU_STATS_GLOBAL[keyname].append(redis_conn.info())
+        time.sleep(delta_secs)
+        counter += 1

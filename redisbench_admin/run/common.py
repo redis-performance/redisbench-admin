@@ -372,11 +372,19 @@ def check_dbconfig_keyspacelen_requirement(
     required = False
     keyspacelen = None
     if dbconfig_keyname in benchmark_config:
-        for k in benchmark_config[dbconfig_keyname]:
-            if "check" in k:
-                if "keyspacelen" in k["check"]:
+        if type(benchmark_config[dbconfig_keyname]) == list:
+            for k in benchmark_config[dbconfig_keyname]:
+                if "check" in k:
+                    if "keyspacelen" in k["check"]:
+                        required = True
+                        keyspacelen = int(k["check"]["keyspacelen"])
+        if type(benchmark_config[dbconfig_keyname]) == dict:
+            if "check" in benchmark_config[dbconfig_keyname]:
+                if "keyspacelen" in benchmark_config[dbconfig_keyname]["check"]:
                     required = True
-                    keyspacelen = int(k["check"]["keyspacelen"])
+                    keyspacelen = int(
+                        benchmark_config[dbconfig_keyname]["check"]["keyspacelen"]
+                    )
     return required, keyspacelen
 
 
@@ -626,7 +634,12 @@ def common_properties_log(
 
 
 def print_results_table_stdout(
-    benchmark_config, default_metrics, results_dict, setup_name, test_name
+    benchmark_config,
+    default_metrics,
+    results_dict,
+    setup_name,
+    test_name,
+    cpu_usage=None,
 ):
     # check which metrics to extract
     (_, metrics,) = merge_default_and_config_metrics(
@@ -640,6 +653,8 @@ def print_results_table_stdout(
         "Metric Value",
     ]
     results_matrix = extract_results_table(metrics, results_dict)
+    if cpu_usage is not None:
+        results_matrix.append(["Total shards CPU usage %", "", "", cpu_usage])
     results_matrix = [[x[0], "{:.3f}".format(x[3])] for x in results_matrix]
     writer = MarkdownTableWriter(
         table_name=table_name,

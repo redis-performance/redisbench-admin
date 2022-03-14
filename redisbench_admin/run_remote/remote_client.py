@@ -6,6 +6,7 @@
 import datetime
 import logging
 
+import redisbench_admin
 from redisbench_admin.run.common import (
     prepare_benchmark_parameters,
 )
@@ -46,6 +47,7 @@ def run_remote_client_tool(
     warn_min_duration,
     client_ssh_port,
     private_key,
+    cpu_stats_thread=None,
 ):
     (
         benchmark_min_tool_version,
@@ -105,6 +107,7 @@ def run_remote_client_tool(
         tmp = local_bench_fname
         local_bench_fname = "result.csv"
     commands = [command_str]
+    post_commands = []
     if "ann" in benchmark_tool:
         pkg_path = get_ann_remote_pkg_path(
             client_public_ip, client_ssh_port, private_key, username
@@ -132,10 +135,10 @@ def run_remote_client_tool(
         zip_results_command = "cd {} && zip -r {} results/*".format(
             results_outputdir, results_outputdir_zip
         )
-        commands.append(mkdir_command)
-        commands.append(create_website_command)
-        commands.append(zip_website_command)
-        commands.append(zip_results_command)
+        post_commands.append(mkdir_command)
+        post_commands.append(create_website_command)
+        post_commands.append(zip_website_command)
+        post_commands.append(zip_results_command)
 
         local_output_artifacts.append(website_outputdir_zip_local)
         local_output_artifacts.append(results_outputdir_zip_local)
@@ -154,6 +157,32 @@ def run_remote_client_tool(
         client_ssh_port,
     )
     benchmark_end_time = datetime.datetime.now()
+    if cpu_stats_thread is not None:
+        logging.info("Stopping CPU collecting thread")
+        redisbench_admin.run.metrics.BENCHMARK_RUNNING_GLOBAL = False
+        cpu_stats_thread.join()
+        logging.info("CPU collecting thread stopped")
+    if len(post_commands) > 0:
+        res = execute_remote_commands(
+            client_public_ip, username, private_key, post_commands, client_ssh_port
+        )
+        recv_exit_status, _, _ = res[0]
+
+        if recv_exit_status != 0:
+            logging.error(
+                "Exit status of remote command execution {}. Printing stdout and stderr".format(
+                    recv_exit_status
+                )
+            )
+            stderr, stdout = print_commands_outputs(post_commands, True, res)
+        else:
+            logging.info(
+                "Remote process exited normally. Exit code {}. Printing stdout.".format(
+                    recv_exit_status
+                )
+            )
+            stderr, stdout = print_commands_outputs(post_commands, False, res)
+
     benchmark_duration_seconds = calculate_client_tool_duration_and_check(
         benchmark_end_time, benchmark_start_time, step_name, warn_min_duration
     )

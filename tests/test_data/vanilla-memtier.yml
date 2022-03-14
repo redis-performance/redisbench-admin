@@ -1,0 +1,15 @@
+
+name: "vanilla-memtier"
+setups:
+  - oss-standalone
+
+dbconfig:
+  tool: memtier_benchmark
+  arguments: "--ratio 1:0 --key-maximum 10000 --key-minimum 1 --key-pattern P:P -d 1000 --hide-histogram"
+  check:
+   keyspacelen: 10000
+
+clientconfig:
+  benchmark_type: "read-only"
+  tool: memtier_benchmark
+  arguments: "-d 1000 --ratio 0:1 --test-time 30 --pipeline 15 --key-pattern=P:P -t 2 --hide-histogram --key-maximum=10000 --key-minimum 1"
