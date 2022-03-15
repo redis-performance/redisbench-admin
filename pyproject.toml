@@ -14,7 +14,6 @@ python = "^3.6.1"
 humanize = "^2.4.0"
 requests = "^2.23.0"
 py_cpuinfo = "^5.0.0"
-redis = { git = "https://github.com/redis/redis-py.git", tag = "v4.2.0rc3" }
 boto3 = "^1.13.24"
 tqdm = "^4.46.1"
 toml = "^0.10.1"
