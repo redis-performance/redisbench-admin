@@ -28,7 +28,16 @@ def check_dataset_local_requirements(
     full_path = None
     tmp_path = None
     if dbconfig_keyname in benchmark_config:
-        for k in benchmark_config[dbconfig_keyname]:
+        entry_type = type(benchmark_config[dbconfig_keyname])
+        if entry_type == list:
+            for k in benchmark_config[dbconfig_keyname]:
+                if "dataset" in k:
+                    dataset = k["dataset"]
+                    full_path = k["dataset"]
+                if "dataset_name" in k:
+                    dataset_name = k["dataset_name"]
+        if entry_type == dict:
+            k = benchmark_config[dbconfig_keyname]
             if "dataset" in k:
                 dataset = k["dataset"]
                 full_path = k["dataset"]

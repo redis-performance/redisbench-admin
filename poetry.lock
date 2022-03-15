@@ -26,6 +26,17 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "async-timeout"
+version = "4.0.2"
+description = "Timeout context manager for asyncio programs"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+typing-extensions = {version = ">=3.6.5", markers = "python_version < \"3.8\""}
+
+[[package]]
 name = "atomicwrites"
 version = "1.4.0"
 description = "Atomic file writes."
@@ -1051,7 +1062,7 @@ from = ["pytablereader (>=0.30.0,<2)"]
 html = ["dominate (>=2.1.5,<3)"]
 logging = ["loguru (>=0.4.1,<1)"]
 sqlite = ["SimpleSQLite (>=1.1.3,<2)"]
-test = ["idna (<3)", "pytablereader (>=0.30.0,<2)", "SimpleSQLite (>=1.1.3,<2)", "xlwt", "pytablewriter-altrow-theme (>=0.0.2,<1)", "pytest-md-report (>=0.1)", "XlsxWriter (>=0.9.6,<4)", "simplejson (>=3.8.1,<4)", "elasticsearch (>=7.0.5,<8)", "loguru (>=0.4.1,<1)", "toml (>=0.9.3,<1)", "pytest-discord (>=0.0.7)", "sqliteschema", "pytest (>=6.0.1)", "pytablereader[sqlite,excel] (>=0.29)", "PyYAML (>=3.11,<6)", "tablib", "dominate (>=2.1.5,<3)"]
+test = ["idna (<3)", "pytablereader (>=0.30.0,<2)", "SimpleSQLite (>=1.1.3,<2)", "xlwt", "pytablewriter-altrow-theme (>=0.0.2,<1)", "pytest-md-report (>=0.1)", "XlsxWriter (>=0.9.6,<4)", "simplejson (>=3.8.1,<4)", "elasticsearch (>=7.0.5,<8)", "loguru (>=0.4.1,<1)", "toml (>=0.9.3,<1)", "pytest-discord (>=0.0.7)", "sqliteschema", "pytest (>=6.0.1)", "pytablereader[excel,sqlite] (>=0.29)", "PyYAML (>=3.11,<6)", "tablib", "dominate (>=2.1.5,<3)"]
 theme = ["pytablewriter-altrow-theme (>=0.0.2,<1)"]
 toml = ["toml (>=0.9.3,<1)"]
 yaml = ["PyYAML (>=3.11,<6)"]
@@ -1156,20 +1167,29 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
 
 [[package]]
 name = "redis"
-version = "4.1.4"
-description = "Python client for Redis database and key-value store"
+version = "4.2.0rc3"
+description = ""
 category = "main"
 optional = false
 python-versions = ">=3.6"
+develop = false
 
 [package.dependencies]
+async-timeout = ">=4.0.2"
 deprecated = ">=1.2.3"
 importlib-metadata = {version = ">=1.0", markers = "python_version < \"3.8\""}
 packaging = ">=20.4"
+typing-extensions = "*"
 
 [package.extras]
 hiredis = ["hiredis (>=1.0.0)"]
 ocsp = ["cryptography (>=36.0.1)", "pyopenssl (==20.0.1)", "requests (>=2.26.0)"]
+
+[package.source]
+type = "git"
+url = "https://github.com/redis/redis-py.git"
+reference = "v4.2.0rc3"
+resolved_reference = "95b32682b1924dcba4944ef383390c29aea18085"
 
 [[package]]
 name = "regex"
@@ -1479,6 +1499,17 @@ docs = ["proselint (>=0.10.2)", "sphinx (>=3)", "sphinx-argparse (>=0.2.5)", "sp
 testing = ["coverage (>=4)", "coverage-enable-subprocess (>=1)", "flaky (>=3)", "pytest (>=4)", "pytest-env (>=0.6.2)", "pytest-freezegun (>=0.4.1)", "pytest-mock (>=2)", "pytest-randomly (>=1)", "pytest-timeout (>=1)", "packaging (>=20.0)"]
 
 [[package]]
+name = "watchdog"
+version = "2.1.6"
+description = "Filesystem events monitoring"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.extras]
+watchmedo = ["PyYAML (>=3.10)"]
+
+[[package]]
 name = "wcwidth"
 version = "0.2.5"
 description = "Measures the displayed width of unicode strings in a terminal"
@@ -1552,7 +1583,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6.1"
-content-hash = "9a078b6f96742fd417e99c1f2135c03dbf75346faadbacc7f5bc5d44d399f0d5"
+content-hash = "60c3c965ec5149f0e2a30629748c3406aa3843f35d2a95bd34ba65d7b28a3dd9"
 
 [metadata.files]
 aniso8601 = [
@@ -1566,6 +1597,10 @@ ansicolors = [
 appdirs = [
     {file = "appdirs-1.4.4-py2.py3-none-any.whl", hash = "sha256:a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128"},
     {file = "appdirs-1.4.4.tar.gz", hash = "sha256:7d5d0167b2b1ba821647616af46a749d1c653740dd0d2415100fe26e27afdf41"},
+]
+async-timeout = [
+    {file = "async-timeout-4.0.2.tar.gz", hash = "sha256:2163e1640ddb52b7a8c80d0a67a08587e5d245cc9c553a74a847056bc2976b15"},
+    {file = "async_timeout-4.0.2-py3-none-any.whl", hash = "sha256:8ca1e4fcf50d07413d66d1a5e416e42cfdf5851c981d679a09851a6853383b3c"},
 ]
 atomicwrites = [
     {file = "atomicwrites-1.4.0-py2.py3-none-any.whl", hash = "sha256:6d1784dea7c0c8d4a5172b6c620f40b6e4cbfdf96d783691f2e1302a7b88e197"},
@@ -2349,10 +2384,7 @@ pyyaml = [
     {file = "PyYAML-5.4-cp39-cp39-win_amd64.whl", hash = "sha256:8bf38641b4713d77da19e91f8b5296b832e4db87338d6aeffe422d42f1ca896d"},
     {file = "PyYAML-5.4.tar.gz", hash = "sha256:3c49e39ac034fd64fd576d63bb4db53cda89b362768a67f07749d55f128ac18a"},
 ]
-redis = [
-    {file = "redis-4.1.4-py3-none-any.whl", hash = "sha256:04629f8e42be942c4f7d1812f2094568f04c612865ad19ad3ace3005da70631a"},
-    {file = "redis-4.1.4.tar.gz", hash = "sha256:1d9a0cdf89fdd93f84261733e24f55a7bbd413a9b219fdaf56e3e728ca9a2306"},
-]
+redis = []
 regex = [
     {file = "regex-2021.11.10-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:9345b6f7ee578bad8e475129ed40123d265464c4cfead6c261fd60fc9de00bcf"},
     {file = "regex-2021.11.10-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:416c5f1a188c91e3eb41e9c8787288e707f7d2ebe66e0a6563af280d9b68478f"},
@@ -2570,6 +2602,31 @@ urllib3 = [
 virtualenv = [
     {file = "virtualenv-20.11.0-py2.py3-none-any.whl", hash = "sha256:eb0cb34160f32c6596405308ee6a8a4abbf3247b2b9794ae655a156d43abf48e"},
     {file = "virtualenv-20.11.0.tar.gz", hash = "sha256:2f15b9226cb74b59c21e8236dd791c395bee08cdd33b99cddd18e1f866cdb098"},
+]
+watchdog = [
+    {file = "watchdog-2.1.6-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:9693f35162dc6208d10b10ddf0458cc09ad70c30ba689d9206e02cd836ce28a3"},
+    {file = "watchdog-2.1.6-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:aba5c812f8ee8a3ff3be51887ca2d55fb8e268439ed44110d3846e4229eb0e8b"},
+    {file = "watchdog-2.1.6-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:4ae38bf8ba6f39d5b83f78661273216e7db5b00f08be7592062cb1fc8b8ba542"},
+    {file = "watchdog-2.1.6-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:ad6f1796e37db2223d2a3f302f586f74c72c630b48a9872c1e7ae8e92e0ab669"},
+    {file = "watchdog-2.1.6-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:922a69fa533cb0c793b483becaaa0845f655151e7256ec73630a1b2e9ebcb660"},
+    {file = "watchdog-2.1.6-cp38-cp38-macosx_10_9_universal2.whl", hash = "sha256:b2fcf9402fde2672545b139694284dc3b665fd1be660d73eca6805197ef776a3"},
+    {file = "watchdog-2.1.6-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:3386b367e950a11b0568062b70cc026c6f645428a698d33d39e013aaeda4cc04"},
+    {file = "watchdog-2.1.6-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:8f1c00aa35f504197561060ca4c21d3cc079ba29cf6dd2fe61024c70160c990b"},
+    {file = "watchdog-2.1.6-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:b52b88021b9541a60531142b0a451baca08d28b74a723d0c99b13c8c8d48d604"},
+    {file = "watchdog-2.1.6-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:8047da932432aa32c515ec1447ea79ce578d0559362ca3605f8e9568f844e3c6"},
+    {file = "watchdog-2.1.6-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:e92c2d33858c8f560671b448205a268096e17870dcf60a9bb3ac7bfbafb7f5f9"},
+    {file = "watchdog-2.1.6-pp37-pypy37_pp73-macosx_10_9_x86_64.whl", hash = "sha256:b7d336912853d7b77f9b2c24eeed6a5065d0a0cc0d3b6a5a45ad6d1d05fb8cd8"},
+    {file = "watchdog-2.1.6-py3-none-manylinux2014_aarch64.whl", hash = "sha256:cca7741c0fcc765568350cb139e92b7f9f3c9a08c4f32591d18ab0a6ac9e71b6"},
+    {file = "watchdog-2.1.6-py3-none-manylinux2014_armv7l.whl", hash = "sha256:25fb5240b195d17de949588628fdf93032ebf163524ef08933db0ea1f99bd685"},
+    {file = "watchdog-2.1.6-py3-none-manylinux2014_i686.whl", hash = "sha256:be9be735f827820a06340dff2ddea1fb7234561fa5e6300a62fe7f54d40546a0"},
+    {file = "watchdog-2.1.6-py3-none-manylinux2014_ppc64.whl", hash = "sha256:d0d19fb2441947b58fbf91336638c2b9f4cc98e05e1045404d7a4cb7cddc7a65"},
+    {file = "watchdog-2.1.6-py3-none-manylinux2014_ppc64le.whl", hash = "sha256:3becdb380d8916c873ad512f1701f8a92ce79ec6978ffde92919fd18d41da7fb"},
+    {file = "watchdog-2.1.6-py3-none-manylinux2014_s390x.whl", hash = "sha256:ae67501c95606072aafa865b6ed47343ac6484472a2f95490ba151f6347acfc2"},
+    {file = "watchdog-2.1.6-py3-none-manylinux2014_x86_64.whl", hash = "sha256:e0f30db709c939cabf64a6dc5babb276e6d823fd84464ab916f9b9ba5623ca15"},
+    {file = "watchdog-2.1.6-py3-none-win32.whl", hash = "sha256:e02794ac791662a5eafc6ffeaf9bcc149035a0e48eb0a9d40a8feb4622605a3d"},
+    {file = "watchdog-2.1.6-py3-none-win_amd64.whl", hash = "sha256:bd9ba4f332cf57b2c1f698be0728c020399ef3040577cde2939f2e045b39c1e5"},
+    {file = "watchdog-2.1.6-py3-none-win_ia64.whl", hash = "sha256:a0f1c7edf116a12f7245be06120b1852275f9506a7d90227648b250755a03923"},
+    {file = "watchdog-2.1.6.tar.gz", hash = "sha256:a36e75df6c767cbf46f61a91c70b3ba71811dfa0aca4a324d9407a06a8b7a2e7"},
 ]
 wcwidth = [
     {file = "wcwidth-0.2.5-py2.py3-none-any.whl", hash = "sha256:beb4802a9cebb9144e99086eff703a642a13d6a0052920003a230f3294bbe784"},

@@ -566,9 +566,15 @@ def run_remote_command_logic(args, project_name, project_version):
                                     ) = from_info_to_overall_shard_cpu(
                                         redisbench_admin.run.metrics.BENCHMARK_CPU_STATS_GLOBAL
                                     )
-                                    logging.info(
-                                        "Total CPU usage ({:.3f} %)".format(
+                                    if total_shards_cpu_usage is None:
+                                        total_shards_cpu_usage_str = "n/a"
+                                    else:
+                                        total_shards_cpu_usage_str = "{:.3f}".format(
                                             total_shards_cpu_usage
+                                        )
+                                    logging.info(
+                                        "Total CPU usage ({} %)".format(
+                                            total_shards_cpu_usage_str
                                         )
                                     )
 
@@ -610,9 +616,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     ]
                                                 },
                                             )
-                                            overall_end_time_metrics[
-                                                "total_shards_used_cpu_pct"
-                                            ] = total_shards_cpu_usage
+                                            if total_shards_cpu_usage is not None:
+                                                overall_end_time_metrics[
+                                                    "total_shards_used_cpu_pct"
+                                                ] = total_shards_cpu_usage
                                             expire_ms = 7 * 24 * 60 * 60 * 1000
                                             export_redis_metrics(
                                                 artifact_version,
