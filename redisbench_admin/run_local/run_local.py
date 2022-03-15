@@ -306,6 +306,11 @@ def run_local_command_logic(args, project_name, project_version):
                                         total_shards_cpu_usage
                                     )
                                 )
+                                logging.info(
+                                    "CPU MAP: {}".format(
+                                        json.dumps(cpu_usage_map, indent=2)
+                                    )
+                                )
                                 benchmark_duration_seconds = (
                                     calculate_client_tool_duration_and_check(
                                         benchmark_end_time, benchmark_start_time
