@@ -130,6 +130,7 @@ def compare_command_logic(args, project_name, project_version):
     total_stable = 0
     total_unstable = 0
     total_regressions = 0
+    noise_waterline = 2.5
     for test_name in test_names:
 
         test_name = test_name.decode()
@@ -175,7 +176,9 @@ def compare_command_logic(args, project_name, project_version):
 
         note = ""
         try:
-            baseline_datapoints = rts.revrange(ts_name_baseline, from_ts_ms, to_ts_ms)
+            baseline_datapoints = rts.ts().revrange(
+                ts_name_baseline, from_ts_ms, to_ts_ms
+            )
             baseline_nsamples = len(baseline_datapoints)
             if baseline_nsamples > 0:
                 _, baseline_v = baseline_datapoints[0]
@@ -188,7 +191,7 @@ def compare_command_logic(args, project_name, project_version):
                 baseline_pct_change = (baseline_std / baseline_median) * 100.0
                 largest_variance = baseline_pct_change
 
-            comparison_datapoints = rts.revrange(
+            comparison_datapoints = rts.ts().revrange(
                 ts_name_comparison, from_ts_ms, to_ts_ms
             )
             comparison_nsamples = len(comparison_datapoints)
@@ -247,7 +250,7 @@ def compare_command_logic(args, project_name, project_version):
                     detected_regression = True
                     total_regressions = total_regressions + 1
                     note = note + " REGRESSION"
-                else:
+                elif percentage_change < -noise_waterline:
                     note = note + " potential REGRESSION"
                 detected_regressions.append(test_name)
             if percentage_change > 0.0 and not unstable:
@@ -255,7 +258,7 @@ def compare_command_logic(args, project_name, project_version):
                     detected_improvement = True
                     total_improvements = total_improvements + 1
                     note = note + " IMPROVEMENT"
-                else:
+                elif percentage_change > noise_waterline:
                     note = note + " potential IMPROVEMENT"
 
             if (
