@@ -135,17 +135,23 @@ def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
     total_avg_cpu_pct = 0.0
     res = {}
     for shard_n, cpu_stats_arr in benchmark_cpu_stats.items():
+        avg_cpu_pct = None
         # we need at least 2 elements to compute the cpu usage
-        if len(cpu_stats_arr) < 2:
-            avg_cpu_pct = None
-        else:
-            start_ts_micros = cpu_stats_arr[0]["server_time_usec"]
-            start_total_cpu = get_total_cpu(cpu_stats_arr[0])
-            end_ts_micros = cpu_stats_arr[len(cpu_stats_arr) - 1]["server_time_usec"]
-            end_total_cpu = get_total_cpu(cpu_stats_arr[len(cpu_stats_arr) - 1])
-            total_secs = (end_ts_micros - start_ts_micros) / 1000000
-            total_cpu_usage = end_total_cpu - start_total_cpu
-            avg_cpu_pct = 100.0 * (total_cpu_usage / total_secs)
+        if len(cpu_stats_arr) >= 2:
+            stats_start_pos = cpu_stats_arr[0]
+            stats_end_pos = cpu_stats_arr[len(cpu_stats_arr) - 1]
+            if (
+                "server_time_usec" in stats_end_pos
+                and "server_time_usec" in stats_start_pos
+            ):
+                start_ts_micros = stats_start_pos["server_time_usec"]
+                end_ts_micros = stats_end_pos["server_time_usec"]
+                start_total_cpu = get_total_cpu(stats_start_pos)
+                end_total_cpu = get_total_cpu(stats_end_pos)
+                total_secs = (end_ts_micros - start_ts_micros) / 1000000
+                total_cpu_usage = end_total_cpu - start_total_cpu
+                avg_cpu_pct = 100.0 * (total_cpu_usage / total_secs)
+
         res[shard_n] = avg_cpu_pct
         if avg_cpu_pct is not None:
             total_avg_cpu_pct += avg_cpu_pct
