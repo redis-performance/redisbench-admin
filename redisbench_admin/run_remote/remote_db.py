@@ -279,6 +279,7 @@ def remote_db_spin(
             remote_run_result,
             results_dict,
             return_code,
+            _,
         ) = run_remote_client_tool(
             allowed_tools,
             None,
