@@ -372,7 +372,7 @@ def db_error_artifacts(
         username,
         private_key,
         [
-            "zip -r {} {}".format(remote_zipfile, temporary_dir),
+            "zip -r {} {}/*".format(remote_zipfile, temporary_dir),
         ],
         db_ssh_port,
     )

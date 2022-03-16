@@ -211,13 +211,34 @@ def run_remote_command_logic(args, project_name, project_version):
     overall_tables = {}
 
     for benchmark_type, bench_by_dataset_map in benchmark_runs_plan.items():
+        if return_code != 0 and args.fail_fast:
+            logging.warning(
+                "Given you've selected fail fast skipping benchmark_type {}".format(
+                    benchmark_type
+                )
+            )
+            continue
         logging.info("Running benchmarks of type {}.".format(benchmark_type))
         for (
             dataset_name,
             bench_by_dataset_and_setup_map,
         ) in bench_by_dataset_map.items():
+            if return_code != 0 and args.fail_fast:
+                logging.warning(
+                    "Given you've selected fail fast skipping dataset {}".format(
+                        dataset_name
+                    )
+                )
+                continue
             logging.info("Running benchmarks for dataset {}.".format(dataset_name))
             for setup_name, setup_details in bench_by_dataset_and_setup_map.items():
+                if return_code != 0 and args.fail_fast:
+                    logging.warning(
+                        "Given you've selected fail fast skipping setup {}".format(
+                            setup_name
+                        )
+                    )
+                    continue
 
                 setup_settings = setup_details["setup_settings"]
                 benchmarks_map = setup_details["benchmarks"]
@@ -228,6 +249,13 @@ def run_remote_command_logic(args, project_name, project_version):
                 overall_tables[setup_name] = {}
 
                 for test_name, benchmark_config in benchmarks_map.items():
+                    if return_code != 0 and args.fail_fast:
+                        logging.warning(
+                            "Given you've selected fail fast skipping test {}".format(
+                                test_name
+                            )
+                        )
+                        continue
                     metadata_tags = get_metadata_tags(benchmark_config)
                     logging.info(
                         "Including the extra metadata tags into this test generated time-series: {}".format(
@@ -235,6 +263,13 @@ def run_remote_command_logic(args, project_name, project_version):
                         )
                     )
                     for repetition in range(1, BENCHMARK_REPETITIONS + 1):
+                        if return_code != 0 and args.fail_fast:
+                            logging.warning(
+                                "Given you've selected fail fast skipping repetition {}".format(
+                                    repetition
+                                )
+                            )
+                            continue
                         remote_perf = None
                         logging.info(
                             "Repetition {} of {}. Running test {}".format(
