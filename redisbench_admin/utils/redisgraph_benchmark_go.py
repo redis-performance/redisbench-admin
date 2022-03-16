@@ -9,6 +9,19 @@ from redisbench_admin.utils.remote import (
 )
 
 
+def get_redisbench_admin_remote_path(
+    client_public_ip, username, private_key, client_ssh_port
+):
+    commands = [
+        "python3 -c 'import os; import redisbench_admin; print(os.path.dirname(redisbench_admin.__file__))'"
+    ]
+    # last argument (get_pty) needs to be set to true
+    # check: https://stackoverflow.com/questions/5785353/paramiko-and-sudo
+    return execute_remote_commands(
+        client_public_ip, username, private_key, commands, client_ssh_port, True
+    )
+
+
 def setup_remote_benchmark_agent(
     client_public_ip, username, private_key, client_ssh_port
 ):

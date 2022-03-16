@@ -23,8 +23,10 @@ DEFAULT_TRIGGERING_ENV = socket.gethostname()
 TRIGGERING_ENV = os.getenv("TRIGGERING_ENV", DEFAULT_TRIGGERING_ENV)
 ENV = os.getenv("ENV", "oss-standalone,oss-cluster")
 SETUP = os.getenv("SETUP", "")
+BENCHMARK_GLOB = os.getenv("BENCHMARK_GLOB", "*.yml")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "ci.benchmarks.redislabs")
 PUSH_S3 = bool(os.getenv("PUSH_S3", False))
+FAIL_FAST = bool(int(os.getenv("FAIL_FAST", 0)))
 PROFILERS_DSO = os.getenv("PROFILERS_DSO", None)
 PROFILERS_ENABLED = bool(int(os.getenv("PROFILE", 0)))
 PROFILERS = os.getenv("PROFILERS", PROFILERS_DEFAULT)
@@ -42,6 +44,14 @@ def common_run_args(parser):
         help="Keep environment and topology up after benchmark.",
     )
     parser.add_argument(
+        "--fail_fast",
+        required=False,
+        default=FAIL_FAST,
+        action="store_true",
+        help="In case of failure exit immediately. Otherwise run all other tests and then exit on error.",
+    )
+
+    parser.add_argument(
         "--dbdir_folder",
         type=str,
         required=False,
@@ -50,10 +60,10 @@ def common_run_args(parser):
     parser.add_argument(
         "--allowed-tools",
         type=str,
-        default="redis-benchmark,redisgraph-benchmark-go,ycsb,"
+        default="memtier_benchmark,redis-benchmark,redisgraph-benchmark-go,ycsb,"
         + "tsbs_run_queries_redistimeseries,tsbs_load_redistimeseries,"
         + "ftsb_redisearch,"
-        + "aibench_run_inference_redisai_vision",
+        + "aibench_run_inference_redisai_vision,ann-benchmarks",
         help="comma separated list of allowed tools for this module. By default all the supported are allowed.",
     )
     parser.add_argument(
@@ -62,6 +72,13 @@ def common_run_args(parser):
         default="",
         help="specify a test to run. By default will run all of them.",
     )
+    parser.add_argument(
+        "--test-glob",
+        type=str,
+        default=BENCHMARK_GLOB,
+        help="specify a test glob pattern to use on the tests directory. by default uses *.yml. If --test is defined this options has no effect.",
+    )
+
     parser.add_argument(
         "--defaults_filename",
         type=str,

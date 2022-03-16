@@ -10,4 +10,5 @@ exclude =
     *.egg-info,
     .nox,
     .pytest_cache,
-    .mypy_cache
+    .mypy_cache,
+    redisbench_admin/run/ann/pkg/

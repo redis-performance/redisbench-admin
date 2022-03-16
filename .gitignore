@@ -1,5 +1,8 @@
 # redisbench-admin related inputs/outputs
 
+redisbench_admin/run/ann/pkg/
+
+
 *.json
 *.tar.gz
 *.csv

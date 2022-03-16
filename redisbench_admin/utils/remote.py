@@ -169,7 +169,7 @@ def check_dataset_remote_requirements(
     db_ssh_port=22,
 ):
     res = True
-    dataset, fullpath, tmppath = check_dataset_local_requirements(
+    dataset, dataset_name, fullpath, tmppath = check_dataset_local_requirements(
         benchmark_config,
         ".",
         dirname,
@@ -177,6 +177,7 @@ def check_dataset_remote_requirements(
         "dbconfig",
         number_primaries,
         False,
+        True,
     )
     if dataset is not None:
         logging.info(
@@ -196,15 +197,28 @@ def check_dataset_remote_requirements(
                 fullpath, server_public_ip, remote_dataset_file
             )
         )
-        res = copy_file_to_remote_setup(
-            server_public_ip,
-            username,
-            private_key,
-            fullpath,
-            remote_dataset_file,
-            None,
-            db_ssh_port,
-        )
+        if "https" in dataset:
+            logging.info(
+                "Given dataset is a remote one ( {} ), copying it directly to DB machine ( {} ).".format(
+                    dataset,
+                    remote_dataset_file,
+                )
+            )
+            commands = []
+            commands.append("wget -O {} {}".format(remote_dataset_file, dataset))
+            execute_remote_commands(
+                server_public_ip, username, private_key, commands, db_ssh_port
+            )
+        else:
+            res = copy_file_to_remote_setup(
+                server_public_ip,
+                username,
+                private_key,
+                fullpath,
+                remote_dataset_file,
+                None,
+                db_ssh_port,
+            )
         if is_cluster:
             commands = []
             for master_shard_id in range(2, number_primaries + 1):
@@ -240,6 +254,7 @@ def setup_remote_environment(
     tf_github_org,
     tf_github_repo,
     tf_triggering_env,
+    tf_timeout_secs=7200,
 ):
     # key    = "benchmarks/infrastructure/tf-oss-redisgraph-standalone-r5.tfstate"
     _, _, _ = tf.init(
@@ -273,6 +288,7 @@ def setup_remote_environment(
             "github_org": tf_github_org,
             "github_repo": tf_github_repo,
             "triggering_env": tf_triggering_env,
+            "timeout_secs": tf_timeout_secs,
         },
     )
     return retrieve_tf_connection_vars(return_code, tf)
@@ -479,6 +495,16 @@ def get_run_full_filename(
     return benchmark_output_filename
 
 
+def fetch_remote_id_from_config(
+    remote_setup_config,
+):
+    setup = None
+    for remote_setup_property in remote_setup_config:
+        if "setup" in remote_setup_property:
+            setup = remote_setup_property["setup"]
+    return setup
+
+
 def fetch_remote_setup_from_config(
     remote_setup_config,
     repo="https://github.com/RedisLabsModules/testing-infrastructure.git",
@@ -514,13 +540,13 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict, expire_msecs=0):
                 try:
                     if timestamp is None:
                         logging.warning("The provided timestamp is null. Using auto-ts")
-                        rts.add(
+                        rts.ts().add(
                             timeseries_name,
                             value,
                             duplicate_policy="last",
                         )
                     else:
-                        rts.add(
+                        rts.ts().add(
                             timeseries_name,
                             timestamp,
                             value,
@@ -544,14 +570,14 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict, expire_msecs=0):
                     datapoint_errors += 1
                     pass
             if expire_msecs > 0:
-                rts.redis.pexpire(timeseries_name, expire_msecs)
+                rts.pexpire(timeseries_name, expire_msecs)
     return datapoint_errors, datapoint_inserts
 
 
 def exporter_create_ts(rts, time_series, timeseries_name):
     updated_create = False
     try:
-        if rts.redis.exists(timeseries_name):
+        if rts.exists(timeseries_name):
             updated_create = check_rts_labels(rts, time_series, timeseries_name)
         else:
             logging.debug(
@@ -559,7 +585,9 @@ def exporter_create_ts(rts, time_series, timeseries_name):
                     timeseries_name, time_series["labels"]
                 )
             )
-            rts.create(timeseries_name, labels=time_series["labels"], chunk_size=128)
+            rts.ts().create(
+                timeseries_name, labels=time_series["labels"], chunk_size=128
+            )
             updated_create = True
 
     except redis.exceptions.ResponseError as e:
@@ -584,7 +612,7 @@ def check_rts_labels(rts, time_series, timeseries_name):
         )
     )
     set1 = set(time_series["labels"].items())
-    set2 = set(rts.info(timeseries_name).labels.items())
+    set2 = set(rts.ts().info(timeseries_name).labels.items())
     if len(set1 - set2) > 0 or len(set2 - set1) > 0:
         logging.info(
             "Given the labels don't match using TS.ALTER on {} to update labels to {}".format(
@@ -592,7 +620,7 @@ def check_rts_labels(rts, time_series, timeseries_name):
             )
         )
         updated_create = True
-        rts.alter(timeseries_name, labels=time_series["labels"])
+        rts.ts().alter(timeseries_name, labels=time_series["labels"])
     return updated_create
 
 

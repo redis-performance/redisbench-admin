@@ -1,11 +1,18 @@
+import argparse
 import json
 
 import yaml
 
+from redisbench_admin.run_remote.args import create_run_remote_arguments
 from redisbench_admin.utils.benchmark_config import (
     results_dict_kpi_check,
     check_required_modules,
     extract_redis_dbconfig_parameters,
+    extract_benchmark_type_from_config,
+    get_metadata_tags,
+    get_termination_timeout_secs,
+    prepare_benchmark_definitions,
+    process_benchmark_definitions_remote_timeouts,
 )
 
 
@@ -113,3 +120,114 @@ def test_extract_redis_configuration_parameters():
             "redistimeseries": {"CHUNK_SIZE_BYTES": 128}
         }
         assert dbconfig_present == True
+
+
+def test_extract_benchmark_type_from_config():
+    with open("./tests/test_data/vecsim-memtier.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        benchmark_config_present, benchmark_type = extract_benchmark_type_from_config(
+            benchmark_config
+        )
+        assert benchmark_type == "read-only"
+        assert benchmark_config_present == True
+
+    with open("./tests/test_data/redis-benchmark.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        benchmark_config_present, benchmark_type = extract_benchmark_type_from_config(
+            benchmark_config
+        )
+        assert benchmark_type == "mixed"
+        assert benchmark_config_present == False
+
+
+def test_get_metadata_tags():
+    with open("./tests/test_data/vecsim-memtier.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        metadata_tags = get_metadata_tags(benchmark_config)
+        assert metadata_tags == {"component": "vecsim"}
+
+    with open("./tests/test_data/redis-benchmark.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        metadata_tags = get_metadata_tags(benchmark_config)
+        assert metadata_tags == {}
+
+    with open(
+        "./tests/test_data/tsbs-scale100-cpu-max-all-1@4139rps.yml", "r"
+    ) as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        metadata_tags = get_metadata_tags(benchmark_config)
+        assert metadata_tags == {"includes_targets": "true", "test_type": "query"}
+
+
+def test_get_termination_timeout_secs():
+    with open("./tests/test_data/vecsim-memtier.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        timeout_seconds = get_termination_timeout_secs(benchmark_config)
+        assert timeout_seconds == 600
+
+    with open("./tests/test_data/vecsim-memtier-timeout.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        timeout_seconds = get_termination_timeout_secs(benchmark_config)
+        assert timeout_seconds == 1200
+
+
+def test_prepare_benchmark_definitions():
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_remote_arguments(parser)
+    args = parser.parse_args(
+        args=[
+            "--github_actor",
+            "gh.user",
+            "--module_path",
+            "mymodule.so",
+            "--test-glob",
+            "./tests/test_data/benchmark_definitions/*.yml",
+        ]
+    )
+    (
+        result,
+        benchmark_definitions,
+        default_metrics,
+        exporter_timemetric_path,
+        default_specs,
+        clusterconfig,
+    ) = prepare_benchmark_definitions(args)
+    assert result == True
+    assert len(benchmark_definitions.keys()) == 2
+
+
+def test_process_benchmark_definitions_remote_timeouts():
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_remote_arguments(parser)
+    args = parser.parse_args(
+        args=[
+            "--github_actor",
+            "gh.user",
+            "--module_path",
+            "mymodule.so",
+            "--test-glob",
+            "./tests/test_data/benchmark_definitions/*.yml",
+        ]
+    )
+    (
+        result,
+        benchmark_definitions,
+        default_metrics,
+        exporter_timemetric_path,
+        default_specs,
+        clusterconfig,
+    ) = prepare_benchmark_definitions(args)
+    assert result == True
+    assert len(benchmark_definitions.keys()) == 2
+    remote_envs_timeout = process_benchmark_definitions_remote_timeouts(
+        benchmark_definitions
+    )
+    assert len(remote_envs_timeout.keys()) == 1
+    # we have the default timeout + the one specified
+    assert list(remote_envs_timeout.values())[0] == 600 + 1200

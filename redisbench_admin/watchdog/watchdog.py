@@ -11,7 +11,7 @@ import time
 
 import boto3
 import redis
-from redistimeseries.client import Client
+
 
 from redisbench_admin.run.common import get_start_time_vars
 from redisbench_admin.utils.remote import (
@@ -42,6 +42,19 @@ def get_ci_ec2_instances_by_state(ec2_client, ci_machines_prefix, requested_stat
     return count, state_instances
 
 
+def get_vname_timeout_secs(instance):
+    vm_name = ""
+    timeout_secs = None
+    for tag_dict in instance["Tags"]:
+        key = tag_dict["Key"]
+        key_v = tag_dict["Value"]
+        if key == "Name":
+            vm_name = key_v
+        if key == "timeout_secs":
+            timeout_secs = int(key_v)
+    return vm_name, timeout_secs
+
+
 def watchdog_dangling_ec2_instances(
     ec2_client, terminate_after_secs, ci_machines_prefix, dry_run
 ):
@@ -55,40 +68,62 @@ def watchdog_dangling_ec2_instances(
             instance_id = instance["InstanceId"]
             state = instance["State"]["Name"]
             if state != "terminated":
-                for tag_dict in instance["Tags"]:
-                    key = tag_dict["Key"]
-                    key_v = tag_dict["Value"]
-                    if key == "Name":
-                        if ci_machines_prefix in key_v:
-                            total_instances = total_instances + 1
-                            elapsed = current_datetime - launch_time
-                            will_terminate = False
-                            if elapsed.total_seconds() > terminate_after_secs:
-                                will_terminate = True
-
-                            logging.info(
-                                "Temporary machine {} {}. terminate? {}".format(
-                                    key_v, elapsed, will_terminate
-                                )
-                            )
-                            if will_terminate:
-                                logging.warning(
-                                    "Requesting to terminate instance with id {} given it ".format(
-                                        instance_id
-                                    )
-                                    + "surpassed the maximum allowed ci duration"
-                                )
-                                response = ec2_client.terminate_instances(
-                                    InstanceIds=[
-                                        instance_id,
-                                    ]
-                                )
-                                logging.info(
-                                    "Request to terminate instance with id {} reply: {}".format(
-                                        instance_id, response
-                                    )
-                                )
+                vm_name, timeout_secs = get_vname_timeout_secs(instance)
+                if timeout_secs is None:
+                    timeout_secs = terminate_after_secs
+                total_instances = termination_check(
+                    ci_machines_prefix,
+                    current_datetime,
+                    ec2_client,
+                    instance_id,
+                    launch_time,
+                    timeout_secs,
+                    total_instances,
+                    vm_name,
+                )
     logging.info("Detected a total of {} ci.bechmark VMs".format(total_instances))
+
+
+def termination_check(
+    ci_machines_prefix,
+    current_datetime,
+    ec2_client,
+    instance_id,
+    launch_time,
+    terminate_after_secs,
+    total_instances,
+    vm_name,
+):
+    if ci_machines_prefix in vm_name:
+        total_instances = total_instances + 1
+        elapsed = current_datetime - launch_time
+        will_terminate = False
+        if elapsed.total_seconds() > terminate_after_secs:
+            will_terminate = True
+
+        logging.info(
+            "Temporary machine {} {}. terminate? {}".format(
+                vm_name, elapsed, will_terminate
+            )
+        )
+        if will_terminate:
+            logging.warning(
+                "Requesting to terminate instance with id {} given it ".format(
+                    instance_id
+                )
+                + "surpassed the maximum allowed ci duration"
+            )
+            response = ec2_client.terminate_instances(
+                InstanceIds=[
+                    instance_id,
+                ]
+            )
+            logging.info(
+                "Request to terminate instance with id {} reply: {}".format(
+                    instance_id, response
+                )
+            )
+    return total_instances
 
 
 def watchdog_command_logic(args, project_name, project_version):
@@ -112,12 +147,12 @@ def watchdog_command_logic(args, project_name, project_version):
             args.redistimeseries_host, args.redistimeseries_port
         )
     )
-    rts = Client(
+    rts = redis.Redis(
         host=args.redistimeseries_host,
         port=args.redistimeseries_port,
         password=args.redistimeseries_pass,
     )
-    rts.redis.ping()
+    rts.ping()
     ec2_client = boto3.client("ec2")
     update_interval = args.update_interval
     logging.info(
@@ -134,7 +169,7 @@ def watchdog_command_logic(args, project_name, project_version):
             ec2_client, ci_machines_prefix, "running"
         )
         try:
-            rts.add(
+            rts.ts().add(
                 tsname_overall_running,
                 start_time_ms,
                 running_count,

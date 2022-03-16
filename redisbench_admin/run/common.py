@@ -15,6 +15,10 @@ from pytablewriter import MarkdownTableWriter
 from redisbench_admin.run.aibench_run_inference_redisai_vision.aibench_run_inference_redisai_vision import (
     prepare_aibench_benchmark_command,
 )
+from redisbench_admin.run.ann.ann import (
+    prepare_ann_benchmark_command,
+    ANN_MULTIRUN_PATH,
+)
 from redisbench_admin.run.ftsb.ftsb import prepare_ftsb_benchmark_command
 from redisbench_admin.run.memtier_benchmark.memtier_benchmark import (
     prepare_memtier_benchmark_command,
@@ -39,6 +43,9 @@ from redisbench_admin.utils.benchmark_config import (
     parse_exporter_timemetric_definition,
     check_required_modules,
 )
+from redisbench_admin.utils.redisgraph_benchmark_go import (
+    get_redisbench_admin_remote_path,
+)
 from redisbench_admin.utils.remote import (
     extract_perversion_timeseries_from_results,
     extract_perbranch_timeseries_from_results,
@@ -57,6 +64,10 @@ def prepare_benchmark_parameters(
     current_workdir=None,
     cluster_api_enabled=False,
     config_key="clientconfig",
+    client_public_ip=None,
+    username=None,
+    private_key=None,
+    client_ssh_port=None,
 ):
     command_arr = None
     command_str = None
@@ -75,6 +86,10 @@ def prepare_benchmark_parameters(
                     remote_results_file,
                     server_plaintext_port,
                     server_private_ip,
+                    client_public_ip,
+                    username,
+                    private_key,
+                    client_ssh_port,
                 )
     # v0.4 spec
     elif type(benchmark_config[config_key]) == dict:
@@ -90,6 +105,10 @@ def prepare_benchmark_parameters(
             remote_results_file,
             server_plaintext_port,
             server_private_ip,
+            client_public_ip,
+            username,
+            private_key,
+            client_ssh_port,
         )
     printed_command_str = command_str
     printed_command_arr = command_arr
@@ -115,6 +134,10 @@ def prepare_benchmark_parameters_specif_tooling(
     remote_results_file,
     server_plaintext_port,
     server_private_ip,
+    client_public_ip,
+    username,
+    private_key,
+    client_ssh_port,
 ):
     if "redis-benchmark" in benchmark_tool:
         command_arr, command_str = prepare_redis_benchmark_command(
@@ -175,6 +198,24 @@ def prepare_benchmark_parameters_specif_tooling(
             entry,
             cluster_api_enabled,
             remote_results_file,
+        )
+    if "ann" in benchmark_tool:
+        ann_path = ANN_MULTIRUN_PATH
+        if isremote is True:
+            [recv_exit_status, stdout, stderr] = get_redisbench_admin_remote_path(
+                client_public_ip, username, private_key, client_ssh_port
+            )[0]
+            ann_path = stdout[0].strip() + "/run/ann/pkg/multirun.py"
+            logging.info("Remote ann-benchmark path: {}".format(ann_path))
+
+        (command_arr, command_str,) = prepare_ann_benchmark_command(
+            server_private_ip,
+            server_plaintext_port,
+            cluster_api_enabled,
+            entry,
+            remote_results_file,
+            current_workdir,
+            ann_path,
         )
     if "ftsb_" in benchmark_tool:
         input_data_file = None
@@ -331,11 +372,19 @@ def check_dbconfig_keyspacelen_requirement(
     required = False
     keyspacelen = None
     if dbconfig_keyname in benchmark_config:
-        for k in benchmark_config[dbconfig_keyname]:
-            if "check" in k:
-                if "keyspacelen" in k["check"]:
+        if type(benchmark_config[dbconfig_keyname]) == list:
+            for k in benchmark_config[dbconfig_keyname]:
+                if "check" in k:
+                    if "keyspacelen" in k["check"]:
+                        required = True
+                        keyspacelen = int(k["check"]["keyspacelen"])
+        if type(benchmark_config[dbconfig_keyname]) == dict:
+            if "check" in benchmark_config[dbconfig_keyname]:
+                if "keyspacelen" in benchmark_config[dbconfig_keyname]["check"]:
                     required = True
-                    keyspacelen = int(k["check"]["keyspacelen"])
+                    keyspacelen = int(
+                        benchmark_config[dbconfig_keyname]["check"]["keyspacelen"]
+                    )
     return required, keyspacelen
 
 
@@ -585,7 +634,12 @@ def common_properties_log(
 
 
 def print_results_table_stdout(
-    benchmark_config, default_metrics, results_dict, setup_name, test_name
+    benchmark_config,
+    default_metrics,
+    results_dict,
+    setup_name,
+    test_name,
+    cpu_usage=None,
 ):
     # check which metrics to extract
     (_, metrics,) = merge_default_and_config_metrics(
@@ -599,6 +653,8 @@ def print_results_table_stdout(
         "Metric Value",
     ]
     results_matrix = extract_results_table(metrics, results_dict)
+    if cpu_usage is not None:
+        results_matrix.append(["Total shards CPU usage %", "", "", cpu_usage])
     results_matrix = [[x[0], "{:.3f}".format(x[3])] for x in results_matrix]
     writer = MarkdownTableWriter(
         table_name=table_name,

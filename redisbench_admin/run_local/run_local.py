@@ -10,9 +10,9 @@ import os
 import sys
 import datetime
 import traceback
+import redis
 
-from redistimeseries.client import Client
-
+import redisbench_admin.run.metrics
 from redisbench_admin.profilers.profilers_schema import (
     local_profilers_print_artifacts_table,
 )
@@ -23,6 +23,10 @@ from redisbench_admin.run.common import (
     get_setup_type_and_primaries_count,
     dso_check,
     print_results_table_stdout,
+)
+from redisbench_admin.run.metrics import (
+    from_info_to_overall_shard_cpu,
+    collect_cpu_data,
 )
 from redisbench_admin.run.redistimeseries import datasink_profile_tabular_data
 from redisbench_admin.run.run import (
@@ -51,6 +55,8 @@ from redisbench_admin.utils.remote import (
     extract_git_vars,
 )
 from redisbench_admin.utils.results import post_process_benchmark_results
+
+import threading
 
 
 def run_local_command_logic(args, project_name, project_version):
@@ -98,12 +104,12 @@ def run_local_command_logic(args, project_name, project_version):
                 args.redistimeseries_host, args.redistimeseries_port
             )
         )
-        rts = Client(
+        rts = redis.Redis(
             host=args.redistimeseries_host,
             port=args.redistimeseries_port,
             password=args.redistimeseries_pass,
         )
-        rts.redis.ping()
+        rts.ping()
 
     dso = dso_check(args.dso, local_module_file)
     # start the profile
@@ -114,6 +120,7 @@ def run_local_command_logic(args, project_name, project_version):
         )
 
     (
+        _,
         benchmark_definitions,
         default_metrics,
         _,
@@ -159,6 +166,7 @@ def run_local_command_logic(args, project_name, project_version):
                                 continue
                         if setup_type in args.allowed_envs:
                             redis_processes = []
+                            redis_conns = []
                             # after we've spinned Redis, even on error we should always teardown
                             # in case of some unexpected error we fail the test
                             # noinspection PyBroadException
@@ -246,7 +254,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     benchmark_config,
                                     full_benchmark_path,
                                     args.port,
-                                    "localhost",
+                                    "127.0.0.1",
                                     local_benchmark_output_filename,
                                     False,
                                     benchmark_tool_workdir,
@@ -270,11 +278,39 @@ def run_local_command_logic(args, project_name, project_version):
                                 )
 
                                 # run the benchmark
+                                cpu_stats_thread = threading.Thread(
+                                    target=collect_cpu_data,
+                                    args=(redis_conns, 5.0, 1.0),
+                                )
+                                redisbench_admin.run.metrics.BENCHMARK_RUNNING_GLOBAL = (
+                                    True
+                                )
+                                cpu_stats_thread.start()
                                 benchmark_start_time = datetime.datetime.now()
                                 stdout, stderr = run_local_benchmark(
                                     benchmark_tool, command
                                 )
                                 benchmark_end_time = datetime.datetime.now()
+                                redisbench_admin.run.metrics.BENCHMARK_RUNNING_GLOBAL = (
+                                    False
+                                )
+                                cpu_stats_thread.join()
+                                (
+                                    total_shards_cpu_usage,
+                                    cpu_usage_map,
+                                ) = from_info_to_overall_shard_cpu(
+                                    redisbench_admin.run.metrics.BENCHMARK_CPU_STATS_GLOBAL
+                                )
+                                logging.info(
+                                    "Total CPU usage ({:.3f} %)".format(
+                                        total_shards_cpu_usage
+                                    )
+                                )
+                                logging.info(
+                                    "CPU MAP: {}".format(
+                                        json.dumps(cpu_usage_map, indent=2)
+                                    )
+                                )
                                 benchmark_duration_seconds = (
                                     calculate_client_tool_duration_and_check(
                                         benchmark_end_time, benchmark_start_time
@@ -339,6 +375,7 @@ def run_local_command_logic(args, project_name, project_version):
                                         results_dict,
                                         setup_name,
                                         test_name,
+                                        total_shards_cpu_usage,
                                     )
 
                                     # check KPIs

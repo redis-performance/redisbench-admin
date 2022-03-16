@@ -44,4 +44,8 @@ def failed_remote_run_artifact_store(
                 )
             )
             artifacts = [local_file_fullpath]
-            upload_artifacts_to_s3(artifacts, s3_bucket_name, s3_bucket_path)
+            artifacts_map = upload_artifacts_to_s3(
+                artifacts, s3_bucket_name, s3_bucket_path
+            )
+            for artifact_name, url in artifacts_map.items():
+                logging.info("Artifact: {}. URL: {}".format(artifact_name, url))

@@ -4,9 +4,6 @@ import tempfile
 
 import redis
 
-from redisbench_admin.utils.local import (
-    check_dataset_local_requirements,
-)
 from redisbench_admin.environments.oss_standalone import (
     spin_up_local_redis,
     generate_standalone_redis_server_args,
@@ -51,7 +48,7 @@ from redisbench_admin.environments.oss_standalone import (
 
 def test_generate_standalone_redis_server_args():
     cmd = generate_standalone_redis_server_args("redis-server", ".", None, "9999")
-    assert cmd == ["redis-server", "--save", '""', "--port", "9999", "--dir", "."]
+    assert cmd == ["redis-server", "--save", "", "--port", "9999", "--dir", "."]
     local_module_file = "m1.so"
     cmd = generate_standalone_redis_server_args(
         "redis-server", ".", local_module_file, "1010"
@@ -59,7 +56,7 @@ def test_generate_standalone_redis_server_args():
     assert cmd == [
         "redis-server",
         "--save",
-        '""',
+        "",
         "--port",
         "1010",
         "--dir",
@@ -79,7 +76,7 @@ def test_generate_standalone_redis_server_args():
     assert cmd == [
         "redis-server",
         "--save",
-        '""',
+        "",
         "--port",
         "1010",
         "--dir",
@@ -96,7 +93,7 @@ def test_generate_standalone_redis_server_args():
     assert cmd == [
         "redis-server",
         "--save",
-        '""',
+        "",
         "--port",
         "9999",
         "--dir",

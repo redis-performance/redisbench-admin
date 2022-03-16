@@ -27,6 +27,7 @@ def terraform_spin_or_reuse_env(
     tf_github_sha,
     tf_setup_name_sufix,
     tf_triggering_env,
+    tf_timeout_secs=7200,
 ):
     (
         remote_setup,
@@ -62,6 +63,7 @@ def terraform_spin_or_reuse_env(
             tf_github_org,
             tf_github_repo,
             tf_triggering_env,
+            tf_timeout_secs,
         )
         remote_envs[remote_id] = tf
     else:
@@ -86,17 +88,20 @@ def terraform_spin_or_reuse_env(
     )
 
 
-def terraform_destroy(remote_envs):
-    for remote_setup_name, tf in remote_envs.items():
-        # tear-down
-        logging.info("Tearing down setup {}".format(remote_setup_name))
-        tf.destroy(
-            capture_output="yes",
-            no_color=IsNotFlagged,
-            force=IsNotFlagged,
-            auto_approve=True,
-        )
+def terraform_destroy(remote_envs, keep_env=False):
+    if keep_env is False:
+        for remote_setup_name, tf in remote_envs.items():
+            # tear-down
+            logging.info("Tearing down setup {}".format(remote_setup_name))
+            tf.destroy(
+                capture_output="yes",
+                no_color=IsNotFlagged,
+                force=IsNotFlagged,
+                auto_approve=True,
+            )
         logging.info("Tear-down completed")
+    else:
+        logging.info("Keeping the environment UP uppon request")
 
 
 def retrieve_inventory_info(inventory_str):

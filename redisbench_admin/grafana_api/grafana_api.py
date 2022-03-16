@@ -27,7 +27,7 @@ def grafana_api_command_logic(args, project_name, project_version):
         )
     )
 
-    conn = redis.StrictRedis(
+    conn = redis.Redis(
         host=args.redis_host,
         port=args.redis_port,
         decode_responses=True,

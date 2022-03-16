@@ -3,7 +3,6 @@ import os
 import argparse
 import redis
 import yaml
-from redistimeseries.client import Client
 
 from redisbench_admin.profilers.pprof import process_pprof_text_to_tabular
 from redisbench_admin.run_local.args import create_run_local_arguments
@@ -57,9 +56,9 @@ def test_datasink_profile_tabular_data():
         tf_triggering_env = "ci"
         github_branch = "branch-1"
         github_hash = "hash-11312213"
-        rts = Client()
-        rts.redis.ping()
-        rts.redis.flushall()
+        rts = redis.Redis()
+        rts.ping()
+        rts.flushall()
         datasink_profile_tabular_data(
             github_branch,
             "org",
@@ -79,8 +78,8 @@ def test_datasink_profile_tabular_data():
             "repo",
         )
         #
-        assert rts.redis.exists(zset_profiles_key_name)
-        assert rts.redis.zcard(zset_profiles_key_name) == 1
+        assert rts.exists(zset_profiles_key_name)
+        assert rts.zcard(zset_profiles_key_name) == 1
 
         profile_test_suffix = "{start_time_str}:{test_name}/{setup_type}/{github_branch}/{github_hash}".format(
             start_time_str=start_time_str,
@@ -93,10 +92,10 @@ def test_datasink_profile_tabular_data():
             table_columns_text_key = "{}:{}:columns:text".format(
                 pprof_format, profile_test_suffix
             )
-            assert rts.redis.exists(table_columns_text_key)
-        # assert rts.redis.exists(testcases_setname)
-        # assert rts.redis.exists(running_platforms_setname)
-        # assert rts.redis.exists(build_variant_setname)
+            assert rts.exists(table_columns_text_key)
+        # assert rts.exists(testcases_setname)
+        # assert rts.exists(running_platforms_setname)
+        # assert rts.exists(build_variant_setname)
 
     except redis.exceptions.ConnectionError:
         pass
@@ -120,7 +119,7 @@ def test_run_local_command_logic_redis_benchmark():
     except SystemExit as e:
         assert e.code == 0
 
-    r = redis.StrictRedis()
+    r = redis.Redis()
     total_keys = r.info("keyspace")["db0"]["keys"]
     r.shutdown(nosave=True)
     assert total_keys == 1000
@@ -189,9 +188,9 @@ def test_run_local_command_logic():
     rts_port = 16379
     if rts_host is None:
         assert False
-    rts = Client(port=16379, host=rts_host)
-    rts.redis.ping()
-    rts.redis.flushall()
+    rts = redis.Redis(port=16379, host=rts_host)
+    rts.ping()
+    rts.flushall()
     parser = argparse.ArgumentParser(
         description="test",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,

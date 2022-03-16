@@ -11,9 +11,9 @@ import redis
 from pytablewriter import MarkdownTableWriter
 import humanize
 import datetime as dt
-
+from tqdm import tqdm
 from redisbench_admin.utils.remote import get_overall_dashboard_keynames
-from redistimeseries.client import Client
+
 
 from redisbench_admin.utils.utils import get_ts_metric_name
 
@@ -31,13 +31,13 @@ def compare_command_logic(args, project_name, project_version):
             args.redistimeseries_port,
         )
     )
-    rts = Client(
+    rts = redis.Redis(
         host=args.redistimeseries_host,
         port=args.redistimeseries_port,
         password=args.redistimeseries_pass,
         username=args.redistimeseries_user,
     )
-    rts.redis.ping()
+    rts.ping()
 
     tf_github_org = args.github_org
     tf_github_repo = args.github_repo
@@ -119,7 +119,7 @@ def compare_command_logic(args, project_name, project_version):
     tags_regex_string = re.compile(args.testname_regex)
 
     try:
-        test_names = rts.redis.smembers(used_key)
+        test_names = rts.smembers(used_key)
         test_names = list(test_names)
         test_names.sort()
         final_test_names = []
@@ -129,7 +129,6 @@ def compare_command_logic(args, project_name, project_version):
             if match_obj is not None:
                 final_test_names.append(test_name)
         test_names = final_test_names
-
 
     except redis.exceptions.ResponseError as e:
         logging.warning(
@@ -150,53 +149,43 @@ def compare_command_logic(args, project_name, project_version):
     total_stable = 0
     total_unstable = 0
     total_regressions = 0
+    noise_waterline = 2.5
+    progress = tqdm(unit="benchmark time-series", total=len(test_names))
     for test_name in test_names:
         filters_baseline = [
             "{}={}".format(by_str, baseline_str),
             "metric={}".format(metric_name),
             "{}={}".format(test_filter, test_name),
+            "deployment_type={}".format(deployment_type),
+            "deployment_name={}".format(deployment_name),
         ]
         filters_comparison = [
             "{}={}".format(by_str, comparison_str),
             "metric={}".format(metric_name),
             "{}={}".format(test_filter, test_name),
+            "deployment_type={}".format(deployment_type),
+            "deployment_name={}".format(deployment_name),
         ]
-        baseline_timeseries = rts.queryindex(filters_baseline)
-        comparison_timeseries = rts.queryindex(filters_comparison)
-
+        baseline_timeseries = rts.ts().queryindex(filters_baseline)
+        comparison_timeseries = rts.ts().queryindex(filters_comparison)
+        progress.update()
         if len(baseline_timeseries) != 1:
-            logging.warning("Baseline timeseries {}".format(len(baseline_timeseries)))
+            if args.verbose:
+                logging.warning(
+                    "Baseline timeseries {}".format(len(baseline_timeseries))
+                )
             continue
         else:
             ts_name_baseline = baseline_timeseries[0]
         if len(comparison_timeseries) != 1:
-            logging.warning("Comparison timeseries {}".format(len(comparison_timeseries)))
+            if args.verbose:
+                logging.warning(
+                    "Comparison timeseries {}".format(len(comparison_timeseries))
+                )
             continue
         else:
             ts_name_comparison = comparison_timeseries[0]
 
-        # ts_name_baseline = get_ts_metric_name(
-        #     "by.{}".format(by_str),
-        #     baseline_str,
-        #     tf_github_org,
-        #     tf_github_repo,
-        #     deployment_name,
-        #     deployment_type,
-        #     test_name,
-        #     tf_triggering_env,
-        #     metric_name,
-        # )
-        # ts_name_comparison = get_ts_metric_name(
-        #     "by.{}".format(by_str),
-        #     comparison_str,
-        #     tf_github_org,
-        #     tf_github_repo,
-        #     deployment_name,
-        #     deployment_type,
-        #     test_name,
-        #     tf_triggering_env,
-        #     metric_name,
-        # )
         baseline_v = "N/A"
         comparison_v = "N/A"
         baseline_nsamples = 0
@@ -217,7 +206,9 @@ def compare_command_logic(args, project_name, project_version):
 
         note = ""
         try:
-            baseline_datapoints = rts.revrange(ts_name_baseline, from_ts_ms, to_ts_ms)
+            baseline_datapoints = rts.ts().revrange(
+                ts_name_baseline, from_ts_ms, to_ts_ms
+            )
             baseline_nsamples = len(baseline_datapoints)
             if baseline_nsamples > 0:
                 _, baseline_v = baseline_datapoints[0]
@@ -230,7 +221,7 @@ def compare_command_logic(args, project_name, project_version):
                 baseline_pct_change = (baseline_std / baseline_median) * 100.0
                 largest_variance = baseline_pct_change
 
-            comparison_datapoints = rts.revrange(
+            comparison_datapoints = rts.ts().revrange(
                 ts_name_comparison, from_ts_ms, to_ts_ms
             )
             comparison_nsamples = len(comparison_datapoints)
@@ -289,6 +280,8 @@ def compare_command_logic(args, project_name, project_version):
                     detected_regression = True
                     total_regressions = total_regressions + 1
                     note = note + " REGRESSION"
+                elif percentage_change < -noise_waterline:
+                    note = note + " potential REGRESSION"
                 else:
                     note = note + " -- no change --"
                 detected_regressions.append(test_name)
@@ -297,6 +290,8 @@ def compare_command_logic(args, project_name, project_version):
                     detected_improvement = True
                     total_improvements = total_improvements + 1
                     note = note + " IMPROVEMENT"
+                elif percentage_change > noise_waterline:
+                    note = note + " potential IMPROVEMENT"
                 else:
                     note = note + " -- no change --"
 

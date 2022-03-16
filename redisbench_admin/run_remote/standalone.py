@@ -106,7 +106,7 @@ def generate_remote_standalone_redis_cmd(
     temporary_dir,
     modules_configuration_parameters_map,
 ):
-    initial_redis_cmd = 'redis-server --save "" --logfile {} --dir {} --daemonize yes --protected-mode no'.format(
+    initial_redis_cmd = "redis-server --save '' --logfile {} --dir {} --daemonize yes --protected-mode no".format(
         logfile, temporary_dir
     )
     full_logfile = "{}/{}".format(temporary_dir, logfile)

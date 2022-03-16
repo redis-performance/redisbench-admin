@@ -23,7 +23,6 @@ from redisbench_admin.run.common import (
 from redisbench_admin.run.ssh import ssh_tunnel_redisconn
 from redisbench_admin.run_remote.consts import (
     remote_module_file_dir,
-    remote_dataset_folder,
 )
 from redisbench_admin.run_remote.remote_client import run_remote_client_tool
 from redisbench_admin.run_remote.remote_failures import failed_remote_run_artifact_store
@@ -48,6 +47,7 @@ def remote_tmpdir_prune(
         username,
         private_key,
         [
+            "mkdir -p {}".format(temporary_dir),
             "rm -rf {}/*.log".format(temporary_dir),
             "rm -rf {}/*.config".format(temporary_dir),
             "rm -rf {}/*.rdb".format(temporary_dir),
@@ -152,22 +152,24 @@ def remote_db_spin(
                 redis_conns.append(local_redis_conn)
         except redis.exceptions.ConnectionError as e:
             logging.error("A error occurred while spinning DB: {}".format(e.__str__()))
-            remote_file = "{}/{}".format(temporary_dir, logfiles[0])
+            logfile = logfiles[0]
+
+            remote_file = "{}/{}".format(temporary_dir, logfile)
             logging.error(
-                "Trying to fetch DB remote log {} into {}".format(
-                    remote_file, logfiles[0]
-                )
+                "Trying to fetch DB remote log {} into {}".format(remote_file, logfile)
             )
-            failed_remote_run_artifact_store(
-                True,
-                client_public_ip,
+            db_error_artifacts(
+                db_ssh_port,
                 dirname,
-                remote_file,
-                logfiles[0],
+                full_logfiles,
+                logname,
+                private_key,
                 s3_bucket_name,
                 s3_bucket_path,
+                server_public_ip,
+                temporary_dir,
+                True,
                 username,
-                private_key,
             )
 
     if setup_type == "oss-standalone":
@@ -196,22 +198,18 @@ def remote_db_spin(
             redis_conns.append(local_redis_conn)
         except redis.exceptions.ConnectionError as e:
             logging.error("A error occurred while spinning DB: {}".format(e.__str__()))
-            remote_file = full_logfile
-            logging.error(
-                "Trying to fetch DB remote log {} into {}".format(
-                    remote_file, full_logfile
-                )
-            )
-            failed_remote_run_artifact_store(
-                True,
-                client_public_ip,
-                "",
-                remote_file,
-                full_logfile[1:],
+            db_error_artifacts(
+                db_ssh_port,
+                dirname,
+                full_logfiles,
+                logname,
+                private_key,
                 s3_bucket_name,
                 s3_bucket_path,
+                server_public_ip,
+                temporary_dir,
+                True,
                 username,
-                private_key,
             )
 
     if cluster_enabled:
@@ -239,7 +237,7 @@ def remote_db_spin(
         server_public_ip,
         username,
         private_key,
-        remote_dataset_folder,
+        temporary_dir,
         dirname,
         shard_count,
         cluster_enabled,
@@ -281,6 +279,7 @@ def remote_db_spin(
             remote_run_result,
             results_dict,
             return_code,
+            _,
         ) = run_remote_client_tool(
             allowed_tools,
             None,
@@ -314,6 +313,19 @@ def remote_db_spin(
         logging.info("Redis available")
     else:
         logging.error("Remote redis is not available")
+        db_error_artifacts(
+            db_ssh_port,
+            dirname,
+            full_logfiles,
+            logname,
+            private_key,
+            s3_bucket_name,
+            s3_bucket_path,
+            server_public_ip,
+            temporary_dir,
+            True,
+            username,
+        )
         raise Exception("Remote redis is not available. Aborting...")
     dataset_load_duration_seconds = (
         dataset_load_end_time - dataset_load_start_time
@@ -338,3 +350,52 @@ def remote_db_spin(
         server_plaintext_port,
         ssh_tunnel,
     )
+
+
+def db_error_artifacts(
+    db_ssh_port,
+    dirname,
+    full_logfiles,
+    logname,
+    private_key,
+    s3_bucket_name,
+    s3_bucket_path,
+    server_public_ip,
+    temporary_dir,
+    upload_s3,
+    username,
+):
+    local_zipfile = "{}.zip".format(logname)
+    remote_zipfile = "/home/{}/{}".format(username, local_zipfile)
+    execute_remote_commands(
+        server_public_ip,
+        username,
+        private_key,
+        [
+            "zip -r {} {}".format(remote_zipfile, temporary_dir),
+        ],
+        db_ssh_port,
+    )
+    failed_remote_run_artifact_store(
+        upload_s3,
+        server_public_ip,
+        dirname,
+        remote_zipfile,
+        local_zipfile,
+        s3_bucket_name,
+        s3_bucket_path,
+        username,
+        private_key,
+    )
+    if len(full_logfiles) > 0:
+        failed_remote_run_artifact_store(
+            upload_s3,
+            server_public_ip,
+            dirname,
+            full_logfiles[0],
+            logname,
+            s3_bucket_name,
+            s3_bucket_path,
+            username,
+            private_key,
+        )

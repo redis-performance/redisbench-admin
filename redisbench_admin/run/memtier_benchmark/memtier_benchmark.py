@@ -7,7 +7,7 @@
 import logging
 import re
 import subprocess
-
+import shlex
 from redisbench_admin.utils.remote import execute_remote_commands
 
 
@@ -26,13 +26,16 @@ def prepare_memtier_benchmark_command(
 
     if cluster_api_enabled:
         command_arr.extend(["--cluster-mode"])
-
-    for k in benchmark_config["parameters"]:
-        for kk in k.keys():
-            command_arr.extend(["--{}".format(kk), str(k[kk])])
+    if "parameters" in benchmark_config:
+        for k in benchmark_config["parameters"]:
+            for kk in k.keys():
+                command_arr.extend(["--{}".format(kk), str(k[kk])])
 
     command_arr.extend(["--json-out-file", result_file])
     command_str = " ".join(command_arr)
+    if "arguments" in benchmark_config:
+        command_str = command_str + " " + benchmark_config["arguments"]
+        command_arr.extend(shlex.split(benchmark_config["arguments"]))
     return command_arr, command_str
 
 

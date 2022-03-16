@@ -106,27 +106,27 @@ def generate_artifacts_table_grafana_redis(
     if args.push_results_redistimeseries:
         current_time = time.time() * 1000
         timeframe_by_branch = current_time - EXPIRE_TIME_MSECS_PROFILE_KEYS
-        rts.redis.zadd(
+        rts.zadd(
             zset_profiles_setups_testcases_branches,
             {tf_github_branch: start_time_ms},
         )
-        rts.redis.zadd(
+        rts.zadd(
             zset_profiles_setups_testcases_branches_latest_link,
             {https_link: start_time_ms},
         )
-        rts.redis.zadd(
+        rts.zadd(
             zset_profiles_setup,
             {setup_name: start_time_ms},
         )
-        rts.redis.zadd(
+        rts.zadd(
             zset_profiles_setups_testcases,
             {test_name: start_time_ms},
         )
-        rts.redis.zadd(
+        rts.zadd(
             zset_profiles_setups_testcases_profileid,
             {profile_id: start_time_ms},
         )
-        rts.redis.zadd(
+        rts.zadd(
             zset_profiles,
             {profile_id: start_time_ms},
         )
@@ -138,11 +138,11 @@ def generate_artifacts_table_grafana_redis(
             zset_profiles_setups_testcases_branches_latest_link,
         ]
         for keyname in sorted_set_keys:
-            rts.redis.zremrangebyscore(keyname, 0, int(timeframe_by_branch))
+            rts.zremrangebyscore(keyname, 0, int(timeframe_by_branch))
 
-        rts.redis.sadd(profile_set_redis_key, test_name)
-        rts.redis.expire(profile_set_redis_key, EXPIRE_TIME_SECS_PROFILE_KEYS)
-        rts.redis.setex(
+        rts.sadd(profile_set_redis_key, test_name)
+        rts.expire(profile_set_redis_key, EXPIRE_TIME_SECS_PROFILE_KEYS)
+        rts.setex(
             profile_string_testcase_markdown_key,
             EXPIRE_TIME_SECS_PROFILE_KEYS,
             profile_markdown_str,

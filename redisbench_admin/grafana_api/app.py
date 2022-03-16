@@ -15,7 +15,7 @@ def create_app(conn, auth_server_host, auth_server_port, test_config=None):
     def verify_password(username, password):
         result = False
         try:
-            auth_server_conn = redis.StrictRedis(
+            auth_server_conn = redis.Redis(
                 host=auth_server_host,
                 port=auth_server_port,
                 decode_responses=True,

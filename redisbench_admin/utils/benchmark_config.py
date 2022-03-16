@@ -12,7 +12,10 @@ import re
 import yaml
 from jsonpath_ng import parse
 
-from redisbench_admin.utils.remote import validate_result_expectations
+from redisbench_admin.utils.remote import (
+    validate_result_expectations,
+    fetch_remote_id_from_config,
+)
 
 
 def parse_exporter_metrics_definition(
@@ -51,6 +54,7 @@ def parse_exporter_timemetric(metric_path: str, results_dict: dict):
 
 def prepare_benchmark_definitions(args):
     benchmark_definitions = {}
+    result = True
     defaults_filename, files = get_testfiles_to_process(args)
 
     (
@@ -61,19 +65,36 @@ def prepare_benchmark_definitions(args):
         clusterconfig,
     ) = get_defaults(defaults_filename)
     for usecase_filename in files:
-        with open(usecase_filename, "r") as stream:
-            result, benchmark_config, test_name = get_final_benchmark_config(
+        with open(usecase_filename, "r", encoding="utf8") as stream:
+            test_result, benchmark_config, test_name = get_final_benchmark_config(
                 default_kpis, stream, usecase_filename
             )
-            if result:
+            result &= test_result
+            if test_result:
                 benchmark_definitions[test_name] = benchmark_config
     return (
+        result,
         benchmark_definitions,
         default_metrics,
         exporter_timemetric_path,
         default_specs,
         clusterconfig,
     )
+
+
+def process_benchmark_definitions_remote_timeouts(benchmark_definitions):
+    remote_envs_timeout = {}
+    # prepare the timeout for each different remote type
+    for test_name, benchmark_config in benchmark_definitions.items():
+        if "remote" in benchmark_config:
+            remote_id = fetch_remote_id_from_config(benchmark_config["remote"])
+            termination_timeout_secs = get_termination_timeout_secs(benchmark_config)
+            if remote_id not in remote_envs_timeout:
+                remote_envs_timeout[remote_id] = 0
+            remote_envs_timeout[remote_id] = (
+                remote_envs_timeout[remote_id] + termination_timeout_secs
+            )
+    return remote_envs_timeout
 
 
 def get_defaults(defaults_filename):
@@ -289,6 +310,23 @@ def extract_exporter_metrics(default_config):
     return default_metrics, exporter_timemetric_path
 
 
+def get_metadata_tags(benchmark_config):
+    metadata_tags = {}
+    if "metadata" in benchmark_config:
+        metadata_tags = benchmark_config["metadata"]
+    if "labels" in metadata_tags:
+        if type(metadata_tags["labels"]) == dict:
+            metadata_tags = metadata_tags["labels"]
+    return metadata_tags
+
+
+def get_termination_timeout_secs(benchmark_config):
+    timeout_seconds = 600
+    if "timeout_seconds" in benchmark_config:
+        timeout_seconds = int(benchmark_config["timeout_seconds"])
+    return timeout_seconds
+
+
 def extract_benchmark_type_from_config(
     benchmark_config,
     config_key="clientconfig",
@@ -298,10 +336,16 @@ def extract_benchmark_type_from_config(
     benchmark_config_present = False
     benchmark_type = None
     if config_key in benchmark_config:
-        benchmark_config_present = True
-        for entry in benchmark_config[config_key]:
-            if benchmark_type_key in entry:
-                benchmark_type = entry[benchmark_type_key]
+
+        if type(benchmark_config[config_key]) == list:
+            for entry in benchmark_config[config_key]:
+                if benchmark_type_key in entry:
+                    benchmark_type = entry[benchmark_type_key]
+                    benchmark_config_present = True
+        elif type(benchmark_config[config_key]) == dict:
+            if benchmark_type_key in benchmark_config[config_key]:
+                benchmark_type = benchmark_config[config_key][benchmark_type_key]
+                benchmark_config_present = True
     if benchmark_type is None:
         logging.info(
             "Given the '{}' info was not present on {} we will assume the most inclusive default: '{}'".format(
@@ -321,30 +365,43 @@ def extract_benchmark_tool_settings(benchmark_config, config_key="clientconfig")
     benchmark_min_tool_version_minor = None
     benchmark_min_tool_version_patch = None
     benchmark_tool_property_map = benchmark_config[config_key]
-    for entry in benchmark_config[config_key]:
-        if "tool" in entry:
-            benchmark_tool = entry["tool"]
-        if "tool_source" in entry:
-            for inner_entry in entry["tool_source"]:
-                if "remote" in inner_entry:
-                    benchmark_tool_source = inner_entry["remote"]
-                if "bin_path" in inner_entry:
-                    benchmark_tool_source_inner_path = inner_entry["bin_path"]
-
-        if "min-tool-version" in entry:
-            benchmark_min_tool_version = entry["min-tool-version"]
-            p = re.compile(r"(\d+)\.(\d+)\.(\d+)")
-            m = p.match(benchmark_min_tool_version)
-            if m is None:
-                logging.error(
-                    "Unable to extract semversion from 'min-tool-version'."
-                    " Will not enforce version"
-                )
-                benchmark_min_tool_version = None
-            else:
-                benchmark_min_tool_version_major = m.group(1)
-                benchmark_min_tool_version_minor = m.group(2)
-                benchmark_min_tool_version_patch = m.group(3)
+    if type(benchmark_tool_property_map) == dict:
+        (
+            benchmark_min_tool_version,
+            benchmark_min_tool_version_major,
+            benchmark_min_tool_version_minor,
+            benchmark_min_tool_version_patch,
+            benchmark_tool,
+            benchmark_tool_source,
+            benchmark_tool_source_inner_path,
+        ) = tool_entry_check(
+            benchmark_min_tool_version_major,
+            benchmark_min_tool_version_minor,
+            benchmark_min_tool_version_patch,
+            benchmark_tool,
+            benchmark_tool_source,
+            benchmark_tool_source_inner_path,
+            benchmark_tool_property_map,
+        )
+    elif type(benchmark_tool_property_map) == list:
+        for entry in benchmark_config[config_key]:
+            (
+                benchmark_min_tool_version,
+                benchmark_min_tool_version_major,
+                benchmark_min_tool_version_minor,
+                benchmark_min_tool_version_patch,
+                benchmark_tool,
+                benchmark_tool_source,
+                benchmark_tool_source_inner_path,
+            ) = tool_entry_check(
+                benchmark_min_tool_version_major,
+                benchmark_min_tool_version_minor,
+                benchmark_min_tool_version_patch,
+                benchmark_tool,
+                benchmark_tool_source,
+                benchmark_tool_source_inner_path,
+                entry,
+            )
     return (
         benchmark_min_tool_version,
         benchmark_min_tool_version_major,
@@ -357,10 +414,78 @@ def extract_benchmark_tool_settings(benchmark_config, config_key="clientconfig")
     )
 
 
+def tool_entry_check(
+    benchmark_min_tool_version_major,
+    benchmark_min_tool_version_minor,
+    benchmark_min_tool_version_patch,
+    benchmark_tool,
+    benchmark_tool_source,
+    benchmark_tool_source_inner_path,
+    entry,
+):
+    benchmark_min_tool_version = None
+    if "tool" in entry:
+        benchmark_tool = entry["tool"]
+    if "tool_source" in entry:
+        for inner_entry in entry["tool_source"]:
+            if "remote" in inner_entry:
+                benchmark_tool_source = inner_entry["remote"]
+            if "bin_path" in inner_entry:
+                benchmark_tool_source_inner_path = inner_entry["bin_path"]
+    if "min-tool-version" in entry:
+        benchmark_min_tool_version = entry["min-tool-version"]
+        (
+            benchmark_min_tool_version,
+            benchmark_min_tool_version_major,
+            benchmark_min_tool_version_minor,
+            benchmark_min_tool_version_patch,
+        ) = min_ver_check(
+            benchmark_min_tool_version,
+            benchmark_min_tool_version_major,
+            benchmark_min_tool_version_minor,
+            benchmark_min_tool_version_patch,
+        )
+    return (
+        benchmark_min_tool_version,
+        benchmark_min_tool_version_major,
+        benchmark_min_tool_version_minor,
+        benchmark_min_tool_version_patch,
+        benchmark_tool,
+        benchmark_tool_source,
+        benchmark_tool_source_inner_path,
+    )
+
+
+def min_ver_check(
+    benchmark_min_tool_version,
+    benchmark_min_tool_version_major,
+    benchmark_min_tool_version_minor,
+    benchmark_min_tool_version_patch,
+):
+    p = re.compile(r"(\d+)\.(\d+)\.(\d+)")
+    m = p.match(benchmark_min_tool_version)
+    if m is None:
+        logging.error(
+            "Unable to extract semversion from 'min-tool-version'."
+            " Will not enforce version"
+        )
+        benchmark_min_tool_version = None
+    else:
+        benchmark_min_tool_version_major = m.group(1)
+        benchmark_min_tool_version_minor = m.group(2)
+        benchmark_min_tool_version_patch = m.group(3)
+    return (
+        benchmark_min_tool_version,
+        benchmark_min_tool_version_major,
+        benchmark_min_tool_version_minor,
+        benchmark_min_tool_version_patch,
+    )
+
+
 def get_testfiles_to_process(args):
     defaults_filename = args.defaults_filename
     if args.test == "":
-        files = pathlib.Path().glob("*.yml")
+        files = pathlib.Path().glob(args.test_glob)
         files = [str(x) for x in files]
         if defaults_filename in files:
             files.remove(defaults_filename)

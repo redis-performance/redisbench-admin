@@ -95,7 +95,7 @@ def local_db_spin(
         if status is False:
             raise Exception("Redis cluster setup failed. Failing test.")
 
-    dataset, _, _ = check_dataset_local_requirements(
+    dataset, dataset_name, _, _ = check_dataset_local_requirements(
         benchmark_config,
         temporary_dir,
         dirname,
@@ -116,7 +116,9 @@ def local_db_spin(
             modules_configuration_parameters_map,
         )
 
-        r = redis.StrictRedis(port=args.port)
+        r = redis.Redis(port=args.port)
+        r.ping()
+        r.client_setname("redisbench-admin-stadalone")
         redis_conns.append(r)
 
     for shardn, redis_process in enumerate(redis_processes):

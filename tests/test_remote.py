@@ -2,7 +2,7 @@ import json
 
 import redis
 import yaml
-from redistimeseries.client import Client
+
 
 from redisbench_admin.run.redistimeseries import (
     prepare_timeseries_dict,
@@ -109,8 +109,8 @@ def test_fetch_remote_setup_from_config():
 def test_push_data_to_redistimeseries():
     time_series_dict = {}
     try:
-        rts = Client(port=16379)
-        rts.redis.ping()
+        rts = redis.Redis(port=16379)
+        rts.ping()
     except redis.exceptions.ConnectionError:
         pass
     finally:
@@ -250,9 +250,9 @@ def test_extract_timeseries_from_results():
 
 def test_exporter_create_ts():
     try:
-        rts = Client(port=16379)
-        rts.redis.ping()
-        rts.redis.flushall()
+        rts = redis.Redis(port=16379)
+        rts.ping()
+        rts.flushall()
         with open(
             "./tests/test_data/redis-benchmark-full-suite-1Mkeys-100B.yml", "r"
         ) as yml_file:
@@ -321,7 +321,7 @@ def test_exporter_create_ts():
                     {},
                 )
             ts_key = "ci.benchmarks.redislabs/by.branch/gh/redis/redis/redis-benchmark-full-suite-1Mkeys-100B/oss-standalone/unstable/max_latency_ms/RPOP"
-            initial_labels = rts.info(ts_key).labels
+            initial_labels = rts.ts().info(ts_key).labels
 
             # test again and change some metadata
             timeseries_test_sucess_flow(
@@ -350,7 +350,7 @@ def test_exporter_create_ts():
                 "os": "ubuntu:16.04",
                 "compiler": "icc",
             }
-            assert initial_plus_update == rts.info(ts_key).labels
+            assert initial_plus_update == rts.ts().info(ts_key).labels
 
     except redis.exceptions.ConnectionError:
         pass
@@ -455,11 +455,11 @@ def test_exporter_create_ts():
     timeseries_name = "ts1"
     time_series = {"labels": {"metric-type": "commandstats"}}
     try:
-        rts = Client(port=16379)
-        rts.redis.ping()
-        rts.redis.flushall()
+        rts = redis.Redis(port=16379)
+        rts.ping()
+        rts.flushall()
         assert True == exporter_create_ts(rts, time_series, timeseries_name)
-        assert rts.redis.exists(timeseries_name)
+        assert rts.exists(timeseries_name)
         # no update
         assert False == exporter_create_ts(rts, time_series, timeseries_name)
         # change existing label
