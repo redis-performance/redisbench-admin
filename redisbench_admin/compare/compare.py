@@ -15,9 +15,6 @@ from tqdm import tqdm
 from redisbench_admin.utils.remote import get_overall_dashboard_keynames
 
 
-from redisbench_admin.utils.utils import get_ts_metric_name
-
-
 def compare_command_logic(args, project_name, project_version):
     logging.info(
         "Using: {project_name} {project_version}".format(
