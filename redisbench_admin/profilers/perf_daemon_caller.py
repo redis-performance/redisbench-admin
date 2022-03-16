@@ -62,7 +62,7 @@ class PerfDaemonRemoteCaller:
         if "region_name" in kwargs:
             self.region_name = kwargs["region_name"]
 
-    def start_profile(self, pid, output="", frequency=99):
+    def start_profile(self, pid, output="", frequency=99, call_graph_mode="fp"):
         """
         @param pid: profile events on specified process id
         @param output: output file name
@@ -80,8 +80,8 @@ class PerfDaemonRemoteCaller:
             "github_org_name": self.github_org_name,
             "github_sha": self.github_sha,
         }
-        url = "http://{}/profiler/perf/start/{}?frequency={}".format(
-            self.remote_endpoint, pid, frequency
+        url = "http://{}/profiler/perf/start/{}?frequency={}&callgraph_mode={}".format(
+            self.remote_endpoint, pid, frequency, call_graph_mode
         )
 
         response = requests.post(url, data=None, json=data)

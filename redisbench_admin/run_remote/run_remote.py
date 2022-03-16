@@ -12,6 +12,7 @@ import redis
 import pytablewriter
 from pytablewriter import MarkdownTableWriter
 import redisbench_admin.run.metrics
+from redisbench_admin.profilers.perf import PERF_CALLGRAPH_MODE
 from redisbench_admin.run.metrics import (
     from_info_to_overall_shard_cpu,
     collect_redis_metrics,
@@ -450,7 +451,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                         ]
                                         start_profile_result = (
                                             remote_perf.start_profile(
-                                                primary_one_pid, "", PROFILE_FREQ
+                                                primary_one_pid,
+                                                "",
+                                                PROFILE_FREQ,
+                                                PERF_CALLGRAPH_MODE,
                                             )
                                         )
                                         if start_profile_result is True:

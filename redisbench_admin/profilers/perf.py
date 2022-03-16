@@ -19,6 +19,9 @@ from redisbench_admin.profilers.profilers import STACKCOLLAPSE_PATH, FLAMEGRAPH_
 from redisbench_admin.utils.utils import whereis
 
 PERF_CALLGRAPH_MODE_DEFAULT = "fp"
+PERF_CALLGRAPH_MODE = os.getenv("PERF_CALLGRAPH_MODE", PERF_CALLGRAPH_MODE_DEFAULT)
+PERF_PROFILE_TIME_DEFAULT = "60"
+PERF_PROFILE_TIME = int(os.getenv("PERF_PROFILE_TIME", PERF_PROFILE_TIME_DEFAULT))
 LINUX_PERF_SETTINGS_MESSAGE = (
     "If running in non-root user please confirm that you have:\n"
     + " - access to Kernel address maps."
@@ -42,9 +45,8 @@ class Perf:
 
         self.stack_collapser = os.getenv("STACKCOLLAPSE_PATH", STACKCOLLAPSE_PATH)
         self.flamegraph_utity = os.getenv("FLAMEGRAPH_PATH", FLAMEGRAPH_PATH)
-        self.callgraph_mode = os.getenv(
-            "PERF_CALLGRAPH_MODE", PERF_CALLGRAPH_MODE_DEFAULT
-        )
+        self.callgraph_mode = PERF_CALLGRAPH_MODE
+        self.default_profile_time = PERF_PROFILE_TIME
 
         self.output = None
         self.profiler_process = None
@@ -86,9 +88,15 @@ class Perf:
             self.version_minor = m.group(2)
         return m, self.version_major, self.version_minor
 
-    def generate_record_command(self, pid, output, frequency=None):
+    def generate_record_command(
+        self, pid, output, frequency=None, callgraph_mode=None, profile_time=None
+    ):
         self.output = output
         self.pid = pid
+        if callgraph_mode is not None:
+            self.callgraph_mode = callgraph_mode
+        if profile_time is not None:
+            self.default_profile_time = profile_time
         cmd = [
             self.perf,
             "record",
@@ -104,6 +112,8 @@ class Perf:
         ]
         if frequency:
             cmd += ["--freq", "{}".format(frequency)]
+        if self.default_profile_time:
+            cmd += ["--", "sleep", "{}".format(self.default_profile_time)]
         return cmd
 
     def generate_report_command(
@@ -134,7 +144,9 @@ class Perf:
             cmd.extend(extra_options)
         return cmd
 
-    def start_profile(self, pid, output, frequency=99):
+    def start_profile(
+        self, pid, output, frequency=99, callgraph_mode=None, profile_time=None
+    ):
         """
         @param pid: profile events on specified process id
         @param output: output file name
@@ -157,7 +169,9 @@ class Perf:
                 "env": self.environ,
             }
 
-            args = self.generate_record_command(pid, output, frequency)
+            args = self.generate_record_command(
+                pid, output, frequency, callgraph_mode, profile_time
+            )
             self.logger.info(
                 "Starting profile of pid {} with args {}".format(pid, args)
             )
@@ -193,20 +207,10 @@ class Perf:
                     self.profiler_process_exit_code
                 )
             )
-            (
-                self.profiler_process_stdout,
-                self.profiler_process_stderr,
-            ) = self.profiler_process.communicate()
-            self.logger.error(
-                "Profiler stderr: {}".format(self.profiler_process_stderr)
-            )
-            self.logger.error(
-                "Profiler stdout: {}".format(self.profiler_process_stdout)
-            )
-            return result
-        try:
+        else:
             self.profiler_process.terminate()
             self.profiler_process.wait()
+        try:
             (
                 self.profiler_process_stdout,
                 self.profiler_process_stderr,
@@ -234,6 +238,12 @@ class Perf:
                         self.profiler_process_exit_code
                     )
                     + LINUX_PERF_SETTINGS_MESSAGE
+                )
+                self.logger.error(
+                    "Profiler stdout: {}".format(self.profiler_process_stdout)
+                )
+                self.logger.error(
+                    "Profiler stderr: {}".format(self.profiler_process_stderr)
                 )
 
         except OSError as e:

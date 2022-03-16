@@ -126,6 +126,7 @@ class PerfDaemon:
 
         @app.route("/profiler/<profiler_name>/start/<pid>", methods=["POST"])
         def profile_start(profiler_name, pid):
+            callgraph_mode = request.args.get("callgraph_mode", default="fp", type=str)
             setup_process_number = 1
             total_involved_processes = 1
             (
@@ -173,9 +174,7 @@ class PerfDaemon:
             )
             app.logger.info("Storing profile in {}".format(profile_filename))
             result = self.perf.start_profile(
-                pid,
-                profile_filename,
-                DEFAULT_PROFILE_FREQ,
+                pid, profile_filename, DEFAULT_PROFILE_FREQ, callgraph_mode
             )
             status_dict = {
                 "result": result,
