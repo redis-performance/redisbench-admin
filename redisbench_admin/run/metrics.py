@@ -147,8 +147,8 @@ def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
                 )
                 if avg_cpu_pct is not None:
                     shards_cpu_arr.append(avg_cpu_pct)
-
-            avg_cpu_pct = np.percentile(shards_cpu_arr, 75)
+            if len(shards_cpu_arr) > 0:
+                avg_cpu_pct = np.percentile(shards_cpu_arr, 75)
 
         res[shard_n] = avg_cpu_pct
         if avg_cpu_pct is not None:
