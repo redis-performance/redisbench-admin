@@ -225,7 +225,7 @@ def run_remote_client_tool(
         )
         command = ["cat {}".format(remote_results_file)]
         recv_exit_status, stdout, stderr = execute_remote_commands(
-            client_public_ip, username, private_key, [command], client_ssh_port
+            client_public_ip, username, private_key, command, client_ssh_port
         )[0]
         logging.warning("Remote results file content: {}".format(stdout))
 
