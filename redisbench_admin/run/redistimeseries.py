@@ -380,6 +380,13 @@ def update_secondary_result_keys(
     try:
         if test_name is not None:
             rts.sadd(testcases_setname, test_name)
+            testcases_zsetname = testcases_setname + ":zset"
+            rts.zadd(testcases_zsetname, {test_name: start_time_ms})
+            if "component" in metadata_tags:
+                testcases_zsetname_component = "{}:zset:component:{}".format(
+                    testcases_setname, metadata_tags["component"]
+                )
+                rts.zadd(testcases_zsetname_component, {test_name: start_time_ms})
         if "arch" in metadata_tags:
             rts.sadd(project_archs_setname, metadata_tags["arch"])
         if "os" in metadata_tags:

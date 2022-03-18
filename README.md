@@ -104,10 +104,15 @@ poetry run flake8
 
 ### Running tests
 
-A simple test suite is provided, and can be run with:
+A test suite is provided, and can be run with:
 
 ```sh
-$ poetry run pytest
+$ tox
+```
+
+To run a specific test:
+```sh
+$ tox -- tests/test_redistimeseries.py
 ```
 
 ## License
