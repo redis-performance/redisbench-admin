@@ -88,14 +88,32 @@ def test_timeseries_test_sucess_flow():
                     tf_github_org,
                     tf_github_repo,
                     tf_triggering_env,
-                    {"arch": "amd64", "os": "debian:8", "compiler": "gcc"},
+                    {
+                        "arch": "amd64",
+                        "os": "debian:8",
+                        "compiler": "gcc",
+                        "component": "search",
+                    },
                     "build1",
                     "platform1",
                 )
 
             assert rts.exists(testcases_and_metric_context_path_setname)
             assert rts.exists(testcases_metric_context_path_setname)
+            testcases_zsetname = testcases_setname + ":zset"
+            testcases_zsetname_component_search = (
+                testcases_setname + ":zset:component:search"
+            )
             assert rts.exists(testcases_setname)
+            assert rts.exists(testcases_zsetname)
+            assert rts.zcard(testcases_zsetname)
+            assert rts.zcard(testcases_zsetname_component_search)
+            assert test_name.encode() in rts.zpopmin(testcases_zsetname)[0][0]
+            assert rts.exists(testcases_zsetname_component_search)
+            assert (
+                test_name.encode()
+                in rts.zpopmin(testcases_zsetname_component_search)[0][0]
+            )
             assert rts.exists(running_platforms_setname)
             assert rts.exists(build_variant_setname)
 

@@ -494,8 +494,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                         )
                                         if start_profile_result is True:
                                             logging.info(
-                                                "Successfully started remote profile for Redis with PID: {}".format(
-                                                    primary_one_pid
+                                                "Successfully started remote profile for Redis with PID: {}. Used call-graph mode {}".format(
+                                                    primary_one_pid, PERF_CALLGRAPH_MODE
                                                 )
                                             )
 
