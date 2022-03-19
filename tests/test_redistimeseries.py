@@ -47,6 +47,7 @@ def test_timeseries_test_sucess_flow():
                 (
                     prefix,
                     testcases_setname,
+                    deployment_name_setname,
                     tsname_project_total_failures,
                     tsname_project_total_success,
                     running_platforms_setname,
@@ -100,6 +101,7 @@ def test_timeseries_test_sucess_flow():
 
             assert rts.exists(testcases_and_metric_context_path_setname)
             assert rts.exists(testcases_metric_context_path_setname)
+            assert rts.exists(deployment_name_setname)
             testcases_zsetname = testcases_setname + ":zset"
             testcases_zsetname_component_search = (
                 testcases_setname + ":zset:component:search"
@@ -109,6 +111,7 @@ def test_timeseries_test_sucess_flow():
             assert rts.zcard(testcases_zsetname)
             assert rts.zcard(testcases_zsetname_component_search)
             assert test_name.encode() in rts.zpopmin(testcases_zsetname)[0][0]
+            assert deployment_name.encode() in rts.zpopmin(deployment_name_setname)[0][0]
             assert rts.exists(testcases_zsetname_component_search)
             assert (
                 test_name.encode()

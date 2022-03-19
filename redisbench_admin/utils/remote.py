@@ -988,6 +988,7 @@ def get_overall_dashboard_keynames(
         )
     )
     testcases_setname = "{}:testcases".format(sprefix)
+    deployment_name_setname = "{}:deployment_names".format(sprefix)
     project_archs_setname = "{}:archs".format(sprefix)
     project_oss_setname = "{}:oss".format(sprefix)
     project_branches_setname = "{}:branches".format(sprefix)
@@ -1024,6 +1025,7 @@ def get_overall_dashboard_keynames(
     return (
         prefix,
         testcases_setname,
+        deployment_name_setname,
         tsname_project_total_failures,
         tsname_project_total_success,
         running_platforms_setname,

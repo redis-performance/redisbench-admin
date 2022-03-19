@@ -358,6 +358,7 @@ def update_secondary_result_keys(
     (
         _,
         testcases_setname,
+        deployment_name_zsetname,
         _,
         tsname_project_total_success,
         running_platforms_setname,
@@ -378,7 +379,15 @@ def update_secondary_result_keys(
         test_name,
     )
     try:
+        rts.zadd(deployment_name_zsetname, {deployment_name: start_time_ms})
         if test_name is not None:
+            deployment_name_zsetname_testnames = (
+                deployment_name_zsetname
+                + "{}:deployment_name={}".format(
+                    deployment_name_zsetname, deployment_name
+                )
+            )
+            rts.zadd(deployment_name_zsetname_testnames, {test_name: start_time_ms})
             rts.sadd(testcases_setname, test_name)
             testcases_zsetname = testcases_setname + ":zset"
             rts.zadd(testcases_zsetname, {test_name: start_time_ms})

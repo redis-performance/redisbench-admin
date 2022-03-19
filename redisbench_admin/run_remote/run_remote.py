@@ -157,6 +157,7 @@ def run_remote_command_logic(args, project_name, project_version):
     (
         _,
         _,
+        _,
         tsname_project_total_failures,
         _,
         _,
