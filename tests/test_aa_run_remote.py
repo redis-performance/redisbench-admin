@@ -96,6 +96,7 @@ def test_get_overall_dashboard_keynames():
     (
         prefix,
         testcases_setname,
+        deployment_name_setname,
         tsname_project_total_failures,
         tsname_project_total_success,
         _,
@@ -121,6 +122,7 @@ def test_get_overall_dashboard_keynames():
     (
         prefix,
         testcases_setname,
+        deployment_name_setname,
         tsname_project_total_failures,
         tsname_project_total_success,
         running_platforms_setname,

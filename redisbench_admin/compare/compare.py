@@ -93,6 +93,7 @@ def compare_command_logic(args, project_name, project_version):
     (
         prefix,
         testcases_setname,
+        _,
         tsname_project_total_failures,
         tsname_project_total_success,
         _,
