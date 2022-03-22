@@ -111,7 +111,9 @@ def test_timeseries_test_sucess_flow():
             assert rts.zcard(testcases_zsetname)
             assert rts.zcard(testcases_zsetname_component_search)
             assert test_name.encode() in rts.zpopmin(testcases_zsetname)[0][0]
-            assert deployment_name.encode() in rts.zpopmin(deployment_name_setname)[0][0]
+            assert (
+                deployment_name.encode() in rts.zpopmin(deployment_name_setname)[0][0]
+            )
             assert rts.exists(testcases_zsetname_component_search)
             assert (
                 test_name.encode()

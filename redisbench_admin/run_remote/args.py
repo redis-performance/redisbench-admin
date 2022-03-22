@@ -17,6 +17,7 @@ from redisbench_admin.utils.remote import TERRAFORM_BIN_PATH
 
 
 REMOTE_INVENTORY = os.getenv("INVENTORY", None)
+TF_OVERRIDE_NAME = os.getenv("TF_OVERRIDE_NAME", None)
 REMOTE_USER = os.getenv("REMOTE_USER", "ubuntu")
 
 

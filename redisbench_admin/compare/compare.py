@@ -39,12 +39,19 @@ def compare_command_logic(args, project_name, project_version):
     tf_github_org = args.github_org
     tf_github_repo = args.github_repo
     tf_triggering_env = args.triggering_env
-    deployment_type = args.deployment_type
-    deployment_name = args.deployment_name
+    if args.baseline_deployment_name != "":
+        baseline_deployment_name = args.baseline_deployment_name
+    else:
+        baseline_deployment_name = args.deployment_name
+    if args.comparison_deployment_name != "":
+        comparison_deployment_name = args.comparison_deployment_name
+    else:
+        comparison_deployment_name = args.deployment_name
+
     logging.info(
-        "Using deployment_type={} and deployment_name={} for the analysis".format(
-            deployment_type,
-            deployment_name,
+        "Using baseline deployment_name={} and comparison deployment_name={} for the analysis".format(
+            baseline_deployment_name,
+            comparison_deployment_name,
         )
     )
     from_ts_ms = args.from_timestamp
@@ -115,32 +122,35 @@ def compare_command_logic(args, project_name, project_version):
         used_key = testcases_metric_context_path_setname
 
     tags_regex_string = re.compile(args.testname_regex)
+    if args.test != "":
+        test_names = args.test.split(",")
+        logging.info("Using test name {}".format(test_names))
+    else:
+        try:
+            test_names = rts.smembers(used_key)
+            test_names = list(test_names)
+            test_names.sort()
+            final_test_names = []
+            for test_name in test_names:
+                test_name = test_name.decode()
+                match_obj = re.search(tags_regex_string, test_name)
+                if match_obj is not None:
+                    final_test_names.append(test_name)
+            test_names = final_test_names
 
-    try:
-        test_names = rts.smembers(used_key)
-        test_names = list(test_names)
-        test_names.sort()
-        final_test_names = []
-        for test_name in test_names:
-            test_name = test_name.decode()
-            match_obj = re.search(tags_regex_string, test_name)
-            if match_obj is not None:
-                final_test_names.append(test_name)
-        test_names = final_test_names
+        except redis.exceptions.ResponseError as e:
+            logging.warning(
+                "Error while trying to fetch test cases set (key={}) {}. ".format(
+                    used_key, e.__str__()
+                )
+            )
+            pass
 
-    except redis.exceptions.ResponseError as e:
         logging.warning(
-            "Error while trying to fetch test cases set (key={}) {}. ".format(
-                used_key, e.__str__()
+            "Based on test-cases set (key={}) we have {} comparison points. ".format(
+                used_key, len(test_names)
             )
         )
-        pass
-
-    logging.warning(
-        "Based on test-cases set (key={}) we have {} comparison points. ".format(
-            used_key, len(test_names)
-        )
-    )
     profilers_artifacts_matrix = []
     detected_regressions = []
     total_improvements = 0
@@ -154,23 +164,32 @@ def compare_command_logic(args, project_name, project_version):
             "{}={}".format(by_str, baseline_str),
             "metric={}".format(metric_name),
             "{}={}".format(test_filter, test_name),
-            "deployment_type={}".format(deployment_type),
-            "deployment_name={}".format(deployment_name),
+            "deployment_name={}".format(baseline_deployment_name),
+            "triggering_env={}".format(tf_triggering_env),
         ]
         filters_comparison = [
             "{}={}".format(by_str, comparison_str),
             "metric={}".format(metric_name),
             "{}={}".format(test_filter, test_name),
-            "deployment_type={}".format(deployment_type),
-            "deployment_name={}".format(deployment_name),
+            "deployment_name={}".format(comparison_deployment_name),
+            "triggering_env={}".format(tf_triggering_env),
         ]
         baseline_timeseries = rts.ts().queryindex(filters_baseline)
         comparison_timeseries = rts.ts().queryindex(filters_comparison)
+
+        # avoiding target time-series
+        comparison_timeseries = [x for x in comparison_timeseries if "target" not in x]
+        baseline_timeseries = [x for x in baseline_timeseries if "target" not in x]
         progress.update()
+        if args.verbose:
+            logging.info("Baseline timeseries {}".format(len(baseline_timeseries)))
+            logging.info("Comparison timeseries {}".format(len(comparison_timeseries)))
         if len(baseline_timeseries) != 1:
             if args.verbose:
                 logging.warning(
-                    "Baseline timeseries {}".format(len(baseline_timeseries))
+                    "Skipping this test given the value of timeseries !=1. Baseline timeseries {}".format(
+                        len(baseline_timeseries)
+                    )
                 )
             continue
         else:
@@ -326,8 +345,8 @@ def compare_command_logic(args, project_name, project_version):
         ),
         headers=[
             "Test Case",
-            "Baseline (median obs. +- std.dev)",
-            "Comparison (median obs. +- std.dev)",
+            "Baseline {} (median obs. +- std.dev)".format(baseline_branch),
+            "Comparison {} (median obs. +- std.dev)".format(comparison_branch),
             "% change ({})".format(metric_mode),
             "Note",
         ],

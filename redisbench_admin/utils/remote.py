@@ -256,7 +256,6 @@ def setup_remote_environment(
     tf_triggering_env,
     tf_timeout_secs=7200,
 ):
-    # key    = "benchmarks/infrastructure/tf-oss-redisgraph-standalone-r5.tfstate"
     _, _, _ = tf.init(
         capture_output=True,
         backend_config={
