@@ -28,6 +28,7 @@ def terraform_spin_or_reuse_env(
     tf_setup_name_sufix,
     tf_triggering_env,
     tf_timeout_secs=7200,
+    tf_override_name=None,
 ):
     (
         remote_setup,
@@ -39,7 +40,10 @@ def terraform_spin_or_reuse_env(
             repetition, BENCHMARK_REPETITIONS, test_name, remote_setup
         )
     )
-    tf_setup_name = "{}{}".format(remote_setup, tf_setup_name_sufix)
+    if tf_override_name is None:
+        tf_setup_name = "{}{}".format(remote_setup, tf_setup_name_sufix)
+    else:
+        tf_setup_name = tf_override_name
     logging.info("Using full setup name: {}".format(tf_setup_name))
     if remote_id not in remote_envs:
         # check if terraform is present

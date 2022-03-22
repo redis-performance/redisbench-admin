@@ -33,13 +33,15 @@ def create_compare_arguments(parser):
         "--test",
         type=str,
         default="",
-        help="specify a test to use for comparison. If none is specified by default will use all of them.",
+        help="specify a test (or a comma separated list of tests) to use for comparison. If none is specified by default will use all of them.",
     )
     parser.add_argument("--github_repo", type=str, default=GITHUB_REPO)
     parser.add_argument("--github_org", type=str, default=GITHUB_ORG)
     parser.add_argument("--triggering_env", type=str, default=TRIGGERING_ENV)
-    parser.add_argument("--deployment_type", type=str, default="oss-standalone")
     parser.add_argument("--deployment_name", type=str, default="oss-standalone")
+    parser.add_argument("--deployment_type", type=str, default="oss-standalone")
+    parser.add_argument("--baseline_deployment_name", type=str, default="")
+    parser.add_argument("--comparison_deployment_name", type=str, default="")
     parser.add_argument("--metric_name", type=str, default="Tests.Overall.rps")
     parser.add_argument(
         "--metric_mode",
