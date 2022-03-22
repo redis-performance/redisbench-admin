@@ -39,7 +39,6 @@ def compare_command_logic(args, project_name, project_version):
     tf_github_org = args.github_org
     tf_github_repo = args.github_repo
     tf_triggering_env = args.triggering_env
-    deployment_type = args.deployment_type
     if args.baseline_deployment_name != "":
         baseline_deployment_name = args.baseline_deployment_name
     else:
