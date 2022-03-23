@@ -56,6 +56,10 @@ def compare_command_logic(args, project_name, project_version):
     )
     from_ts_ms = args.from_timestamp
     to_ts_ms = args.to_timestamp
+    if from_ts_ms is None:
+        from_ts_ms = int(args.from_date.timestamp() * 1000)
+    if to_ts_ms is None:
+        to_ts_ms = int(args.to_date.timestamp() * 1000)
     from_human_str = humanize.naturaltime(
         dt.datetime.utcfromtimestamp(from_ts_ms / 1000)
     )
@@ -336,12 +340,13 @@ def compare_command_logic(args, project_name, project_version):
 
     logging.info("Printing differential analysis between branches")
     writer = MarkdownTableWriter(
-        table_name="Comparison between {} and {} for metric: {}. Time Period from {} to {}".format(
+        table_name="Comparison between {} and {} for metric: {}. Time Period from {} to {}. (environment used: {})".format(
             baseline_branch,
             comparison_branch,
             metric_name,
             from_human_str,
             to_human_str,
+            baseline_deployment_name,
         ),
         headers=[
             "Test Case",

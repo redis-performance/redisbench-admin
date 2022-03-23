@@ -5,6 +5,8 @@
 #
 
 # environment variables
+import datetime
+
 from redisbench_admin.run.args import TRIGGERING_ENV
 from redisbench_admin.run.common import get_start_time_vars
 from redisbench_admin.utils.remote import (
@@ -26,6 +28,8 @@ from redisbench_admin.utils.remote import (
 
 _, NOW_UTC, _ = get_start_time_vars()
 LAST_WEEK_UTC = NOW_UTC - (7 * 24 * 60 * 60 * 1000)
+START_TIME_NOW_UTC, _, _ = get_start_time_vars()
+START_TIME_LAST_WEEK_UTC = START_TIME_NOW_UTC - datetime.timedelta(days=7)
 
 
 def create_compare_arguments(parser):
@@ -43,6 +47,17 @@ def create_compare_arguments(parser):
     parser.add_argument("--baseline_deployment_name", type=str, default="")
     parser.add_argument("--comparison_deployment_name", type=str, default="")
     parser.add_argument("--metric_name", type=str, default="Tests.Overall.rps")
+    parser.add_argument(
+        "--from-date",
+        type=lambda s: datetime.datetime.strptime(s, "%Y-%m-%d"),
+        default=START_TIME_LAST_WEEK_UTC,
+        help="Only consider regressions with a percentage over the defined limit. (0-100)",
+    )
+    parser.add_argument(
+        "--to-date",
+        type=lambda s: datetime.datetime.strptime(s, "%Y-%m-%d"),
+        default=START_TIME_NOW_UTC,
+    )
     parser.add_argument(
         "--metric_mode",
         type=str,
@@ -77,9 +92,8 @@ def create_compare_arguments(parser):
     )
     parser.add_argument(
         "--from_timestamp",
-        type=int,
-        default=LAST_WEEK_UTC,
+        default=None,
         help="The minimum period to use for the the value fetching",
     )
-    parser.add_argument("--to_timestamp", type=int, default=NOW_UTC)
+    parser.add_argument("--to_timestamp", default=None)
     return parser
