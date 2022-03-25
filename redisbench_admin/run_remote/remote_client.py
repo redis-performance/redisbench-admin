@@ -126,7 +126,7 @@ def run_remote_client_tool(
         results_outputdir_zip_local = "results-{}.zip".format(benchmark_suffix)
 
         mkdir_command = "mkdir -p /tmp/{}".format(website_outputdir)
-        create_website_command = "cd {} && sudo python3 create_website.py --scatter true --outputdir /tmp/{}".format(
+        create_website_command = "cd {} && sudo python3 create_website.py --scatter --outputdir /tmp/{}".format(
             create_website_path, website_outputdir
         )
         zip_website_command = "cd /tmp && zip -r {} {}/*".format(
