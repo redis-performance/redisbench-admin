@@ -115,27 +115,16 @@ def run_remote_client_tool(
         pkg_path = get_ann_remote_pkg_path(
             client_public_ip, client_ssh_port, private_key, username
         )
-        benchmark_suffix = local_bench_fname[: len(local_bench_fname) - 5]
-        create_website_path = pkg_path + "/run/ann/pkg/"
-        logging.info("Remote create website path: {}".format(create_website_path))
-        website_outputdir = "website-{}".format(benchmark_suffix)
-        website_outputdir_zip = "/tmp/website-{}.zip".format(benchmark_suffix)
-        website_outputdir_zip_local = "website-{}.zip".format(benchmark_suffix)
-        results_outputdir = pkg_path + "/run/ann/pkg"
-        results_outputdir_zip = "/tmp/results-{}.zip".format(benchmark_suffix)
-        results_outputdir_zip_local = "results-{}.zip".format(benchmark_suffix)
-
-        mkdir_command = "mkdir -p /tmp/{}".format(website_outputdir)
-        create_website_command = "cd {} && sudo python3 create_website.py --scatter --outputdir /tmp/{}".format(
-            create_website_path, website_outputdir
-        )
-        zip_website_command = "cd /tmp && zip -r {} {}/*".format(
-            website_outputdir_zip, website_outputdir
-        )
-
-        zip_results_command = "cd {} && zip -r {} results/*".format(
-            results_outputdir, results_outputdir_zip
-        )
+        (
+            create_website_command,
+            mkdir_command,
+            results_outputdir_zip,
+            results_outputdir_zip_local,
+            website_outputdir_zip,
+            website_outputdir_zip_local,
+            zip_results_command,
+            zip_website_command,
+        ) = ann_benchmark_remote_cmds(local_bench_fname, pkg_path)
         post_commands.append(mkdir_command)
         post_commands.append(create_website_command)
         post_commands.append(zip_website_command)
@@ -258,6 +247,40 @@ def run_remote_client_tool(
         results_dict,
         return_code,
         final_local_output_artifacts,
+    )
+
+
+def ann_benchmark_remote_cmds(local_bench_fname, pkg_path):
+    benchmark_suffix = local_bench_fname[: len(local_bench_fname) - 5]
+    create_website_path = pkg_path + "/run/ann/pkg/"
+    logging.info("Remote create website path: {}".format(create_website_path))
+    website_outputdir = "website-{}".format(benchmark_suffix)
+    website_outputdir_zip = "/tmp/website-{}.zip".format(benchmark_suffix)
+    website_outputdir_zip_local = "website-{}.zip".format(benchmark_suffix)
+    results_outputdir = pkg_path + "/run/ann/pkg"
+    results_outputdir_zip = "/tmp/results-{}.zip".format(benchmark_suffix)
+    results_outputdir_zip_local = "results-{}.zip".format(benchmark_suffix)
+    mkdir_command = "mkdir -p /tmp/{}".format(website_outputdir)
+    create_website_command = (
+        "cd {} && sudo python3 create_website.py --scatter --outputdir /tmp/{}".format(
+            create_website_path, website_outputdir
+        )
+    )
+    zip_website_command = "cd /tmp && zip -r {} {}/*".format(
+        website_outputdir_zip, website_outputdir
+    )
+    zip_results_command = "cd {} && zip -r {} results/*".format(
+        results_outputdir, results_outputdir_zip
+    )
+    return (
+        create_website_command,
+        mkdir_command,
+        results_outputdir_zip,
+        results_outputdir_zip_local,
+        website_outputdir_zip,
+        website_outputdir_zip_local,
+        zip_results_command,
+        zip_website_command,
     )
 
 
