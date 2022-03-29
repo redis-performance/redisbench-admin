@@ -178,11 +178,15 @@ def run_local_command_logic(args, project_name, project_version):
                                             setup_name, setup_type, shard_count
                                         )
                                     )
+                                    binary = args.redis_binary
+                                    if " " in binary:
+                                        binary = binary.split(" ")
                                     (
                                         cluster_api_enabled,
                                         redis_conns,
                                         redis_processes,
                                     ) = local_db_spin(
+                                        binary,
                                         args,
                                         benchmark_config,
                                         clusterconfig,

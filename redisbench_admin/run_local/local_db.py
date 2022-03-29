@@ -35,6 +35,7 @@ from redisbench_admin.utils.local import (
 
 
 def local_db_spin(
+    binary,
     args,
     benchmark_config,
     clusterconfig,
@@ -79,6 +80,7 @@ def local_db_spin(
         cluster_api_enabled = True
         shard_host = "127.0.0.1"
         redis_processes, redis_conns = spin_up_local_redis_cluster(
+            binary,
             temporary_dir,
             shard_count,
             shard_host,
@@ -106,7 +108,7 @@ def local_db_spin(
     )
     if setup_type == "oss-standalone":
         redis_processes = spin_up_local_redis(
-            "redis-server",
+            binary,
             args.port,
             temporary_dir,
             local_module_file,

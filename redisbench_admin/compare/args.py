@@ -48,6 +48,12 @@ def create_compare_arguments(parser):
     parser.add_argument("--comparison_deployment_name", type=str, default="")
     parser.add_argument("--metric_name", type=str, default="Tests.Overall.rps")
     parser.add_argument(
+        "--last_n",
+        type=int,
+        default=-1,
+        help="Use the last N samples for each time-serie. by default will use all available values",
+    )
+    parser.add_argument(
         "--from-date",
         type=lambda s: datetime.datetime.strptime(s, "%Y-%m-%d"),
         default=START_TIME_LAST_WEEK_UTC,

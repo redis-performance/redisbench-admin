@@ -50,16 +50,21 @@ def generate_standalone_redis_server_args(
     configuration_parameters=None,
     modules_configuration_parameters_map={},
 ):
+    if type(binary) == list:
+        command = binary
+    else:
+        command = [binary]
     # start redis-server
-    command = [
-        binary,
-        "--save",
-        "",
-        "--port",
-        "{}".format(port),
-        "--dir",
-        dbdir,
-    ]
+    command.extend(
+        [
+            "--save",
+            "",
+            "--port",
+            "{}".format(port),
+            "--dir",
+            dbdir,
+        ]
+    )
     if configuration_parameters is not None:
         for parameter, parameter_value in configuration_parameters.items():
             command.extend(

@@ -13,6 +13,7 @@ from redisbench_admin.utils.utils import wait_for_conn, redis_server_config_modu
 
 
 def spin_up_local_redis_cluster(
+    binary,
     dbdir,
     shard_count,
     ip,
@@ -27,8 +28,12 @@ def spin_up_local_redis_cluster(
 
     for master_shard_id in range(1, shard_count + 1):
         shard_port = master_shard_id + start_port - 1
-
+        binary = binary
+        if master_shard_id > 1:
+            binary = "redis-server"
+            logging.info("Ignoring redis binary definition for primary shard > 1")
         command, _ = generate_cluster_redis_server_args(
+            binary,
             dbdir,
             local_module_file,
             ip,
@@ -133,6 +138,7 @@ def setup_oss_cluster_from_conns(meet_cmds, redis_conns, shard_count):
 
 
 def generate_cluster_redis_server_args(
+    binary,
     dbdir,
     local_module_file,
     ip,
@@ -145,34 +151,39 @@ def generate_cluster_redis_server_args(
     if logname_prefix is None:
         logname_prefix = ""
     logfile = "{}cluster-node-port-{}.log".format(logname_prefix, port)
+    if type(binary) == list:
+        command = binary
+    else:
+        command = [binary]
     # start redis-server
-    command = [
-        "redis-server",
-        "--appendonly",
-        "no",
-        "--logfile",
-        logfile,
-        "--cluster-enabled",
-        "yes",
-        "--daemonize",
-        daemonize,
-        "--dbfilename",
-        get_cluster_dbfilename(port),
-        "--protected-mode",
-        "no",
-        "--bind",
-        "{}".format(ip),
-        "--cluster-config-file",
-        "cluster-node-port-{}.config".format(port),
-        "--save",
-        "''",
-        "--cluster-announce-ip",
-        "{}".format(ip),
-        "--port",
-        "{}".format(port),
-        "--dir",
-        dbdir,
-    ]
+    command.extend(
+        [
+            "--appendonly",
+            "no",
+            "--logfile",
+            logfile,
+            "--cluster-enabled",
+            "yes",
+            "--daemonize",
+            daemonize,
+            "--dbfilename",
+            get_cluster_dbfilename(port),
+            "--protected-mode",
+            "no",
+            "--bind",
+            "{}".format(ip),
+            "--cluster-config-file",
+            "cluster-node-port-{}.config".format(port),
+            "--save",
+            "''",
+            "--cluster-announce-ip",
+            "{}".format(ip),
+            "--port",
+            "{}".format(port),
+            "--dir",
+            dbdir,
+        ]
+    )
     if configuration_parameters is not None:
         for parameter, parameter_value in configuration_parameters.items():
             command.extend(
