@@ -240,7 +240,9 @@ def compare_command_logic(args, project_name, project_version):
             if baseline_nsamples > 0:
                 _, baseline_v = baseline_datapoints[0]
                 for tuple in baseline_datapoints:
-                    if args.last_n > 0 and len(baseline_values) < args.last_n:
+                    if args.last_n < 0 or (
+                        args.last_n > 0 and len(baseline_values) < args.last_n
+                    ):
                         baseline_values.append(tuple[1])
                 baseline_df = pd.DataFrame(baseline_values)
                 baseline_median = float(baseline_df.median())
@@ -256,7 +258,9 @@ def compare_command_logic(args, project_name, project_version):
             if comparison_nsamples > 0:
                 _, comparison_v = comparison_datapoints[0]
                 for tuple in comparison_datapoints:
-                    if args.last_n > 0 and len(comparison_values) < args.last_n:
+                    if args.last_n < 0 or (
+                        args.last_n > 0 and len(comparison_values) < args.last_n
+                    ):
                         comparison_values.append(tuple[1])
                 comparison_df = pd.DataFrame(comparison_values)
                 comparison_median = float(comparison_df.median())
