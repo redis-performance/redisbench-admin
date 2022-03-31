@@ -6,6 +6,7 @@
 import yaml
 
 from redisbench_admin.run.common import prepare_benchmark_parameters
+from redisbench_admin.run_remote.remote_client import ann_benchmark_remote_cmds
 from redisbench_admin.utils.benchmark_config import extract_benchmark_tool_settings
 
 
@@ -46,3 +47,24 @@ def test_run_remote_benchmark():
         #     port,
         # )
         # assert remote_run_result is False
+
+
+def test_ann_benchmark_remote_cmds():
+    pkg_path = "/usr/local/lib/python3.6/dist-packages/redisbench_admin"
+    local_bench_fname = "local-fname.log"
+    (
+        create_website_command,
+        mkdir_command,
+        results_outputdir_zip,
+        results_outputdir_zip_local,
+        website_outputdir_zip,
+        website_outputdir_zip_local,
+        zip_results_command,
+        zip_website_command,
+    ) = ann_benchmark_remote_cmds(local_bench_fname, pkg_path)
+    assert (
+        create_website_command
+        == "cd {}/run/ann/pkg/ && sudo python3 create_website.py --scatter --outputdir /tmp/website-local-fnam".format(
+            pkg_path
+        )
+    )
