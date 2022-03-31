@@ -122,6 +122,7 @@ def spin_up_redis_cluster_remote_redis(
         shard_port = master_shard_id + start_port - 1
 
         command, logfile = generate_cluster_redis_server_args(
+            "redis-server",
             dbdir_folder,
             remote_module_files,
             server_private_ip,
