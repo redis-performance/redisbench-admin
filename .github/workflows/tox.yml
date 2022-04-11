@@ -14,6 +14,7 @@ jobs:
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
       USING_COVERAGE: "3.8"
+      USING_COVERAGE_OS: "ubuntu-20.04"
 
     runs-on: ${{ matrix.os }}
     name: os ${{ matrix.os }} python ${{ matrix.python-version }} Linting, testing, and compliance
@@ -51,6 +52,6 @@ jobs:
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
-      if: contains(env.USING_COVERAGE, matrix.python-version)
+      if: contains(env.USING_COVERAGE, matrix.python-version) && contains(env.USING_COVERAGE_OS, matrix.os)
       with:
         fail_ci_if_error: true
