@@ -8,7 +8,7 @@ import argparse
 import logging
 import os
 import sys
-
+import numpy
 import toml
 
 from redisbench_admin import __version__
@@ -27,6 +27,7 @@ from redisbench_admin.run_remote.run_remote import run_remote_command_logic
 from redisbench_admin.watchdog.args import create_watchdog_arguments
 from redisbench_admin.watchdog.watchdog import watchdog_command_logic
 
+numpy.random.BitGenerator = numpy.random.bit_generator.BitGenerator
 
 LOG_LEVEL = logging.DEBUG
 if os.getenv("VERBOSE", "0") == "0":
