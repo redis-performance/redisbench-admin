@@ -52,6 +52,7 @@ from redisbench_admin.utils.remote import (
 )
 
 BENCHMARK_REPETITIONS = int(os.getenv("BENCHMARK_REPETITIONS", 1))
+REDIS_BINARY = os.getenv("REDIS_BINARY", "redis-server")
 
 
 def prepare_benchmark_parameters(

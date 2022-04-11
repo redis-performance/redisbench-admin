@@ -54,6 +54,12 @@ def compare_command_logic(args, project_name, project_version):
             comparison_deployment_name,
         )
     )
+    if args.last_n > 0:
+        logging.info(
+            "Using the last {} samples of each timeserie to compute the tables".format(
+                args.last_n
+            )
+        )
     from_ts_ms = args.from_timestamp
     to_ts_ms = args.to_timestamp
     if from_ts_ms is None:
@@ -161,7 +167,7 @@ def compare_command_logic(args, project_name, project_version):
     total_stable = 0
     total_unstable = 0
     total_regressions = 0
-    noise_waterline = 2.5
+    noise_waterline = 3
     progress = tqdm(unit="benchmark time-series", total=len(test_names))
     for test_name in test_names:
         filters_baseline = [
@@ -234,7 +240,10 @@ def compare_command_logic(args, project_name, project_version):
             if baseline_nsamples > 0:
                 _, baseline_v = baseline_datapoints[0]
                 for tuple in baseline_datapoints:
-                    baseline_values.append(tuple[1])
+                    if args.last_n < 0 or (
+                        args.last_n > 0 and len(baseline_values) < args.last_n
+                    ):
+                        baseline_values.append(tuple[1])
                 baseline_df = pd.DataFrame(baseline_values)
                 baseline_median = float(baseline_df.median())
                 baseline_v = baseline_median
@@ -249,7 +258,10 @@ def compare_command_logic(args, project_name, project_version):
             if comparison_nsamples > 0:
                 _, comparison_v = comparison_datapoints[0]
                 for tuple in comparison_datapoints:
-                    comparison_values.append(tuple[1])
+                    if args.last_n < 0 or (
+                        args.last_n > 0 and len(comparison_values) < args.last_n
+                    ):
+                        comparison_values.append(tuple[1])
                 comparison_df = pd.DataFrame(comparison_values)
                 comparison_median = float(comparison_df.median())
                 comparison_v = comparison_median
@@ -275,13 +287,13 @@ def compare_command_logic(args, project_name, project_version):
             if baseline_pct_change > 10.0:
                 stamp_b = "UNSTABLE"
             baseline_v_str = " {:.0f} +- {:.1f}% {} ({} datapoints)".format(
-                baseline_v, baseline_pct_change, stamp_b, baseline_nsamples
+                baseline_v, baseline_pct_change, stamp_b, len(baseline_values)
             )
             stamp_c = ""
             if comparison_pct_change > 10.0:
                 stamp_c = "UNSTABLE"
             comparison_v_str = " {:.0f} +- {:.1f}% {} ({} datapoints)".format(
-                comparison_v, comparison_pct_change, stamp_c, comparison_nsamples
+                comparison_v, comparison_pct_change, stamp_c, len(comparison_values)
             )
             if metric_mode == "higher-better":
                 percentage_change = (
@@ -297,7 +309,7 @@ def compare_command_logic(args, project_name, project_version):
             detected_improvement = False
             if percentage_change < 0.0 and not unstable:
 
-                if percentage_change < -waterline:
+                if -waterline >= percentage_change:
                     detected_regression = True
                     total_regressions = total_regressions + 1
                     note = note + " REGRESSION"
@@ -339,10 +351,13 @@ def compare_command_logic(args, project_name, project_version):
                 )
 
     logging.info("Printing differential analysis between branches")
+
+    baseline = baseline_branch if args.baseline_branch else baseline_tag
+    comparison = comparison_branch if args.comparison_branch else comparison_tag
     writer = MarkdownTableWriter(
         table_name="Comparison between {} and {} for metric: {}. Time Period from {} to {}. (environment used: {})".format(
-            baseline_branch,
-            comparison_branch,
+            baseline,
+            comparison,
             metric_name,
             from_human_str,
             to_human_str,
@@ -350,8 +365,8 @@ def compare_command_logic(args, project_name, project_version):
         ),
         headers=[
             "Test Case",
-            "Baseline {} (median obs. +- std.dev)".format(baseline_branch),
-            "Comparison {} (median obs. +- std.dev)".format(comparison_branch),
+            "Baseline {} (median obs. +- std.dev)".format(baseline),
+            "Comparison {} (median obs. +- std.dev)".format(comparison),
             "% change ({})".format(metric_mode),
             "Note",
         ],
