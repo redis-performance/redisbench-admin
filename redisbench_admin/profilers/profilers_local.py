@@ -101,8 +101,20 @@ def profilers_stop_if_required(
                                 ",".join(tabular_data_map.keys()),
                             )
                         )
-                        overall_artifacts_map.update(profile_res_artifacts_map)
-                        overall_tabular_data_map.update(tabular_data_map)
+                    else:
+                        logging.error(
+                            "One or more steps within Profiler {} for pid {} exited with ERROR!".format(
+                                profiler_name,
+                                profiler_obj.pid,
+                            )
+                        )
+                    logging.info(
+                        "There are a total of {} artifacts".format(
+                            len(profile_res_artifacts_map.values())
+                        )
+                    )
+                    overall_artifacts_map.update(profile_res_artifacts_map)
+                    overall_tabular_data_map.update(tabular_data_map)
 
         for (
             artifact_name,

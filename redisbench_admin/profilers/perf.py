@@ -202,8 +202,8 @@ class Perf:
         result = False
         self.profile_end_time = time.time()
         if not self._is_alive(self.profiler_process):
-            self.logger.error(
-                "Profiler process is not alive, might have crash during test execution.  Exit code: {}".format(
+            self.logger.warning(
+                "Profiler process is not alive. might have crash during test execution.  Exit code: {}".format(
                     self.profiler_process_exit_code
                 )
             )
@@ -288,8 +288,11 @@ class Perf:
                     try:
                         subprocess.Popen(args=args, stdout=outfile).wait()
                     except OSError as e:
+                        args_str = " ".join([str(x) for x in args])
                         self.logger.error(
-                            "Unable to run {} script {}".format(self.perf, e.__str__())
+                            "Unable to run {} script with args {}. Error: {}".format(
+                                self.perf, args_str, e.__str__()
+                            )
                         )
                 if self.pid is not None:
                     filename_main_thread = filename + ".mainthread"
@@ -302,19 +305,20 @@ class Perf:
                             "-i",
                             self.output,
                         ]
+                        args_str = " ".join([str(x) for x in args])
                         try:
                             subprocess.Popen(args=args, stdout=outfile).wait()
                             self.trace_file_main_thread = filename_main_thread
                         except OSError as e:
                             self.logger.error(
-                                "Unable to run {} script {}".format(
-                                    self.perf, e.__str__()
+                                "Unable to run {} script args {}. Error: {}".format(
+                                    self.perf, args_str, e.__str__()
                                 )
                             )
                         except Exception as e:
                             self.logger.error(
-                                "Unable to run {} script {}".format(
-                                    self.perf, e.__str__()
+                                "Unable to run {} script args {}. Error: {}".format(
+                                    self.perf, args_str, e.__str__()
                                 )
                             )
                 else:
