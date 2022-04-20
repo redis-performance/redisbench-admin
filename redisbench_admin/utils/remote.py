@@ -1040,12 +1040,21 @@ def get_overall_dashboard_keynames(
 
 
 def check_ec2_env():
+    status = True
+    error_message = ""
     if EC2_ACCESS_KEY is None or EC2_ACCESS_KEY == "":
-        logging.error("missing required AWS_ACCESS_KEY_ID env variable")
-        exit(1)
+        error_message = "missing required AWS_ACCESS_KEY_ID env variable"
+        status = False
+
     if EC2_REGION is None or EC2_REGION == "":
-        logging.error("missing required AWS_DEFAULT_REGION env variable")
-        exit(1)
+        error_message = "missing required AWS_DEFAULT_REGION env variable"
+        status = False
+
     if EC2_SECRET_KEY is None or EC2_SECRET_KEY == "":
-        logging.error("missing required AWS_SECRET_ACCESS_KEY env variable")
-        exit(1)
+        error_message = "missing required AWS_SECRET_ACCESS_KEY env variable"
+        status = False
+
+    if status is False:
+        logging.error(error_message)
+
+    return status, error_message
