@@ -1,0 +1,11 @@
+Using version ^3.15.2 for slack-sdk
+
+Updating dependencies
+Resolving dependencies...
+
+Writing lock file
+
+Package operations: 1 install, 1 update, 0 removals
+
+  • Updating cachecontrol (0.12.10 -> 0.12.11)
+  • Installing slack-sdk (3.15.2)

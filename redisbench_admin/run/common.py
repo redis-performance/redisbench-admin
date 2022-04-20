@@ -52,6 +52,10 @@ from redisbench_admin.utils.remote import (
 )
 
 BENCHMARK_REPETITIONS = int(os.getenv("BENCHMARK_REPETITIONS", 1))
+# circleci related info
+CIRCLE_BUILD_URL = os.getenv("CIRCLE_BUILD_URL", None)
+CIRCLE_JOB = os.getenv("CIRCLE_JOB", None)
+WH_TOKEN = os.getenv("PERFORMANCE_WH_TOKEN", None)
 REDIS_BINARY = os.getenv("REDIS_BINARY", "redis-server")
 
 
