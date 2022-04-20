@@ -121,12 +121,60 @@ def run_remote_command_logic(args, project_name, project_version):
     profilers_enabled = args.enable_profilers
     keep_env_and_topo = args.keep_env_and_topo
 
+    if WH_TOKEN is not None:
+        webhook_notifications_active = True
+
     webhook_url = "https://hooks.slack.com/services/{}".format(WH_TOKEN)
 
-    if args.skip_env_vars_verify is False:
-        check_ec2_env()
+    ci_job_link = CIRCLE_BUILD_URL
+    ci_job_name = CIRCLE_JOB
+    failure_reason = ""
+    webhook_client_slack = None
+    if ci_job_link is None:
+        webhook_notifications_active = False
+        logging.warning(
+            "Disabling webhook notificaitons given CIRCLE_BUILD_URL is None"
+        )
 
-    redis_modules_check(local_module_files)
+    if webhook_notifications_active is True:
+        logging.info(
+            "Detected where in a CI flow named {}. Here's the reference link: {}".format(
+                ci_job_name, ci_job_link
+            )
+        )
+        webhook_client_slack = WebhookClient(webhook_url)
+
+    if args.skip_env_vars_verify is False:
+        env_check_status, failure_reason = check_ec2_env()
+        if env_check_status is False:
+            if webhook_notifications_active:
+                generate_failure_notification(
+                    webhook_client_slack,
+                    ci_job_name,
+                    ci_job_link,
+                    failure_reason,
+                    tf_github_org,
+                    tf_github_repo,
+                    tf_github_branch,
+                    None,
+                )
+            exit(1)
+
+    module_check_status, error_message = redis_modules_check(local_module_files)
+    if module_check_status is False:
+        if webhook_notifications_active:
+            failure_reason = error_message
+            generate_failure_notification(
+                webhook_client_slack,
+                ci_job_name,
+                ci_job_link,
+                failure_reason,
+                tf_github_org,
+                tf_github_repo,
+                tf_github_branch,
+                None,
+            )
+        exit(1)
 
     common_properties_log(
         tf_bin_path,
@@ -150,20 +198,6 @@ def run_remote_command_logic(args, project_name, project_version):
         default_specs,
         clusterconfig,
     ) = prepare_benchmark_definitions(args)
-
-    ci_job_link = CIRCLE_BUILD_URL
-    ci_job_name = CIRCLE_JOB
-    failure_reason = ""
-    webhook_notifications_active = False
-    webhook_client_slack = None
-    if ci_job_link is not None:
-        logging.info(
-            "Detected where in a CI flow named {}. Here's the reference link: {}".format(
-                ci_job_name, ci_job_link
-            )
-        )
-        webhook_notifications_active = True
-        webhook_client_slack = WebhookClient(webhook_url)
 
     return_code = 0
     if benchmark_defs_result is False:

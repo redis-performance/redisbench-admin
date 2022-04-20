@@ -8,6 +8,8 @@ import os
 
 
 def redis_modules_check(local_module_files):
+    status = True
+    error_message = ""
     if local_module_files is not None:
         logging.info(
             "Using the following module artifacts: {}".format(local_module_files)
@@ -17,15 +19,14 @@ def redis_modules_check(local_module_files):
                 "Checking if module artifact {} exists...".format(local_module_file)
             )
             if os.path.exists(local_module_file) is False:
-                logging.error(
-                    "Specified module artifact does not exist: {}".format(
-                        local_module_file
-                    )
+                error_message = "Specified module artifact does not exist: {}".format(
+                    local_module_file
                 )
-                exit(1)
+                logging.error(error_message)
             else:
                 logging.info(
                     "Confirmed that module artifact: '{}' exists!".format(
                         local_module_file
                     )
                 )
+    return status, error_message
