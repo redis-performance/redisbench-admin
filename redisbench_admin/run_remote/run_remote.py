@@ -25,6 +25,9 @@ from redisbench_admin.run.args import PROFILE_FREQ
 from redisbench_admin.run.common import (
     get_start_time_vars,
     BENCHMARK_REPETITIONS,
+    CIRCLE_BUILD_URL,
+    CIRCLE_JOB,
+    WH_TOKEN,
     get_setup_type_and_primaries_count,
     common_properties_log,
     print_results_table_stdout,
@@ -41,6 +44,7 @@ from redisbench_admin.run.s3 import get_test_s3_bucket_path
 from redisbench_admin.run.ssh import ssh_pem_check
 from redisbench_admin.run_remote.args import TF_OVERRIDE_NAME
 from redisbench_admin.run_remote.consts import min_recommended_benchmark_duration
+from redisbench_admin.run_remote.notifications import generate_failure_notification
 from redisbench_admin.run_remote.remote_client import run_remote_client_tool
 from redisbench_admin.run_remote.remote_db import (
     remote_tmpdir_prune,
@@ -75,6 +79,7 @@ from redisbench_admin.utils.utils import (
     EC2_REGION,
 )
 
+from slack_sdk.webhook import WebhookClient
 
 # 7 days expire
 STALL_INFO_DAYS = 7
@@ -116,6 +121,8 @@ def run_remote_command_logic(args, project_name, project_version):
     profilers_enabled = args.enable_profilers
     keep_env_and_topo = args.keep_env_and_topo
 
+    webhook_url = "https://hooks.slack.com/services/{}".format(WH_TOKEN)
+
     if args.skip_env_vars_verify is False:
         check_ec2_env()
 
@@ -144,14 +151,39 @@ def run_remote_command_logic(args, project_name, project_version):
         clusterconfig,
     ) = prepare_benchmark_definitions(args)
 
+    ci_job_link = CIRCLE_BUILD_URL
+    ci_job_name = CIRCLE_JOB
+    failure_reason = ""
+    webhook_notifications_active = False
+    webhook_client_slack = None
+    if ci_job_link is not None:
+        logging.info(
+            "Detected where in a CI flow named {}. Here's the reference link: {}".format(
+                ci_job_name, ci_job_link
+            )
+        )
+        webhook_notifications_active = True
+        webhook_client_slack = WebhookClient(webhook_url)
+
     return_code = 0
     if benchmark_defs_result is False:
         return_code = 1
         if args.fail_fast:
-            logging.critical(
-                "Detected errors while preparing benchmark definitions. Exiting right away!"
-            )
-            exit(1)
+            failure_reason = "Detected errors while preparing benchmark definitions"
+            logging.critical("{}. Exiting right away!".format(failure_reason))
+            if webhook_notifications_active:
+                generate_failure_notification(
+                    webhook_client_slack,
+                    ci_job_name,
+                    ci_job_link,
+                    failure_reason,
+                    tf_github_org,
+                    tf_github_repo,
+                    tf_github_branch,
+                    None,
+                )
+
+            exit(return_code)
 
     remote_envs = {}
     dirname = "."
@@ -872,10 +904,13 @@ def run_remote_command_logic(args, project_name, project_version):
                                         tsname_project_total_failures,
                                     )
                                     return_code |= 1
-                                    logging.critical(
-                                        "Some unexpected exception was caught "
-                                        "during remote work. Failing test...."
+                                    failure_reason = "Some unexpected exception was caught during remote work on test named {}".format(
+                                        test_name
                                     )
+                                    logging.critical(
+                                        "{}. Failing test....".format(failure_reason)
+                                    )
+
                                     logging.critical(sys.exc_info()[0])
                                     print("-" * 60)
                                     traceback.print_exc(file=sys.stdout)
@@ -940,6 +975,20 @@ def run_remote_command_logic(args, project_name, project_version):
                     EXPIRE_TIME_SECS_PROFILE_KEYS,
                     profile_markdown_str,
                 )
+
+    if return_code != 0 and webhook_notifications_active:
+        if failure_reason == "":
+            failure_reason = "Some unexpected exception was caught during remote work"
+        generate_failure_notification(
+            webhook_client_slack,
+            ci_job_name,
+            ci_job_link,
+            failure_reason,
+            tf_github_org,
+            tf_github_repo,
+            tf_github_branch,
+            None,
+        )
     exit(return_code)
 
 
