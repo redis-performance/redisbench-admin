@@ -93,9 +93,9 @@ def test_datasink_profile_tabular_data():
                 pprof_format, profile_test_suffix
             )
             assert rts.exists(table_columns_text_key)
-        # assert rts.exists(testcases_setname)
-        # assert rts.exists(running_platforms_setname)
-        # assert rts.exists(build_variant_setname)
+        # assert redis_conn.exists(testcases_setname)
+        # assert redis_conn.exists(running_platforms_setname)
+        # assert redis_conn.exists(build_variant_setname)
 
     except redis.exceptions.ConnectionError:
         pass
@@ -183,7 +183,7 @@ def test_run_local_command_logic():
     except SystemExit as e:
         assert e.code == 1
 
-    ## run while pushing results to rts
+    ## run while pushing results to redis_conn
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
     rts_port = 16379
     if rts_host is None:

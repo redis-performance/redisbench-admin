@@ -35,7 +35,7 @@ def test_redistimeseries_results_logic():
     #     deployment_type,
     #     exporter_timemetric_path,
     #     results_dict,
-    #     rts,
+    #     redis_conn,
     #     test_name,
     #     tf_github_branch,
     #     tf_github_org,
