@@ -9,8 +9,8 @@ import time
 import pytablewriter
 from pytablewriter import MarkdownTableWriter
 
-# 7 days expire
-STALL_INFO_DAYS = 7
+# 30 days expire
+STALL_INFO_DAYS = 30
 EXPIRE_TIME_SECS_PROFILE_KEYS = 60 * 60 * 24 * STALL_INFO_DAYS
 EXPIRE_TIME_MSECS_PROFILE_KEYS = EXPIRE_TIME_SECS_PROFILE_KEYS * 1000
 
@@ -65,33 +65,21 @@ def generate_artifacts_table_grafana_redis(
     profile_markdown_str = profile_markdown_str.replace("\n", "")
     profile_id = "{}_{}_hash_{}".format(start_time_str, setup_name, tf_github_sha)
     profile_string_testcase_markdown_key = "profile:{}:{}".format(profile_id, test_name)
-    zset_profiles = "profiles:{}_{}_{}".format(
-        tf_github_org, tf_github_repo, setup_name
-    )
-    zset_profiles_setup = "profiles:setups:{}_{}".format(
-        tf_github_org,
-        tf_github_repo,
-    )
-    profile_set_redis_key = "profile:{}:testcases".format(profile_id)
-    zset_profiles_setups_testcases = "profiles:testcases:{}_{}_{}".format(
-        tf_github_org,
-        tf_github_repo,
-        setup_name,
-    )
-    zset_profiles_setups_testcases_profileid = "profiles:ids:{}_{}_{}_{}_{}".format(
-        tf_github_org,
-        tf_github_repo,
+    (
+        profile_set_redis_key,
+        zset_profiles,
+        zset_profiles_setup,
+        zset_profiles_setups_testcases,
+        zset_profiles_setups_testcases_branches,
+        zset_profiles_setups_testcases_branches_latest_link,
+        zset_profiles_setups_testcases_profileid,
+    ) = get_profile_zset_names(
+        profile_id,
         setup_name,
         test_name,
         tf_github_branch,
-    )
-    zset_profiles_setups_testcases_branches = "profiles:branches:{}_{}_{}_{}".format(
-        tf_github_org, tf_github_repo, setup_name, test_name
-    )
-    zset_profiles_setups_testcases_branches_latest_link = (
-        "latest_profiles:by.branch:{}_{}_{}_{}".format(
-            tf_github_org, tf_github_repo, setup_name, test_name
-        )
+        tf_github_org,
+        tf_github_repo,
     )
     https_link = "{}?var-org={}&var-repo={}&var-setup={}&var-branch={}".format(
         grafana_profile_dashboard,
@@ -103,12 +91,30 @@ def generate_artifacts_table_grafana_redis(
         test_name,
         profile_id,
     )
-    if push_results_redistimeseries:
+    if push_results_redistimeseries is True:
+        sorted_set_keys = [
+            zset_profiles,
+            zset_profiles_setups_testcases_profileid,
+            zset_profiles_setups_testcases,
+            zset_profiles_setup,
+            zset_profiles_setups_testcases_branches_latest_link,
+        ]
+        logging.info(
+            "Propulating the profile helper ZSETs: {}".format(" ".join(sorted_set_keys))
+        )
         current_time = time.time() * 1000
         timeframe_by_branch = current_time - EXPIRE_TIME_MSECS_PROFILE_KEYS
-        redis_conn.zadd(
+        res = redis_conn.zadd(
             zset_profiles_setups_testcases_branches,
             {tf_github_branch: start_time_ms},
+        )
+        logging.info(
+            "Result of ZADD {} {} {} = {}".format(
+                zset_profiles_setups_testcases_branches,
+                start_time_ms,
+                tf_github_branch,
+                res,
+            )
         )
         redis_conn.zadd(
             zset_profiles_setups_testcases_branches_latest_link,
@@ -130,14 +136,13 @@ def generate_artifacts_table_grafana_redis(
             zset_profiles,
             {profile_id: start_time_ms},
         )
-        sorted_set_keys = [
-            zset_profiles,
-            zset_profiles_setups_testcases_profileid,
-            zset_profiles_setups_testcases,
-            zset_profiles_setup,
-            zset_profiles_setups_testcases_branches_latest_link,
-        ]
+
         for keyname in sorted_set_keys:
+            logging.info(
+                "Expiring all elements with score between 0 and {}".format(
+                    int(timeframe_by_branch)
+                )
+            )
             redis_conn.zremrangebyscore(keyname, 0, int(timeframe_by_branch))
 
         redis_conn.sadd(profile_set_redis_key, test_name)
@@ -153,3 +158,45 @@ def generate_artifacts_table_grafana_redis(
             )
         )
     return https_link
+
+
+def get_profile_zset_names(
+    profile_id, setup_name, test_name, tf_github_branch, tf_github_org, tf_github_repo
+):
+    profile_set_redis_key = "profile:{}:testcases".format(profile_id)
+    zset_profiles = "profiles:{}_{}_{}".format(
+        tf_github_org, tf_github_repo, setup_name
+    )
+    zset_profiles_setup = "profiles:setups:{}_{}".format(
+        tf_github_org,
+        tf_github_repo,
+    )
+    zset_profiles_setups_testcases = "profiles:testcases:{}_{}_{}".format(
+        tf_github_org,
+        tf_github_repo,
+        setup_name,
+    )
+    zset_profiles_setups_testcases_profileid = "profiles:ids:{}_{}_{}_{}_{}".format(
+        tf_github_org,
+        tf_github_repo,
+        setup_name,
+        test_name,
+        tf_github_branch,
+    )
+    zset_profiles_setups_testcases_branches = "profiles:branches:{}_{}_{}_{}".format(
+        tf_github_org, tf_github_repo, setup_name, test_name
+    )
+    zset_profiles_setups_testcases_branches_latest_link = (
+        "latest_profiles:by.branch:{}_{}_{}_{}".format(
+            tf_github_org, tf_github_repo, setup_name, test_name
+        )
+    )
+    return (
+        profile_set_redis_key,
+        zset_profiles,
+        zset_profiles_setup,
+        zset_profiles_setups_testcases,
+        zset_profiles_setups_testcases_branches,
+        zset_profiles_setups_testcases_branches_latest_link,
+        zset_profiles_setups_testcases_profileid,
+    )
