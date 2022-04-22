@@ -20,7 +20,7 @@ from redisbench_admin.utils.utils import upload_artifacts_to_s3
 
 
 def profilers_stop_if_required(
-    args,
+    upload_results_s3,
     benchmark_duration_seconds,
     collection_summary_str,
     dso,
@@ -121,7 +121,7 @@ def profilers_stop_if_required(
             profile_artifact,
         ) in overall_artifacts_map.items():
             s3_link = None
-            if args.upload_results_s3:
+            if upload_results_s3:
                 logging.info(
                     "Uploading results to s3. s3 bucket name: {}. s3 bucket path: {}".format(
                         s3_bucket_name, s3_bucket_path
@@ -152,6 +152,8 @@ def profilers_start_if_required(
     setup_name,
     start_time_str,
     test_name,
+    profiler_frequency=99,
+    profiler_call_graph_mode="fp",
 ):
     profilers_map = {}
     profiler_name = None
@@ -197,7 +199,8 @@ def profilers_start_if_required(
                 profiler_obj.start_profile(
                     redis_process_pid,
                     profile_filename,
-                    PROFILE_FREQ,
+                    profiler_frequency,
+                    profiler_call_graph_mode,
                 )
     return profiler_name, profilers_map
 
