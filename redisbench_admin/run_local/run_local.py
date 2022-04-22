@@ -13,9 +13,11 @@ import traceback
 import redis
 
 import redisbench_admin.run.metrics
+from redisbench_admin.profilers.perf import PERF_CALLGRAPH_MODE
 from redisbench_admin.profilers.profilers_schema import (
     local_profilers_print_artifacts_table,
 )
+from redisbench_admin.run.args import PROFILE_FREQ
 from redisbench_admin.run.common import (
     prepare_benchmark_parameters,
     get_start_time_vars,
@@ -279,6 +281,8 @@ def run_local_command_logic(args, project_name, project_version):
                                     setup_name,
                                     start_time_str,
                                     test_name,
+                                    PROFILE_FREQ,
+                                    PERF_CALLGRAPH_MODE,
                                 )
 
                                 # run the benchmark
@@ -329,7 +333,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     _,
                                     overall_tabular_data_map,
                                 ) = profilers_stop_if_required(
-                                    args,
+                                    args.upload_results_s3,
                                     benchmark_duration_seconds,
                                     collection_summary_str,
                                     dso,
