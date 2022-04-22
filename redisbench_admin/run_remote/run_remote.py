@@ -641,7 +641,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                         else:
                                             https_link = (
                                                 generate_artifacts_table_grafana_redis(
-                                                    args,
+                                                    args.push_results_redistimeseries,
                                                     grafana_profile_dashboard,
                                                     profile_artifacts,
                                                     rts,

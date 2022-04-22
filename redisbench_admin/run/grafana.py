@@ -16,10 +16,10 @@ EXPIRE_TIME_MSECS_PROFILE_KEYS = EXPIRE_TIME_SECS_PROFILE_KEYS * 1000
 
 
 def generate_artifacts_table_grafana_redis(
-    args,
+    push_results_redistimeseries,
     grafana_profile_dashboard,
     profile_artifacts,
-    rts,
+    redis_conn,
     setup_name,
     start_time_ms,
     start_time_str,
@@ -103,30 +103,30 @@ def generate_artifacts_table_grafana_redis(
         test_name,
         profile_id,
     )
-    if args.push_results_redistimeseries:
+    if push_results_redistimeseries:
         current_time = time.time() * 1000
         timeframe_by_branch = current_time - EXPIRE_TIME_MSECS_PROFILE_KEYS
-        rts.zadd(
+        redis_conn.zadd(
             zset_profiles_setups_testcases_branches,
             {tf_github_branch: start_time_ms},
         )
-        rts.zadd(
+        redis_conn.zadd(
             zset_profiles_setups_testcases_branches_latest_link,
             {https_link: start_time_ms},
         )
-        rts.zadd(
+        redis_conn.zadd(
             zset_profiles_setup,
             {setup_name: start_time_ms},
         )
-        rts.zadd(
+        redis_conn.zadd(
             zset_profiles_setups_testcases,
             {test_name: start_time_ms},
         )
-        rts.zadd(
+        redis_conn.zadd(
             zset_profiles_setups_testcases_profileid,
             {profile_id: start_time_ms},
         )
-        rts.zadd(
+        redis_conn.zadd(
             zset_profiles,
             {profile_id: start_time_ms},
         )
@@ -138,11 +138,11 @@ def generate_artifacts_table_grafana_redis(
             zset_profiles_setups_testcases_branches_latest_link,
         ]
         for keyname in sorted_set_keys:
-            rts.zremrangebyscore(keyname, 0, int(timeframe_by_branch))
+            redis_conn.zremrangebyscore(keyname, 0, int(timeframe_by_branch))
 
-        rts.sadd(profile_set_redis_key, test_name)
-        rts.expire(profile_set_redis_key, EXPIRE_TIME_SECS_PROFILE_KEYS)
-        rts.setex(
+        redis_conn.sadd(profile_set_redis_key, test_name)
+        redis_conn.expire(profile_set_redis_key, EXPIRE_TIME_SECS_PROFILE_KEYS)
+        redis_conn.setex(
             profile_string_testcase_markdown_key,
             EXPIRE_TIME_SECS_PROFILE_KEYS,
             profile_markdown_str,

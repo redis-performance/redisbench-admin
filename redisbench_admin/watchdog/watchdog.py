@@ -177,7 +177,9 @@ def watchdog_command_logic(args, project_name, project_version):
             )
         except redis.exceptions.ConnectionError as e:
             logging.error(
-                "Detected an error while writing data to rts: {}".format(e.__str__())
+                "Detected an error while writing data to redis_conn: {}".format(
+                    e.__str__()
+                )
             )
         sleep_time_secs = float(update_interval) - (
             (datetime.datetime.now() - starttime).total_seconds()
