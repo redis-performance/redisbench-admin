@@ -28,6 +28,8 @@ S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "ci.benchmarks.redislabs")
 PUSH_S3 = bool(os.getenv("PUSH_S3", False))
 FAIL_FAST = bool(int(os.getenv("FAIL_FAST", 0)))
 PROFILERS_DSO = os.getenv("PROFILERS_DSO", None)
+GIT_ORG = os.getenv("GIT_ORG", None)
+GIT_REPO = os.getenv("GIT_REPO", None)
 PROFILERS_ENABLED = bool(int(os.getenv("PROFILE", 0)))
 PROFILERS = os.getenv("PROFILERS", PROFILERS_DEFAULT)
 MAX_PROFILERS_PER_TYPE = int(os.getenv("MAX_PROFILERS", 1))
@@ -86,8 +88,8 @@ def common_run_args(parser):
         help="specify the defaults file containing spec topologies, common metric extractions,etc...",
     )
     parser.add_argument("--github_actor", type=str, default=None, nargs="?", const="")
-    parser.add_argument("--github_repo", type=str, default=None)
-    parser.add_argument("--github_org", type=str, default=None)
+    parser.add_argument("--github_repo", type=str, default=GIT_REPO)
+    parser.add_argument("--github_org", type=str, default=GIT_ORG)
     parser.add_argument("--github_sha", type=str, default=None, nargs="?", const="")
     parser.add_argument(
         "--required-module",
