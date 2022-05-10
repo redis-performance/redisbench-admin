@@ -14,6 +14,8 @@ import toml
 from redisbench_admin import __version__
 from redisbench_admin.compare.args import create_compare_arguments
 from redisbench_admin.compare.compare import compare_command_logic
+from redisbench_admin.deploy.args import create_deploy_arguments
+from redisbench_admin.deploy.deploy import deploy_command_logic
 from redisbench_admin.export.args import create_export_arguments
 from redisbench_admin.export.export import export_command_logic
 from redisbench_admin.extract.args import create_extract_arguments
@@ -91,7 +93,8 @@ def main():
         parser = create_grafana_api_arguments(parser)
     elif requested_tool == "--version":
         print_version(project_name, project_version)
-        sys.exit(0)
+    elif requested_tool == "deploy":
+        parser = create_deploy_arguments(parser)
     elif requested_tool == "--help":
         print_help(project_name, project_version)
         sys.exit(0)
@@ -100,6 +103,7 @@ def main():
             "compare",
             "run-local",
             "run-remote",
+            "deploy",
             "export",
             "extract",
             "watchdog",
@@ -150,6 +154,8 @@ def main():
         watchdog_command_logic(args, project_name, project_version)
     if requested_tool == "compare":
         compare_command_logic(args, project_name, project_version)
+    if requested_tool == "deploy":
+        deploy_command_logic(args, project_name, project_version)
     if requested_tool == "grafana-api":
         grafana_api_command_logic(args, project_name, project_version)
 

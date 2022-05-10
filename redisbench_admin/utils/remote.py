@@ -504,6 +504,39 @@ def fetch_remote_id_from_config(
     return setup
 
 
+def fetch_remote_setup_git_url(git_url, temporary_dir=None, destroy=False):
+    setup_type = None
+    setup = None
+    branch = "master"
+    path = "/"
+
+    tree_pos = git_url.find("tree")
+    if tree_pos > 0:
+        repo = git_url[: tree_pos - 1]
+        remaining = git_url[tree_pos + 5 :].split("/")
+        if len(remaining) > 0:
+            branch = remaining[0]
+        if len(remaining) > 1:
+            path = path + "/".join(remaining[1:])
+
+    terraform_working_dir = common_tf(branch, path, repo, temporary_dir, destroy)
+    return terraform_working_dir, setup_type, setup
+
+
+def common_tf(branch, path, repo, temporary_dir=None, destroy=False):
+    if temporary_dir is None:
+        temporary_dir = tempfile.mkdtemp()
+    if destroy is False:
+        logging.info(
+            "Fetching infrastructure definition from git repo {}/{} (branch={}). Using local dir {} to store state".format(
+                repo, path, branch, temporary_dir
+            )
+        )
+        git.Repo.clone_from(repo, temporary_dir, branch=branch, depth=1)
+    terraform_working_dir = temporary_dir + path
+    return terraform_working_dir
+
+
 def fetch_remote_setup_from_config(
     remote_setup_config,
     repo="https://github.com/RedisLabsModules/testing-infrastructure.git",
@@ -518,14 +551,7 @@ def fetch_remote_setup_from_config(
             setup = remote_setup_property["setup"]
     # fetch terraform folder
     path = "/terraform/{}-{}".format(setup_type, setup)
-    temporary_dir = tempfile.mkdtemp()
-    logging.info(
-        "Fetching infrastructure definition from git repo {}/{} (branch={})".format(
-            repo, path, branch
-        )
-    )
-    git.Repo.clone_from(repo, temporary_dir, branch=branch, depth=1)
-    terraform_working_dir = temporary_dir + path
+    terraform_working_dir = common_tf(branch, path, repo)
     return terraform_working_dir, setup_type, setup
 
 

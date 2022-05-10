@@ -87,10 +87,7 @@ def common_run_args(parser):
         default="defaults.yml",
         help="specify the defaults file containing spec topologies, common metric extractions,etc...",
     )
-    parser.add_argument("--github_actor", type=str, default=None, nargs="?", const="")
-    parser.add_argument("--github_repo", type=str, default=GIT_REPO)
-    parser.add_argument("--github_org", type=str, default=GIT_ORG)
-    parser.add_argument("--github_sha", type=str, default=None, nargs="?", const="")
+
     parser.add_argument(
         "--required-module",
         default=None,
@@ -98,6 +95,10 @@ def common_run_args(parser):
         help="path to the module file. "
         "You can use `--required-module` more than once",
     )
+    parser.add_argument("--github_actor", type=str, default=None, nargs="?", const="")
+    parser.add_argument("--github_repo", type=str, default=GIT_REPO)
+    parser.add_argument("--github_org", type=str, default=GIT_ORG)
+    parser.add_argument("--github_sha", type=str, default=None, nargs="?", const="")
     parser.add_argument("--github_branch", type=str, default=None, nargs="?", const="")
     parser.add_argument("--triggering_env", type=str, default=TRIGGERING_ENV)
     parser.add_argument(
