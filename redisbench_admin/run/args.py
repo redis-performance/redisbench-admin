@@ -87,7 +87,6 @@ def common_run_args(parser):
         default="defaults.yml",
         help="specify the defaults file containing spec topologies, common metric extractions,etc...",
     )
-
     parser.add_argument(
         "--required-module",
         default=None,
