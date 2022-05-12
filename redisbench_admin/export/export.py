@@ -12,6 +12,9 @@ import redis
 
 
 from redisbench_admin.export.common.common import split_tags_string
+from redisbench_admin.export.pyperf.pyperf_json_format import (
+    generate_summary_json_pyperf,
+)
 from redisbench_admin.run.git import git_vars_crosscheck
 
 from redisbench_admin.run.redistimeseries import timeseries_test_sucess_flow
@@ -47,10 +50,10 @@ def export_command_logic(args, project_name, project_version):
             "You need to specify at least one (or more) of --deployment-version --github_branch arguments"
         )
         exit(1)
-    if results_format != "csv":
+    if results_format != "csv" and results_format != "pyperf-json":
         if exporter_spec_file is None:
             logging.error(
-                "--exporter-spec-file is required for all formats with exception of csv"
+                "--exporter-spec-file is required for all formats with exception of csv and pyperf-json"
             )
             exit(1)
         else:
@@ -69,6 +72,10 @@ def export_command_logic(args, project_name, project_version):
     if results_format == "json":
         with open(benchmark_file, "r") as json_file:
             results_dict = json.load(json_file)
+    if results_format == "pyperf-json":
+        with open(benchmark_file, "r") as json_file:
+            start_dict = json.load(json_file)
+            results_dict = generate_summary_json_pyperf(start_dict)
     if args.override_test_time:
         datapoints_timestamp = int(args.override_test_time.timestamp() * 1000.0)
         logging.info(
@@ -90,7 +97,7 @@ def export_command_logic(args, project_name, project_version):
                 datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000.0
             )
             logging.warning(
-                "Error while trying to parse datapoints timestamp. Using current system timestamp Error: {}".format(
+                "Error while trying to parse datapoints timestamp. Using current system timestamp: {}".format(
                     datapoints_timestamp
                 )
             )
@@ -103,6 +110,20 @@ def export_command_logic(args, project_name, project_version):
         logging.info("Parsing CSV format from {}".format(benchmark_file))
         timeseries_dict = export_opereto_csv_to_timeseries_dict(
             benchmark_file,
+            break_by_dict,
+            datapoints_timestamp,
+            deployment_name,
+            deployment_type,
+            extra_tags_dict,
+            github_org,
+            github_repo,
+            triggering_env,
+        )
+        logging.info("Parsed a total of {} metrics".format(len(timeseries_dict.keys())))
+    if results_format == "pyperf-json":
+        logging.info("Parsing pyperf format into timeseries format")
+        timeseries_dict = export_pyperf_json_to_timeseries_dict(
+            results_dict,
             break_by_dict,
             datapoints_timestamp,
             deployment_name,
@@ -158,6 +179,48 @@ def export_command_logic(args, project_name, project_version):
         None,
         timeseries_dict,
     )
+
+
+def export_pyperf_json_to_timeseries_dict(
+    benchmark_file,
+    break_by_dict,
+    datapoints_timestamp,
+    deployment_name,
+    deployment_type,
+    extra_tags_dict,
+    tf_github_org,
+    tf_github_repo,
+    triggering_env,
+):
+    results_dict = {}
+    for test_name, d in benchmark_file.items():
+        for metric_name, metric_value in d.items():
+            for break_by_key, break_by_value in break_by_dict.items():
+                break_by_str = "by.{}".format(break_by_key)
+                timeserie_tags, ts_name = get_ts_tags_and_name(
+                    break_by_key,
+                    break_by_str,
+                    break_by_value,
+                    None,
+                    deployment_name,
+                    deployment_type,
+                    extra_tags_dict,
+                    metric_name,
+                    metric_name,
+                    metric_name,
+                    triggering_env,
+                    test_name,
+                    metric_name,
+                    tf_github_org,
+                    tf_github_repo,
+                    triggering_env,
+                    False,
+                )
+                results_dict[ts_name] = {
+                    "labels": timeserie_tags.copy(),
+                    "data": {datapoints_timestamp: metric_value},
+                }
+    return results_dict
 
 
 def export_opereto_csv_to_timeseries_dict(

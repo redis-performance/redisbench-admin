@@ -12,6 +12,7 @@ from redisbench_admin.run.ssh import ssh_pem_check
 from redisbench_admin.utils.remote import (
     fetch_remote_setup_git_url,
     setup_remote_environment,
+    check_ec2_env,
 )
 from python_terraform import Terraform
 
@@ -44,6 +45,13 @@ def deploy_command_logic(args, project_name, project_version):
 
     private_key = args.private_key
     ssh_pem_check(EC2_PRIVATE_PEM, private_key)
+
+    if args.skip_env_vars_verify is False:
+        env_check_status, failure_reason = check_ec2_env()
+        if env_check_status is False:
+            logging.critical("{}. Exiting right away!".format(failure_reason))
+            exit(1)
+
     inventory_git = args.inventory_git
     inventory_local_dir = args.inventory_local_dir
     destroy = args.destroy

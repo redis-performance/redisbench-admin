@@ -34,4 +34,10 @@ def create_deploy_arguments(parser):
     parser.add_argument(
         "--destroy", help="destroy the current env", action="store_true"
     )
+    parser.add_argument(
+        "--skip-env-vars-verify",
+        default=False,
+        action="store_true",
+        help="skip environment variables check",
+    )
     return parser

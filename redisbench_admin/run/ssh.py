@@ -68,6 +68,7 @@ def check_connection(ssh_conn):
 
 def ssh_pem_check(EC2_PRIVATE_PEM, private_key):
     if EC2_PRIVATE_PEM is not None and EC2_PRIVATE_PEM != "":
+        logging.info("Given env variable EC2_PRIVATE_PEM exists")
         with open(private_key, "w") as tmp_private_key_file:
             pem_str = check_and_fix_pem_str(EC2_PRIVATE_PEM)
             tmp_private_key_file.write(pem_str)
