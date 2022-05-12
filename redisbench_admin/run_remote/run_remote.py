@@ -158,6 +158,7 @@ def run_remote_command_logic(args, project_name, project_version):
                     tf_github_branch,
                     None,
                 )
+            logging.critical("{}. Exiting right away!".format(failure_reason))
             exit(1)
 
     module_check_status, error_message = redis_modules_check(local_module_files)

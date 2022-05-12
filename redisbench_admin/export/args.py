@@ -27,13 +27,13 @@ def create_export_arguments(parser):
     parser.add_argument(
         "--deployment-name",
         type=str,
-        required=True,
+        default="oss-standalone",
         help="Deployment name",
     )
     parser.add_argument(
         "--deployment-type",
         type=str,
-        required=True,
+        default="oss-standalone",
         help="Deployment Type",
     )
     parser.add_argument(
@@ -64,7 +64,7 @@ def create_export_arguments(parser):
         type=str,
         default="json",
         help="results format of the the benchmark results files to read "
-        "results from ( either csv, json, redis-benchmark-txt )",
+        "results from ( either pyperf-json, csv, json, redis-benchmark-txt )",
     )
     parser.add_argument(
         "--use-result",

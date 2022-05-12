@@ -97,10 +97,15 @@ def post_process_ycsb_results(stdout, start_time_ms, start_time_str):
     for row in csv_data[start_row:]:
         if len(row) >= 3:
             op_group = row[0].strip()[1:-1]
-            metric_name = row[1].strip()
-            metric_name = re.sub("[^0-9a-zA-Z]+", "_", metric_name)
+            metric_name = metric_safe_name(row)
             value = row[2].strip()
             if op_group not in results_dict["Tests"]:
                 results_dict["Tests"][op_group] = {}
             results_dict["Tests"][op_group][metric_name] = value
     return results_dict
+
+
+def metric_safe_name(row):
+    metric_name = row[1].strip()
+    metric_name = re.sub("[^0-9a-zA-Z]+", "_", metric_name)
+    return metric_name
