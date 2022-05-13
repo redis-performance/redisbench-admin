@@ -26,6 +26,7 @@ def remote_env_setup(
     tf_triggering_env,
     tf_timeout_secs=7200,
     tf_override_name=None,
+    tf_folder_path=None,
 ):
     server_plaintext_port = 6379
     db_ssh_port = args.db_ssh_port
@@ -69,6 +70,7 @@ def remote_env_setup(
             tf_triggering_env,
             tf_timeout_secs,
             tf_override_name,
+            tf_folder_path,
         )
     return (
         client_public_ip,

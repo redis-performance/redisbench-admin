@@ -42,7 +42,7 @@ from redisbench_admin.run.redistimeseries import (
 from redisbench_admin.run.run import define_benchmark_plan
 from redisbench_admin.run.s3 import get_test_s3_bucket_path
 from redisbench_admin.run.ssh import ssh_pem_check
-from redisbench_admin.run_remote.args import TF_OVERRIDE_NAME
+from redisbench_admin.run_remote.args import TF_OVERRIDE_NAME, TF_OVERRIDE_REMOTE
 from redisbench_admin.run_remote.consts import min_recommended_benchmark_duration
 from redisbench_admin.run_remote.notifications import generate_failure_notification
 from redisbench_admin.run_remote.remote_client import run_remote_client_tool
@@ -400,6 +400,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                     tf_triggering_env,
                                     tf_timeout_secs,
                                     TF_OVERRIDE_NAME,
+                                    TF_OVERRIDE_REMOTE,
                                 )
 
                                 # after we've created the env, even on error we should always teardown
