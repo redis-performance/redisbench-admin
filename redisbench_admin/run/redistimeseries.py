@@ -404,10 +404,16 @@ def update_secondary_result_keys(
             rts.sadd(project_compilers_setname, metadata_tags["compiler"])
         if tf_github_branch is not None and tf_github_branch != "":
             rts.sadd(project_branches_setname, tf_github_branch)
+            project_branches_zsetname = project_branches_setname + ":zset"
+            rts.zadd(project_branches_zsetname, {tf_github_branch: start_time_ms})
         if artifact_version is not None and artifact_version != "":
             rts.sadd(project_versions_setname, artifact_version)
+            project_versions_zsetname = project_versions_setname + ":zset"
+            rts.zadd(project_versions_zsetname, {artifact_version: start_time_ms})
         if running_platform is not None:
             rts.sadd(running_platforms_setname, running_platform)
+            running_platforms_szetname = running_platforms_setname + ":zset"
+            rts.zadd(running_platforms_szetname, {running_platform: start_time_ms})
         if build_variant_name is not None:
             rts.sadd(build_variant_setname, build_variant_name)
         if testcase_metric_context_paths is not None:
