@@ -541,16 +541,18 @@ def fetch_remote_setup_from_config(
     remote_setup_config,
     repo="https://github.com/RedisLabsModules/testing-infrastructure.git",
     branch="master",
+    path=None,
 ):
     setup_type = None
     setup = None
-    for remote_setup_property in remote_setup_config:
-        if "type" in remote_setup_property:
-            setup_type = remote_setup_property["type"]
-        if "setup" in remote_setup_property:
-            setup = remote_setup_property["setup"]
-    # fetch terraform folder
-    path = "/terraform/{}-{}".format(setup_type, setup)
+    if path is None:
+        for remote_setup_property in remote_setup_config:
+            if "type" in remote_setup_property:
+                setup_type = remote_setup_property["type"]
+            if "setup" in remote_setup_property:
+                setup = remote_setup_property["setup"]
+        # fetch terraform folder
+        path = "/terraform/{}-{}".format(setup_type, setup)
     terraform_working_dir = common_tf(branch, path, repo)
     return terraform_working_dir, setup_type, setup
 

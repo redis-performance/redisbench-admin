@@ -29,12 +29,14 @@ def terraform_spin_or_reuse_env(
     tf_triggering_env,
     tf_timeout_secs=7200,
     tf_override_name=None,
+    tf_folder_path=None,
 ):
-    (
-        remote_setup,
-        deployment_type,
-        remote_id,
-    ) = fetch_remote_setup_from_config(benchmark_config["remote"])
+    (remote_setup, deployment_type, remote_id,) = fetch_remote_setup_from_config(
+        benchmark_config["remote"],
+        "https://github.com/RedisLabsModules/testing-infrastructure.git",
+        "master",
+        tf_folder_path,
+    )
     logging.info(
         "Repetition {} of {}. Deploying test {} on AWS using {}".format(
             repetition, BENCHMARK_REPETITIONS, test_name, remote_setup
