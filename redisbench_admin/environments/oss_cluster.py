@@ -175,7 +175,7 @@ def generate_cluster_redis_server_args(
             "--cluster-config-file",
             "cluster-node-port-{}.config".format(port),
             "--save",
-            "''",
+            "",
             "--cluster-announce-ip",
             "{}".format(ip),
             "--port",

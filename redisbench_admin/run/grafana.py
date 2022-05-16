@@ -63,7 +63,7 @@ def generate_artifacts_table_grafana_redis(
     )
     profile_markdown_str = htmlwriter.dumps()
     profile_markdown_str = profile_markdown_str.replace("\n", "")
-    profile_id = "{}_{}_hash_{}".format(start_time_str, setup_name, tf_github_sha)
+    profile_id = get_profile_id_keyname(setup_name, start_time_str, tf_github_sha)
     profile_string_testcase_markdown_key = "profile:{}:{}".format(profile_id, test_name)
     (
         profile_set_redis_key,
@@ -132,7 +132,7 @@ def generate_artifacts_table_grafana_redis(
             zset_profiles_setups_testcases_profileid,
             {profile_id: start_time_ms},
         )
-        redis_conn.zadd(
+        res = redis_conn.zadd(
             zset_profiles,
             {profile_id: start_time_ms},
         )
@@ -158,6 +158,11 @@ def generate_artifacts_table_grafana_redis(
             )
         )
     return https_link
+
+
+def get_profile_id_keyname(setup_name, start_time_str, tf_github_sha):
+    profile_id = "{}_{}_hash_{}".format(start_time_str, setup_name, tf_github_sha)
+    return profile_id
 
 
 def get_profile_zset_names(

@@ -17,4 +17,4 @@ def test_fill_avg_stddev_pyperf():
     ) as json_file:
         results_dict = json.load(json_file)
         summary_json = generate_summary_json_pyperf(results_dict)
-        assert "BlockingConnectionPool_get_connaection()" in summary_json
+        assert "BlockingConnectionPool_get_connection" in summary_json

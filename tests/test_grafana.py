@@ -4,12 +4,14 @@
 #  All rights reserved.
 #
 import os
+import time
 
 import redis
 
 from redisbench_admin.run.grafana import (
     generate_artifacts_table_grafana_redis,
     get_profile_zset_names,
+    get_profile_id_keyname,
 )
 
 
@@ -29,7 +31,8 @@ def test_generate_artifacts_table_grafana_redis():
     test_name = (
         "memtier_benchmark-1Mkeys-load-stream-1-fields-with-100B-values-pipeline-10"
     )
-    start_time_ms = 1650018944037
+    current_time = time.time() * 1000
+    start_time_ms = current_time
     start_time_str = "2022-04-22-10-34-25"
     tf_github_org = "redis"
     tf_github_repo = "redis"
@@ -55,7 +58,7 @@ def test_generate_artifacts_table_grafana_redis():
         tf_github_sha,
         tf_github_branch,
     )
-    profile_id = "{}_{}_hash_{}".format(start_time_str, setup_name, tf_github_sha)
+    profile_id = get_profile_id_keyname(setup_name, start_time_str, tf_github_sha)
     (
         profile_set_redis_key,
         zset_profiles,
