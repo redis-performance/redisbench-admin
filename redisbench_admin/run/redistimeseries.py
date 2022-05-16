@@ -416,6 +416,8 @@ def update_secondary_result_keys(
             rts.zadd(running_platforms_szetname, {running_platform: start_time_ms})
         if build_variant_name is not None:
             rts.sadd(build_variant_setname, build_variant_name)
+            build_variant_zsetname = build_variant_setname + ":zset"
+            rts.zadd(build_variant_zsetname, {build_variant_name: start_time_ms})
         if testcase_metric_context_paths is not None:
             for metric_context_path in testcase_metric_context_paths:
                 if testcases_metric_context_path_setname != "":
