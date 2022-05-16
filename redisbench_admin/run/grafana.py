@@ -99,7 +99,7 @@ def generate_artifacts_table_grafana_redis(
             zset_profiles_setup,
             zset_profiles_setups_testcases_branches_latest_link,
         ]
-        logging.error(
+        logging.info(
             "Propulating the profile helper ZSETs: {}".format(" ".join(sorted_set_keys))
         )
         current_time = time.time() * 1000
