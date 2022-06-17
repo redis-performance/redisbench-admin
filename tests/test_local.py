@@ -48,13 +48,75 @@ from redisbench_admin.environments.oss_standalone import (
 
 def test_generate_standalone_redis_server_args():
     cmd = generate_standalone_redis_server_args("redis-server", ".", None, "9999")
-    assert cmd == ["redis-server", "--save", "", "--port", "9999", "--dir", "."]
+    logfile = "redis.log"
+
+    assert cmd == [
+        "redis-server",
+        "--appendonly",
+        "no",
+        "--logfile",
+        logfile,
+        "--daemonize",
+        "yes",
+        "--dbfilename",
+        "dump.rdb",
+        "--protected-mode",
+        "no",
+        "--bind",
+        "127.0.0.1",
+        "--save",
+        "",
+        "--port",
+        "9999",
+        "--dir",
+        ".",
+    ]
+
+    cmd = generate_standalone_redis_server_args(
+        "redis-server", ".", None, "9999", None, {}, "no", "yes", True
+    )
+    assert cmd == [
+        "redis-server",
+        "--appendonly",
+        "no",
+        "--logfile",
+        logfile,
+        "--daemonize",
+        "yes",
+        "--dbfilename",
+        "dump.rdb",
+        "--protected-mode",
+        "no",
+        "--bind",
+        "127.0.0.1",
+        "--save",
+        "",
+        "--port",
+        "9999",
+        "--dir",
+        ".",
+        "--enable-debug-command",
+        "no",
+    ]
+
     local_module_file = "m1.so"
     cmd = generate_standalone_redis_server_args(
         "redis-server", ".", local_module_file, "1010"
     )
     assert cmd == [
         "redis-server",
+        "--appendonly",
+        "no",
+        "--logfile",
+        logfile,
+        "--daemonize",
+        "yes",
+        "--dbfilename",
+        "dump.rdb",
+        "--protected-mode",
+        "no",
+        "--bind",
+        "127.0.0.1",
         "--save",
         "",
         "--port",
@@ -75,6 +137,18 @@ def test_generate_standalone_redis_server_args():
     )
     assert cmd == [
         "redis-server",
+        "--appendonly",
+        "no",
+        "--logfile",
+        logfile,
+        "--daemonize",
+        "yes",
+        "--dbfilename",
+        "dump.rdb",
+        "--protected-mode",
+        "no",
+        "--bind",
+        "127.0.0.1",
         "--save",
         "",
         "--port",
@@ -92,6 +166,18 @@ def test_generate_standalone_redis_server_args():
     )
     assert cmd == [
         "redis-server",
+        "--appendonly",
+        "no",
+        "--logfile",
+        logfile,
+        "--daemonize",
+        "yes",
+        "--dbfilename",
+        "dump.rdb",
+        "--protected-mode",
+        "no",
+        "--bind",
+        "127.0.0.1",
         "--save",
         "",
         "--port",

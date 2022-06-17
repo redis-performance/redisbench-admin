@@ -8,7 +8,11 @@ import subprocess
 
 import redis
 
-from redisbench_admin.utils.utils import wait_for_conn, redis_server_config_module_part
+from redisbench_admin.utils.utils import (
+    wait_for_conn,
+    redis_server_config_module_part,
+    generate_common_server_args,
+)
 
 
 def spin_up_local_redis(
@@ -20,6 +24,7 @@ def spin_up_local_redis(
     dbdir_folder=None,
     dataset_load_timeout_secs=120,
     modules_configuration_parameters_map={},
+    redis_7=True,
 ):
     command = generate_standalone_redis_server_args(
         binary,
@@ -28,6 +33,9 @@ def spin_up_local_redis(
         port,
         configuration_parameters,
         modules_configuration_parameters_map,
+        "yes",
+        "yes",
+        redis_7,
     )
 
     logging.info(
@@ -49,22 +57,25 @@ def generate_standalone_redis_server_args(
     port,
     configuration_parameters=None,
     modules_configuration_parameters_map={},
+    enable_debug_command="yes",
+    daemonize="yes",
+    enable_redis_7_config_directives=False,
 ):
-    if type(binary) == list:
-        command = binary
-    else:
-        command = [binary]
-    # start redis-server
-    command.extend(
-        [
-            "--save",
-            "",
-            "--port",
-            "{}".format(port),
-            "--dir",
-            dbdir,
-        ]
+    logfile = "redis.log"
+    dbfilename = "dump.rdb"
+    ip = "127.0.0.1"
+    command = generate_common_server_args(
+        binary,
+        daemonize,
+        dbdir,
+        dbfilename,
+        enable_debug_command,
+        ip,
+        logfile,
+        port,
+        enable_redis_7_config_directives,
     )
+
     if configuration_parameters is not None:
         for parameter, parameter_value in configuration_parameters.items():
             command.extend(
