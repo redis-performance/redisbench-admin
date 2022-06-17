@@ -89,6 +89,7 @@ def remote_db_spin(
     private_key,
     s3_bucket_name,
     s3_bucket_path,
+    redis_7=True,
 ):
     (
         _,
@@ -137,6 +138,7 @@ def remote_db_spin(
             db_ssh_port,
             modules_configuration_parameters_map,
             logname,
+            redis_7,
         )
         try:
             for p in range(cluster_start_port, cluster_start_port + shard_count):
@@ -185,6 +187,7 @@ def remote_db_spin(
                 redis_configuration_parameters,
                 db_ssh_port,
                 modules_configuration_parameters_map,
+                redis_7,
             )
             full_logfiles.append(full_logfile)
             local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(

@@ -50,6 +50,7 @@ def local_db_spin(
     # setup Redis
     # copy the rdb to DB machine
     temporary_dir = tempfile.mkdtemp()
+    redis_7 = args.redis_7
     logging.info(
         "Using local temporary dir to spin up Redis Instance. Path: {}".format(
             temporary_dir
@@ -89,6 +90,7 @@ def local_db_spin(
             redis_configuration_parameters,
             dataset_load_timeout_secs,
             modules_configuration_parameters_map,
+            redis_7,
         )
 
         status = setup_redis_cluster_from_conns(
@@ -116,6 +118,7 @@ def local_db_spin(
             dbdir_folder,
             dataset_load_timeout_secs,
             modules_configuration_parameters_map,
+            redis_7,
         )
 
         r = redis.Redis(port=args.port)

@@ -25,6 +25,7 @@ def spin_up_standalone_remote_redis(
     redis_configuration_parameters=None,
     port=22,
     modules_configuration_parameters_map={},
+    redis_7=True,
 ):
 
     full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
@@ -33,6 +34,7 @@ def spin_up_standalone_remote_redis(
         remote_module_files,
         temporary_dir,
         modules_configuration_parameters_map,
+        redis_7,
     )
 
     # start redis-server
@@ -105,10 +107,14 @@ def generate_remote_standalone_redis_cmd(
     remote_module_files,
     temporary_dir,
     modules_configuration_parameters_map,
+    enable_redis_7_config_directives=True,
+    enable_debug_command="yes",
 ):
-    initial_redis_cmd = "redis-server --save '' --logfile {} --dir {} --daemonize yes --protected-mode no --enable-debug-command yes ".format(
+    initial_redis_cmd = "redis-server --save '' --logfile {} --dir {} --daemonize yes --protected-mode no ".format(
         logfile, temporary_dir
     )
+    if enable_redis_7_config_directives:
+        initial_redis_cmd = +" --enable-debug-command {} ".format(enable_debug_command)
     full_logfile = "{}/{}".format(temporary_dir, logfile)
     if redis_configuration_parameters is not None:
         for (

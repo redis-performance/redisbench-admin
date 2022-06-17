@@ -5,6 +5,7 @@ import redis
 import yaml
 
 from redisbench_admin.profilers.pprof import process_pprof_text_to_tabular
+from redisbench_admin.run.args import REDIS_7
 from redisbench_admin.run_local.args import create_run_local_arguments
 from redisbench_admin.run_local.local_helpers import (
     check_benchmark_binaries_local_requirements,
@@ -135,6 +136,8 @@ def test_run_local_command_logic():
         args=[
             "--test",
             "./tests/test_data/redis-benchmark-vanilla.yml",
+            "--redis-7",
+            REDIS_7,
         ]
     )
     try:
@@ -157,6 +160,8 @@ def test_run_local_command_logic():
             "./tests/test_data/common-properties-v0.5.yml",
             "--allowed-envs",
             "oss-standalone",
+            "--redis-7",
+            REDIS_7,
         ]
     )
     try:
@@ -176,6 +181,8 @@ def test_run_local_command_logic():
             "./tests/test_data/redis-benchmark-vanilla.yml",
             "--allowed-tools",
             "ftsb_redisearch",
+            "--redis-7",
+            REDIS_7,
         ]
     )
     try:
@@ -205,6 +212,8 @@ def test_run_local_command_logic():
             "--redistimeseries_port",
             "{}".format(rts_port),
             "--push_results_redistimeseries",
+            "--redis-7",
+            REDIS_7,
         ]
     )
     try:

@@ -113,6 +113,7 @@ def spin_up_redis_cluster_remote_redis(
     ssh_port,
     modules_configuration_parameters_map,
     logname,
+    redis_7=True,
 ):
     logging.info("Generating the remote redis-server command arguments")
     redis_process_commands = []
@@ -131,6 +132,8 @@ def spin_up_redis_cluster_remote_redis(
             "yes",
             modules_configuration_parameters_map,
             logname_prefix,
+            "yes",
+            redis_7,
         )
         logging.error(
             "Remote primary shard {} command: {}".format(

@@ -55,6 +55,54 @@ def redis_server_config_module_part(
                 )
 
 
+def generate_common_server_args(
+    binary,
+    daemonize,
+    dbdir,
+    dbfilename,
+    enable_debug_command,
+    ip,
+    logfile,
+    port,
+    enable_redis_7_config_directives=False,
+):
+    if type(binary) == list:
+        command = binary
+    else:
+        command = [binary]
+    command.extend(
+        [
+            "--appendonly",
+            "no",
+            "--logfile",
+            logfile,
+            "--daemonize",
+            daemonize,
+            "--dbfilename",
+            dbfilename,
+            "--protected-mode",
+            "no",
+            "--bind",
+            "{}".format(ip),
+            "--save",
+            "",
+            "--port",
+            "{}".format(port),
+            "--dir",
+            dbdir,
+        ]
+    )
+    if enable_redis_7_config_directives:
+        command.extend(
+            [
+                "--enable-debug-command",
+                enable_debug_command,
+            ]
+        )
+
+    return command
+
+
 def upload_artifacts_to_s3(
     artifacts,
     s3_bucket_name,

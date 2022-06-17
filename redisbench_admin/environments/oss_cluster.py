@@ -9,7 +9,11 @@ from time import sleep
 
 import redis
 
-from redisbench_admin.utils.utils import wait_for_conn, redis_server_config_module_part
+from redisbench_admin.utils.utils import (
+    wait_for_conn,
+    redis_server_config_module_part,
+    generate_common_server_args,
+)
 
 
 def spin_up_local_redis_cluster(
@@ -22,6 +26,7 @@ def spin_up_local_redis_cluster(
     configuration_parameters=None,
     dataset_load_timeout_secs=60,
     modules_configuration_parameters_map={},
+    redis_7=True,
 ):
     redis_processes = []
     redis_conns = []
@@ -41,6 +46,9 @@ def spin_up_local_redis_cluster(
             configuration_parameters,
             "no",
             modules_configuration_parameters_map,
+            None,
+            "yes",
+            redis_7,
         )
 
         logging.info(
@@ -147,41 +155,25 @@ def generate_cluster_redis_server_args(
     daemonize="yes",
     modules_configuration_parameters_map={},
     logname_prefix=None,
+    enable_debug_command="yes",
+    enable_redis_7_config_directives=False,
 ):
     if logname_prefix is None:
         logname_prefix = ""
     logfile = "{}cluster-node-port-{}.log".format(logname_prefix, port)
-    if type(binary) == list:
-        command = binary
-    else:
-        command = [binary]
-    # start redis-server
+    dbfilename = get_cluster_dbfilename(port)
+
+    command = generate_common_server_args(
+        binary, daemonize, dbdir, dbfilename, enable_debug_command, ip, logfile, port
+    )
     command.extend(
         [
-            "--appendonly",
-            "no",
-            "--logfile",
-            logfile,
             "--cluster-enabled",
             "yes",
-            "--daemonize",
-            daemonize,
-            "--dbfilename",
-            get_cluster_dbfilename(port),
-            "--protected-mode",
-            "no",
-            "--bind",
-            "{}".format(ip),
             "--cluster-config-file",
             "cluster-node-port-{}.config".format(port),
-            "--save",
-            "",
             "--cluster-announce-ip",
             "{}".format(ip),
-            "--port",
-            "{}".format(port),
-            "--dir",
-            dbdir,
         ]
     )
     if configuration_parameters is not None:

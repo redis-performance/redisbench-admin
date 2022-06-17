@@ -70,10 +70,6 @@ def test_spin_up_standalone_remote_redis():
 def test_generate_remote_standalone_redis_cmd():
     modules_configuration_parameters_map = {"m1": {"CHUNK_SIZE_BYTES": 128}}
     full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
-        "log1",
-        None,
-        ["m1.so"],
-        ".",
-        modules_configuration_parameters_map,
+        "log1", None, ["m1.so"], ".", modules_configuration_parameters_map, False
     )
     assert initial_redis_cmd.endswith("m1.so CHUNK_SIZE_BYTES 128")

@@ -26,6 +26,7 @@ SETUP = os.getenv("SETUP", "")
 BENCHMARK_GLOB = os.getenv("BENCHMARK_GLOB", "*.yml")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "ci.benchmarks.redislabs")
 PUSH_S3 = bool(os.getenv("PUSH_S3", False))
+REDIS_7 = bool(os.getenv("REDIS_7", True))
 FAIL_FAST = bool(int(os.getenv("FAIL_FAST", 0)))
 PROFILERS_DSO = os.getenv("PROFILERS_DSO", None)
 GIT_ORG = os.getenv("GIT_ORG", None)
@@ -117,6 +118,13 @@ def common_run_args(parser):
         + "Full list of profilers: {}".format(ALLOWED_PROFILERS)
         + "Only available on x86 Linux platform and kernel version >= 4.9",
     )
+    parser.add_argument(
+        "--redis-7",
+        type=bool,
+        default=REDIS_7,
+        help="Include Redis 7 configuration directives.",
+    )
+
     parser.add_argument("--dso", type=str, required=False, default=PROFILERS_DSO)
     parser.add_argument(
         "--s3_bucket_name",
