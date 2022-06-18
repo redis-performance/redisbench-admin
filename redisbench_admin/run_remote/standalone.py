@@ -114,7 +114,8 @@ def generate_remote_standalone_redis_cmd(
         logfile, temporary_dir
     )
     if enable_redis_7_config_directives:
-        initial_redis_cmd = +" --enable-debug-command {} ".format(enable_debug_command)
+        extra_str = " --enable-debug-command {} ".format(enable_debug_command)
+        initial_redis_cmd = initial_redis_cmd + extra_str
     full_logfile = "{}/{}".format(temporary_dir, logfile)
     if redis_configuration_parameters is not None:
         for (
