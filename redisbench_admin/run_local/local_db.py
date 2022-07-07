@@ -125,15 +125,15 @@ def local_db_spin(
         r.ping()
         r.client_setname("redisbench-admin-stadalone")
         redis_conns.append(r)
-
-    for shardn, redis_process in enumerate(redis_processes):
-        logging.info(
-            "Checking if shard #{} process with pid={} is alive".format(
-                shardn + 1, redis_process.pid
+    if setup_type == "oss-cluster":
+        for shardn, redis_process in enumerate(redis_processes):
+            logging.info(
+                "Checking if shard #{} process with pid={} is alive".format(
+                    shardn + 1, redis_process.pid
+                )
             )
-        )
-        if is_process_alive(redis_process) is False:
-            raise Exception("Redis process is not alive. Failing test.")
+            if is_process_alive(redis_process) is False:
+                raise Exception("Redis process is not alive. Failing test.")
 
     if setup_type == "oss-cluster":
 

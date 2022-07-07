@@ -85,7 +85,7 @@ def generate_common_server_args(
             "--bind",
             "{}".format(ip),
             "--save",
-            "",
+            "''",
             "--port",
             "{}".format(port),
             "--dir",
