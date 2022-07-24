@@ -304,6 +304,9 @@ def remote_db_spin(
             False,
             client_ssh_port,
             private_key,
+            False,
+            [],
+            False,
         )
         logging.info(
             "Finished loading the data via client tool. Took {} seconds. Result={}".format(

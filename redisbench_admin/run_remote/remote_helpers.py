@@ -16,7 +16,7 @@ from redisbench_admin.run.redis_benchmark.redis_benchmark import (
     redisbenchmark_go_link,
 )
 from redisbench_admin.run.tsbs_run_queries_redistimeseries.tsbs_run_queries_redistimeseries import (
-    extract_tsbs_extra_links,
+    extract_remote_tool_extra_links,
 )
 from redisbench_admin.utils.benchmark_config import results_dict_kpi_check
 from redisbench_admin.utils.redisgraph_benchmark_go import (
@@ -107,9 +107,38 @@ def remote_tool_pre_bench_step(
             remote_input_file,
             client_ssh_port,
         )
+    if "go-ycsb" in benchmark_tool:
+        (
+            queries_file_link,
+            remote_tool_link,
+            tool_link,
+        ) = extract_remote_tool_extra_links(
+            benchmark_config,
+            benchmark_tool,
+            config_key,
+            os_str,
+            arch_str,
+            "redisearch",
+            "go-ycsb",
+        )
+        remote_input_file = "/tmp/input.data"
+        setup_remote_benchmark_tool_requirements_tsbs(
+            client_public_ip,
+            username,
+            private_key,
+            tool_link,
+            queries_file_link,
+            remote_tool_link,
+            remote_input_file,
+            client_ssh_port,
+        )
 
     if "tsbs_" in benchmark_tool:
-        (queries_file_link, remote_tool_link, tool_link,) = extract_tsbs_extra_links(
+        (
+            queries_file_link,
+            remote_tool_link,
+            tool_link,
+        ) = extract_remote_tool_extra_links(
             benchmark_config, benchmark_tool, config_key, os_str, arch_str
         )
         remote_input_file = "/tmp/input.data"

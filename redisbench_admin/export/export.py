@@ -12,6 +12,9 @@ import redis
 
 
 from redisbench_admin.export.common.common import split_tags_string
+from redisbench_admin.export.google_benchmark.google_benchmark_json_format import (
+    generate_summary_json_google_benchmark,
+)
 from redisbench_admin.export.pyperf.pyperf_json_format import (
     generate_summary_json_pyperf,
 )
@@ -50,10 +53,13 @@ def export_command_logic(args, project_name, project_version):
             "You need to specify at least one (or more) of --deployment-version --github_branch arguments"
         )
         exit(1)
-    if results_format != "csv" and results_format != "pyperf-json":
+    non_required_spec = ["csv", "pyperf-json", "google.benchmark"]
+    if results_format not in non_required_spec:
         if exporter_spec_file is None:
             logging.error(
-                "--exporter-spec-file is required for all formats with exception of csv and pyperf-json"
+                "--exporter-spec-file is required for all formats with exception of {}".format(
+                    ",".join(non_required_spec)
+                )
             )
             exit(1)
         else:
@@ -76,6 +82,22 @@ def export_command_logic(args, project_name, project_version):
         with open(benchmark_file, "r") as json_file:
             start_dict = json.load(json_file)
             results_dict = generate_summary_json_pyperf(start_dict)
+    if results_format == "google.benchmark":
+        with open(benchmark_file, "r") as json_file:
+            # override test names
+            print_warning = False
+            old_test_name = test_name
+            if test_name is None:
+                print_warning = True
+            start_dict = json.load(json_file)
+            results_dict, test_name = generate_summary_json_google_benchmark(start_dict)
+            if print_warning is True:
+                logging.warning(
+                    "You've specificied a test name {} but on google benchmark we override it based on the test names retrieved from out file {}".format(
+                        old_test_name, test_name
+                    )
+                )
+
     if args.override_test_time:
         datapoints_timestamp = int(args.override_test_time.timestamp() * 1000.0)
         logging.info(
@@ -120,9 +142,9 @@ def export_command_logic(args, project_name, project_version):
             triggering_env,
         )
         logging.info("Parsed a total of {} metrics".format(len(timeseries_dict.keys())))
-    if results_format == "pyperf-json":
-        logging.info("Parsing pyperf format into timeseries format")
-        timeseries_dict = export_pyperf_json_to_timeseries_dict(
+    if results_format == "pyperf-json" or results_format == "google.benchmark":
+        logging.info("Parsing {} format into timeseries format".format(results_format))
+        timeseries_dict = export_json_to_timeseries_dict(
             results_dict,
             break_by_dict,
             datapoints_timestamp,
@@ -181,7 +203,7 @@ def export_command_logic(args, project_name, project_version):
     )
 
 
-def export_pyperf_json_to_timeseries_dict(
+def export_json_to_timeseries_dict(
     benchmark_file,
     break_by_dict,
     datapoints_timestamp,
