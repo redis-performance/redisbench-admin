@@ -64,7 +64,7 @@ def create_export_arguments(parser):
         type=str,
         default="json",
         help="results format of the the benchmark results files to read "
-        "results from ( either pyperf-json, csv, json, redis-benchmark-txt )",
+        "results from ( either google.benchmark, pyperf-json, csv, json, redis-benchmark-txt )",
     )
     parser.add_argument(
         "--use-result",

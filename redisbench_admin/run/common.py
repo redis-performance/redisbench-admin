@@ -33,7 +33,10 @@ from redisbench_admin.run.redisgraph_benchmark_go.redisgraph_benchmark_go import
 from redisbench_admin.run.tsbs_run_queries_redistimeseries.tsbs_run_queries_redistimeseries import (
     prepare_tsbs_benchmark_command,
 )
-from redisbench_admin.run.ycsb.ycsb import prepare_ycsb_benchmark_command
+from redisbench_admin.run.ycsb.ycsb import (
+    prepare_ycsb_benchmark_command,
+    prepare_go_ycsb_benchmark_command,
+)
 from redisbench_admin.run_remote.remote_helpers import (
     extract_module_semver_from_info_modules_cmd,
 )
@@ -168,7 +171,7 @@ def prepare_benchmark_parameters_specif_tooling(
             remote_results_file,
             isremote,
         )
-    if "ycsb" in benchmark_tool:
+    if "ycsb" in benchmark_tool and "go-ycsb" not in benchmark_tool:
         if isremote is True:
             benchmark_tool = "/tmp/ycsb/bin/ycsb"
             current_workdir = "/tmp/ycsb"
@@ -179,6 +182,18 @@ def prepare_benchmark_parameters_specif_tooling(
             entry,
             current_workdir,
         )
+    if "go-ycsb" in benchmark_tool:
+        if isremote is True:
+            benchmark_tool = "/tmp/{}".format(benchmark_tool)
+        command_arr, command_str = prepare_go_ycsb_benchmark_command(
+            benchmark_tool,
+            server_private_ip,
+            server_plaintext_port,
+            entry,
+            current_workdir,
+            cluster_api_enabled,
+        )
+
     if "tsbs_" in benchmark_tool:
         input_data_file = None
         if isremote is True:
@@ -417,10 +432,25 @@ def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
                 is_array = True
             try:
                 logging.info("Sending init command: {}".format(cmd))
+                stdout = ""
                 if is_array:
-                    stdout = r.execute_command(*cmd)
+                    if "FT.CREATE" in cmd[0]:
+                        logging.info("Detected FT.CREATE to all nodes on OSS Cluster")
+                        try:
+                            stdout = r.execute_command(*cmd, target_nodes="all")
+                        except redis.exceptions.ResponseError:
+                            pass
+                    else:
+                        stdout = r.execute_command(*cmd)
                 else:
-                    stdout = r.execute_command(cmd)
+                    if "FT.CREATE" in cmd:
+                        logging.info("Detected FT.CREATE to all nodes on OSS Cluster")
+                        try:
+                            stdout = r.execute_command(cmd, target_nodes="all")
+                        except redis.exceptions.ResponseError:
+                            pass
+                    else:
+                        stdout = r.execute_command(cmd)
                 logging.info("Command reply: {}".format(stdout))
             except redis.connection.ConnectionError as e:
                 logging.error(

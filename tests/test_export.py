@@ -91,3 +91,37 @@ def test_export_opereto_csv_to_timeseries_dict():
     # 3 lines
     # 11 metrics
     assert len(results_dict.keys()) == 2 * 3 * 11
+
+
+def test_export_command_logic_google_benchmark():
+    rts_host = os.getenv("RTS_DATASINK_HOST", None)
+    rts_port = 16379
+    rts_pass = ""
+    if rts_host is None:
+        assert False
+    rts = redis.Redis(port=16379, host=rts_host)
+    rts.ping()
+    rts.flushall()
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_export_arguments(parser)
+    args = parser.parse_args(
+        args=[
+            "--results-format",
+            "google.benchmark",
+            "--benchmark-result-file",
+            "./tests/test_data/results/google.benchmark.json",
+            "--redistimeseries_host",
+            rts_host,
+            "--redistimeseries_port",
+            "{}".format(rts_port),
+            "--redistimeseries_pass",
+            "{}".format(rts_pass),
+        ]
+    )
+    try:
+        export_command_logic(args, "tool", "v0")
+    except SystemExit as e:
+        assert e.code == 0

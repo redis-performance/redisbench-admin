@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "redisbench-admin"
-version = "0.9.9"
+version = "0.9.12"
 description = "Redis benchmark run helper. A wrapper around Redis and Redis Modules benchmark tools ( ftsb_redisearch, memtier_benchmark, redis-benchmark, aibench, etc... )."
 authors = ["filipecosta90 <filipecosta.90@gmail.com>","Redis Performance Group <performance@redis.com>"]
 readme = "README.md"
@@ -10,7 +10,7 @@ redisbench-admin = "redisbench_admin.cli:main"
 perf-daemon = "redisbench_admin.profilers.daemon:main"
 
 [tool.poetry.dependencies]
-python = "^3.6.1"
+python = "^3.6.9"
 humanize = "^2.4.0"
 requests = "^2.23.0"
 py_cpuinfo = "^5.0.0"
@@ -22,7 +22,7 @@ jsonpath_ng = "^1.5.2"
 pysftp = "^0.2.9"
 python_terraform = "^0.10.1"
 GitPython = "^3.1.12"
-PyYAML = "^5.4"
+PyYAML = "^6.0"
 wget = "^3.2"
 pytablewriter = {extras = ["html"], version = "^0.64.1"}
 sshtunnel = "^0.4.0"

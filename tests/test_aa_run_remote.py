@@ -9,7 +9,7 @@ from redisbench_admin.run_remote.remote_helpers import (
 )
 from redisbench_admin.run.s3 import get_test_s3_bucket_path
 from redisbench_admin.run.tsbs_run_queries_redistimeseries.tsbs_run_queries_redistimeseries import (
-    extract_tsbs_extra_links,
+    extract_remote_tool_extra_links,
 )
 from redisbench_admin.run.common import merge_default_and_config_metrics
 from redisbench_admin.run_remote.run_remote import run_remote_command_logic
@@ -162,7 +162,11 @@ def test_extract_tsbs_extra_links():
         "./tests/test_data/tsbs-devops-ingestion-scale100-4days-keyspace.yml", "r"
     ) as yml_file:
         benchmark_config = yaml.safe_load(yml_file)
-        queries_file_link, remote_tool_link, tool_link = extract_tsbs_extra_links(
+        (
+            queries_file_link,
+            remote_tool_link,
+            tool_link,
+        ) = extract_remote_tool_extra_links(
             benchmark_config, "tsbs_load_redistimeseries"
         )
         assert (

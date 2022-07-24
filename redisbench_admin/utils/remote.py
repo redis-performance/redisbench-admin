@@ -17,6 +17,7 @@ import redis
 from git import Repo
 from jsonpath_ng import parse
 from python_terraform import Terraform
+from tqdm import tqdm
 
 from redisbench_admin.environments.oss_cluster import get_cluster_dbfilename
 from redisbench_admin.run.metrics import extract_results_table
@@ -561,6 +562,9 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict, expire_msecs=0):
     datapoint_errors = 0
     datapoint_inserts = 0
     if rts is not None and time_series_dict is not None:
+        progress = tqdm(
+            unit="benchmark time-series", total=len(time_series_dict.values())
+        )
         for timeseries_name, time_series in time_series_dict.items():
             exporter_create_ts(rts, time_series, timeseries_name)
             for timestamp, value in time_series["data"].items():
@@ -598,6 +602,7 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict, expire_msecs=0):
                     pass
             if expire_msecs > 0:
                 rts.pexpire(timeseries_name, expire_msecs)
+            progress.update()
     return datapoint_errors, datapoint_inserts
 
 

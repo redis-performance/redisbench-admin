@@ -51,6 +51,7 @@ def run_remote_client_tool(
     private_key,
     collect_cpu_stats_thread=False,
     redis_conns=[],
+    do_post_process=True,
 ):
     (
         benchmark_min_tool_version,
@@ -187,7 +188,7 @@ def run_remote_client_tool(
         benchmark_end_time, benchmark_start_time, step_name, warn_min_duration
     )
     results_dict = None
-    if remote_run_result is True:
+    if remote_run_result is True and do_post_process is True:
         (
             artifact_version,
             local_bench_fname,
@@ -217,27 +218,30 @@ def run_remote_client_tool(
         logging.warning("Remote results file content: {}".format(stdout))
 
     final_local_output_artifacts = []
-    if len(remote_output_artifacts) > 0:
-        logging.info(
-            "Retrieving a total of {} remote client artifacts".format(
-                len(remote_output_artifacts)
+    if do_post_process is True:
+        if len(remote_output_artifacts) > 0:
+            logging.info(
+                "Retrieving a total of {} remote client artifacts".format(
+                    len(remote_output_artifacts)
+                )
             )
-        )
-    for client_artifact_n, client_remote_artifact in enumerate(remote_output_artifacts):
-        client_local_artifact = local_output_artifacts[client_artifact_n]
-        logging.info(
-            "Retrieving remote client artifact: {} into local file {}".format(
-                client_remote_artifact, client_local_artifact
+        for client_artifact_n, client_remote_artifact in enumerate(
+            remote_output_artifacts
+        ):
+            client_local_artifact = local_output_artifacts[client_artifact_n]
+            logging.info(
+                "Retrieving remote client artifact: {} into local file {}".format(
+                    client_remote_artifact, client_local_artifact
+                )
             )
-        )
-        fetch_file_from_remote_setup(
-            client_public_ip,
-            username,
-            private_key,
-            client_local_artifact,
-            client_remote_artifact,
-        )
-        final_local_output_artifacts.append(client_local_artifact)
+            fetch_file_from_remote_setup(
+                client_public_ip,
+                username,
+                private_key,
+                client_local_artifact,
+                client_remote_artifact,
+            )
+            final_local_output_artifacts.append(client_local_artifact)
 
     return (
         artifact_version,
@@ -348,7 +352,7 @@ def run_remote_benchmark(
 
         logging.info("Extracting the benchmark results")
         remote_run_result = True
-        if "ycsb" not in commands[0]:
+        if "ycsb" not in commands[0] or "go-ycsb" in commands[0]:
             if type(local_results_files) == str:
                 local_results_file = local_results_files
                 remote_results_file = remote_results_files

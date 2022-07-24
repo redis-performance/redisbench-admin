@@ -315,25 +315,65 @@ def timeseries_test_sucess_flow(
                 rts.hset(
                     branch_target_table_keyname, None, None, branch_target_table_dict
                 )
-
-        update_secondary_result_keys(
-            artifact_version,
-            benchmark_duration_seconds,
-            build_variant_name,
-            dataset_load_duration_seconds,
-            deployment_name,
-            deployment_type,
-            metadata_tags,
-            rts,
-            running_platform,
-            start_time_ms,
-            test_name,
-            testcase_metric_context_paths,
-            tf_github_branch,
-            tf_github_org,
-            tf_github_repo,
-            tf_triggering_env,
-        )
+        if test_name is not None:
+            if type(test_name) is str:
+                update_secondary_result_keys(
+                    artifact_version,
+                    benchmark_duration_seconds,
+                    build_variant_name,
+                    dataset_load_duration_seconds,
+                    deployment_name,
+                    deployment_type,
+                    metadata_tags,
+                    rts,
+                    running_platform,
+                    start_time_ms,
+                    test_name,
+                    testcase_metric_context_paths,
+                    tf_github_branch,
+                    tf_github_org,
+                    tf_github_repo,
+                    tf_triggering_env,
+                )
+            if type(test_name) is list:
+                for inner_test_name in test_name:
+                    update_secondary_result_keys(
+                        artifact_version,
+                        benchmark_duration_seconds,
+                        build_variant_name,
+                        dataset_load_duration_seconds,
+                        deployment_name,
+                        deployment_type,
+                        metadata_tags,
+                        rts,
+                        running_platform,
+                        start_time_ms,
+                        inner_test_name,
+                        testcase_metric_context_paths,
+                        tf_github_branch,
+                        tf_github_org,
+                        tf_github_repo,
+                        tf_triggering_env,
+                    )
+        else:
+            update_secondary_result_keys(
+                artifact_version,
+                benchmark_duration_seconds,
+                build_variant_name,
+                dataset_load_duration_seconds,
+                deployment_name,
+                deployment_type,
+                metadata_tags,
+                rts,
+                running_platform,
+                start_time_ms,
+                test_name,
+                testcase_metric_context_paths,
+                tf_github_branch,
+                tf_github_org,
+                tf_github_repo,
+                tf_triggering_env,
+            )
     return version_target_tables, branch_target_tables
 
 
