@@ -374,6 +374,12 @@ def run_remote_benchmark(
                         local_results_file,
                         remote_results_file,
                     )
+        else:
+            logging.info(
+                "Given the bellow commands list:\n\t{}\nwe've skipped result fetching".format(
+                    commands
+                )
+            )
     return remote_run_result, stdout, stderr
 
 
