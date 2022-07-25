@@ -386,8 +386,9 @@ def run_remote_benchmark(
 def is_ycsb_java(commands):
     res = False
     if len(commands) > 0:
-        if "ycsb" in commands[0]:
-            if "go-ycsb" not in commands[0]:
+        tool = commands[0].split(" ")[0]
+        if "ycsb" in tool:
+            if "go-ycsb" not in tool:
                 res = True
     return res
 

@@ -6,7 +6,10 @@
 import yaml
 
 from redisbench_admin.run.common import prepare_benchmark_parameters
-from redisbench_admin.run_remote.remote_client import ann_benchmark_remote_cmds
+from redisbench_admin.run_remote.remote_client import (
+    ann_benchmark_remote_cmds,
+    is_ycsb_java,
+)
 from redisbench_admin.utils.benchmark_config import extract_benchmark_tool_settings
 
 
@@ -68,3 +71,18 @@ def test_ann_benchmark_remote_cmds():
             pkg_path
         )
     )
+
+
+def test_is_ycsb_java():
+    commands = [
+        "memtier_benchmark -s 10.3.0.117 -p 6379 --hide-histogram --json-out-file /tmp/benchmark-result-search-wildcard-nosorting_2022-07-25-14-01-44.out --test-time 120 -c 32 -t 1 --hide-histogram --command 'FT.SEARCH ycsb * LIMIT 0 0'"
+    ]
+    assert is_ycsb_java(commands) == False
+    commands = [
+        "/tmp/go-ycsb -s 10.3.0.117 -p 6379 --hide-histogram --json-out-file /tmp/benchmark-result-search-wildcard-nosorting_2022-07-25-14-01-44.out --test-time 120 -c 32 -t 1 --hide-histogram --command 'FT.SEARCH ycsb * LIMIT 0 0'"
+    ]
+    assert is_ycsb_java(commands) == False
+    commands = [
+        "/tmp/abacac/java/etc/adad/a/a/ycsb -s 10.3.0.117 -p 6379 --hide-histogram --json-out-file /tmp/benchmark-result-search-wildcard-nosorting_2022-07-25-14-01-44.out --test-time 120 -c 32 -t 1 --hide-histogram --command 'FT.SEARCH ycsb * LIMIT 0 0'"
+    ]
+    assert is_ycsb_java(commands) == True
