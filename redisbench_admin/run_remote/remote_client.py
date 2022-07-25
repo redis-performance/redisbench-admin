@@ -352,7 +352,7 @@ def run_remote_benchmark(
 
         logging.info("Extracting the benchmark results")
         remote_run_result = True
-        if "ycsb" not in commands[0] or "go-ycsb" in commands[0]:
+        if is_ycsb_java(commands) is False:
             if type(local_results_files) == str:
                 local_results_file = local_results_files
                 remote_results_file = remote_results_files
@@ -374,7 +374,23 @@ def run_remote_benchmark(
                         local_results_file,
                         remote_results_file,
                     )
+        else:
+            logging.info(
+                "Given the bellow commands list:\n\t{}\nwe've skipped result fetching".format(
+                    commands
+                )
+            )
     return remote_run_result, stdout, stderr
+
+
+def is_ycsb_java(commands):
+    res = False
+    if len(commands) > 0:
+        tool = commands[0].split(" ")[0]
+        if "ycsb" in tool:
+            if "go-ycsb" not in tool:
+                res = True
+    return res
 
 
 def print_commands_outputs(commands, print_err, res):
