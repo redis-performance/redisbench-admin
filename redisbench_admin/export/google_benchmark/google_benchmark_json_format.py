@@ -5,6 +5,7 @@
 #
 import logging
 
+
 def metric_safe_name(row, replace_by="_"):
     import re
 
