@@ -156,6 +156,7 @@ def run_remote_client_tool(
         local_bench_fname,
         commands,
         client_ssh_port,
+        do_post_process,
     )
     benchmark_end_time = datetime.datetime.now()
     if cpu_stats_thread is not None:
@@ -328,6 +329,7 @@ def run_remote_benchmark(
     local_results_files,
     commands,
     ssh_port=22,
+    do_post_process=True,
 ):
     remote_run_result = False
     res = execute_remote_commands(
@@ -352,7 +354,7 @@ def run_remote_benchmark(
 
         logging.info("Extracting the benchmark results")
         remote_run_result = True
-        if is_ycsb_java(commands) is False:
+        if do_post_process is True and is_ycsb_java(commands) is False:
             if type(local_results_files) == str:
                 local_results_file = local_results_files
                 remote_results_file = remote_results_files
