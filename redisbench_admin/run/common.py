@@ -223,6 +223,7 @@ def prepare_benchmark_parameters_specif_tooling(
             entry,
             cluster_api_enabled,
             remote_results_file,
+            redis_password,
         )
     if "ann" in benchmark_tool:
         ann_path = ANN_MULTIRUN_PATH
