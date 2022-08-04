@@ -28,7 +28,7 @@ def remote_env_setup(
     tf_override_name=None,
     tf_folder_path=None,
 ):
-    server_plaintext_port = 6379
+    server_plaintext_port = args.db_port
     db_ssh_port = args.db_ssh_port
     client_ssh_port = args.client_ssh_port
     username = args.user

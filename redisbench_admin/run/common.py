@@ -76,6 +76,7 @@ def prepare_benchmark_parameters(
     username=None,
     private_key=None,
     client_ssh_port=None,
+    redis_password=None,
 ):
     command_arr = None
     command_str = None
@@ -98,6 +99,7 @@ def prepare_benchmark_parameters(
                     username,
                     private_key,
                     client_ssh_port,
+                    redis_password,
                 )
     # v0.4 spec
     elif type(benchmark_config[config_key]) == dict:
@@ -117,6 +119,7 @@ def prepare_benchmark_parameters(
             username,
             private_key,
             client_ssh_port,
+            redis_password,
         )
     printed_command_str = command_str
     printed_command_arr = command_arr
@@ -146,6 +149,7 @@ def prepare_benchmark_parameters_specif_tooling(
     username,
     private_key,
     client_ssh_port,
+    redis_password=None,
 ):
     if "redis-benchmark" in benchmark_tool:
         command_arr, command_str = prepare_redis_benchmark_command(
@@ -192,6 +196,7 @@ def prepare_benchmark_parameters_specif_tooling(
             entry,
             current_workdir,
             cluster_api_enabled,
+            redis_password,
         )
 
     if "tsbs_" in benchmark_tool:
@@ -252,6 +257,7 @@ def prepare_benchmark_parameters_specif_tooling(
             input_data_file,
             isremote,
             cluster_api_enabled,
+            redis_password,
         )
     if "aibench_" in benchmark_tool:
         input_data_file = None
@@ -520,68 +526,74 @@ def run_redis_pre_steps(benchmark_config, r, required_modules):
     # In case we have modules we use it's artifact version
     # otherwise we use redis version as artifact version
     version = "N/A"
-    if required_modules is not None and len(required_modules) > 0:
-        stdout = r.execute_command("info modules")
-        (
-            module_names,
-            artifact_versions,
-        ) = extract_module_semver_from_info_modules_cmd(stdout)
-        check_required_modules(module_names, required_modules)
-        # run initialization commands before benchmark starts
-        logging.info("Running initialization commands before benchmark starts.")
-        execute_init_commands_start_time = datetime.datetime.now()
-        execute_init_commands(benchmark_config, r)
-        execute_init_commands_duration_seconds = (
-            datetime.datetime.now() - execute_init_commands_start_time
-        ).seconds
-        logging.info(
-            "Running initialization commands took {} secs.".format(
-                execute_init_commands_duration_seconds
-            )
+    # run initialization commands before benchmark starts
+    logging.info("Running initialization commands before benchmark starts.")
+    execute_init_commands_start_time = datetime.datetime.now()
+    execute_init_commands(benchmark_config, r)
+    execute_init_commands_duration_seconds = (
+        datetime.datetime.now() - execute_init_commands_start_time
+    ).seconds
+    logging.info(
+        "Running initialization commands took {} secs.".format(
+            execute_init_commands_duration_seconds
         )
-        if "search" in module_names:
-            logging.info(
-                "Given redisearch was detected, checking for any index that is still indexing."
-            )
-            loading_indices = r.execute_command("ft._list")
-            logging.info("Detected {} indices.".format(len(loading_indices)))
-            while len(loading_indices) > 0:
-                logging.info(
-                    "There are still {} indices loading. {}".format(
-                        len(loading_indices), loading_indices
-                    )
-                )
-                for index_pos, fts_indexname in enumerate(loading_indices, start=0):
-                    if type(fts_indexname) == bytes:
-                        fts_indexname = fts_indexname.decode()
-                    ft_info = r.execute_command("ft.info {}".format(fts_indexname))
-                    is_indexing = None
-                    percent_indexed = "0.0"
-                    for arraypos, arrayval in enumerate(ft_info, start=0):
-                        if (
-                            arrayval == b"percent_indexed"
-                            or arrayval == "percent_indexed"
-                        ):
-                            percent_indexed = ft_info[arraypos + 1]
-                        if arrayval == b"indexing" or arrayval == "indexing":
-                            is_indexing = ft_info[arraypos + 1]
+    )
+    stdout = r.execute_command("info modules")
+    (
+        module_names,
+        artifact_versions,
+    ) = extract_module_semver_from_info_modules_cmd(stdout)
+    if "search" in module_names:
+        logging.info(
+            "Detected redisearch module. Ensuring all indices are indexed prior benchmark"
+        )
+        search_specific_init(r, module_names)
+    if required_modules is not None and len(required_modules) > 0:
 
-                    logging.info(
-                        "indexing={} ; percent_indexed={}.".format(
-                            is_indexing, percent_indexed
-                        )
-                    )
-                    if is_indexing == "0" or is_indexing == b"0" or is_indexing == 0:
-                        loading_indices.pop(index_pos)
-
-                time.sleep(5)
-            logging.info("Loaded all secondary indices.")
+        check_required_modules(module_names, required_modules)
 
         version = artifact_versions[0]
     else:
         version = r.info("server")["redis_version"]
 
     return version
+
+
+def search_specific_init(r, module_names):
+    if "search" in module_names:
+        logging.info(
+            "Given redisearch was detected, checking for any index that is still indexing."
+        )
+        loading_indices = r.execute_command("ft._list")
+        logging.info("Detected {} indices.".format(len(loading_indices)))
+        while len(loading_indices) > 0:
+            logging.info(
+                "There are still {} indices loading. {}".format(
+                    len(loading_indices), loading_indices
+                )
+            )
+            for index_pos, fts_indexname in enumerate(loading_indices, start=0):
+                if type(fts_indexname) == bytes:
+                    fts_indexname = fts_indexname.decode()
+                ft_info = r.execute_command("ft.info {}".format(fts_indexname))
+                is_indexing = None
+                percent_indexed = "0.0"
+                for arraypos, arrayval in enumerate(ft_info, start=0):
+                    if arrayval == b"percent_indexed" or arrayval == "percent_indexed":
+                        percent_indexed = ft_info[arraypos + 1]
+                    if arrayval == b"indexing" or arrayval == "indexing":
+                        is_indexing = ft_info[arraypos + 1]
+
+                logging.info(
+                    "indexing={} ; percent_indexed={}.".format(
+                        is_indexing, percent_indexed
+                    )
+                )
+                if is_indexing == "0" or is_indexing == b"0" or is_indexing == 0:
+                    loading_indices.pop(index_pos)
+
+            time.sleep(5)
+        logging.info("Loaded all secondary indices.")
 
 
 def dso_check(dso, local_module_file):

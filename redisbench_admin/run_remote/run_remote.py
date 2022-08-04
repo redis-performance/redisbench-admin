@@ -87,6 +87,15 @@ EXPIRE_TIME_SECS_PROFILE_KEYS = 60 * 60 * 24 * STALL_INFO_DAYS
 EXPIRE_TIME_MSECS_PROFILE_KEYS = EXPIRE_TIME_SECS_PROFILE_KEYS * 1000
 
 
+def is_important_data(tf_github_branch, artifact_version):
+    if artifact_version is not None or (
+        tf_github_branch == "master" or tf_github_branch == "main"
+    ):
+        return True
+    else:
+        return False
+
+
 def run_remote_command_logic(args, project_name, project_version):
     logging.info(
         "Using: {project_name} {project_version}".format(
@@ -100,6 +109,7 @@ def run_remote_command_logic(args, project_name, project_version):
     tf_github_sha = args.github_sha
     tf_github_branch = args.github_branch
     required_modules = args.required_module
+    collect_commandstats = args.collect_commandstats
 
     (
         tf_github_actor,
@@ -120,7 +130,11 @@ def run_remote_command_logic(args, project_name, project_version):
     grafana_profile_dashboard = args.grafana_profile_dashboard
     profilers_enabled = args.enable_profilers
     keep_env_and_topo = args.keep_env_and_topo
-
+    skip_remote_db_setup = args.skip_db_setup
+    flushall_on_every_test_start = args.flushall_on_every_test_start
+    redis_7 = args.redis_7
+    cluster_start_port = 20000
+    redis_password = args.db_pass
     if WH_TOKEN is not None:
         webhook_notifications_active = True
 
@@ -426,19 +440,20 @@ def run_remote_command_logic(args, project_name, project_version):
                                     )
                                     full_logfiles = []
                                     if setup_details["env"] is None:
-                                        # ensure /tmp folder is free of benchmark data from previous runs
-                                        remote_tmpdir_prune(
-                                            server_public_ip,
-                                            db_ssh_port,
-                                            temporary_dir,
-                                            username,
-                                            private_key,
-                                        )
-                                        logging.info(
-                                            "Starting setup named {} of topology type {}. Total primaries: {}".format(
-                                                setup_name, setup_type, shard_count
+                                        if skip_remote_db_setup is False:
+                                            # ensure /tmp folder is free of benchmark data from previous runs
+                                            remote_tmpdir_prune(
+                                                server_public_ip,
+                                                db_ssh_port,
+                                                temporary_dir,
+                                                username,
+                                                private_key,
                                             )
-                                        )
+                                            logging.info(
+                                                "Starting setup named {} of topology type {}. Total primaries: {}".format(
+                                                    setup_name, setup_type, shard_count
+                                                )
+                                            )
                                         (
                                             artifact_version,
                                             cluster_enabled,
@@ -478,8 +493,12 @@ def run_remote_command_logic(args, project_name, project_version):
                                             private_key,
                                             s3_bucket_name,
                                             s3_bucket_path,
+                                            redis_7,
+                                            skip_remote_db_setup,
+                                            cluster_start_port,
+                                            redis_password,
+                                            flushall_on_every_test_start,
                                         )
-
                                         if benchmark_type == "read-only":
                                             ro_benchmark_set(
                                                 artifact_version,
@@ -522,6 +541,21 @@ def run_remote_command_logic(args, project_name, project_version):
                                             private_key,
                                             db_ssh_port,
                                         )
+
+                                    for pos, redis_conn in enumerate(redis_conns):
+                                        logging.info(
+                                            "Resetting commmandstats for shard {}".format(
+                                                pos
+                                            )
+                                        )
+                                        try:
+                                            redis_conn.config_resetstat()
+                                        except redis.exceptions.ResponseError as e:
+                                            logging.warning(
+                                                "Catched an error while resetting status: {}".format(
+                                                    e.__str__()
+                                                )
+                                            )
 
                                     (
                                         start_time,
@@ -607,6 +641,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                         private_key,
                                         True,
                                         redis_conns,
+                                        True,
+                                        redis_password,
                                     )
 
                                     if profilers_enabled:
@@ -670,12 +706,14 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
                                             )
 
-                                    (
-                                        total_shards_cpu_usage,
-                                        cpu_usage_map,
-                                    ) = from_info_to_overall_shard_cpu(
-                                        redisbench_admin.run.metrics.BENCHMARK_CPU_STATS_GLOBAL
-                                    )
+                                    total_shards_cpu_usage = None
+                                    if skip_remote_db_setup is False:
+                                        (
+                                            total_shards_cpu_usage,
+                                            cpu_usage_map,
+                                        ) = from_info_to_overall_shard_cpu(
+                                            redisbench_admin.run.metrics.BENCHMARK_CPU_STATS_GLOBAL
+                                        )
                                     if total_shards_cpu_usage is None:
                                         total_shards_cpu_usage_str = "n/a"
                                     else:
@@ -708,9 +746,11 @@ def run_remote_command_logic(args, project_name, project_version):
                                         )
 
                                     else:
-                                        if args.push_results_redistimeseries and (
-                                            artifact_version is not None
-                                            or tf_github_branch == "master"
+                                        if (
+                                            args.push_results_redistimeseries
+                                            and is_important_data(
+                                                tf_github_branch, artifact_version
+                                            )
                                         ):
                                             (
                                                 end_time_ms,
@@ -746,7 +786,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 {"metric-type": "redis-metrics"},
                                                 expire_ms,
                                             )
-                                            if args.collect_commandstats:
+                                            if collect_commandstats:
                                                 (
                                                     end_time_ms,
                                                     _,
@@ -771,7 +811,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
 
                                         if setup_details["env"] is None:
-                                            if keep_env_and_topo is False:
+                                            if (
+                                                keep_env_and_topo is False
+                                                and skip_remote_db_setup is False
+                                            ):
                                                 shutdown_remote_redis(
                                                     redis_conns, ssh_tunnel
                                                 )

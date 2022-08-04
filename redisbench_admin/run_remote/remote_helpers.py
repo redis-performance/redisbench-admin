@@ -90,7 +90,7 @@ def remote_tool_pre_bench_step(
             queries_file_link,
             remote_tool_link,
             tool_link,
-        ) = extract_ftsb_extra_links(benchmark_config, benchmark_tool)
+        ) = extract_ftsb_extra_links(benchmark_config, benchmark_tool, config_key)
         logging.info(
             "FTSB Extracted:\nremote tool input: {}\nremote tool link: {}\ntool path: {}".format(
                 queries_file_link, remote_tool_link, tool_link

@@ -17,6 +17,7 @@ def prepare_ftsb_benchmark_command(
     remote_queries_file,
     is_remote: bool,
     cluster_api_enabled: bool = False,
+    redis_password=None,
 ):
     """
     Prepares prepare_ftsb_benchmark_command command parameters
@@ -32,6 +33,8 @@ def prepare_ftsb_benchmark_command(
     command_arr.extend(
         ["--host", "{}:{}".format(server_private_ip, server_plaintext_port)]
     )
+    if redis_password is not None:
+        command_arr.extend(["--a", redis_password])
     if cluster_api_enabled is True:
         command_arr.extend(["--cluster-mode"])
     if "parameters" in benchmark_config:
@@ -52,14 +55,16 @@ def prepare_ftsb_benchmark_command(
     return command_arr, command_str
 
 
-def extract_ftsb_extra_links(benchmark_config, benchmark_tool):
+def extract_ftsb_extra_links(
+    benchmark_config, benchmark_tool, config_key="clientconfig"
+):
     remote_tool_link = "/tmp/{}".format(benchmark_tool)
     tool_link = (
         "https://s3.amazonaws.com/benchmarks.redislabs/"
         + "redisearch/tools/ftsb/{}_linux_amd64".format(benchmark_tool)
     )
     queries_file_link = None
-    for entry in benchmark_config["clientconfig"]:
+    for entry in benchmark_config[config_key]:
         if "parameters" in entry:
             for parameter in entry["parameters"]:
                 if "input" in parameter:

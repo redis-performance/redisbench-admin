@@ -59,6 +59,13 @@ def remote_tmpdir_prune(
     )
 
 
+def is_single_endpoint(setup_type):
+    res = True
+    if setup_type == "oss-cluster":
+        res = False
+    return res
+
+
 def remote_db_spin(
     allowed_tools,
     benchmark_config,
@@ -90,6 +97,10 @@ def remote_db_spin(
     s3_bucket_name,
     s3_bucket_path,
     redis_7=True,
+    skip_redis_setup=False,
+    cluster_start_port=20000,
+    redis_password=None,
+    flushall_on_every_test_start=False,
 ):
     (
         _,
@@ -99,47 +110,48 @@ def remote_db_spin(
         modules_configuration_parameters_map,
     ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
 
-    cluster_start_port = 20000
     full_logfiles = []
     cluster_enabled = False
     if setup_type == "oss-cluster":
         cluster_enabled = True
-    cp_local_dbdir_to_remote(
-        dbdir_folder,
-        private_key,
-        server_public_ip,
-        temporary_dir,
-        username,
-    )
-    logging.info("Checking if there are modules we need to cp to remote host...")
-    remote_module_files = remote_module_files_cp(
-        local_module_files,
-        db_ssh_port,
-        private_key,
-        remote_module_file_dir,
-        server_public_ip,
-        username,
-    )
+    if skip_redis_setup is False:
+        cp_local_dbdir_to_remote(
+            dbdir_folder,
+            private_key,
+            server_public_ip,
+            temporary_dir,
+            username,
+        )
+        logging.info("Checking if there are modules we need to cp to remote host...")
+        remote_module_files = remote_module_files_cp(
+            local_module_files,
+            db_ssh_port,
+            private_key,
+            remote_module_file_dir,
+            server_public_ip,
+            username,
+        )
     # setup Redis
     redis_setup_result = True
     redis_conns = []
     topology_setup_start_time = datetime.datetime.now()
     if setup_type == "oss-cluster":
-        logfiles = spin_up_redis_cluster_remote_redis(
-            server_public_ip,
-            server_private_ip,
-            username,
-            private_key,
-            remote_module_files,
-            redis_configuration_parameters,
-            temporary_dir,
-            shard_count,
-            cluster_start_port,
-            db_ssh_port,
-            modules_configuration_parameters_map,
-            logname,
-            redis_7,
-        )
+        if skip_redis_setup is False:
+            logfiles = spin_up_redis_cluster_remote_redis(
+                server_public_ip,
+                server_private_ip,
+                username,
+                private_key,
+                remote_module_files,
+                redis_configuration_parameters,
+                temporary_dir,
+                shard_count,
+                cluster_start_port,
+                db_ssh_port,
+                modules_configuration_parameters_map,
+                logname,
+                redis_7,
+            )
         try:
             for p in range(cluster_start_port, cluster_start_port + shard_count):
                 local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
@@ -149,6 +161,7 @@ def remote_db_spin(
                     username,
                     db_ssh_port,
                     private_key,
+                    redis_password,
                 )
                 local_redis_conn.ping()
                 redis_conns.append(local_redis_conn)
@@ -174,22 +187,22 @@ def remote_db_spin(
                 username,
             )
 
-    if setup_type == "oss-standalone":
-
+    if is_single_endpoint(setup_type):
         try:
-            full_logfile = spin_up_standalone_remote_redis(
-                temporary_dir,
-                server_public_ip,
-                username,
-                private_key,
-                remote_module_files,
-                logname,
-                redis_configuration_parameters,
-                db_ssh_port,
-                modules_configuration_parameters_map,
-                redis_7,
-            )
-            full_logfiles.append(full_logfile)
+            if skip_redis_setup is False:
+                full_logfile = spin_up_standalone_remote_redis(
+                    temporary_dir,
+                    server_public_ip,
+                    username,
+                    private_key,
+                    remote_module_files,
+                    logname,
+                    redis_configuration_parameters,
+                    db_ssh_port,
+                    modules_configuration_parameters_map,
+                    redis_7,
+                )
+                full_logfiles.append(full_logfile)
             local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
                 server_plaintext_port,
                 server_private_ip,
@@ -197,6 +210,7 @@ def remote_db_spin(
                 username,
                 db_ssh_port,
                 private_key,
+                redis_password,
             )
             redis_conns.append(local_redis_conn)
         except redis.exceptions.ConnectionError as e:
@@ -215,7 +229,7 @@ def remote_db_spin(
                 username,
             )
 
-    if cluster_enabled:
+    if cluster_enabled and skip_redis_setup is False:
         setup_redis_cluster_from_conns(
             redis_conns,
             shard_count,
@@ -231,6 +245,12 @@ def remote_db_spin(
     logging.info(
         "Topology setup duration {} secs.".format(topology_setup_duration_seconds)
     )
+    if flushall_on_every_test_start:
+        logging.info(
+            "FLUSHING ALL given you've specified to do it on every write test start"
+        )
+        for redis_conn in redis_conns:
+            redis_conn.flushall()
     logging.info("Starting dataset loading...")
     dataset_load_start_time = datetime.datetime.now()
     # common steps to cluster and standalone
@@ -247,7 +267,7 @@ def remote_db_spin(
         cluster_start_port,
         db_ssh_port,
     )
-    if dataset is not None:
+    if dataset is not None and skip_redis_setup is False:
         # force debug reload nosave to replace the current database with the
         # contents of an existing RDB file
         debug_reload_rdb(dataset_load_timeout_secs, redis_conns)
@@ -307,6 +327,7 @@ def remote_db_spin(
             False,
             [],
             False,
+            redis_password,
         )
         logging.info(
             "Finished loading the data via client tool. Took {} seconds. Result={}".format(

@@ -30,8 +30,10 @@ REDIS_7 = bool(os.getenv("REDIS_7", True))
 FAIL_FAST = bool(int(os.getenv("FAIL_FAST", 0)))
 PROFILERS_DSO = os.getenv("PROFILERS_DSO", None)
 GIT_ORG = os.getenv("GIT_ORG", None)
+GIT_BRANCH = os.getenv("GIT_BRANCH", None)
 GIT_REPO = os.getenv("GIT_REPO", None)
 PROFILERS_ENABLED = bool(int(os.getenv("PROFILE", 0)))
+COMMANDSTATS_ENABLED = bool(int(os.getenv("COMMANDSTATS_ENABLED", 1)))
 PROFILERS = os.getenv("PROFILERS", PROFILERS_DEFAULT)
 MAX_PROFILERS_PER_TYPE = int(os.getenv("MAX_PROFILERS", 1))
 PROFILE_FREQ = os.getenv("PROFILE_FREQ", PROFILE_FREQ_DEFAULT)
@@ -99,7 +101,7 @@ def common_run_args(parser):
     parser.add_argument("--github_repo", type=str, default=GIT_REPO)
     parser.add_argument("--github_org", type=str, default=GIT_ORG)
     parser.add_argument("--github_sha", type=str, default=None, nargs="?", const="")
-    parser.add_argument("--github_branch", type=str, default=None, nargs="?", const="")
+    parser.add_argument("--github_branch", type=str, default=GIT_BRANCH)
     parser.add_argument("--triggering_env", type=str, default=TRIGGERING_ENV)
     parser.add_argument(
         "--module_path",
@@ -156,8 +158,8 @@ def common_run_args(parser):
     )
     parser.add_argument(
         "--collect_commandstats",
-        default=False,
-        action="store_true",
+        type=bool,
+        default=COMMANDSTATS_ENABLED,
         help="Enables commandstats collection.",
     )
     parser.add_argument(

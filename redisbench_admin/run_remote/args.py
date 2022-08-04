@@ -18,6 +18,12 @@ from redisbench_admin.utils.remote import TERRAFORM_BIN_PATH
 
 REMOTE_INVENTORY = os.getenv("INVENTORY", None)
 TF_OVERRIDE_NAME = os.getenv("TF_OVERRIDE_NAME", None)
+REMOTE_DB_PORT = int(os.getenv("REMOTE_DB_PORT", "6379"))
+REMOTE_DB_PASS = os.getenv("REMOTE_DB_PASS", None)
+REMOTE_PRIVATE_KEYNAME = os.getenv("REMOTE_PRIVATE_KEYNAME", DEFAULT_PRIVATE_KEY)
+REMOTE_SKIP_DB_SETUP = bool(int(os.getenv("REMOTE_SKIP_DB_SETUP", "0")))
+FLUSHALL_AT_START = bool(int(os.getenv("FLUSHALL_AT_START", "0")))
+FLUSHALL_AT_END = bool(int(os.getenv("FLUSHALL_AT_END", "0")))
 TF_OVERRIDE_REMOTE = os.getenv("TF_OVERRIDE_REMOTE", None)
 REMOTE_USER = os.getenv("REMOTE_USER", "ubuntu")
 
@@ -50,6 +56,26 @@ def create_run_remote_arguments(parser):
         type=int,
         help="connect using this ssh port.",
     )
+    parser.add_argument("--db_port", type=int, default=REMOTE_DB_PORT)
+    parser.add_argument("--db_pass", type=str, default=REMOTE_DB_PASS)
+    parser.add_argument(
+        "--skip-db-setup",
+        type=bool,
+        default=REMOTE_SKIP_DB_SETUP,
+        help="skip db setup/teardown steps. Usefull when you want to target an existing DB",
+    )
+    parser.add_argument(
+        "--flushall_on_every_test_start",
+        type=bool,
+        default=FLUSHALL_AT_START,
+        help="At the start of every test send a FLUSHALL",
+    )
+    parser.add_argument(
+        "--flushall_on_every_test_end",
+        type=bool,
+        default=FLUSHALL_AT_END,
+        help="At the end of every test send a FLUSHALL",
+    )
     parser.add_argument(
         "--client_ssh_port",
         required=False,
@@ -60,7 +86,7 @@ def create_run_remote_arguments(parser):
     parser.add_argument(
         "--private_key",
         required=False,
-        default=DEFAULT_PRIVATE_KEY,
+        default=REMOTE_PRIVATE_KEYNAME,
         type=str,
         help="Use this key for ssh connections.",
     )

@@ -84,6 +84,7 @@ def prepare_go_ycsb_benchmark_command(
     benchmark_config: object,
     current_workdir,
     oss_cluster_api_enabled=False,
+    redis_password=None,
 ):
     """
     Prepares ycsb command parameters
@@ -142,6 +143,8 @@ def prepare_go_ycsb_benchmark_command(
         command_arr.extend(
             ["-p", "redis.addr={}:{}".format(server_private_ip, server_plaintext_port)]
         )
+    if redis_password is not None:
+        command_arr.extend(["-p", "redis.password={}".format(redis_password)])
     if oss_cluster_api_enabled:
         command_arr.extend(["-p", "redis.mode=cluster"])
     for prop in override_workload_properties:
