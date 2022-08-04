@@ -18,12 +18,14 @@ def prepare_memtier_benchmark_command(
     benchmark_config: object,
     cluster_api_enabled: bool,
     result_file: str,
+    redis_pass=None,
 ):
     command_arr = [executable_path]
     command_arr.extend(["-s", "{}".format(server_private_ip)])
     command_arr.extend(["-p", "{}".format(server_plaintext_port)])
     command_arr.extend(["--hide-histogram"])
-
+    if redis_pass is not None:
+        command_arr.extend(["-a", "{}".format(redis_pass)])
     if cluster_api_enabled:
         command_arr.extend(["--cluster-mode"])
     if "parameters" in benchmark_config:
