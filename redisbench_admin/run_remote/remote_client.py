@@ -52,6 +52,7 @@ def run_remote_client_tool(
     collect_cpu_stats_thread=False,
     redis_conns=[],
     do_post_process=True,
+    redis_password=None,
 ):
     (
         benchmark_min_tool_version,
@@ -105,6 +106,7 @@ def run_remote_client_tool(
         username,
         private_key,
         client_ssh_port,
+        redis_password,
     )
     tmp = None
     if benchmark_tool == "redis-benchmark":
@@ -189,23 +191,24 @@ def run_remote_client_tool(
         benchmark_end_time, benchmark_start_time, step_name, warn_min_duration
     )
     results_dict = None
-    if remote_run_result is True and do_post_process is True:
-        (
-            artifact_version,
-            local_bench_fname,
-            results_dict,
-            return_code,
-        ) = post_process_remote_run(
-            artifact_version,
-            benchmark_config,
-            benchmark_tool,
-            local_bench_fname,
-            return_code,
-            start_time_ms,
-            start_time_str,
-            stdout,
-            tmp,
-        )
+    if remote_run_result is True:
+        if do_post_process is True:
+            (
+                artifact_version,
+                local_bench_fname,
+                results_dict,
+                return_code,
+            ) = post_process_remote_run(
+                artifact_version,
+                benchmark_config,
+                benchmark_tool,
+                local_bench_fname,
+                return_code,
+                start_time_ms,
+                start_time_str,
+                stdout,
+                tmp,
+            )
     else:
         logging.error(
             "Given the remote tool failed, inspecting the remote results file content ({})".format(

@@ -20,6 +20,7 @@ def ssh_tunnel_redisconn(
     username,
     ssh_port,
     private_key,
+    redis_pass=None,
 ):
     ssh_pkey = paramiko.RSAKey.from_private_key_file(private_key)
     logging.info("Checking we're able to connect to remote host")
@@ -43,7 +44,9 @@ def ssh_tunnel_redisconn(
         local_bind_address=("0.0.0.0", 0),  # enable local forwarding port
     )
     ssh_tunel.start()  # start tunnel
-    redis_conn = redis.Redis(host="localhost", port=ssh_tunel.local_bind_port)
+    redis_conn = redis.Redis(
+        host="localhost", port=ssh_tunel.local_bind_port, password=redis_pass
+    )
     redis_conn.ping()
     return redis_conn, ssh_tunel
 
@@ -67,16 +70,17 @@ def check_connection(ssh_conn):
 
 
 def ssh_pem_check(EC2_PRIVATE_PEM, private_key):
-    if EC2_PRIVATE_PEM is not None and EC2_PRIVATE_PEM != "":
-        logging.info("Given env variable EC2_PRIVATE_PEM exists")
-        with open(private_key, "w") as tmp_private_key_file:
-            pem_str = check_and_fix_pem_str(EC2_PRIVATE_PEM)
-            tmp_private_key_file.write(pem_str)
     if os.path.exists(private_key) is False:
-        logging.error(
-            "Specified private key path does not exist: {}".format(private_key)
-        )
-        exit(1)
+        if EC2_PRIVATE_PEM is not None and EC2_PRIVATE_PEM != "":
+            logging.info("Given env variable EC2_PRIVATE_PEM exists")
+            with open(private_key, "w") as tmp_private_key_file:
+                pem_str = check_and_fix_pem_str(EC2_PRIVATE_PEM)
+                tmp_private_key_file.write(pem_str)
+        if os.path.exists(private_key) is False:
+            logging.error(
+                "Specified private key path does not exist: {}".format(private_key)
+            )
+            exit(1)
     else:
         logging.info(
             "Confirmed that private key path artifact: '{}' exists!".format(private_key)
