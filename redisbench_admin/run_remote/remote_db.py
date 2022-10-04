@@ -101,6 +101,7 @@ def remote_db_spin(
     cluster_start_port=20000,
     redis_password=None,
     flushall_on_every_test_start=False,
+    ignore_keyspace_errors=False,
 ):
     (
         _,
@@ -363,6 +364,7 @@ def remote_db_spin(
     dbconfig_keyspacelen_check(
         benchmark_config,
         redis_conns,
+        ignore_keyspace_errors,
     )
     artifact_version = run_redis_pre_steps(
         benchmark_config, redis_conns[0], required_modules

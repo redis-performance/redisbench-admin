@@ -192,8 +192,27 @@ def compare_command_logic(args, project_name, project_version):
         baseline_timeseries = [x for x in baseline_timeseries if "target" not in x]
         progress.update()
         if args.verbose:
-            logging.info("Baseline timeseries {}".format(len(baseline_timeseries)))
-            logging.info("Comparison timeseries {}".format(len(comparison_timeseries)))
+            logging.info(
+                "Baseline timeseries for {}: {}. test={}".format(
+                    baseline_str, len(baseline_timeseries), test_name
+                )
+            )
+            logging.info(
+                "Comparison timeseries for {}: {}. test={}".format(
+                    comparison_str, len(comparison_timeseries), test_name
+                )
+            )
+        if len(baseline_timeseries) > 1:
+            logging.warning(
+                "\t\tTime-series: {}".format(", ".join(baseline_timeseries))
+            )
+            logging.info("Checking if Totals will reduce timeseries.")
+            new_base = []
+            for ts_name in baseline_timeseries:
+                if "Totals" in ts_name:
+                    new_base.append(ts_name)
+            baseline_timeseries = new_base
+
         if len(baseline_timeseries) != 1:
             if args.verbose:
                 logging.warning(
@@ -201,9 +220,25 @@ def compare_command_logic(args, project_name, project_version):
                         len(baseline_timeseries)
                     )
                 )
+                if len(baseline_timeseries) > 1:
+                    logging.warning(
+                        "\t\tTime-series: {}".format(", ".join(baseline_timeseries))
+                    )
+
             continue
         else:
             ts_name_baseline = baseline_timeseries[0]
+
+        if len(comparison_timeseries) > 1:
+            logging.warning(
+                "\t\tTime-series: {}".format(", ".join(comparison_timeseries))
+            )
+            logging.info("Checking if Totals will reduce timeseries.")
+            new_base = []
+            for ts_name in comparison_timeseries:
+                if "Totals" in ts_name:
+                    new_base.append(ts_name)
+            comparison_timeseries = new_base
         if len(comparison_timeseries) != 1:
             if args.verbose:
                 logging.warning(
@@ -236,39 +271,34 @@ def compare_command_logic(args, project_name, project_version):
             baseline_datapoints = rts.ts().revrange(
                 ts_name_baseline, from_ts_ms, to_ts_ms
             )
-            baseline_nsamples = len(baseline_datapoints)
-            if baseline_nsamples > 0:
-                _, baseline_v = baseline_datapoints[0]
-                for tuple in baseline_datapoints:
-                    if args.last_n < 0 or (
-                        args.last_n > 0 and len(baseline_values) < args.last_n
-                    ):
-                        baseline_values.append(tuple[1])
-                baseline_df = pd.DataFrame(baseline_values)
-                baseline_median = float(baseline_df.median())
-                baseline_v = baseline_median
-                baseline_std = float(baseline_df.std())
-                baseline_pct_change = (baseline_std / baseline_median) * 100.0
-                largest_variance = baseline_pct_change
+            (
+                baseline_pct_change,
+                baseline_v,
+                largest_variance,
+            ) = get_v_pct_change_and_largest_var(
+                args,
+                baseline_datapoints,
+                baseline_pct_change,
+                baseline_v,
+                baseline_values,
+                largest_variance,
+            )
 
             comparison_datapoints = rts.ts().revrange(
                 ts_name_comparison, from_ts_ms, to_ts_ms
             )
-            comparison_nsamples = len(comparison_datapoints)
-            if comparison_nsamples > 0:
-                _, comparison_v = comparison_datapoints[0]
-                for tuple in comparison_datapoints:
-                    if args.last_n < 0 or (
-                        args.last_n > 0 and len(comparison_values) < args.last_n
-                    ):
-                        comparison_values.append(tuple[1])
-                comparison_df = pd.DataFrame(comparison_values)
-                comparison_median = float(comparison_df.median())
-                comparison_v = comparison_median
-                comparison_std = float(comparison_df.std())
-                comparison_pct_change = (comparison_std / comparison_median) * 100.0
-                if comparison_pct_change > largest_variance:
-                    largest_variance = comparison_pct_change
+            (
+                comparison_pct_change,
+                comparison_v,
+                largest_variance,
+            ) = get_v_pct_change_and_largest_var(
+                args,
+                comparison_datapoints,
+                comparison_pct_change,
+                comparison_v,
+                comparison_values,
+                largest_variance,
+            )
 
             waterline = args.regressions_percent_lower_limit
             if args.regressions_percent_lower_limit < largest_variance:
@@ -276,6 +306,9 @@ def compare_command_logic(args, project_name, project_version):
                 waterline = largest_variance
 
         except redis.exceptions.ResponseError:
+            pass
+        except ZeroDivisionError as e:
+            logging.error("Detected a ZeroDivisionError. {}".format(e.__str__()))
             pass
         unstable = False
         if baseline_v != "N/A" and comparison_v != "N/A":
@@ -401,3 +434,38 @@ def compare_command_logic(args, project_name, project_version):
                 ",".join(["{}.yml".format(x) for x in detected_regressions])
             )
         )
+
+
+def get_v_pct_change_and_largest_var(
+    args,
+    comparison_datapoints,
+    comparison_pct_change,
+    comparison_v,
+    comparison_values,
+    largest_variance,
+):
+    comparison_nsamples = len(comparison_datapoints)
+    if comparison_nsamples > 0:
+        _, comparison_v = comparison_datapoints[0]
+        for tuple in comparison_datapoints:
+            if args.last_n < 0 or (
+                args.last_n > 0 and len(comparison_values) < args.last_n
+            ):
+                comparison_values.append(tuple[1])
+        comparison_df = pd.DataFrame(comparison_values)
+        comparison_median = float(comparison_df.median())
+        comparison_v = comparison_median
+        comparison_std = float(comparison_df.std())
+        if args.verbose:
+            logging.info(
+                "comparison_datapoints: {} value: {}; std-dev: {}; median: {}".format(
+                    comparison_datapoints,
+                    comparison_v,
+                    comparison_std,
+                    comparison_median,
+                )
+            )
+        comparison_pct_change = (comparison_std / comparison_median) * 100.0
+        if comparison_pct_change > largest_variance:
+            largest_variance = comparison_pct_change
+    return comparison_pct_change, comparison_v, largest_variance

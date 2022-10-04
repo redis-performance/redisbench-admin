@@ -68,9 +68,20 @@ def define_benchmark_plan(benchmark_definitions, default_specs):
                 benchmark_runs_plan[benchmark_type][dataset_name][setup_name][
                     "benchmarks"
                 ] = {}
-
-            benchmark_runs_plan[benchmark_type][dataset_name][setup_name]["benchmarks"][
+            if (
                 test_name
-            ] = benchmark_config
+                in benchmark_runs_plan[benchmark_type][dataset_name][setup_name][
+                    "benchmarks"
+                ]
+            ):
+                raise Exception(
+                    "Test named: {} was already present in benchmark definition".format(
+                        test_name
+                    )
+                )
+            else:
+                benchmark_runs_plan[benchmark_type][dataset_name][setup_name][
+                    "benchmarks"
+                ][test_name] = benchmark_config
 
     return benchmark_runs_plan

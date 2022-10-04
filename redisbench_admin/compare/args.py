@@ -47,6 +47,7 @@ def create_compare_arguments(parser):
     parser.add_argument("--baseline_deployment_name", type=str, default="")
     parser.add_argument("--comparison_deployment_name", type=str, default="")
     parser.add_argument("--metric_name", type=str, default="Tests.Overall.rps")
+    parser.add_argument("--extra-filter", type=str, default=None)
     parser.add_argument(
         "--last_n",
         type=int,
