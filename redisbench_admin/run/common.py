@@ -37,6 +37,7 @@ from redisbench_admin.run.ycsb.ycsb import (
     prepare_ycsb_benchmark_command,
     prepare_go_ycsb_benchmark_command,
 )
+from redisbench_admin.run_remote.args import OVERRIDE_MODULES
 from redisbench_admin.run_remote.remote_helpers import (
     extract_module_semver_from_info_modules_cmd,
 )
@@ -544,6 +545,8 @@ def run_redis_pre_steps(benchmark_config, r, required_modules):
         module_names,
         artifact_versions,
     ) = extract_module_semver_from_info_modules_cmd(stdout)
+    if OVERRIDE_MODULES is not None:
+        module_names = OVERRIDE_MODULES.split(",")
     if "search" in module_names:
         logging.info(
             "Detected redisearch module. Ensuring all indices are indexed prior benchmark"
@@ -619,7 +622,9 @@ def dso_check(dso, local_module_file):
     return dso
 
 
-def dbconfig_keyspacelen_check(benchmark_config, redis_conns):
+def dbconfig_keyspacelen_check(
+    benchmark_config, redis_conns, ignore_keyspace_errors=False
+):
     result = True
     (
         requires_keyspacelen_check,
@@ -650,11 +655,12 @@ def dbconfig_keyspacelen_check(benchmark_config, redis_conns):
                     keyspacelen, total_keys
                 )
             )
-            raise Exception(
-                "The total numbers of keys in setup does not match the expected spec: {}!={}. Aborting...".format(
-                    keyspacelen, total_keys
+            if ignore_keyspace_errors is False:
+                raise Exception(
+                    "The total numbers of keys in setup does not match the expected spec: {}!={}. Aborting...".format(
+                        keyspacelen, total_keys
+                    )
                 )
-            )
     return result
 
 

@@ -47,6 +47,7 @@ def create_compare_arguments(parser):
     parser.add_argument("--baseline_deployment_name", type=str, default="")
     parser.add_argument("--comparison_deployment_name", type=str, default="")
     parser.add_argument("--metric_name", type=str, default="Tests.Overall.rps")
+    parser.add_argument("--extra-filter", type=str, default=None)
     parser.add_argument(
         "--last_n",
         type=int,
@@ -76,6 +77,7 @@ def create_compare_arguments(parser):
     parser.add_argument("--comparison-tag", type=str, default=None, required=False)
     parser.add_argument("--print-regressions-only", type=bool, default=False)
     parser.add_argument("--verbose", type=bool, default=False)
+    parser.add_argument("--simple-table", type=bool, default=False)
     parser.add_argument("--use_metric_context_path", type=bool, default=False)
     parser.add_argument("--testname_regex", type=str, default=".*", required=False)
     parser.add_argument(

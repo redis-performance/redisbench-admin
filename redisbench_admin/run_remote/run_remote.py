@@ -135,6 +135,7 @@ def run_remote_command_logic(args, project_name, project_version):
     redis_7 = args.redis_7
     cluster_start_port = 20000
     redis_password = args.db_pass
+    ignore_keyspace_errors = args.ignore_keyspace_errors
     if WH_TOKEN is not None:
         webhook_notifications_active = True
 
@@ -498,6 +499,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             cluster_start_port,
                                             redis_password,
                                             flushall_on_every_test_start,
+                                            ignore_keyspace_errors,
                                         )
                                         if benchmark_type == "read-only":
                                             ro_benchmark_set(

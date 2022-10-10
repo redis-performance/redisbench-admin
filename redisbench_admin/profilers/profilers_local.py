@@ -10,7 +10,6 @@
 import logging
 import platform
 
-from cpuinfo import get_cpu_info
 
 from redisbench_admin.profilers.perf import Perf
 from redisbench_admin.profilers.vtune import Vtune
@@ -283,25 +282,32 @@ def get_profilers_map(profilers_list, total_involved_processes, max_profilers=1)
 def local_profilers_platform_checks(
     dso, github_actor, github_branch, github_repo_name, github_sha
 ):
+    collection_summary_str = ""
     logging.info("Using dso for perf analysis {}".format(dso))
-    local_platform_info = get_cpu_info()
-    cpu_brand = local_platform_info["brand"]
-    cpu_core_count = local_platform_info["count"]
-    platform_uname_release = platform.uname().release
-    platform_uname_system = platform.uname().system
-    platform_uname_node = platform.uname().node
-    span_x = 800
-    collection_summary_str = (
-        '<tspan x="{}" dy="1.2em">Collection platform: system=\'{}\''.format(
-            span_x, platform_uname_system
+    try:
+        from cpuinfo import get_cpu_info
+
+        local_platform_info = get_cpu_info()
+        cpu_brand = local_platform_info["brand"]
+        cpu_core_count = local_platform_info["count"]
+        platform_uname_release = platform.uname().release
+        platform_uname_system = platform.uname().system
+        platform_uname_node = platform.uname().node
+        span_x = 800
+        collection_summary_str = (
+            '<tspan x="{}" dy="1.2em">Collection platform: system=\'{}\''.format(
+                span_x, platform_uname_system
+            )
+            + " release='{}', node='{}', cpu='{}', core-count={}</tspan>".format(
+                platform_uname_release,
+                platform_uname_node,
+                cpu_brand,
+                cpu_core_count,
+            )
         )
-        + " release='{}', node='{}', cpu='{}', core-count={}</tspan>".format(
-            platform_uname_release,
-            platform_uname_node,
-            cpu_brand,
-            cpu_core_count,
-        )
-    )
+    except Exception as e:
+        logging.error("Unable to retrive platform info. Error: {}".format(e.__str__()))
+        pass
     collection_summary_str += (
         '<tspan x="{}" dy="1.2em">Collection trigger: github_actor=\'{}\' '.format(
             span_x, github_actor

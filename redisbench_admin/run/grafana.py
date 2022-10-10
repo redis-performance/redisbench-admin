@@ -8,6 +8,7 @@ import time
 
 import pytablewriter
 from pytablewriter import MarkdownTableWriter
+import urllib.request
 
 # 30 days expire
 STALL_INFO_DAYS = 30
@@ -34,19 +35,24 @@ def generate_artifacts_table_grafana_redis(
     headers = ["artifact_name", "s3_link"]
     profilers_final_matrix = []
     profilers_final_matrix_html = []
+    collapsed_stacks_all_threads_target_url = None
     for artifact in profile_artifacts:
+        artifact_name = artifact["artifact_name"]
+        artifact_link = artifact["s3_link"]
+        if "Identical stacks collapsed" in artifact_name:
+            collapsed_stacks_all_threads_target_url = artifact_link
         profilers_final_matrix.append(
             [
-                artifact["artifact_name"],
-                artifact["s3_link"],
+                artifact_name,
+                artifact_link,
             ]
         )
         profilers_final_matrix_html.append(
             [
                 artifact["artifact_name"],
                 ' <a href="{}">{}</a>'.format(
-                    artifact["s3_link"],
-                    artifact["s3_link"],
+                    artifact_link,
+                    artifact_link,
                 ),
             ]
         )
@@ -92,6 +98,48 @@ def generate_artifacts_table_grafana_redis(
         profile_id,
     )
     if push_results_redistimeseries is True:
+        current_time = time.time() * 1000
+        timeframe_by_branch = current_time - EXPIRE_TIME_MSECS_PROFILE_KEYS
+        if collapsed_stacks_all_threads_target_url is not None:
+            collapsed_stack_lines = list(
+                urllib.request.urlopen(collapsed_stacks_all_threads_target_url)
+            )
+            logging.info(
+                "Storing {} lines of collapsed profile data in redis".format(
+                    len(collapsed_stack_lines)
+                )
+            )
+            # ft.create profiling_data:all_threads:idx on hash prefix 1 profiling_data:all_threads:* schema org text sortable repo text sortable branch text sortable setup text sortable  test_case text sortable hash tag  collapsed_stack text sortable collapsed_stack_count numeric sortable
+            for line_n, line in enumerate(collapsed_stack_lines):
+                splitted = line.decode().strip().split(" ")
+                collapsed_stack = splitted[0]
+                collapsed_stack_count = splitted[1]
+                hash_key = {
+                    "org": tf_github_org,
+                    "repo": tf_github_repo,
+                    "branch": tf_github_branch,
+                    "setup": setup_name,
+                    "test_case": test_name,
+                    "hash": tf_github_sha,
+                    "collapsed_stack": collapsed_stack,
+                    "collapsed_stack_count": collapsed_stack_count,
+                    "collection_time": str(current_time),
+                }
+                profile_string_testcase_markdown_key = (
+                    "profiling_data:all_threads:{}:{}:{}:{}:{}:#{}".format(
+                        tf_github_org,
+                        tf_github_repo,
+                        setup_name,
+                        tf_github_branch,
+                        test_name,
+                        line_n,
+                    )
+                )
+                redis_conn.hset(profile_string_testcase_markdown_key, mapping=hash_key)
+                redis_conn.expire(
+                    profile_string_testcase_markdown_key, EXPIRE_TIME_SECS_PROFILE_KEYS
+                )
+
         sorted_set_keys = [
             zset_profiles,
             zset_profiles_setups_testcases_profileid,
@@ -102,8 +150,6 @@ def generate_artifacts_table_grafana_redis(
         logging.info(
             "Propulating the profile helper ZSETs: {}".format(" ".join(sorted_set_keys))
         )
-        current_time = time.time() * 1000
-        timeframe_by_branch = current_time - EXPIRE_TIME_MSECS_PROFILE_KEYS
         res = redis_conn.zadd(
             zset_profiles_setups_testcases_branches,
             {tf_github_branch: start_time_ms},
