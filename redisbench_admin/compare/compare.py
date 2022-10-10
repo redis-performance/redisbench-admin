@@ -77,6 +77,7 @@ def compare_command_logic(args, project_name, project_version):
     use_branch = False
     baseline_branch = args.baseline_branch
     comparison_branch = args.comparison_branch
+    simplify_table = args.simple_table
     by_str = ""
     baseline_str = ""
     comparison_str = ""
@@ -161,7 +162,7 @@ def compare_command_logic(args, project_name, project_version):
                 used_key, len(test_names)
             )
         )
-    profilers_artifacts_matrix = []
+    table = []
     detected_regressions = []
     total_improvements = 0
     total_stable = 0
@@ -319,15 +320,21 @@ def compare_command_logic(args, project_name, project_version):
                 unstable = True
             if baseline_pct_change > 10.0:
                 stamp_b = "UNSTABLE"
-            baseline_v_str = " {:.0f} +- {:.1f}% {} ({} datapoints)".format(
-                baseline_v, baseline_pct_change, stamp_b, len(baseline_values)
-            )
+            if simplify_table:
+                baseline_v_str = " {:.0f}".format(baseline_v)
+            else:
+                baseline_v_str = " {:.0f} +- {:.1f}% {} ({} datapoints)".format(
+                    baseline_v, baseline_pct_change, stamp_b, len(baseline_values)
+                )
             stamp_c = ""
             if comparison_pct_change > 10.0:
                 stamp_c = "UNSTABLE"
-            comparison_v_str = " {:.0f} +- {:.1f}% {} ({} datapoints)".format(
-                comparison_v, comparison_pct_change, stamp_c, len(comparison_values)
-            )
+            if simplify_table:
+                comparison_v_str = " {:.0f}".format(comparison_v)
+            else:
+                comparison_v_str = " {:.0f} +- {:.1f}% {} ({} datapoints)".format(
+                    comparison_v, comparison_pct_change, stamp_c, len(comparison_values)
+                )
             if metric_mode == "higher-better":
                 percentage_change = (
                     float(comparison_v) / float(baseline_v) - 1
@@ -373,15 +380,25 @@ def compare_command_logic(args, project_name, project_version):
 
             if args.print_regressions_only is False or detected_regression:
                 percentage_change_str = "{:.1f}% ".format(percentage_change)
-                profilers_artifacts_matrix.append(
-                    [
-                        test_name,
-                        baseline_v_str,
-                        comparison_v_str,
-                        percentage_change_str,
-                        note.strip(),
-                    ]
-                )
+                if simplify_table:
+                    table.append(
+                        [
+                            test_name,
+                            baseline_v_str,
+                            comparison_v_str,
+                            percentage_change_str,
+                        ]
+                    )
+                else:
+                    table.append(
+                        [
+                            test_name,
+                            baseline_v_str,
+                            comparison_v_str,
+                            percentage_change_str,
+                            note.strip(),
+                        ]
+                    )
 
     logging.info("Printing differential analysis between branches")
 
@@ -403,7 +420,7 @@ def compare_command_logic(args, project_name, project_version):
             "% change ({})".format(metric_mode),
             "Note",
         ],
-        value_matrix=profilers_artifacts_matrix,
+        value_matrix=table,
     )
     writer.write_table()
     if total_stable > 0:
