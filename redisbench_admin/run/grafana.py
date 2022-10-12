@@ -7,6 +7,7 @@ import logging
 import time
 
 import pytablewriter
+import redis
 from pytablewriter import MarkdownTableWriter
 import urllib.request
 
@@ -135,10 +136,21 @@ def generate_artifacts_table_grafana_redis(
                         line_n,
                     )
                 )
-                redis_conn.hset(profile_string_testcase_markdown_key, mapping=hash_key)
-                redis_conn.expire(
-                    profile_string_testcase_markdown_key, EXPIRE_TIME_SECS_PROFILE_KEYS
-                )
+                try:
+                    redis_conn.hset(
+                        profile_string_testcase_markdown_key, mapping=hash_key
+                    )
+                    redis_conn.expire(
+                        profile_string_testcase_markdown_key,
+                        EXPIRE_TIME_SECS_PROFILE_KEYS,
+                    )
+                except redis.exceptions.ResponseError as e:
+                    logging.error(
+                        "While setting the profile key: {} received the following error: {}".format(
+                            profile_string_testcase_markdown_key, e.__str__()
+                        )
+                    )
+                    pass
 
         sorted_set_keys = [
             zset_profiles,
