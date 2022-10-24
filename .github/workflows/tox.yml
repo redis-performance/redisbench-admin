@@ -26,13 +26,15 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: chmod gnupg
+    - name: gnupg fix
       run: |
-        mkdir -p ~/.gnupg
-        touch ~/.gnupg/gpg.conf
-        chmod -R 600 ~/.gnupg/*
+        sudo gpgconf --kill dirmngr
 
     - uses: docker-practice/actions-setup-docker@master
+
+    - name: gnupg restore permissions
+      run: |
+        sudo chown -R $USER ~/.gnupg
 
     - name: Install Poetry
       uses: dschep/install-poetry-action@v1.3
