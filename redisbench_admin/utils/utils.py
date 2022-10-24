@@ -26,7 +26,7 @@ EPOCH = dt.datetime.utcfromtimestamp(0)
 
 
 def redis_server_config_module_part(
-    command, local_module_file, modules_configuration_parameters_map
+        command, local_module_file, modules_configuration_parameters_map
 ):
     command.extend(
         [
@@ -35,13 +35,13 @@ def redis_server_config_module_part(
         ]
     )
     for (
-        module_config_modulename,
-        module_config_dict,
+            module_config_modulename,
+            module_config_dict,
     ) in modules_configuration_parameters_map.items():
         if module_config_modulename in local_module_file:
             for (
-                module_config_parameter_name,
-                module_config_parameter_value,
+                    module_config_parameter_name,
+                    module_config_parameter_value,
             ) in module_config_dict.items():
                 if type(module_config_parameter_value) != str:
                     module_config_parameter_value = "{}".format(
@@ -56,15 +56,15 @@ def redis_server_config_module_part(
 
 
 def generate_common_server_args(
-    binary,
-    daemonize,
-    dbdir,
-    dbfilename,
-    enable_debug_command,
-    ip,
-    logfile,
-    port,
-    enable_redis_7_config_directives=False,
+        binary,
+        daemonize,
+        dbdir,
+        dbfilename,
+        enable_debug_command,
+        ip,
+        logfile,
+        port,
+        enable_redis_7_config_directives=False,
 ):
     if type(binary) == list:
         command = binary
@@ -104,13 +104,13 @@ def generate_common_server_args(
 
 
 def upload_artifacts_to_s3(
-    artifacts,
-    s3_bucket_name,
-    s3_bucket_path,
-    aws_access_key_id=None,
-    aws_secret_access_key=None,
-    aws_session_token=None,
-    region_name=None,
+        artifacts,
+        s3_bucket_name,
+        s3_bucket_path,
+        aws_access_key_id=None,
+        aws_secret_access_key=None,
+        aws_session_token=None,
+        region_name=None,
 ):
     artifacts_map = {}
     if region_name is None:
@@ -149,7 +149,7 @@ def upload_artifacts_to_s3(
 def whereis(program):
     for path in os.environ.get("PATH", "").split(":"):
         if os.path.exists(os.path.join(path, program)) and not os.path.isdir(
-            os.path.join(path, program)
+                os.path.join(path, program)
         ):
             return os.path.join(path, program)
     return None
@@ -213,7 +213,7 @@ def ts_milli(at_dt):
 
 
 def retrieve_local_or_remote_input_json(
-    config_filename, local_path, option_name, input_format="json", csv_header=False
+        config_filename, local_path, option_name, input_format="json", csv_header=False
 ):
     benchmark_config = {}
     if config_filename.startswith("http"):
@@ -274,7 +274,7 @@ def retrieve_local_or_remote_input_json(
 
 
 def read_json_or_csv(
-    benchmark_config, config_filename, read_format, local_file, csv_has_header
+        benchmark_config, config_filename, read_format, local_file, csv_has_header
 ):
     if read_format == "json":
         benchmark_config[config_filename] = json.load(local_file)
@@ -306,19 +306,19 @@ def read_json_or_csv(
 
 
 def get_ts_metric_name(
-    by,
-    by_value,
-    tf_github_org,
-    tf_github_repo,
-    deployment_name,
-    deployment_type,
-    test_name,
-    tf_triggering_env,
-    metric_name,
-    metric_context_path=None,
-    use_metric_context_path=False,
-    build_variant_name=None,
-    running_platform=None,
+        by,
+        by_value,
+        tf_github_org,
+        tf_github_repo,
+        deployment_name,
+        deployment_type,
+        test_name,
+        tf_triggering_env,
+        metric_name,
+        metric_context_path=None,
+        use_metric_context_path=False,
+        build_variant_name=None,
+        running_platform=None,
 ):
     if use_metric_context_path:
         metric_name = "{}/{}".format(metric_name, metric_context_path)
@@ -381,6 +381,35 @@ def wait_for_conn(conn, retries=20, command="PING", should_be=True, initial_slee
             "Redis busy loading time surpassed the timeout of {} secs".format(retries)
         )
     return result
+
+
+def make_dashboard_callback(return_code, ci_job_name, tf_github_repo, tf_github_branch, tf_github_sha):
+    status = "success"
+    if return_code != 0:
+        status = "failed"
+    github_token = os.getenv("GITHUB_TOKEN", None)
+    if github_token is None:
+        logging.error("-- github token is None. Callback skipped --")
+        return
+    workflow_id = os.getenv("CIRCLE_WORKFLOW_ID", None)
+    if workflow_id is None:
+        logging.error("-- workflow id is None. Callback skipped --")
+        return
+    callback_url = "https://circle-ci-dashboard.herokuapp.com/callback" \
+                   "?branch={}" \
+                   "&repository={}" \
+                   "&test_name={}" \
+                   "&status={}" \
+                   "&commit={}" \
+                   "&workflowId={}".format(tf_github_branch, tf_github_repo, ci_job_name, status, tf_github_sha,
+                                           workflow_id)
+    logging.info("-- make callback to {} -- ".format(callback_url))
+    try:
+        request = requests.get(callback_url, headers={'Github-Token': github_token}, timeout=10)
+    except Exception as ex:
+        logging.error("-- callback request exception: {}".format(ex))
+        return
+    logging.info("-- callback response {} and body {} -- ".format(request.status_code, request.text.replace('\n', ' ')))
 
 
 EC2_REGION = os.getenv("AWS_DEFAULT_REGION", None)

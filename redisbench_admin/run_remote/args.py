@@ -98,6 +98,13 @@ def create_run_remote_arguments(parser):
         type=str,
         help="Use this key for ssh connections.",
     )
+    parser.add_argument(
+        "--callback",
+        required=False,
+        default=False,
+        action="store_true",
+        help="Push status to circle-ci-dashboard",
+    )
     parser.add_argument("--terraform_bin_path", type=str, default=TERRAFORM_BIN_PATH)
     parser.add_argument("--setup_name_sufix", type=str, default="")
     parser.add_argument(
