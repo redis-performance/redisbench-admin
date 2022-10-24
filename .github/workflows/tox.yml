@@ -28,8 +28,8 @@ jobs:
 
     - name: Install Poetry
       uses: abatilo/actions-poetry@v2
-        with:
-          poetry-version: 1.2.2
+      with:
+        poetry-version: 1.2.2
 
     - name: Install Tox
       run: |
