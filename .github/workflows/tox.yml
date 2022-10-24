@@ -31,7 +31,6 @@ jobs:
         mkdir -p ~/.gnupg
         touch ~/.gnupg/gpg.conf
         chmod -R 600 ~/.gnupg/*
-        cat ${{github.action_path}}/gpg.conf >> ~/.gnupg/gpg.conf
 
     - uses: docker-practice/actions-setup-docker@master
 
