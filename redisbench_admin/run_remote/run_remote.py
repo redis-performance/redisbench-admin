@@ -1072,7 +1072,9 @@ def run_remote_command_logic(args, project_name, project_version):
             None,
         )
     if args.callback:
-        make_dashboard_callback(return_code, ci_job_name, tf_github_repo, tf_github_branch, tf_github_sha)
+        make_dashboard_callback(
+            return_code, ci_job_name, tf_github_repo, tf_github_branch, tf_github_sha
+        )
     exit(return_code)
 
 
