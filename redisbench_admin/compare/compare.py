@@ -251,17 +251,10 @@ def compare_command_logic(args, project_name, project_version):
 
         baseline_v = "N/A"
         comparison_v = "N/A"
-        baseline_nsamples = 0
-        comparison_nsamples = 0
         baseline_values = []
         comparison_values = []
-        percentage_change = "N/A"
         percentage_change = 0.0
         baseline_v_str = "N/A"
-        baseline_median = "N/A"
-        comparison_median = "N/A"
-        baseline_std = "N/A"
-        comparison_std = "N/A"
         comparison_v_str = "N/A"
         largest_variance = 0
         baseline_pct_change = "N/A"
