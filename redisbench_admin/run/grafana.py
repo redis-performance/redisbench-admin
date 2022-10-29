@@ -126,7 +126,7 @@ def generate_artifacts_table_grafana_redis(
                     "collapsed_stack_count": collapsed_stack_count,
                     "collection_time": str(current_time),
                 }
-                profile_string_testcase_markdown_key = (
+                profile_hash_string_testcase_markdown_key = (
                     "profiling_data:all_threads:{}:{}:{}:{}:{}:#{}".format(
                         tf_github_org,
                         tf_github_repo,
@@ -138,16 +138,16 @@ def generate_artifacts_table_grafana_redis(
                 )
                 try:
                     redis_conn.hset(
-                        profile_string_testcase_markdown_key, mapping=hash_key
+                        profile_hash_string_testcase_markdown_key, mapping=hash_key
                     )
                     redis_conn.expire(
-                        profile_string_testcase_markdown_key,
+                        profile_hash_string_testcase_markdown_key,
                         EXPIRE_TIME_SECS_PROFILE_KEYS,
                     )
                 except redis.exceptions.ResponseError as e:
                     logging.error(
                         "While setting the profile key: {} received the following error: {}".format(
-                            profile_string_testcase_markdown_key, e.__str__()
+                            profile_hash_string_testcase_markdown_key, e.__str__()
                         )
                     )
                     pass

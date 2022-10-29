@@ -100,7 +100,9 @@ def common_run_args(parser):
     parser.add_argument("--github_repo", type=str, default=GIT_REPO)
     parser.add_argument("--github_org", type=str, default=GIT_ORG)
     parser.add_argument("--github_sha", type=str, default=None, nargs="?", const="")
-    parser.add_argument("--github_branch", type=str, default=GIT_BRANCH)
+    parser.add_argument(
+        "--github_branch", type=str, default=GIT_BRANCH, nargs="?", const=""
+    )
     parser.add_argument("--triggering_env", type=str, default=TRIGGERING_ENV)
     parser.add_argument(
         "--module_path",
