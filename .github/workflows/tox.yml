@@ -10,13 +10,12 @@ jobs:
     strategy:
       matrix:
         python-version: [ 3.7, 3.8, 3.9, 3.10 ]
-        os: [ ubuntu-22.04, ubuntu-20.04, ubuntu-18.04 ]
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
       USING_COVERAGE: "3.10"
-      USING_COVERAGE_OS: "ubuntu-22.04"
+      USING_COVERAGE_OS: "ubuntu-latest"
 
-    runs-on: ${{ matrix.os }}
+    runs-on: "ubuntu-latest"
     name: os ${{ matrix.os }} python ${{ matrix.python-version }} Linting, testing, and compliance
     steps:
     - uses: actions/checkout@master
@@ -31,20 +30,14 @@ jobs:
     - name: Install Poetry
       uses: dschep/install-poetry-action@v1.3
 
-    - name: Install Tox
+    - name: Install Dev requirements
       run: |
-        pip3 install black coverage flake8 tox tox-docker tox-poetry
+        pip install -U setuptools wheel
+        pip install -r dev_requirements.txt
 
     - name: Set Submodules
       run: |
         git submodule update --init --recursive
-
-    - name: Install Redis
-      run: |
-        sudo add-apt-repository ppa:redislabs/redis
-        sudo apt-get update
-        sudo apt-get install redis -y
-        sudo systemctl stop redis-server
 
     - name: Run tox
       run: |
