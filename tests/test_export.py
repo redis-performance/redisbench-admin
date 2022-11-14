@@ -119,6 +119,8 @@ def test_export_command_logic_google_benchmark():
             "{}".format(rts_port),
             "--redistimeseries_pass",
             "{}".format(rts_pass),
+            "--github_branch",
+            "branch-feature-1",
         ]
     )
     try:
