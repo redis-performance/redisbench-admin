@@ -8,7 +8,6 @@ import argparse
 import logging
 import os
 import sys
-import numpy
 import toml
 
 from redisbench_admin import __version__

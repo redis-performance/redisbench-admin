@@ -76,6 +76,7 @@ def create_compare_arguments(parser):
     parser.add_argument("--comparison-branch", type=str, default=None, required=False)
     parser.add_argument("--comparison-tag", type=str, default=None, required=False)
     parser.add_argument("--print-regressions-only", type=bool, default=False)
+    parser.add_argument("--print-improvements-only", type=bool, default=False)
     parser.add_argument("--verbose", type=bool, default=False)
     parser.add_argument("--simple-table", type=bool, default=False)
     parser.add_argument("--use_metric_context_path", type=bool, default=False)
