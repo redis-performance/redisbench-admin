@@ -78,6 +78,10 @@ def compare_command_logic(args, project_name, project_version):
     baseline_branch = args.baseline_branch
     comparison_branch = args.comparison_branch
     simplify_table = args.simple_table
+    print_regressions_only = args.print_regressions_only
+    print_improvements_only = args.print_improvements_only
+    print_all = print_regressions_only is False and print_improvements_only is False
+
     by_str = ""
     baseline_str = ""
     comparison_str = ""
@@ -371,27 +375,24 @@ def compare_command_logic(args, project_name, project_version):
             if unstable:
                 total_unstable += 1
 
-            if args.print_regressions_only is False or detected_regression:
-                percentage_change_str = "{:.1f}% ".format(percentage_change)
-                if simplify_table:
-                    table.append(
-                        [
-                            test_name,
-                            baseline_v_str,
-                            comparison_v_str,
-                            percentage_change_str,
-                        ]
-                    )
-                else:
-                    table.append(
-                        [
-                            test_name,
-                            baseline_v_str,
-                            comparison_v_str,
-                            percentage_change_str,
-                            note.strip(),
-                        ]
-                    )
+            should_add_line = False
+            if print_regressions_only and detected_regression:
+                should_add_line = True
+            if print_improvements_only and detected_improvement:
+                should_add_line = True
+            if print_all:
+                should_add_line = True
+
+            if should_add_line:
+                add_line(
+                    baseline_v_str,
+                    comparison_v_str,
+                    note,
+                    percentage_change,
+                    simplify_table,
+                    table,
+                    test_name,
+                )
 
     logging.info("Printing differential analysis between branches")
 
@@ -443,6 +444,37 @@ def compare_command_logic(args, project_name, project_version):
             "BENCHMARK={}".format(
                 ",".join(["{}.yml".format(x) for x in detected_regressions])
             )
+        )
+
+
+def add_line(
+    baseline_v_str,
+    comparison_v_str,
+    note,
+    percentage_change,
+    simplify_table,
+    table,
+    test_name,
+):
+    percentage_change_str = "{:.1f}% ".format(percentage_change)
+    if simplify_table:
+        table.append(
+            [
+                test_name,
+                baseline_v_str,
+                comparison_v_str,
+                percentage_change_str,
+            ]
+        )
+    else:
+        table.append(
+            [
+                test_name,
+                baseline_v_str,
+                comparison_v_str,
+                percentage_change_str,
+                note.strip(),
+            ]
         )
 
 
