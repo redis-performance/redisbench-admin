@@ -1073,7 +1073,7 @@ def run_remote_command_logic(args, project_name, project_version):
         )
     if args.callback:
         make_dashboard_callback(
-            return_code, ci_job_name, tf_github_repo, tf_github_branch, tf_github_sha
+            args.callback_url, return_code, ci_job_name, tf_github_repo, tf_github_branch, tf_github_sha
         )
     exit(return_code)
 
