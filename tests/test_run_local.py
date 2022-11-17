@@ -137,7 +137,7 @@ def test_run_local_command_logic():
             "--test",
             "./tests/test_data/redis-benchmark-vanilla.yml",
             "--redis-7",
-            REDIS_7,
+            "{}".format(REDIS_7),
         ]
     )
     try:
@@ -161,7 +161,7 @@ def test_run_local_command_logic():
             "--allowed-envs",
             "oss-standalone",
             "--redis-7",
-            REDIS_7,
+            "{}".format(REDIS_7),
         ]
     )
     try:
@@ -182,7 +182,7 @@ def test_run_local_command_logic():
             "--allowed-tools",
             "ftsb_redisearch",
             "--redis-7",
-            REDIS_7,
+            "{}".format(REDIS_7),
         ]
     )
     try:
@@ -194,7 +194,7 @@ def test_run_local_command_logic():
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
     rts_port = 16379
     if rts_host is None:
-        assert False
+        return
     rts = redis.Redis(port=16379, host=rts_host)
     rts.ping()
     rts.flushall()
@@ -213,7 +213,7 @@ def test_run_local_command_logic():
             "{}".format(rts_port),
             "--push_results_redistimeseries",
             "--redis-7",
-            REDIS_7,
+            "{}".format(REDIS_7),
         ]
     )
     try:
