@@ -389,7 +389,7 @@ def make_dashboard_callback(
     status = "success"
     if return_code != 0:
         status = "failed"
-    github_token = os.getenv("GITHUB_TOKEN", None)
+    github_token = os.getenv("GH_TOKEN", None)
     if github_token is None:
         logging.error("-- github token is None. Callback skipped --")
         return
