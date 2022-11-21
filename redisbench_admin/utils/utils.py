@@ -396,7 +396,7 @@ def make_dashboard_callback(
         callback_headers = {"Github-Token": github_token}
     callback_url = (
         "{}"
-        "&repository={}"
+        "?repository={}"
         "&test_name={}"
         "&status={}"
         "&commit={}".format(
