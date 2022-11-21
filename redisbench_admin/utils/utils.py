@@ -391,33 +391,26 @@ def make_dashboard_callback(
         status = "failed"
     github_token = os.getenv("GH_TOKEN", None)
     if github_token is None:
-        logging.error("-- github token is None. Callback skipped --")
-        return
-    workflow_id = os.getenv("CIRCLE_WORKFLOW_ID", None)
-    if workflow_id is None:
-        logging.error("-- workflow id is None. Callback skipped --")
-        return
+        logging.error("-- github token is None. Callback will be send without github-token header --")
+    else:
+        callback_headers = {"Github-Token": github_token}
     callback_url = (
         "{}"
-        "?branch={}"
         "&repository={}"
         "&test_name={}"
         "&status={}"
-        "&commit={}"
-        "&workflowId={}".format(
+        "&commit={}".format(
             callback_url,
-            tf_github_branch,
             tf_github_repo,
             ci_job_name,
             status,
             tf_github_sha,
-            workflow_id,
         )
     )
     logging.info("-- make callback to {} -- ".format(callback_url))
     try:
         request = requests.get(
-            callback_url, headers={"Github-Token": github_token}, timeout=10
+            callback_url, headers=callback_headers, timeout=10
         )
     except Exception as ex:
         logging.error("-- callback request exception: {}".format(ex))
