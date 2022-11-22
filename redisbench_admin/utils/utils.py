@@ -386,6 +386,7 @@ def wait_for_conn(conn, retries=20, command="PING", should_be=True, initial_slee
 def make_dashboard_callback(
     callback_url, return_code, ci_job_name, tf_github_repo, tf_github_branch, tf_github_sha
 ):
+    callback_headers = {}
     status = "success"
     if return_code != 0:
         status = "failed"
