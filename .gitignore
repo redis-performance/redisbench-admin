@@ -17,6 +17,9 @@ utilities/redis_benchmarks_specification/__pycache__/
 *.py[cod]
 *$py.class
 
+# mac
+.DS_Store
+
 # C extensions
 *.so
 *.so.1
