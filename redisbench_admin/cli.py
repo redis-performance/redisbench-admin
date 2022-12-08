@@ -21,6 +21,8 @@ from redisbench_admin.extract.args import create_extract_arguments
 from redisbench_admin.extract.extract import extract_command_logic
 from redisbench_admin.grafana_api.args import create_grafana_api_arguments
 from redisbench_admin.grafana_api.grafana_api import grafana_api_command_logic
+from redisbench_admin.run_async.args import create_run_async_arguments
+from redisbench_admin.run_async.run_async import run_async_command_logic
 from redisbench_admin.run_local.args import create_run_local_arguments
 from redisbench_admin.run_local.run_local import run_local_command_logic
 from redisbench_admin.run_remote.args import create_run_remote_arguments
@@ -76,6 +78,8 @@ def main():
 
     if requested_tool == "run-remote":
         parser = create_run_remote_arguments(parser)
+    elif requested_tool == "run-async":
+        parser = create_run_async_arguments(parser)
     elif requested_tool == "run-local":
         parser = create_run_local_arguments(parser)
     elif requested_tool == "extract":
@@ -100,6 +104,7 @@ def main():
             "compare",
             "run-local",
             "run-remote",
+            "run-async",
             "deploy",
             "export",
             "extract",
@@ -143,6 +148,8 @@ def main():
         run_local_command_logic(args, project_name, project_version)
     if requested_tool == "run-remote":
         run_remote_command_logic(args, project_name, project_version)
+    if requested_tool == "run-async":
+        run_async_command_logic(argv, args, project_name, project_version)
     if requested_tool == "export":
         export_command_logic(args, project_name, project_version)
     if requested_tool == "extract":
