@@ -19,7 +19,11 @@ ExecStart=/home/ubuntu/work_dir/.venv/bin/python /home/ubuntu/work_dir/redisbenc
 [Install]
 WantedBy=multi-user.target
     """)
-    argv[argv.index(args.private_key)] = "/home/ubuntu/work_dir/tests/benchmarks/id_rsa"
+    if "--private_key" not in argv:
+        argv.append("--private_key")
+        argv.append("/home/ubuntu/work_dir/tests/benchmarks/id_rsa")
+    else:
+        argv[argv.index(args.private_key)] = "/home/ubuntu/work_dir/tests/benchmarks/id_rsa"
     if len(args.module_path) != 0:
         argv[argv.index(args.module_path[0])] = argv[argv.index(args.module_path[0])].replace(
             '$ROOT', '/home/ubuntu/work_dir')
