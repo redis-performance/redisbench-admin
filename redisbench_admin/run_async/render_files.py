@@ -14,7 +14,7 @@ Environment="AWS_DEFAULT_REGION={{region}}"
 Environment="AWS_SECRET_ACCESS_KEY={{secret_key}}"
 WorkingDirectory=/home/ubuntu/work_dir/tests/benchmarks
 User=ubuntu
-ExecStart=/home/ubuntu/work_dir/.venv/bin/python /home/ubuntu/work_dir/redisbench_admin/run.py run-remote {{args}}
+ExecStart=/home/ubuntu/work_dir/redisbench-admin/.venv/bin/python /home/ubuntu/work_dir/redisbench_admin/run.py run-remote {{args}}
     
 [Install]
 WantedBy=multi-user.target
