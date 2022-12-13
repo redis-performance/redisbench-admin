@@ -266,10 +266,7 @@ def run_async_command_logic(argv, args, project_name, project_version):
             tf.tf_github_branch,
             None,
         )
-    if args.callback:
-        make_dashboard_callback(
-            args.callback_url, return_code, ci_job_name, tf.tf_github_repo, tf.tf_github_branch, tf.tf_github_sha
-        )
+
     exit(return_code)
 
 
