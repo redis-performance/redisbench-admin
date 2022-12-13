@@ -77,6 +77,7 @@ from redisbench_admin.utils.utils import (
     EC2_ACCESS_KEY,
     EC2_SECRET_KEY,
     EC2_REGION,
+    make_dashboard_callback,
 )
 
 from slack_sdk.webhook import WebhookClient
@@ -1069,6 +1070,15 @@ def run_remote_command_logic(args, project_name, project_version):
             tf_github_repo,
             tf_github_branch,
             None,
+        )
+    if args.callback:
+        make_dashboard_callback(
+            args.callback_url,
+            return_code,
+            ci_job_name,
+            tf_github_repo,
+            tf_github_branch,
+            tf_github_sha,
         )
     exit(return_code)
 

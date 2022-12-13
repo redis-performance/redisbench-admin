@@ -383,6 +383,51 @@ def wait_for_conn(conn, retries=20, command="PING", should_be=True, initial_slee
     return result
 
 
+def make_dashboard_callback(
+    callback_url,
+    return_code,
+    ci_job_name,
+    tf_github_repo,
+    tf_github_branch,
+    tf_github_sha,
+):
+    callback_headers = {}
+    status = "success"
+    if return_code != 0:
+        status = "failed"
+    github_token = os.getenv("GH_TOKEN", None)
+    if github_token is None:
+        logging.error(
+            "-- github token is None. Callback will be send without github-token header --"
+        )
+    else:
+        callback_headers = {"Github-Token": github_token}
+    callback_url = (
+        "{}"
+        "?repository={}"
+        "&test_name={}"
+        "&status={}"
+        "&commit={}".format(
+            callback_url,
+            tf_github_repo,
+            ci_job_name,
+            status,
+            tf_github_sha,
+        )
+    )
+    logging.info("-- make callback to {} -- ".format(callback_url))
+    try:
+        request = requests.get(callback_url, headers=callback_headers, timeout=10)
+    except Exception as ex:
+        logging.error("-- callback request exception: {}".format(ex))
+        return
+    logging.info(
+        "-- callback response {} and body {} -- ".format(
+            request.status_code, request.text.replace("\n", " ")
+        )
+    )
+
+
 EC2_REGION = os.getenv("AWS_DEFAULT_REGION", None)
 EC2_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", None)
 EC2_PRIVATE_PEM = os.getenv("EC2_PRIVATE_PEM", None)
