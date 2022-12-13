@@ -239,10 +239,11 @@ def run_async_command_logic(argv, args, project_name, project_version):
         [
             "mkdir -p work_dir",
             "tar xf {} -C work_dir".format(archive_name),
-            "curl -sSL https://install.python-poetry.org | python3 -",
-            "cd work_dir && PATH=\"/home/ubuntu/.local/bin:$PATH\" poetry config virtualenvs.in-project true",
-            "cd work_dir && PATH=\"/home/ubuntu/.local/bin:$PATH\" poetry install",
-            "cd work_dir && sudo cp tests/benchmarks/redisbench-admin.service /etc/systemd/system",
+            "curl -sSL https://install.python-poetry.org | POETRY_VERSION=1.2.2 python3 -",
+            "cd work_dir/redisbench-admin && PATH=\"/home/ubuntu/.local/bin:$PATH\" poetry config "
+            "virtualenvs.in-project true",
+            "cd work_dir/redisbench-admin && PATH=\"/home/ubuntu/.local/bin:$PATH\" poetry install",
+            "cd work_dir/redisbench-admin && sudo cp tests/benchmarks/redisbench-admin.service /etc/systemd/system",
             "sudo systemctl daemon-reload",
             # "source $(PATH=\"/home/ubuntu/.local/bin:$PATH\" poetry env info --path)/bin/activate",
         ],
