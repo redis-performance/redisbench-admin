@@ -239,6 +239,7 @@ def run_async_command_logic(argv, args, project_name, project_version):
         [
             "mkdir -p work_dir",
             "tar xf {} -C work_dir".format(archive_name),
+            "cp work_dir/tests/benchmarks/id_rsa /tmp/benchmarks.redislabs.pem",
             "sudo apt update",
             "sudo apt install -y gnupg software-properties-common",
             "wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee "
