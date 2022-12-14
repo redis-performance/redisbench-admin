@@ -242,7 +242,7 @@ def run_async_command_logic(argv, args, project_name, project_version):
             "sudo apt update",
             "sudo apt install -y gnupg software-properties-common",
             "wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee "
-            "/usr/share/keyrings/hashicorp-archive-keyring.gpg",
+            "/usr/share/keyrings/hashicorp-archive-keyring.gpg >/dev/null",
 
             "gpg --no-default-keyring --keyring /usr/share/keyrings/hashicorp-archive-keyring.gpg --fingerprint",
 
