@@ -55,5 +55,8 @@ if __name__ == "__main__":
 
 def savePemFile(pem_data):
     with open("benchmarks.redislabs.pem", mode="w", encoding="utf-8") as pem_file:
+        pem_data = pem_data.replace('-----BEGIN RSA PRIVATE KEY-----', '')
+        pem_data = pem_data.replace('-----END RSA PRIVATE KEY-----', '')
         pem_data = pem_data.replace(' ', '\n')
+        pem_data = "-----BEGIN RSA PRIVATE KEY-----" + pem_data + "-----END RSA PRIVATE KEY-----"
         pem_file.write(pem_data)
