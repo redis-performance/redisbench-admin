@@ -21,9 +21,9 @@ WantedBy=multi-user.target
     """)
     if "--private_key" not in argv:
         argv.append("--private_key")
-        argv.append("/home/ubuntu/work_dir/tests/benchmarks/id_rsa")
+        argv.append("/home/ubuntu/work_dir/tests/benchmarks/benchmarks.redislabs.pem")
     else:
-        argv[argv.index(args.private_key)] = "/home/ubuntu/work_dir/tests/benchmarks/id_rsa"
+        argv[argv.index(args.private_key)] = "/home/ubuntu/work_dir/tests/benchmarks/benchmarks.redislabs.pem"
     if len(args.module_path) != 0:
         argv[argv.index(args.module_path[0])] = argv[argv.index(args.module_path[0])].replace(
             '$ROOT', '/home/ubuntu/work_dir')
@@ -54,5 +54,6 @@ if __name__ == "__main__":
 
 
 def savePemFile(pem_data):
-    with open("id_rsa", mode="w", encoding="utf-8") as pem_file:
+    with open("benchmarks.redislabs.pem", mode="w", encoding="utf-8") as pem_file:
+        pem_data = pem_data.replace(' ', '\n')
         pem_file.write(pem_data)
