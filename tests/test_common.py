@@ -7,7 +7,6 @@ import redis
 import yaml
 from redisbench_admin.utils.remote import push_data_to_redistimeseries
 
-
 from redisbench_admin.export.common.common import (
     add_datapoint,
     split_tags_string,
@@ -25,6 +24,7 @@ from redisbench_admin.run.common import (
     dso_check,
     dbconfig_keyspacelen_check,
     common_properties_log,
+    execute_init_commands,
 )
 from redisbench_admin.run_remote.args import create_run_remote_arguments
 
@@ -572,3 +572,26 @@ def test_common_properties_log():
         tf_triggering_env,
         private_key,
     )
+
+
+def test_execute_init_commands():
+    from redis import StrictRedis
+    from redis.exceptions import ConnectionError
+
+    redis_port = 16379
+    try:
+        redis = StrictRedis(port=redis_port)
+        redis.ping()
+        redis.flushall()
+        redis.config_resetstat()
+
+        with open("./tests/test_data/init-commands-array.yml", "r") as yml_file:
+            benchmark_config = yaml.safe_load(yml_file)
+            # no keyspace len check
+            total_cmds = execute_init_commands(benchmark_config, redis)
+            assert total_cmds == 3
+
+        assert b"key" in redis.keys()
+        assert b"key2" in redis.keys()
+    except ConnectionError:
+        pass
