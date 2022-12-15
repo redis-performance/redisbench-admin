@@ -6,6 +6,8 @@
 import logging
 import random
 import string
+from shutil import copyfile
+
 from redisbench_admin.run.common import (
     CIRCLE_BUILD_URL,
     CIRCLE_JOB,
@@ -212,6 +214,10 @@ def run_async_command_logic(argv, args, project_name, project_version):
     # create run.py file for running redisbench-cli
     renderRunFile()
     savePemFile(EC2_PRIVATE_PEM)
+
+    # copy module file
+    if len(args.module_path != 0):
+        copyfile(args.module_path[0], "./")
 
     # zip all
     archive_name = tar_files()
