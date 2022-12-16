@@ -264,6 +264,8 @@ def run_async_command_logic(argv, args, project_name, project_version):
             "cd work_dir/redisbench-admin && PATH=\"/home/ubuntu/.local/bin:$PATH\" poetry config "
             "virtualenvs.in-project true",
             "cd work_dir/redisbench-admin && PATH=\"/home/ubuntu/.local/bin:$PATH\" poetry install",
+            "./work_dir/deps/readies/getdocker",
+            "docker run -d -p 6379:6379 -it --rm redis/redis-stack-server",
             "cd work_dir && sudo cp tests/benchmarks/redisbench-admin.service /etc/systemd/system",
             "sudo systemctl daemon-reload",
         ],
