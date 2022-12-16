@@ -4,9 +4,10 @@
 #  All rights reserved.
 #
 import logging
+import os
 import random
 import string
-from shutil import copyfile
+from shutil import copy
 
 from redisbench_admin.run.common import (
     CIRCLE_BUILD_URL,
@@ -216,8 +217,8 @@ def run_async_command_logic(argv, args, project_name, project_version):
     savePemFile(EC2_PRIVATE_PEM)
 
     # copy module file
-    if len(args.module_path != 0):
-        copyfile(args.module_path[0], "./")
+    if len(args.module_path) != 0:
+        copy(args.module_path[0], os.getcwd())
 
     # zip all
     archive_name = tar_files()

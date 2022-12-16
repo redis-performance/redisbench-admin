@@ -25,7 +25,7 @@ WantedBy=multi-user.target
     else:
         argv[argv.index(args.private_key)] = "/home/ubuntu/work_dir/tests/benchmarks/benchmarks.redislabs.pem"
     if len(args.module_path) != 0:
-        argv[argv.index(args.module_path[0])] = argv[argv.index(args.module_path[0])] = '/home/ubuntu/work_dir/tests/benchmarks/' + args.module_path[0].split('/')[-1]
+        argv[argv.index(args.module_path[0])] = '/home/ubuntu/work_dir/tests/benchmarks/' + args.module_path[0].split('/')[-1]
     argv_str = " ".join(argv)
     with open("redisbench-admin.service", mode="w", encoding="utf-8") as results:
         results.write(
