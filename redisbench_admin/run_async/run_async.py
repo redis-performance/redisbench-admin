@@ -210,7 +210,14 @@ def run_async_command_logic(argv, args, project_name, project_version):
     benchmark.benchmark_runs_plan = define_benchmark_plan(benchmark.benchmark_definitions, benchmark.default_specs)
 
     # create service file
-    renderServiceFile(access_key=EC2_ACCESS_KEY, secret_key=EC2_SECRET_KEY, region=EC2_REGION, args=args, argv=argv)
+    renderServiceFile(
+        access_key=EC2_ACCESS_KEY,
+        secret_key=EC2_SECRET_KEY,
+        region=EC2_REGION,
+        gh_token=os.getenv("GH_TOKEN", None),
+        args=args,
+        argv=argv
+    )
 
     # create run.py file for running redisbench-cli
     renderRunFile()
@@ -268,13 +275,13 @@ def run_async_command_logic(argv, args, project_name, project_version):
             "sudo docker run -d -p 6379:6379 -it --rm redis/redis-stack-server",
             "cd work_dir && sudo cp tests/benchmarks/redisbench-admin.service /etc/systemd/system",
             "sudo systemctl daemon-reload",
+            "sudo systemctl start redisbench-admin.service",
         ],
         "22",
         get_pty=True
     )
 
     # render service file
-
 
     if return_code != 0 and webhook_notifications_active:
         if failure_reason == "":

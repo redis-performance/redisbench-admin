@@ -1,7 +1,7 @@
 import jinja2
 
 
-def renderServiceFile(access_key, region, secret_key, args, argv):
+def renderServiceFile(access_key, region, secret_key, gh_token, args, argv):
     environment = jinja2.Environment()
     template = environment.from_string("""[Unit]
 Description=Redisbench-admin run service
@@ -12,7 +12,9 @@ Environment="PATH=/home/ubuntu/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sb
 Environment="AWS_ACCESS_KEY_ID={{access_key}}" 
 Environment="AWS_DEFAULT_REGION={{region}}" 
 Environment="AWS_SECRET_ACCESS_KEY={{secret_key}}"
+Environment="GH_TOKEN={{gh_token}}"
 WorkingDirectory=/home/ubuntu/work_dir/tests/benchmarks
+Type=simple
 User=ubuntu
 ExecStart=/home/ubuntu/work_dir/redisbench-admin/.venv/bin/python /home/ubuntu/work_dir/redisbench-admin/run.py run-remote {{args}}
     
@@ -33,6 +35,7 @@ WantedBy=multi-user.target
                 access_key=access_key,
                 region=region,
                 secret_key=secret_key,
+                gh_token=gh_token,
                 args=argv_str,
             )
         )
