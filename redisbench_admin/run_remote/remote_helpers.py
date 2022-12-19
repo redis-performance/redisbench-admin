@@ -274,6 +274,7 @@ def post_process_remote_run(
     tmp,
     result_csv_filename="result.csv",
 ):
+    local_benchmark_output_filename = local_benchmark_output_filename.replace('/', '_')
     if benchmark_tool == "redis-benchmark":
         local_benchmark_output_filename = tmp
         with open(result_csv_filename, "r", encoding="utf-8") as txt_file:
