@@ -62,7 +62,6 @@ def post_process_benchmark_results(
     stdout,
     overload_test_name="Overall",
 ):
-    local_benchmark_output_filename = local_benchmark_output_filename.replace('/', '_')
     if benchmark_tool == "redis-benchmark":
         if type(stdout) == bytes:
             stdout = stdout.decode("ascii")
