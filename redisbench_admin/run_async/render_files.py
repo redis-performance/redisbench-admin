@@ -12,7 +12,7 @@ Environment="PATH=/home/ubuntu/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sb
 Environment="AWS_ACCESS_KEY_ID={{access_key}}" 
 Environment="AWS_DEFAULT_REGION={{region}}" 
 Environment="AWS_SECRET_ACCESS_KEY={{secret_key}}"
-Environment="GH_TOKEN={{gh_token}}"
+{% if gh_token != None %}Environment="GH_TOKEN={{gh_token}}"{% endif %}
 WorkingDirectory=/home/ubuntu/work_dir/tests/benchmarks
 Type=simple
 User=ubuntu
@@ -27,7 +27,8 @@ WantedBy=multi-user.target
     else:
         argv[argv.index(args.private_key)] = "/home/ubuntu/work_dir/tests/benchmarks/benchmarks.redislabs.pem"
     if len(args.module_path) != 0:
-        argv[argv.index(args.module_path[0])] = '/home/ubuntu/work_dir/tests/benchmarks/' + args.module_path[0].split('/')[-1]
+        argv[argv.index(args.module_path[0])] = '/home/ubuntu/work_dir/tests/benchmarks/' + \
+                                                args.module_path[0].split('/')[-1]
     argv_str = " ".join(argv)
     with open("redisbench-admin.service", mode="w", encoding="utf-8") as results:
         results.write(
