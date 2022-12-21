@@ -17,10 +17,10 @@ from redisbench_admin.run.common import (
 from redisbench_admin.run.modules import redis_modules_check
 from redisbench_admin.run.run import define_benchmark_plan
 from redisbench_admin.run.ssh import ssh_pem_check
-from redisbench_admin.run_async.args import TF_OVERRIDE_NAME, TF_OVERRIDE_REMOTE
+from redisbench_admin.run_remote.args import TF_OVERRIDE_NAME, TF_OVERRIDE_REMOTE
 from redisbench_admin.run_async.async_env import tar_files
 from redisbench_admin.run_async.benchmark import BenchmarkClass
-from redisbench_admin.run_async.notifications import generate_failure_notification
+from redisbench_admin.run_remote.notifications import generate_failure_notification
 from redisbench_admin.run_async.render_files import renderServiceFile, renderRunFile, savePemFile
 from redisbench_admin.run_async.terraform import (
     TerraformClass,
@@ -80,7 +80,7 @@ def run_async_command_logic(argv, args, project_name, project_version):
     tf.git_vars_crosscheck()
 
     tf.tf_triggering_env = args.triggering_env
-    tf.tf_setup_name_suffix = "{}-{}".format(args.setup_name_suffix, tf.tf_github_sha)
+    tf.tf_setup_name_suffix = "{}-{}".format(args.setup_name_sufix, tf.tf_github_sha)
     s3_bucket_name = args.s3_bucket_name
     local_module_files = args.module_path
     dbdir_folder = args.dbdir_folder
