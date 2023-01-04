@@ -8,9 +8,11 @@ import logging
 import re
 import pandas as pd
 import redis
+import yaml
 from pytablewriter import MarkdownTableWriter
 import humanize
 import datetime as dt
+import os
 from tqdm import tqdm
 from github import Github
 from slack_sdk.webhook import WebhookClient
@@ -42,6 +44,45 @@ def compare_command_logic(args, project_name, project_version):
         username=args.redistimeseries_user,
     )
     rts.ping()
+    default_baseline_branch = None
+    default_metrics_str = ""
+    if args.defaults_filename != "" and os.path.exists(args.defaults_filename):
+        logging.info(
+            "Loading configuration from defaults file: {}".format(
+                args.defaults_filename
+            )
+        )
+        with open(args.defaults_filename) as yaml_fd:
+            defaults_dict = yaml.safe_load(yaml_fd)
+            if "exporter" in defaults_dict:
+                exporter_dict = defaults_dict["exporter"]
+                if "comparison" in exporter_dict:
+                    comparison_dict = exporter_dict["comparison"]
+                    if "metrics" in comparison_dict:
+                        metrics = comparison_dict["metrics"]
+                        logging.info("Detected defaults metrics info. reading metrics")
+                        default_metrics = []
+
+                        for metric in metrics:
+                            if metric.startswith("$."):
+                                metric = metric[2:]
+                            logging.info("Will use metric: {}".format(metric))
+                            default_metrics.append(metric)
+                        if len(default_metrics) == 1:
+                            default_metrics_str = default_metrics[0]
+                        if len(default_metrics) > 1:
+                            default_metrics_str = "({})".format(
+                                ",".join(default_metrics)
+                            )
+                        logging.info("Default metrics: {}".format(default_metrics_str))
+
+                    if "baseline-branch" in comparison_dict:
+                        default_baseline_branch = comparison_dict["baseline-branch"]
+                        logging.info(
+                            "Detected baseline branch in defaults file. {}".format(
+                                default_baseline_branch
+                            )
+                        )
 
     tf_github_org = args.github_org
     tf_github_repo = args.github_repo
@@ -61,17 +102,18 @@ def compare_command_logic(args, project_name, project_version):
             comparison_deployment_name,
         )
     )
-    if args.last_n > 0:
-        logging.info(
-            "Using the last {} samples of each timeserie to compute the tables".format(
-                args.last_n
-            )
-        )
     from_ts_ms = args.from_timestamp
     to_ts_ms = args.to_timestamp
     from_date = args.from_date
     to_date = args.to_date
     baseline_branch = args.baseline_branch
+    if baseline_branch is None and default_baseline_branch is not None:
+        logging.info(
+            "Given --baseline-branch was null using the default baseline branch {}".format(
+                default_baseline_branch
+            )
+        )
+        baseline_branch = default_baseline_branch
     comparison_branch = args.comparison_branch
     simplify_table = args.simple_table
     print_regressions_only = args.print_regressions_only
@@ -91,6 +133,23 @@ def compare_command_logic(args, project_name, project_version):
     verbose = args.verbose
     regressions_percent_lower_limit = args.regressions_percent_lower_limit
     metric_name = args.metric_name
+    if (metric_name is None or metric_name == "") and default_metrics_str != "":
+        logging.info(
+            "Given --metric_name was null using the default metric names {}".format(
+                default_metrics_str
+            )
+        )
+        metric_name = default_metrics_str
+
+    if metric_name is None:
+        logging.error(
+            "You need to provider either "
+            + " --metric_name or provide a defaults file via --defaults_filename that contains exporter.redistimeseries.comparison.metrics array. Exiting..."
+        )
+        exit(1)
+    else:
+        logging.info("Using metric {}".format(metric_name))
+
     metric_mode = args.metric_mode
     test = args.test
     use_metric_context_path = args.use_metric_context_path
@@ -225,13 +284,14 @@ def compare_command_logic(args, project_name, project_version):
         comment_body += "\n"
 
         if grafana_link_base is not None:
+            grafana_link = "{}/".format(grafana_link_base)
             if baseline_tag is not None and comparison_tag is not None:
-                grafana_link = "{}/?var-version={}&var-version={}".format(
-                    grafana_link_base, baseline_tag, comparison_tag
+                grafana_link += "?var-version={}&var-version={}".format(
+                    baseline_tag, comparison_tag
                 )
             if baseline_branch is not None and comparison_branch is not None:
-                grafana_link = "{}/?var-branch={}&var-branch={}".format(
-                    grafana_link_base, baseline_branch, comparison_branch
+                grafana_link += "?var-branch={}&var-branch={}".format(
+                    baseline_branch, comparison_branch
                 )
             comment_body += "You can check a comparison in detail via the [grafana link]({})".format(
                 grafana_link
@@ -245,7 +305,10 @@ def compare_command_logic(args, project_name, project_version):
             html_url = "n/a"
             regression_count = len(detected_regressions)
             baseline_str, by_str, comparison_str = get_by_strings(
-                baseline_branch, comparison_branch, baseline_tag, comparison_tag
+                baseline_branch,
+                comparison_branch,
+                baseline_tag,
+                comparison_tag,
             )
 
             if contains_regression_comment:
@@ -378,7 +441,10 @@ def compute_regression_table(
         "Using a time-delta from {} to {}".format(from_human_str, to_human_str)
     )
     baseline_str, by_str, comparison_str = get_by_strings(
-        baseline_branch, comparison_branch, baseline_tag, comparison_tag
+        baseline_branch,
+        comparison_branch,
+        baseline_tag,
+        comparison_tag,
     )
     (
         prefix,
@@ -440,7 +506,11 @@ def compute_regression_table(
         tf_triggering_env,
         verbose,
     )
-    logging.info("Printing differential analysis between branches")
+    logging.info(
+        "Printing differential analysis between {} and {}".format(
+            baseline_str, comparison_str
+        )
+    )
     writer = MarkdownTableWriter(
         table_name="Comparison between {} and {}.\n\nTime Period from {} to {}. (environment used: {})\n".format(
             baseline_str,
@@ -483,13 +553,18 @@ def compute_regression_table(
     )
 
 
-def get_by_strings(baseline_branch, comparison_branch, baseline_tag, comparison_tag):
+def get_by_strings(
+    baseline_branch,
+    comparison_branch,
+    baseline_tag,
+    comparison_tag,
+):
     use_tag = False
     use_branch = False
     by_str = ""
     baseline_str = ""
     comparison_str = ""
-    if baseline_branch is not None and comparison_branch is not None:
+    if (baseline_branch is not None) and comparison_branch is not None:
         use_branch = True
         by_str = "branch"
         baseline_str = baseline_branch
