@@ -47,5 +47,6 @@ def generate_summary_json_google_benchmark(input_json):
                 metrics[metric_name] = metric_value
 
         result_json[benchmark_name] = metrics
+        logging.warning(metrics)
 
     return result_json, test_names
