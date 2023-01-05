@@ -172,6 +172,7 @@ def compare_command_logic(args, project_name, project_version):
         logging.info("Detected slack webhook token")
         webhook_client_slack = WebhookClient(webhook_url)
 
+    old_regression_comment_body = ""
     if github_token is not None:
         logging.info("Detected github token")
         g = Github(github_token)
@@ -189,12 +190,17 @@ def compare_command_logic(args, project_name, project_version):
             contains_regression_comment, pos = check_regression_comment(comments)
             if contains_regression_comment:
                 regression_comment = comments[pos]
+                old_regression_comment_body = regression_comment.body
                 logging.info(
                     "Already contains regression comment. Link: {}".format(
                         regression_comment.html_url
                     )
                 )
-                print(regression_comment)
+                if verbose:
+                    logging.info("Printing old regression comment:")
+                    print("".join(["-" for x in range(1, 80)]))
+                    print(regression_comment.body)
+                    print("".join(["-" for x in range(1, 80)]))
             else:
                 logging.info("Does not contain regression comment")
 
@@ -312,39 +318,62 @@ def compare_command_logic(args, project_name, project_version):
             )
 
             if contains_regression_comment:
-
-                if auto_approve:
-                    print("auto approving...")
+                same_comment = False
+                if comment_body == old_regression_comment_body:
+                    logging.info(
+                        "The old regression comment is the same as the new comment. skipping..."
+                    )
+                    same_comment = True
                 else:
-                    user_input = input(
-                        "Do you wish to update the comment {} (y/n): ".format(
-                            regression_comment.html_url
-                        )
+                    logging.info(
+                        "The old regression comment is different from the new comment. updating it..."
                     )
-                if user_input.lower() == "y" or auto_approve:
-                    print("Updating comment {}".format(regression_comment.html_url))
-                    regression_comment.edit(comment_body)
-                    html_url = regression_comment.html_url
-                    print(
-                        "Updated comment. Access it via {}".format(
-                            regression_comment.html_url
-                        )
+                    comment_body_arr = comment_body.split("\n")
+                    old_regression_comment_body_arr = old_regression_comment_body.split(
+                        "\n"
                     )
-                    if webhook_notifications_active:
-                        logging.info(
-                            "Sending slack notification about updated comment..."
+                    if verbose:
+                        DF = [
+                            x
+                            for x in comment_body_arr
+                            if x not in old_regression_comment_body_arr
+                        ]
+                        print("---------------------")
+                        print(DF)
+                        print("---------------------")
+                if same_comment is False:
+                    if auto_approve:
+                        print("auto approving...")
+                    else:
+                        user_input = input(
+                            "Do you wish to update the comment {} (y/n): ".format(
+                                regression_comment.html_url
+                            )
                         )
-                        generate_new_pr_comment_notification(
-                            webhook_client_slack,
-                            comparison_summary,
-                            html_url,
-                            tf_github_org,
-                            tf_github_repo,
-                            baseline_str,
-                            comparison_str,
-                            regression_count,
-                            "UPDATED",
+                    if user_input.lower() == "y" or auto_approve:
+                        print("Updating comment {}".format(regression_comment.html_url))
+                        regression_comment.edit(comment_body)
+                        html_url = regression_comment.html_url
+                        print(
+                            "Updated comment. Access it via {}".format(
+                                regression_comment.html_url
+                            )
                         )
+                        if webhook_notifications_active:
+                            logging.info(
+                                "Sending slack notification about updated comment..."
+                            )
+                            generate_new_pr_comment_notification(
+                                webhook_client_slack,
+                                comparison_summary,
+                                html_url,
+                                tf_github_org,
+                                tf_github_repo,
+                                baseline_str,
+                                comparison_str,
+                                regression_count,
+                                "UPDATED",
+                            )
 
             else:
                 if auto_approve:
@@ -512,11 +541,10 @@ def compute_regression_table(
         )
     )
     writer = MarkdownTableWriter(
-        table_name="Comparison between {} and {}.\n\nTime Period from {} to {}. (environment used: {})\n".format(
+        table_name="Comparison between {} and {}.\n\nTime Period from {}. (environment used: {})\n".format(
             baseline_str,
             comparison_str,
             from_human_str,
-            to_human_str,
             baseline_deployment_name,
         ),
         headers=[
