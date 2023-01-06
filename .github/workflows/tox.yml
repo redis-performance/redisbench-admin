@@ -51,6 +51,7 @@ jobs:
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
-      if: contains(env.USING_COVERAGE, matrix.python-version) && contains(env.USING_COVERAGE_OS, matrix.os)
+      if: contains(env.USING_COVERAGE, matrix.python-version)
       with:
+        token: ${{secrets.CODECOV_TOKEN}}
         fail_ci_if_error: true

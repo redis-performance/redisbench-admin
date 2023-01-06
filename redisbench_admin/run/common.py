@@ -60,6 +60,7 @@ BENCHMARK_REPETITIONS = int(os.getenv("BENCHMARK_REPETITIONS", 1))
 CIRCLE_BUILD_URL = os.getenv("CIRCLE_BUILD_URL", None)
 CIRCLE_JOB = os.getenv("CIRCLE_JOB", None)
 WH_TOKEN = os.getenv("PERFORMANCE_WH_TOKEN", None)
+PERFORMANCE_GH_TOKEN = os.getenv("PERFORMANCE_GH_TOKEN", None)
 REDIS_BINARY = os.getenv("REDIS_BINARY", "redis-server")
 
 
@@ -418,6 +419,7 @@ def check_dbconfig_keyspacelen_requirement(
 
 def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
     cmds = None
+    res = 0
     if dbconfig_keyname in benchmark_config:
         for k in benchmark_config[dbconfig_keyname]:
             if "init_commands" in k:
@@ -425,6 +427,8 @@ def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
     if cmds is not None:
         for cmd in cmds:
             is_array = False
+            if type(cmd) == list:
+                is_array = True
             if '"' in cmd:
                 cols = []
                 for lines in csv.reader(
@@ -459,6 +463,7 @@ def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
                             pass
                     else:
                         stdout = r.execute_command(cmd)
+                res = res + 1
                 logging.info("Command reply: {}".format(stdout))
             except redis.connection.ConnectionError as e:
                 logging.error(
@@ -466,6 +471,8 @@ def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
                         e.__str__()
                     )
                 )
+
+    return res
 
 
 def extract_test_feasible_setups(

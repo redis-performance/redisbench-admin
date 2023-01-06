@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "redisbench-admin"
-version = "0.9.27"
+version = "0.9.33"
 description = "Redis benchmark run helper. A wrapper around Redis and Redis Modules benchmark tools ( ftsb_redisearch, memtier_benchmark, redis-benchmark, aibench, etc... )."
 authors = ["filipecosta90 <filipecosta.90@gmail.com>","Redis Performance Group <performance@redis.com>"]
 readme = "README.md"
@@ -41,6 +41,7 @@ redis = "^4.2.2"
 slack-sdk = "^3.15.2"
 slack-bolt = "^1.13.0"
 certifi = "^2021.10.8"
+pygithub = "^1.57"
 
 [tool.poetry.dev-dependencies]
 pytest = "^4.6"
