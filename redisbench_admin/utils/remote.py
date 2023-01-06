@@ -540,7 +540,7 @@ def common_tf(branch, path, repo, temporary_dir=None, destroy=False):
 
 def fetch_remote_setup_from_config(
     remote_setup_config,
-    repo="https://github.com/anton-tokarev-softeq/testing-infrastructure.git",
+    repo="https://github.com/RedisLabsModules/testing-infrastructure.git",
     branch="master",
     path=None,
 ):

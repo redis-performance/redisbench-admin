@@ -105,7 +105,7 @@ class TerraformClass:
                 "type": "async",
                 "setup": "runner"
             }],
-            "https://github.com/anton-tokarev-softeq/testing-infrastructure.git",
+            "https://github.com/RedisLabsModules/testing-infrastructure.git",
             "master",
             self.tf_folder_path,
         )
