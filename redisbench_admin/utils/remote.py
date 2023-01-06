@@ -107,8 +107,8 @@ def fetch_file_from_remote_setup(
     server_public_ip, username, private_key, local_file, remote_file
 ):
     logging.info(
-        "Retrieving remote file {} from remote server {} to {}".format(
-            remote_file, server_public_ip, local_file
+        "Retrieving remote file {} from remote server {} ".format(
+            remote_file, server_public_ip
         )
     )
     cnopts = pysftp.CnOpts()
@@ -119,8 +119,8 @@ def fetch_file_from_remote_setup(
     srv.get(remote_file, local_file, callback=view_bar_simple)
     srv.close()
     logging.info(
-        "Finished retrieving remote file {} from remote server {} to {}".format(
-            remote_file, server_public_ip, local_file
+        "Finished retrieving remote file {} from remote server {} ".format(
+            remote_file, server_public_ip
         )
     )
 
