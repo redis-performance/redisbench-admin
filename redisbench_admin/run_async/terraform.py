@@ -10,8 +10,7 @@ from python_terraform import Terraform, IsNotFlagged
 from redisbench_admin.run.common import BENCHMARK_REPETITIONS
 from redisbench_admin.utils.remote import (
     fetch_remote_setup_from_config,
-    setup_remote_environment,
-    retrieve_tf_connection_vars, extract_git_vars, tf_output_or_none,
+    extract_git_vars, tf_output_or_none, retrieve_tf_connection_vars, setup_remote_environment,
 )
 
 
@@ -200,75 +199,6 @@ class TerraformClass:
             server_plaintext_port,
         )
 
-    def async_env_setup(
-            self,
-            args,
-            benchmark_config,
-            remote_envs,
-            repetition,
-            test_name,
-    ):
-        server_plaintext_port = args.db_port
-        db_ssh_port = args.db_ssh_port
-        client_ssh_port = args.client_ssh_port
-        username = args.user
-        # if args.inventory is not None:
-        #     (
-        #         status,
-        #         client_public_ip,
-        #         server_private_ip,
-        #         server_public_ip,
-        #     ) = retrieve_inventory_info(args.inventory)
-        #     if status is False:
-        #         logging.error(
-        #             "Missing one of the required keys for inventory usage. Exiting..."
-        #         )
-        #         exit(1)
-        #     logging.info("Using the following connection addresses.")
-        #     logging.info("client_public_ip={}".format(client_public_ip))
-        #     logging.info("server_public_ip={}".format(server_public_ip))
-        #     logging.info("server_private_ip={}".format(server_private_ip))
-        # else:
-        #     (
-        #         client_public_ip,
-        #         _,
-        #         _,
-        #         server_private_ip,
-        #         server_public_ip,
-        #         username,
-        #     ) = terraform_spin_or_reuse_env(
-        #         benchmark_config,
-        #         remote_envs,
-        #         repetition,
-        #         test_name,
-        #         self.tf_bin_path,
-        #         self.tf_github_actor,
-        #         self.tf_github_org,
-        #         self.tf_github_repo,
-        #         self.tf_github_sha,
-        #         self.tf_setup_name_sufix,
-        #         self.tf_triggering_env,
-        #         self.tf_timeout_secs,
-        #         self.tf_override_name,
-        #         self.tf_folder_path,
-        #     )
-        client_public_ip = "3.136.20.255"
-        server_plaintext_port = "22"
-        server_private_ip = "172.31.5.232"
-        server_public_ip = "3.145.107.179"
-        db_ssh_port = "22"
-        client_ssh_port = "22"
-        username = "ubuntu"
-        return (
-            client_public_ip,
-            server_plaintext_port,
-            server_private_ip,
-            server_public_ip,
-            db_ssh_port,
-            client_ssh_port,
-            username,
-        )
-
 
 def terraform_spin_or_reuse_env(
         benchmark_config,
@@ -286,67 +216,59 @@ def terraform_spin_or_reuse_env(
         tf_override_name=None,
         tf_folder_path=None,
 ):
-    # (remote_setup, deployment_type, remote_id,) = fetch_remote_setup_from_config(
-    #     benchmark_config["remote"],
-    #     "https://github.com/RedisLabsModules/testing-infrastructure.git",
-    #     "master",
-    #     tf_folder_path,
-    # )
-    # logging.info(
-    #     "Repetition {} of {}. Deploying test {} on AWS using {}".format(
-    #         repetition, BENCHMARK_REPETITIONS, test_name, remote_setup
-    #     )
-    # )
-    # if tf_override_name is None:
-    #     tf_setup_name = "{}{}".format(remote_setup, tf_setup_name_sufix)
-    # else:
-    #     tf_setup_name = tf_override_name
-    # logging.info("Using full setup name: {}".format(tf_setup_name))
-    # if remote_id not in remote_envs:
-    #     # check if terraform is present
-    #     tf = Terraform(
-    #         working_dir=remote_setup,
-    #         terraform_bin_path=tf_bin_path,
-    #     )
-    #     (
-    #         tf_return_code,
-    #         username,
-    #         server_private_ip,
-    #         server_public_ip,
-    #         server_plaintext_port,
-    #         client_private_ip,
-    #         client_public_ip,
-    #     ) = setup_remote_environment(
-    #         tf,
-    #         tf_github_sha,
-    #         tf_github_actor,
-    #         tf_setup_name,
-    #         tf_github_org,
-    #         tf_github_repo,
-    #         tf_triggering_env,
-    #         tf_timeout_secs,
-    #     )
-    #     remote_envs[remote_id] = tf
-    # else:
-    #     logging.info("Reusing remote setup {}".format(remote_id))
-    #     tf = remote_envs[remote_id]
-    #     (
-    #         tf_return_code,
-    #         username,
-    #         server_private_ip,
-    #         server_public_ip,
-    #         server_plaintext_port,
-    #         client_private_ip,
-    #         client_public_ip,
-    #     ) = retrieve_tf_connection_vars(None, tf)
-    client_public_ip = "3.136.20.255"
-    server_plaintext_port = "22"
-    server_private_ip = "172.31.5.232"
-    server_public_ip = "3.145.107.179"
-    db_ssh_port = "22"
-    client_ssh_port = "22"
-    username = "ubuntu"
-    deployment_type = "oss-standalone"
+    (remote_setup, deployment_type, remote_id,) = fetch_remote_setup_from_config(
+        benchmark_config["remote"],
+        "https://github.com/RedisLabsModules/testing-infrastructure.git",
+        "master",
+        tf_folder_path,
+    )
+    logging.info(
+        "Repetition {} of {}. Deploying test {} on AWS using {}".format(
+            repetition, BENCHMARK_REPETITIONS, test_name, remote_setup
+        )
+    )
+    if tf_override_name is None:
+        tf_setup_name = "{}{}".format(remote_setup, tf_setup_name_sufix)
+    else:
+        tf_setup_name = tf_override_name
+    logging.info("Using full setup name: {}".format(tf_setup_name))
+    if remote_id not in remote_envs:
+        # check if terraform is present
+        tf = Terraform(
+            working_dir=remote_setup,
+            terraform_bin_path=tf_bin_path,
+        )
+        (
+            tf_return_code,
+            username,
+            server_private_ip,
+            server_public_ip,
+            server_plaintext_port,
+            client_private_ip,
+            client_public_ip,
+        ) = setup_remote_environment(
+            tf,
+            tf_github_sha,
+            tf_github_actor,
+            tf_setup_name,
+            tf_github_org,
+            tf_github_repo,
+            tf_triggering_env,
+            tf_timeout_secs,
+        )
+        remote_envs[remote_id] = tf
+    else:
+        logging.info("Reusing remote setup {}".format(remote_id))
+        tf = remote_envs[remote_id]
+        (
+            tf_return_code,
+            username,
+            server_private_ip,
+            server_public_ip,
+            server_plaintext_port,
+            client_private_ip,
+            client_public_ip,
+        ) = retrieve_tf_connection_vars(None, tf)
     return (
         client_public_ip,
         deployment_type,
