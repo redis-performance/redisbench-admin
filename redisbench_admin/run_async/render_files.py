@@ -6,19 +6,19 @@ def renderServiceFile(access_key, region, secret_key, gh_token, args, argv):
     template = environment.from_string(
         """[Unit]
 Description=Redisbench-admin run service
-    
+
 [Service]
 Type=oneshot
-Environment="PATH=/home/ubuntu/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" 
-Environment="AWS_ACCESS_KEY_ID={{access_key}}" 
-Environment="AWS_DEFAULT_REGION={{region}}" 
+Environment="PATH=/home/ubuntu/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="AWS_ACCESS_KEY_ID={{access_key}}"
+Environment="AWS_DEFAULT_REGION={{region}}"
 Environment="AWS_SECRET_ACCESS_KEY={{secret_key}}"
 {% if gh_token != None %}Environment="GH_TOKEN={{gh_token}}"{% endif %}
 WorkingDirectory=/home/ubuntu/work_dir/tests/benchmarks
 Type=simple
 User=ubuntu
 ExecStart=/home/ubuntu/work_dir/redisbench-admin/.venv/bin/python /home/ubuntu/work_dir/redisbench-admin/run.py run-remote {{args}}
-    
+
 [Install]
 WantedBy=multi-user.target
     """
@@ -56,9 +56,9 @@ def renderRunFile():
 import re
 import sys
 from redisbench_admin.cli import main
-        
+
 if __name__ == "__main__":
-    sys.argv[0] = re.sub(r"(-script\.pyw|\.exe)?$", "", sys.argv[0])
+    sys.argv[0] = re.sub(r"(-script\\.pyw|\\.exe)?$", "", sys.argv[0])
     sys.exit(main())
 """
         )

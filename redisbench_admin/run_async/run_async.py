@@ -40,11 +40,9 @@ from redisbench_admin.utils.remote import (
 
 from redisbench_admin.utils.utils import (
     EC2_PRIVATE_PEM,
-    upload_artifacts_to_s3,
     EC2_ACCESS_KEY,
     EC2_SECRET_KEY,
     EC2_REGION,
-    make_dashboard_callback,
 )
 
 from slack_sdk.webhook import WebhookClient
@@ -79,27 +77,14 @@ def run_async_command_logic(argv, args, project_name, project_version):
     tf.tf_github_branch = args.github_branch
     tf.tf_override_name = TF_OVERRIDE_NAME
     tf.tf_folder_path = TF_OVERRIDE_REMOTE
-    required_modules = args.required_module
-    collect_commandstats = args.collect_commandstats
 
     # check tf variables relation to git
     tf.git_vars_crosscheck()
 
     tf.tf_triggering_env = args.triggering_env
     tf.tf_setup_name_suffix = "{}-{}".format(args.setup_name_sufix, tf.tf_github_sha)
-    s3_bucket_name = args.s3_bucket_name
     local_module_files = args.module_path
-    dbdir_folder = args.dbdir_folder
     private_key = args.private_key
-    grafana_profile_dashboard = args.grafana_profile_dashboard
-    profilers_enabled = args.enable_profilers
-    keep_env_and_topo = args.keep_env_and_topo
-    skip_remote_db_setup = args.skip_db_setup
-    flushall_on_every_test_start = args.flushall_on_every_test_start
-    redis_7 = args.redis_7
-    cluster_start_port = 20000
-    redis_password = args.db_pass
-    ignore_keyspace_errors = args.ignore_keyspace_errors
     webhook_notifications_active = None
     if WH_TOKEN is not None:
         webhook_notifications_active = True
