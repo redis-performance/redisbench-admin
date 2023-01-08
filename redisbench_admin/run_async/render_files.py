@@ -3,7 +3,8 @@ import jinja2
 
 def renderServiceFile(access_key, region, secret_key, gh_token, args, argv):
     environment = jinja2.Environment()
-    template = environment.from_string("""[Unit]
+    template = environment.from_string(
+        """[Unit]
 Description=Redisbench-admin run service
     
 [Service]
@@ -20,15 +21,20 @@ ExecStart=/home/ubuntu/work_dir/redisbench-admin/.venv/bin/python /home/ubuntu/w
     
 [Install]
 WantedBy=multi-user.target
-    """)
+    """
+    )
     if "--private_key" not in argv:
         argv.append("--private_key")
         argv.append("/home/ubuntu/work_dir/tests/benchmarks/benchmarks.redislabs.pem")
     else:
-        argv[argv.index(args.private_key)] = "/home/ubuntu/work_dir/tests/benchmarks/benchmarks.redislabs.pem"
+        argv[
+            argv.index(args.private_key)
+        ] = "/home/ubuntu/work_dir/tests/benchmarks/benchmarks.redislabs.pem"
     if len(args.module_path) != 0:
-        argv[argv.index(args.module_path[0])] = '/home/ubuntu/work_dir/tests/benchmarks/' + \
-                                                args.module_path[0].split('/')[-1]
+        argv[argv.index(args.module_path[0])] = (
+            "/home/ubuntu/work_dir/tests/benchmarks/"
+            + args.module_path[0].split("/")[-1]
+        )
     argv_str = " ".join(argv)
     with open("redisbench-admin.service", mode="w", encoding="utf-8") as results:
         results.write(
@@ -44,7 +50,8 @@ WantedBy=multi-user.target
 
 def renderRunFile():
     with open("run.py", mode="w", encoding="utf-8") as run_file:
-        run_file.write("""#!/usr/local/bin/python
+        run_file.write(
+            """#!/usr/local/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys
@@ -53,13 +60,18 @@ from redisbench_admin.cli import main
 if __name__ == "__main__":
     sys.argv[0] = re.sub(r"(-script\.pyw|\.exe)?$", "", sys.argv[0])
     sys.exit(main())
-""")
+"""
+        )
 
 
 def savePemFile(pem_data):
     with open("benchmarks.redislabs.pem", mode="w", encoding="utf-8") as pem_file:
-        pem_data = pem_data.replace('-----BEGIN RSA PRIVATE KEY-----', '')
-        pem_data = pem_data.replace('-----END RSA PRIVATE KEY-----', '')
-        pem_data = pem_data.replace(' ', '\n')
-        pem_data = "-----BEGIN RSA PRIVATE KEY-----" + pem_data + "-----END RSA PRIVATE KEY-----"
+        pem_data = pem_data.replace("-----BEGIN RSA PRIVATE KEY-----", "")
+        pem_data = pem_data.replace("-----END RSA PRIVATE KEY-----", "")
+        pem_data = pem_data.replace(" ", "\n")
+        pem_data = (
+            "-----BEGIN RSA PRIVATE KEY-----"
+            + pem_data
+            + "-----END RSA PRIVATE KEY-----"
+        )
         pem_file.write(pem_data)

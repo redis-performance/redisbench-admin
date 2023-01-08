@@ -10,14 +10,28 @@ from python_terraform import Terraform, IsNotFlagged
 from redisbench_admin.run.common import BENCHMARK_REPETITIONS
 from redisbench_admin.utils.remote import (
     fetch_remote_setup_from_config,
-    extract_git_vars, tf_output_or_none, retrieve_tf_connection_vars, setup_remote_environment,
+    extract_git_vars,
+    tf_output_or_none,
+    retrieve_tf_connection_vars,
+    setup_remote_environment,
 )
 
 
 class TerraformClass:
-    def __init__(self, tf_bin_path=None, tf_github_actor=None, tf_github_org=None, tf_github_repo=None,
-                 tf_github_sha=None, tf_setup_name_sufix=None, tf_triggering_env=None, tf_timeout_secs=7200,
-                 tf_override_name=None, tf_folder_path=None, tf_github_branch=None):
+    def __init__(
+        self,
+        tf_bin_path=None,
+        tf_github_actor=None,
+        tf_github_org=None,
+        tf_github_repo=None,
+        tf_github_sha=None,
+        tf_setup_name_sufix=None,
+        tf_triggering_env=None,
+        tf_timeout_secs=7200,
+        tf_override_name=None,
+        tf_folder_path=None,
+        tf_github_branch=None,
+    ):
         self.tf_bin_path = tf_bin_path
         self.tf_github_actor = tf_github_actor
         self.tf_github_org = tf_github_org
@@ -97,13 +111,11 @@ class TerraformClass:
         logging.info("\ttriggering env: {}".format(self.tf_triggering_env))
         logging.info("\tsetup_name sufix: {}".format(self.tf_setup_name_sufix))
 
-    def async_runner_setup(self,
-                           ):
+    def async_runner_setup(
+        self,
+    ):
         (remote_setup, deployment_type, remote_id,) = fetch_remote_setup_from_config(
-            [{
-                "type": "async",
-                "setup": "runner"
-            }],
+            [{"type": "async", "setup": "runner"}],
             "https://github.com/RedisLabsModules/testing-infrastructure.git",
             "master",
             self.tf_folder_path,
@@ -142,15 +154,15 @@ class TerraformClass:
         )
 
     def setup_remote_environment(
-            self,
-            tf: Terraform,
-            tf_github_sha,
-            tf_github_actor,
-            tf_setup_name,
-            tf_github_org,
-            tf_github_repo,
-            tf_triggering_env,
-            tf_timeout_secs=7200,
+        self,
+        tf: Terraform,
+        tf_github_sha,
+        tf_github_actor,
+        tf_setup_name,
+        tf_github_org,
+        tf_github_repo,
+        tf_triggering_env,
+        tf_timeout_secs=7200,
     ):
         _, _, _ = tf.init(
             capture_output=True,
@@ -162,10 +174,7 @@ class TerraformClass:
         tf_output = tf.output()
         server_private_ip = tf_output_or_none(tf_output, "runner_private_ip")
         server_public_ip = tf_output_or_none(tf_output, "runner_public_ip")
-        if (
-                server_private_ip is not None
-                or server_public_ip is not None
-        ):
+        if server_private_ip is not None or server_public_ip is not None:
             logging.warning("Destroying previous setup")
             tf.destroy()
         return_code, stdout, stderr = tf.apply(
@@ -201,20 +210,20 @@ class TerraformClass:
 
 
 def terraform_spin_or_reuse_env(
-        benchmark_config,
-        remote_envs,
-        repetition,
-        test_name,
-        tf_bin_path,
-        tf_github_actor,
-        tf_github_org,
-        tf_github_repo,
-        tf_github_sha,
-        tf_setup_name_sufix,
-        tf_triggering_env,
-        tf_timeout_secs=7200,
-        tf_override_name=None,
-        tf_folder_path=None,
+    benchmark_config,
+    remote_envs,
+    repetition,
+    test_name,
+    tf_bin_path,
+    tf_github_actor,
+    tf_github_org,
+    tf_github_repo,
+    tf_github_sha,
+    tf_setup_name_sufix,
+    tf_triggering_env,
+    tf_timeout_secs=7200,
+    tf_override_name=None,
+    tf_folder_path=None,
 ):
     (remote_setup, deployment_type, remote_id,) = fetch_remote_setup_from_config(
         benchmark_config["remote"],

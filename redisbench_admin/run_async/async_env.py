@@ -18,22 +18,23 @@ def tar_files(filename="archive.tar", path="./../../"):
         tar.add(path, arcname=".")
     return filename
 
+
 def async_env_setup(
-        args,
-        benchmark_config,
-        remote_envs,
-        repetition,
-        test_name,
-        tf_bin_path,
-        tf_github_actor,
-        tf_github_org,
-        tf_github_repo,
-        tf_github_sha,
-        tf_setup_name_sufix,
-        tf_triggering_env,
-        tf_timeout_secs=7200,
-        tf_override_name=None,
-        tf_folder_path=None,
+    args,
+    benchmark_config,
+    remote_envs,
+    repetition,
+    test_name,
+    tf_bin_path,
+    tf_github_actor,
+    tf_github_org,
+    tf_github_repo,
+    tf_github_sha,
+    tf_setup_name_sufix,
+    tf_triggering_env,
+    tf_timeout_secs=7200,
+    tf_override_name=None,
+    tf_folder_path=None,
 ):
     server_plaintext_port = args.db_port
     db_ssh_port = args.db_ssh_port

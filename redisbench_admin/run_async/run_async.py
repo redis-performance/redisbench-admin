@@ -21,7 +21,11 @@ from redisbench_admin.run_remote.args import TF_OVERRIDE_NAME, TF_OVERRIDE_REMOT
 from redisbench_admin.run_async.async_env import tar_files
 from redisbench_admin.run_async.benchmark import BenchmarkClass
 from redisbench_admin.run_remote.notifications import generate_failure_notification
-from redisbench_admin.run_async.render_files import renderServiceFile, renderRunFile, savePemFile
+from redisbench_admin.run_async.render_files import (
+    renderServiceFile,
+    renderRunFile,
+    savePemFile,
+)
 from redisbench_admin.run_async.terraform import (
     TerraformClass,
 )
@@ -29,7 +33,9 @@ from redisbench_admin.utils.remote import (
     get_overall_dashboard_keynames,
     check_ec2_env,
     get_project_ts_tags,
-    push_data_to_redistimeseries, execute_remote_commands, copy_file_to_remote_setup,
+    push_data_to_redistimeseries,
+    execute_remote_commands,
+    copy_file_to_remote_setup,
 )
 
 from redisbench_admin.utils.utils import (
@@ -195,7 +201,9 @@ def run_async_command_logic(argv, args, project_name, project_version):
         _,
         _,
         _,
-    ) = get_overall_dashboard_keynames(tf.tf_github_org, tf.tf_github_repo, tf.tf_triggering_env)
+    ) = get_overall_dashboard_keynames(
+        tf.tf_github_org, tf.tf_github_repo, tf.tf_triggering_env
+    )
 
     benchmark.populate_remote_envs_timeout()
 
@@ -207,7 +215,9 @@ def run_async_command_logic(argv, args, project_name, project_version):
         )
 
     # we have a map of test-type, dataset-name, topology, test-name
-    benchmark.benchmark_runs_plan = define_benchmark_plan(benchmark.benchmark_definitions, benchmark.default_specs)
+    benchmark.benchmark_runs_plan = define_benchmark_plan(
+        benchmark.benchmark_definitions, benchmark.default_specs
+    )
 
     # create service file
     renderServiceFile(
@@ -216,7 +226,7 @@ def run_async_command_logic(argv, args, project_name, project_version):
         region=EC2_REGION,
         gh_token=os.getenv("GH_TOKEN", None),
         args=args,
-        argv=argv
+        argv=argv,
     )
 
     # create run.py file for running redisbench-cli
@@ -258,19 +268,16 @@ def run_async_command_logic(argv, args, project_name, project_version):
             "sudo apt install -y gnupg software-properties-common",
             "wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee "
             "/usr/share/keyrings/hashicorp-archive-keyring.gpg >/dev/null",
-
             "gpg --no-default-keyring --keyring /usr/share/keyrings/hashicorp-archive-keyring.gpg --fingerprint",
-
-            "echo \"deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] "
-            "https://apt.releases.hashicorp.com $(lsb_release -cs) main\" | sudo tee "
+            'echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] '
+            'https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee '
             "/etc/apt/sources.list.d/hashicorp.list",
-
             "sudo apt update",
             "sudo apt install terraform",
             "curl -sSL https://install.python-poetry.org | POETRY_VERSION=1.2.2 python3 -",
-            "cd work_dir/redisbench-admin && PATH=\"/home/ubuntu/.local/bin:$PATH\" poetry config "
+            'cd work_dir/redisbench-admin && PATH="/home/ubuntu/.local/bin:$PATH" poetry config '
             "virtualenvs.in-project true",
-            "cd work_dir/redisbench-admin && PATH=\"/home/ubuntu/.local/bin:$PATH\" poetry install",
+            'cd work_dir/redisbench-admin && PATH="/home/ubuntu/.local/bin:$PATH" poetry install',
             "./work_dir/deps/readies/bin/getdocker",
             "sudo docker run -d -p 6379:6379 -it --rm redis/redis-stack-server",
             "cd work_dir && sudo cp tests/benchmarks/redisbench-admin.service /etc/systemd/system",
@@ -278,7 +285,7 @@ def run_async_command_logic(argv, args, project_name, project_version):
             "sudo systemctl start redisbench-admin.service",
         ],
         "22",
-        get_pty=True
+        get_pty=True,
     )
 
     # render service file
