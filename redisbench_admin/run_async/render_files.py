@@ -44,6 +44,7 @@ WantedBy=multi-user.target
                 region=region,
                 secret_key=secret_key,
                 gh_token=gh_token,
+                job_name=job_name,
                 args=argv_str,
             )
         )
