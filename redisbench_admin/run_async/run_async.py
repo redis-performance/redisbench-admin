@@ -210,6 +210,7 @@ def run_async_command_logic(argv, args, project_name, project_version):
         secret_key=EC2_SECRET_KEY,
         region=EC2_REGION,
         gh_token=os.getenv("GH_TOKEN", None),
+        job_name=os.getenv("CIRCLE_JOB", None),
         args=args,
         argv=argv,
     )

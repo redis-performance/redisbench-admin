@@ -1,7 +1,7 @@
 import jinja2
 
 
-def renderServiceFile(access_key, region, secret_key, gh_token, args, argv):
+def renderServiceFile(access_key, region, secret_key, gh_token, job_name, args, argv):
     environment = jinja2.Environment()
     template = environment.from_string(
         """[Unit]
@@ -14,6 +14,7 @@ Environment="AWS_ACCESS_KEY_ID={{access_key}}"
 Environment="AWS_DEFAULT_REGION={{region}}"
 Environment="AWS_SECRET_ACCESS_KEY={{secret_key}}"
 {% if gh_token != None %}Environment="GH_TOKEN={{gh_token}}"{% endif %}
+{% if job_name != None %}Environment="CIRCLE_JOB={{job_name}}"{% endif %}
 WorkingDirectory=/home/ubuntu/work_dir/tests/benchmarks
 Type=simple
 User=ubuntu
