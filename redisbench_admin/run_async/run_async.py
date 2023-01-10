@@ -255,12 +255,12 @@ def run_async_command_logic(argv, args, project_name, project_version):
             "/usr/share/keyrings/hashicorp-archive-keyring.gpg >/dev/null",
             "gpg --no-default-keyring --keyring /usr/share/keyrings/hashicorp-archive-keyring.gpg --fingerprint",
             'echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] ',
-            'https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee ',
+            'https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee '
             "/etc/apt/sources.list.d/hashicorp.list",
             "sudo apt update",
             "sudo apt install terraform",
             "curl -sSL https://install.python-poetry.org | POETRY_VERSION=1.2.2 python3 -",
-            'cd work_dir/redisbench-admin && PATH="/home/ubuntu/.local/bin:$PATH" poetry config ',
+            'cd work_dir/redisbench-admin && PATH="/home/ubuntu/.local/bin:$PATH" poetry config '
             "virtualenvs.in-project true",
             'cd work_dir/redisbench-admin && PATH="/home/ubuntu/.local/bin:$PATH" poetry install',
             "./work_dir/deps/readies/bin/getdocker",
