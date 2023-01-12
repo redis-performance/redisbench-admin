@@ -24,6 +24,12 @@ from redisbench_admin.run_remote.notifications import (
 from redisbench_admin.utils.remote import get_overall_dashboard_keynames
 
 
+def get_project_compare_zsets(triggering_env, org, repo):
+    return "ci.benchmarks.redislabs/{}/{}/{}:compare:pull_requests:zset".format(
+        triggering_env, org, repo
+    )
+
+
 def compare_command_logic(args, project_name, project_version):
     logging.info(
         "Using: {project_name} {project_version}".format(
@@ -157,6 +163,7 @@ def compare_command_logic(args, project_name, project_version):
     pull_request = args.pull_request
     testname_regex = args.testname_regex
     auto_approve = args.auto_approve
+    running_platform = args.running_platform
     grafana_base_dashboard = args.grafana_base_dashboard
     # using an access token
     is_actionable_pr = False
@@ -166,6 +173,12 @@ def compare_command_logic(args, project_name, project_version):
     # slack related
     webhook_notifications_active = False
     webhook_client_slack = None
+    if running_platform is not None:
+        logging.info(
+            "Using platform named: {} to do the comparison.\n\n".format(
+                running_platform
+            )
+        )
     if WH_TOKEN is not None:
         webhook_notifications_active = True
         webhook_url = "https://hooks.slack.com/services/{}".format(WH_TOKEN)
@@ -258,11 +271,16 @@ def compare_command_logic(args, project_name, project_version):
         to_date,
         to_ts_ms,
         use_metric_context_path,
+        running_platform,
     )
     comment_body = ""
     if total_comparison_points > 0:
         comment_body = "### Automated performance analysis summary\n\n"
         comment_body += "This comment was automatically generated given there is performance data available.\n\n"
+        if running_platform is not None:
+            comment_body += "Using platform named: {} to do the comparison.\n\n".format(
+                running_platform
+            )
         comparison_summary = "In summary:\n"
         if total_stable > 0:
             comparison_summary += (
@@ -307,6 +325,26 @@ def compare_command_logic(args, project_name, project_version):
         print(comment_body)
 
         if is_actionable_pr:
+            zset_project_pull_request = get_project_compare_zsets(
+                tf_triggering_env,
+                tf_github_org,
+                tf_github_repo,
+            )
+            logging.info(
+                "Populating the pull request performance ZSETs: {} with branch {}".format(
+                    zset_project_pull_request, comparison_branch
+                )
+            )
+            _, start_time_ms, _ = get_start_time_vars()
+            res = rts.zadd(
+                zset_project_pull_request,
+                {comparison_branch: start_time_ms},
+            )
+            logging.info(
+                "Result of Populating the pull request performance ZSETs: {} with branch {}: {}".format(
+                    zset_project_pull_request, comparison_branch, res
+                )
+            )
             user_input = "n"
             html_url = "n/a"
             regression_count = len(detected_regressions)
@@ -451,6 +489,7 @@ def compute_regression_table(
     to_date=None,
     to_ts_ms=None,
     use_metric_context_path=None,
+    running_platform=None,
 ):
     START_TIME_NOW_UTC, _, _ = get_start_time_vars()
     START_TIME_LAST_MONTH_UTC = START_TIME_NOW_UTC - datetime.timedelta(days=31)
@@ -534,6 +573,7 @@ def compute_regression_table(
         test_names,
         tf_triggering_env,
         verbose,
+        running_platform,
     )
     logging.info(
         "Printing differential analysis between {} and {}".format(
@@ -640,6 +680,7 @@ def from_rts_to_regression_table(
     test_names,
     tf_triggering_env,
     verbose,
+    running_platform=None,
 ):
     print_all = print_regressions_only is False and print_improvements_only is False
     table = []
@@ -659,6 +700,8 @@ def from_rts_to_regression_table(
             "deployment_name={}".format(baseline_deployment_name),
             "triggering_env={}".format(tf_triggering_env),
         ]
+        if running_platform is not None:
+            filters_baseline.append("running_platform={}".format(running_platform))
         filters_comparison = [
             "{}={}".format(by_str, comparison_str),
             "metric={}".format(metric_name),
@@ -666,6 +709,8 @@ def from_rts_to_regression_table(
             "deployment_name={}".format(comparison_deployment_name),
             "triggering_env={}".format(tf_triggering_env),
         ]
+        if running_platform is not None:
+            filters_comparison.append("running_platform={}".format(running_platform))
         baseline_timeseries = rts.ts().queryindex(filters_baseline)
         comparison_timeseries = rts.ts().queryindex(filters_comparison)
 
