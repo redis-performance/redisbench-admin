@@ -24,6 +24,7 @@ TRIGGERING_ENV = os.getenv("TRIGGERING_ENV", DEFAULT_TRIGGERING_ENV)
 ENV = os.getenv("ENV", "oss-standalone,oss-cluster")
 SETUP = os.getenv("SETUP", "")
 BENCHMARK_GLOB = os.getenv("BENCHMARK_GLOB", "*.yml")
+BENCHMARK_REGEX = os.getenv("BENCHMARK_REGEX", ".*")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "ci.benchmarks.redislabs")
 PUSH_S3 = bool(os.getenv("PUSH_S3", False))
 REDIS_7 = bool(os.getenv("REDIS_7", True))
@@ -81,6 +82,12 @@ def common_run_args(parser):
         type=str,
         default=BENCHMARK_GLOB,
         help="specify a test glob pattern to use on the tests directory. by default uses *.yml. If --test is defined this options has no effect.",
+    )
+    parser.add_argument(
+        "--test-regex",
+        type=str,
+        default=BENCHMARK_REGEX,
+        help="specify a test regex pattern to use on the tests directory. by default uses '.*'. If --test is defined this options has no effect.",
     )
 
     parser.add_argument(
