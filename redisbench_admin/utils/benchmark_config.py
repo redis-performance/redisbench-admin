@@ -55,7 +55,10 @@ def parse_exporter_timemetric(metric_path: str, results_dict: dict):
 def prepare_benchmark_definitions(args):
     benchmark_definitions = {}
     result = True
-    defaults_filename, files = get_testfiles_to_process(args)
+    defaults_filename = args.defaults_filename
+    files = get_testfiles_to_process(
+        args.test_glob, args.test, defaults_filename, args.test_regex
+    )
 
     (
         default_kpis,
@@ -482,23 +485,29 @@ def min_ver_check(
     )
 
 
-def get_testfiles_to_process(args):
-    defaults_filename = args.defaults_filename
-    if args.test == "":
-        files = pathlib.Path().glob(args.test_glob)
+def get_testfiles_to_process(test_glob, test_name, defaults_filename, test_regex=".*"):
+    if test_name == "":
+        files = pathlib.Path().glob(test_glob)
         files = [str(x) for x in files]
-        if defaults_filename in files:
-            files.remove(defaults_filename)
-
+        for file in files:
+            if defaults_filename in file:
+                files.remove(file)
+        final_files = []
+        for file in files:
+            a = re.search(test_regex, file)
+            if a is not None:
+                final_files.append(a.string)
+        files = final_files
         logging.info(
             "Running all specified benchmarks: {}".format(
                 " ".join([str(x) for x in files])
             )
         )
+
     else:
-        files = args.test.split(",")
+        files = test_name.split(",")
         logging.info("Running specific benchmark in file: {}".format(files))
-    return defaults_filename, files
+    return files
 
 
 def check_required_modules(module_names, required_modules):
