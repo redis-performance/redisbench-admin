@@ -499,8 +499,8 @@ def get_testfiles_to_process(test_glob, test_name, defaults_filename, test_regex
                 final_files.append(a.string)
         files = final_files
         logging.info(
-            "Running all specified benchmarks: {}".format(
-                " ".join([str(x) for x in files])
+            "Running a total of {} benchmarks: {}".format(
+                len(files), " ".join([str(x) for x in files])
             )
         )
 
