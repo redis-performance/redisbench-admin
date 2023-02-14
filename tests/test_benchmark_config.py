@@ -263,3 +263,21 @@ def test_get_testfiles_to_process():
     assert 3 == len(test_files_to_process)
     for test_graph in test_files_to_process_graph500_glob:
         assert test_graph not in test_files_to_process
+
+    test_files_to_process_group_member_1 = get_testfiles_to_process(
+        test_glob_pattern_all, "", "defaults.yml", ".*", 1, 2
+    )
+    test_files_to_process_group_member_2 = get_testfiles_to_process(
+        test_glob_pattern_all, "", "defaults.yml", ".*", 2, 2
+    )
+    assert 3 == len(test_files_to_process_group_member_1)
+    assert 3 == len(test_files_to_process_group_member_2)
+
+    test_files_to_process_graph500_glob_group_member_1 = get_testfiles_to_process(
+        test_glob_pattern_graph500, "", "defaults.yml", ".*", 1, 2
+    )
+    assert 2 == len(test_files_to_process_graph500_glob_group_member_1)
+    test_files_to_process_graph500_glob_group_member_2 = get_testfiles_to_process(
+        test_glob_pattern_graph500, "", "defaults.yml", ".*", 2, 2
+    )
+    assert 2 == len(test_files_to_process_graph500_glob_group_member_2)
