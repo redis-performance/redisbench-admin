@@ -57,7 +57,12 @@ def prepare_benchmark_definitions(args):
     result = True
     defaults_filename = args.defaults_filename
     files = get_testfiles_to_process(
-        args.test_glob, args.test, defaults_filename, args.test_regex
+        args.test_glob,
+        args.test,
+        defaults_filename,
+        args.test_regex,
+        args.runner_group_member_id,
+        args.runner_group_total_members,
     )
 
     (
@@ -485,7 +490,14 @@ def min_ver_check(
     )
 
 
-def get_testfiles_to_process(test_glob, test_name, defaults_filename, test_regex=".*"):
+def get_testfiles_to_process(
+    test_glob,
+    test_name,
+    defaults_filename,
+    test_regex=".*",
+    runner_group_member_id=1,
+    runner_group_total_members=1,
+):
     if test_name == "":
         files = pathlib.Path().glob(test_glob)
         files = [str(x) for x in files]
@@ -507,6 +519,22 @@ def get_testfiles_to_process(test_glob, test_name, defaults_filename, test_regex
     else:
         files = test_name.split(",")
         logging.info("Running specific benchmark in file: {}".format(files))
+
+    if runner_group_total_members > 1:
+        tests_per_member = round(len(files) / runner_group_total_members)
+        member_test_start_pos = (runner_group_member_id - 1) * tests_per_member
+        member_test_end_pos = runner_group_member_id * tests_per_member
+        if runner_group_member_id == runner_group_total_members:
+            member_test_end_pos = len(files)
+        final_files = files[member_test_start_pos:member_test_end_pos]
+        logging.info(
+            "Detected a benchmark runner group. Splitting tests evenly. Non-zero remainder will be attributed to the last member. Member ID: {}. Total members: {}. Benchmarks per runner {}.".format(
+                runner_group_member_id, runner_group_total_members, tests_per_member
+            )
+        )
+        logging.info("Tests for this runner: {}".format(",".join(final_files)))
+        files = final_files
+
     return files
 
 

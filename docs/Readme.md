@@ -3,7 +3,7 @@
 
 The automated benchmark definitions provides a framework for evaluating and comparing feature branches and catching regressions prior letting them into the master branch.
 
-To be able to run local benchmarks you need `redisbench_admin>=0.1.64` [[tool repo for full details](https://github.com/RedisLabsModules/redisbench-admin)] and the benchmark tool specified on each configuration file . You can install redisbench-admin via PyPi as any other package. 
+To be able to run local benchmarks you need `redisbench_admin>=0.1.64` [[tool repo for full details](https://github.com/redis-performance/redisbench-admin)] and the benchmark tool specified on each configuration file . You can install redisbench-admin via PyPi as any other package. 
 ```
 pip3 install redisbench_admin>=0.1.64
 ```
@@ -21,7 +21,7 @@ A benchmark definition will then consist of:
 
 - mandatory client configuration (`clientconfig`) specifing the parameters to pass to the benchmark tool tool. The properties allowed here are: `tool`, `min-tool-version`, `tool_source`, `parameters`. If you don't have the required tools and the `tool_source` property is specified then the benchmark client will be downloaded once to a local path `./binaries/<tool>`. 
 
-- optional ci remote definition (`remote`), with the proper terraform deployment configurations definition. The properties allowed here are `type` and `setup`. Both properties are used to find the proper benchmark specification folder within [RedisLabsModules/testing-infrastructure](https://github.com/RedisLabsModules/testing-infrastructure). As an example, if you specify ` - type: oss-standalone` and `- setup: redistimeseries-m5` the used terraform setup will be described by the setup at [`testing-infrastructure/tree/terraform/oss-standalone-redistimeseries-m5`](https://github.com/RedisLabsModules/testing-infrastructure/tree/master/terraform/oss-standalone-redistimeseries-m5)
+- optional ci remote definition (`remote`), with the proper terraform deployment configurations definition. The properties allowed here are `type` and `setup`. Both properties are used to find the proper benchmark specification folder within [redis-performance/testing-infrastructure](https://github.com/redis-performance/testing-infrastructure). As an example, if you specify ` - type: oss-standalone` and `- setup: redistimeseries-m5` the used terraform setup will be described by the setup at [`testing-infrastructure/tree/terraform/oss-standalone-redistimeseries-m5`](https://github.com/redis-performance/testing-infrastructure/tree/master/terraform/oss-standalone-redistimeseries-m5)
 
 - optional KPIs definition (`kpis`), specifying the target upper or lower bounds for each relevant performance metric. If specified the KPIs definitions constraints the tests passing/failing. 
 
