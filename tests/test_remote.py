@@ -34,7 +34,7 @@ def test_extract_git_vars():
         github_branch,
         github_branch_detached,
     ) = extract_git_vars(".")
-    assert github_org_name == "RedisLabsModules"
+    assert github_org_name == "redis-performance"
     assert github_repo_name == "redisbench-admin"
     assert github_sha != None and github_branch != ""
     if github_branch_detached is False:
@@ -53,7 +53,7 @@ def test_extract_git_vars_passing_repo():
     ) = extract_git_vars(
         ".", github_url="https://github.com/RedisLabsModules/redisbench-admin"
     )
-    assert github_org_name == "RedisLabsModules"
+    assert github_org_name == "redis-performance"
     assert github_repo_name == "redisbench-admin"
     assert github_sha != None and github_branch != ""
     if github_branch_detached is False:
@@ -72,7 +72,7 @@ def test_extract_git_vars_passing_repo2():
     ) = extract_git_vars(
         ".", github_url="https://github.com/RedisLabsModules/redisbench-admin/"
     )
-    assert github_org_name == "RedisLabsModules"
+    assert github_org_name == "redis-performance"
     assert github_repo_name == "redisbench-admin"
     assert github_sha != None and github_branch != ""
     if github_branch_detached is False:
@@ -91,7 +91,7 @@ def test_extract_git_vars_passing_repo3():
     ) = extract_git_vars(
         ".", github_url="git@github.com:RedisLabsModules/redisbench-admin.git"
     )
-    assert github_org_name == "RedisLabsModules"
+    assert github_org_name == "redis-performance"
     assert github_repo_name == "redisbench-admin"
     assert github_sha != None and github_branch != ""
     if github_branch_detached is False:
