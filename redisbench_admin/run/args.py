@@ -25,6 +25,8 @@ ENV = os.getenv("ENV", "oss-standalone,oss-cluster")
 SETUP = os.getenv("SETUP", "")
 BENCHMARK_GLOB = os.getenv("BENCHMARK_GLOB", "*.yml")
 BENCHMARK_REGEX = os.getenv("BENCHMARK_REGEX", ".*")
+BENCHMARK_RUNNER_GROUP_TOTAL = int(os.getenv("BENCHMARK_RUNNER_GROUP_TOTAL", "1"))
+BENCHMARK_RUNNER_GROUP_M_ID = int(os.getenv("BENCHMARK_RUNNER_GROUP_M_ID", "1"))
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "ci.benchmarks.redislabs")
 PUSH_S3 = bool(os.getenv("PUSH_S3", False))
 REDIS_7 = bool(os.getenv("REDIS_7", True))
@@ -89,7 +91,18 @@ def common_run_args(parser):
         default=BENCHMARK_REGEX,
         help="specify a test regex pattern to use on the tests directory. by default uses '.*'. If --test is defined this options has no effect.",
     )
-
+    parser.add_argument(
+        "--runner-group-member-id",
+        type=str,
+        default=BENCHMARK_RUNNER_GROUP_M_ID,
+        help="Split test files evenly among a runner group. This is the id of the runner. Non-zero remainder of the division of tests will be attributed to the last member.",
+    )
+    parser.add_argument(
+        "--runner-group-total-members",
+        type=str,
+        default=BENCHMARK_RUNNER_GROUP_TOTAL,
+        help="Split test files evenly among a runner group. This is the total number of elements of the runner group",
+    )
     parser.add_argument(
         "--defaults_filename",
         type=str,

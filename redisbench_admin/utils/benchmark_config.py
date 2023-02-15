@@ -57,7 +57,12 @@ def prepare_benchmark_definitions(args):
     result = True
     defaults_filename = args.defaults_filename
     files = get_testfiles_to_process(
-        args.test_glob, args.test, defaults_filename, args.test_regex
+        args.test_glob,
+        args.test,
+        defaults_filename,
+        args.test_regex,
+        args.runner_group_member_id,
+        args.runner_group_total_members,
     )
 
     (
@@ -516,7 +521,7 @@ def get_testfiles_to_process(
         logging.info("Running specific benchmark in file: {}".format(files))
 
     if runner_group_total_members > 1:
-        tests_per_member = len(files) // runner_group_total_members
+        tests_per_member = round(len(files) / runner_group_total_members)
         member_test_start_pos = (runner_group_member_id - 1) * tests_per_member
         member_test_end_pos = runner_group_member_id * tests_per_member
         if runner_group_member_id == runner_group_total_members:
