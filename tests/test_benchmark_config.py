@@ -13,6 +13,7 @@ from redisbench_admin.utils.benchmark_config import (
     get_termination_timeout_secs,
     prepare_benchmark_definitions,
     process_benchmark_definitions_remote_timeouts,
+    get_testfiles_to_process,
 )
 
 
@@ -196,7 +197,7 @@ def test_prepare_benchmark_definitions():
         clusterconfig,
     ) = prepare_benchmark_definitions(args)
     assert result == True
-    assert len(benchmark_definitions.keys()) == 2
+    assert len(benchmark_definitions.keys()) == 6
 
 
 def test_process_benchmark_definitions_remote_timeouts():
@@ -224,10 +225,94 @@ def test_process_benchmark_definitions_remote_timeouts():
         clusterconfig,
     ) = prepare_benchmark_definitions(args)
     assert result == True
-    assert len(benchmark_definitions.keys()) == 2
+    assert len(benchmark_definitions.keys()) == 6
     remote_envs_timeout = process_benchmark_definitions_remote_timeouts(
         benchmark_definitions
     )
-    assert len(remote_envs_timeout.keys()) == 1
+    assert len(remote_envs_timeout.keys()) == 2
     # we have the default timeout + the one specified
     assert list(remote_envs_timeout.values())[0] == 600 + 1200
+
+
+def test_get_testfiles_to_process():
+    test_glob_pattern_all = "./tests/test_data/benchmark_definitions/*.yml"
+    test_glob_pattern_graph500 = "./tests/test_data/benchmark_definitions/graph500*.yml"
+    test_files_to_process_all = get_testfiles_to_process(
+        test_glob_pattern_all, "", "defaults.yml"
+    )
+    assert 6 == len(test_files_to_process_all)
+    test_files_to_process_graph500_glob = get_testfiles_to_process(
+        test_glob_pattern_graph500, "", "defaults.yml"
+    )
+    assert 3 == len(test_files_to_process_graph500_glob)
+    test_files_to_process = get_testfiles_to_process(
+        "./tests/test_data/benchmark_definitions/*.yml",
+        "",
+        "defaults.yml",
+        "graph500.+.yml",
+    )
+    assert 3 == len(test_files_to_process)
+    assert test_files_to_process_graph500_glob == test_files_to_process
+
+    test_files_to_process = get_testfiles_to_process(
+        "./tests/test_data/benchmark_definitions/*.yml",
+        "",
+        "defaults.yml",
+        "^(?!.*graph500).*.yml",
+    )
+    assert 3 == len(test_files_to_process)
+    for test_graph in test_files_to_process_graph500_glob:
+        assert test_graph not in test_files_to_process
+
+    test_files_to_process_group_member_1 = get_testfiles_to_process(
+        test_glob_pattern_all, "", "defaults.yml", ".*", 1, 2
+    )
+    test_files_to_process_group_member_2 = get_testfiles_to_process(
+        test_glob_pattern_all, "", "defaults.yml", ".*", 2, 2
+    )
+    assert 3 == len(test_files_to_process_group_member_1)
+    assert 3 == len(test_files_to_process_group_member_2)
+
+    test_files_to_process_graph500_glob_group_member_1 = get_testfiles_to_process(
+        test_glob_pattern_graph500, "", "defaults.yml", ".*", 1, 2
+    )
+    assert 2 == len(test_files_to_process_graph500_glob_group_member_1)
+    test_files_to_process_graph500_glob_group_member_2 = get_testfiles_to_process(
+        test_glob_pattern_graph500, "", "defaults.yml", ".*", 2, 2
+    )
+    assert 1 == len(test_files_to_process_graph500_glob_group_member_2)
+
+    test_files_to_process_graph500_glob_group_member_1 = get_testfiles_to_process(
+        test_glob_pattern_graph500, "", "defaults.yml", ".*", 1, 3
+    )
+    test_files_to_process_graph500_glob_group_member_2 = get_testfiles_to_process(
+        test_glob_pattern_graph500, "", "defaults.yml", ".*", 2, 3
+    )
+    test_files_to_process_graph500_glob_group_member_3 = get_testfiles_to_process(
+        test_glob_pattern_graph500, "", "defaults.yml", ".*", 3, 3
+    )
+    assert 1 == len(test_files_to_process_graph500_glob_group_member_1)
+    assert 1 == len(test_files_to_process_graph500_glob_group_member_2)
+    assert 1 == len(test_files_to_process_graph500_glob_group_member_3)
+
+    test_files_to_process_all_glob_group_member_1 = get_testfiles_to_process(
+        test_glob_pattern_all, "", "defaults.yml", ".*", 1, 5
+    )
+    assert 1 == len(test_files_to_process_all_glob_group_member_1)
+    assert (
+        test_files_to_process_all[0] == test_files_to_process_all_glob_group_member_1[0]
+    )
+    test_files_to_process_all_glob_group_member_4 = get_testfiles_to_process(
+        test_glob_pattern_all, "", "defaults.yml", ".*", 4, 5
+    )
+    assert 1 == len(test_files_to_process_all_glob_group_member_4)
+    assert (
+        test_files_to_process_all[3] == test_files_to_process_all_glob_group_member_4[0]
+    )
+    test_files_to_process_all_glob_group_member_5 = get_testfiles_to_process(
+        test_glob_pattern_all, "", "defaults.yml", ".*", 5, 5
+    )
+    assert 2 == len(test_files_to_process_all_glob_group_member_5)
+    assert (
+        test_files_to_process_all[4:6] == test_files_to_process_all_glob_group_member_5
+    )

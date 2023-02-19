@@ -1,13 +1,13 @@
-[![codecov](https://codecov.io/gh/RedisLabsModules/redisbench-admin/branch/master/graph/badge.svg)](https://codecov.io/gh/RedisLabsModules/redisbench-admin)
-![Actions](https://github.com/RedisLabsModules/redisbench-admin/workflows/Run%20Tests/badge.svg?branch=master)
+[![codecov](https://codecov.io/gh/redis-performance/redisbench-admin/branch/master/graph/badge.svg)](https://codecov.io/gh/redis-performance/redisbench-admin)
+![Actions](https://github.com/redis-performance/redisbench-admin/workflows/Run%20Tests/badge.svg?branch=master)
 ![Actions](https://badge.fury.io/py/redisbench-admin.svg)
 
-# [redisbench-admin](https://github.com/RedisLabsModules/redisbench-admin)
+# [redisbench-admin](https://github.com/redis-performance/redisbench-admin)
 
 Redis benchmark run helper can help you with the following tasks:
 
 - Setup abd teardown of benchmarking infrastructure specified
-  on [RedisLabsModules/testing-infrastructure](https://github.com/RedisLabsModules/testing-infrastructure)
+  on [redis-performance/testing-infrastructure](https://github.com/redis-performance/testing-infrastructure)
 - Setup and teardown of an Redis and Redis Modules DBs for benchmarking
 - Management of benchmark data and specifications across different setups
 - Running benchmarks and recording results
@@ -19,7 +19,7 @@ Current supported benchmark tools:
 
 - [redis-benchmark](https://github.com/redis/redis)
 - [memtier_benchmark](https://github.com/RedisLabs/memtier_benchmark)
-- [redis-benchmark-go](https://github.com/filipecosta90/redis-benchmark-go)
+- [redis-benchmark-go](https://github.com/redis-performance/redis-benchmark-go)
 - [YCSB](https://github.com/RediSearch/YCSB)
 - [tsbs](https://github.com/RedisTimeSeries/tsbs)
 - [redisgraph-benchmark-go](https://github.com/RedisGraph/redisgraph-benchmark-go)

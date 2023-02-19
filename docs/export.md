@@ -1,13 +1,13 @@
 
 
 
-# [redisbench-admin export](https://github.com/RedisLabsModules/redisbench-admin)
+# [redisbench-admin export](https://github.com/redis-performance/redisbench-admin)
 
 Redis benchmark exporter can help you exporting performance results based on several formats input (CSV, JSON) and
 pushing them to data sinks in a time-series format. 
 
 Ultimately it provides a framework for evaluating and comparing feature branches and catching regressions prior letting them into the master branch,
-as shown on the bellow sample dashboard produced from exported data via [redisbench-admin export](https://github.com/RedisLabsModules/redisbench-admin).
+as shown on the bellow sample dashboard produced from exported data via [redisbench-admin export](https://github.com/redis-performance/redisbench-admin).
 
 ![RedisTimeSeries Sample CI dashboard detail](screenshot_RedisTimeSeries_CI_benchmarks_Grafana.png)
 
@@ -15,8 +15,8 @@ Current supported benchmark tools to export data from:
 
 - [redis-benchmark](https://github.com/redis/redis)
 - [memtier_benchmark](https://github.com/RedisLabs/memtier_benchmark)
-- [redis-benchmark-go](https://github.com/filipecosta90/redis-benchmark-go)
-- [YCSB](https://github.com/RediSearch/YCSB)
+- [redis-benchmark-go](https://github.com/redis-performance/redis-benchmark-go)
+- [YCSB](https://github.com/redis-performance/go-ycsb)
 - [tsbs](https://github.com/RedisTimeSeries/tsbs)
 - [redisgraph-benchmark-go](https://github.com/RedisGraph/redisgraph-benchmark-go)
 - [ftsb_redisearch](https://github.com/RediSearch/ftsb)
@@ -161,7 +161,7 @@ memtier_benchmark --json-out-file results.json
 
 After the benchmark ends we will have the `results.json` file.
 Together with the "Sample exporter definition for memtier_benchmark" YAML above, that you can download at 
-[exporter-memtier-metrics.yml](https://github.com/RedisLabsModules/redisbench-admin/blob/master/docs/exporter-memtier-metrics.yml)
+[exporter-memtier-metrics.yml](https://github.com/redis-performance/redisbench-admin/blob/master/docs/exporter-memtier-metrics.yml)
 you can push the memtier results to redistimeseries via:
 
 **Command:**
