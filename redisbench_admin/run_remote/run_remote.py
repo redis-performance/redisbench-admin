@@ -89,12 +89,7 @@ EXPIRE_TIME_MSECS_PROFILE_KEYS = EXPIRE_TIME_SECS_PROFILE_KEYS * 1000
 
 
 def is_important_data(tf_github_branch, artifact_version):
-    if artifact_version is not None or (
-        tf_github_branch == "master" or tf_github_branch == "main"
-    ):
-        return True
-    else:
-        return False
+    return True
 
 
 def run_remote_command_logic(args, project_name, project_version):
