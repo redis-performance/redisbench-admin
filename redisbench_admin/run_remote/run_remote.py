@@ -89,12 +89,7 @@ EXPIRE_TIME_MSECS_PROFILE_KEYS = EXPIRE_TIME_SECS_PROFILE_KEYS * 1000
 
 
 def is_important_data(tf_github_branch, artifact_version):
-    if artifact_version is not None or (
-        tf_github_branch == "master" or tf_github_branch == "main"
-    ):
-        return True
-    else:
-        return False
+    return True
 
 
 def run_remote_command_logic(args, project_name, project_version):
@@ -812,6 +807,28 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     {"metric-type": "commandstats"},
                                                     expire_ms,
                                                 )
+                                                (
+                                                    end_time_ms,
+                                                    _,
+                                                    overall_commandstats_metrics,
+                                                ) = collect_redis_metrics(
+                                                    redis_conns, ["latencystats"]
+                                                )
+                                                export_redis_metrics(
+                                                    artifact_version,
+                                                    end_time_ms,
+                                                    overall_commandstats_metrics,
+                                                    rts,
+                                                    setup_name,
+                                                    setup_type,
+                                                    test_name,
+                                                    tf_github_branch,
+                                                    tf_github_org,
+                                                    tf_github_repo,
+                                                    tf_triggering_env,
+                                                    {"metric-type": "latencystats"},
+                                                    expire_ms,
+                                                )
 
                                         if setup_details["env"] is None:
                                             if (
@@ -1204,10 +1221,11 @@ def export_redis_metrics(
             metric_name,
             metric_value,
         ) in overall_end_time_metrics.items():
-            tsname_metric = "{}/{}/{}/benchmark_end/{}".format(
+            tsname_metric = "{}/{}/{}/benchmark_end/{}/{}".format(
                 sprefix,
                 test_name,
                 by_variant,
+                setup_name,
                 metric_name,
             )
 
@@ -1219,8 +1237,18 @@ def export_redis_metrics(
                     tsname_metric,
                 )
             )
-            variant_labels_dict["test_name"] = test_name
             variant_labels_dict["metric"] = metric_name
+            commandstats_latencystats_process_name(
+                metric_name, "commandstats_cmdstat_", setup_name, variant_labels_dict
+            )
+            commandstats_latencystats_process_name(
+                metric_name,
+                "latencystats_latency_percentiles_usec_",
+                setup_name,
+                variant_labels_dict,
+            )
+
+            variant_labels_dict["test_name"] = test_name
             if metadata_dict is not None:
                 variant_labels_dict.update(metadata_dict)
 
@@ -1241,6 +1269,28 @@ def export_redis_metrics(
     datapoint_errors = datapoint_errors + i_errors
     datapoint_inserts = datapoint_inserts + i_inserts
     return datapoint_errors, datapoint_inserts
+
+
+def commandstats_latencystats_process_name(
+    metric_name, prefix, setup_name, variant_labels_dict
+):
+    if prefix in metric_name:
+        command_and_metric_and_shard = metric_name[len(prefix) :]
+        command = (
+            command_and_metric_and_shard[0]
+            + command_and_metric_and_shard[1:].split("_", 1)[0]
+        )
+        metric_and_shard = command_and_metric_and_shard[1:].split("_", 1)[1]
+        metric = metric_and_shard
+        shard = "1"
+        if "_shard_" in metric_and_shard:
+            metric = metric_and_shard.split("_shard_")[0]
+            shard = metric_and_shard.split("_shard_")[1]
+        variant_labels_dict["metric"] = metric
+        variant_labels_dict["command"] = command
+        variant_labels_dict["command_and_setup"] = "{} - {}".format(command, setup_name)
+        variant_labels_dict["shard"] = shard
+        variant_labels_dict["metric_and_shard"] = metric_and_shard
 
 
 def shutdown_remote_redis(redis_conns, ssh_tunnel):

@@ -85,7 +85,9 @@ def extract_results_table(
 
 
 def collect_redis_metrics(
-    redis_conns, sections=["memory", "cpu", "commandstats"], section_filter=None
+    redis_conns,
+    sections=["memory", "cpu", "commandstats", "latencystats"],
+    section_filter=None,
 ):
     start_time = dt.datetime.utcnow()
     start_time_ms = int((start_time - dt.datetime(1970, 1, 1)).total_seconds() * 1000)

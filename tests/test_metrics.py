@@ -41,10 +41,11 @@ def test_collect_redis_metrics():
     rts.ping()
     time_ms, metrics_arr, overall_metrics = collect_redis_metrics([rts])
     assert len(metrics_arr) == 1
-    assert len(metrics_arr[0].keys()) == 3
+    assert len(metrics_arr[0].keys()) == 4
     assert "cpu" in metrics_arr[0].keys()
     assert "memory" in metrics_arr[0].keys()
     assert "commandstats" in metrics_arr[0].keys()
+    assert "latencystats" in metrics_arr[0].keys()
     assert "allocator_active" in metrics_arr[0]["memory"]
     assert "cmdstat_ping" in metrics_arr[0]["commandstats"]
     allocator_active = metrics_arr[0]["memory"]["allocator_active"]
@@ -55,5 +56,9 @@ def test_collect_redis_metrics():
     assert "memory_allocator_active" in overall_metrics
     assert "cmdstat_ping" in metrics_arr[0]["commandstats"]
     assert "cmdstat_ping" in metrics_arr[1]["commandstats"]
+    assert "latency_percentiles_usec_ping" in metrics_arr[0]["latencystats"]
+    assert "latency_percentiles_usec_ping" in metrics_arr[1]["latencystats"]
     assert "commandstats_cmdstat_ping_calls_shard_1" in overall_metrics
     assert "commandstats_cmdstat_ping_calls_shard_2" in overall_metrics
+    assert "latencystats_latency_percentiles_usec_ping_p50_shard_1" in overall_metrics
+    assert "latencystats_latency_percentiles_usec_ping_p50_shard_2" in overall_metrics

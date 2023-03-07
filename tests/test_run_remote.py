@@ -82,17 +82,41 @@ def test_export_redis_metrics():
             tf_triggering_env,
             {"metric-type": "test-tag"},
         )
-        assert (
+        labels_rts_cmdstats = (
             rts.ts()
             .info(
-                "ci.benchmarks.redislabs/env/org/repo/test1/by.version/6.2.3/benchmark_end/commandstats_cmdstat_ping_calls"
+                "ci.benchmarks.redislabs/env/org/repo/test1/by.version/6.2.3/benchmark_end/setup_name/commandstats_cmdstat_ping_calls"
             )
-            .labels["metric-type"]
-            == "test-tag"
+            .labels
         )
-        assert "ci.benchmarks.redislabs/env/org/repo/test1/by.version/6.2.3/benchmark_end/commandstats_cmdstat_ping_calls" in rts.ts().queryindex(
+        assert labels_rts_cmdstats["metric-type"] == "test-tag"
+        assert labels_rts_cmdstats["command"] == "ping"
+        assert labels_rts_cmdstats["command_and_setup"] == "ping - setup_name"
+        assert labels_rts_cmdstats["metric"] == "calls"
+        assert labels_rts_cmdstats["shard"] == "1"
+        assert labels_rts_cmdstats["metric_and_shard"] == "calls"
+        assert "ci.benchmarks.redislabs/env/org/repo/test1/by.version/6.2.3/benchmark_end/setup_name/commandstats_cmdstat_ping_calls" in rts.ts().queryindex(
             ["metric-type=test-tag"]
         )
+        assert "ci.benchmarks.redislabs/env/org/repo/test1/by.version/6.2.3/benchmark_end/setup_name/commandstats_cmdstat_ping_calls" in rts.ts().queryindex(
+            ["command=ping"]
+        )
+        assert "ci.benchmarks.redislabs/env/org/repo/test1/by.version/6.2.3/benchmark_end/setup_name/latencystats_latency_percentiles_usec_ping_p50" in rts.ts().queryindex(
+            ["command=ping"]
+        )
+        labels_rts_latencystats = (
+            rts.ts()
+            .info(
+                "ci.benchmarks.redislabs/env/org/repo/test1/by.version/6.2.3/benchmark_end/setup_name/latencystats_latency_percentiles_usec_ping_p50"
+            )
+            .labels
+        )
+        assert labels_rts_latencystats["metric-type"] == "test-tag"
+        assert labels_rts_latencystats["command"] == "ping"
+        assert labels_rts_latencystats["command_and_setup"] == "ping - setup_name"
+        assert labels_rts_latencystats["metric"] == "p50"
+        assert labels_rts_latencystats["shard"] == "1"
+        assert labels_rts_latencystats["metric_and_shard"] == "p50"
         assert datapoint_errors == 0
         assert datapoint_inserts == (1 * len(list(overall_end_time_metrics.keys())))
         tf_github_branch = "master"
