@@ -68,6 +68,7 @@ def test_export_redis_metrics():
 
         time_ms, _, overall_end_time_metrics = collect_redis_metrics([rts])
         artifact_version = "6.2.3"
+        tf_github_branch = "master"
         datapoint_errors, datapoint_inserts = export_redis_metrics(
             artifact_version,
             time_ms,
@@ -92,9 +93,64 @@ def test_export_redis_metrics():
         assert labels_rts_cmdstats["metric-type"] == "test-tag"
         assert labels_rts_cmdstats["command"] == "ping"
         assert labels_rts_cmdstats["command_and_setup"] == "ping - setup_name"
+        assert (
+            labels_rts_cmdstats["command_and_metric_and_setup"]
+            == "ping - calls - setup_name"
+        )
+        assert (
+            labels_rts_cmdstats["command_and_metric_and_setup_and_version"]
+            == "ping - calls - setup_name - 6.2.3"
+        )
         assert labels_rts_cmdstats["metric"] == "calls"
         assert labels_rts_cmdstats["shard"] == "1"
         assert labels_rts_cmdstats["metric_and_shard"] == "calls"
+
+        labels_rts_cmdstats = (
+            rts.ts()
+            .info(
+                "ci.benchmarks.redislabs/env/org/repo/test1/by.version/6.2.3/benchmark_end/setup_name/commandstats_cmdstat_ping_calls"
+            )
+            .labels
+        )
+        assert labels_rts_cmdstats["metric-type"] == "test-tag"
+        assert labels_rts_cmdstats["command"] == "ping"
+        assert labels_rts_cmdstats["command_and_setup"] == "ping - setup_name"
+        assert (
+            labels_rts_cmdstats["command_and_metric_and_setup"]
+            == "ping - calls - setup_name"
+        )
+        assert (
+            labels_rts_cmdstats["command_and_metric_and_setup_and_version"]
+            == "ping - calls - setup_name - 6.2.3"
+        )
+        assert labels_rts_cmdstats["metric"] == "calls"
+        assert labels_rts_cmdstats["shard"] == "1"
+        assert labels_rts_cmdstats["metric_and_shard"] == "calls"
+
+        # by branch
+        labels_rts_cmdstats = (
+            rts.ts()
+            .info(
+                "ci.benchmarks.redislabs/env/org/repo/test1/by.branch/master/benchmark_end/setup_name/commandstats_cmdstat_ping_calls"
+            )
+            .labels
+        )
+        assert labels_rts_cmdstats["metric-type"] == "test-tag"
+        assert labels_rts_cmdstats["command"] == "ping"
+        assert labels_rts_cmdstats["command_and_setup"] == "ping - setup_name"
+        assert (
+            labels_rts_cmdstats["command_and_metric_and_setup"]
+            == "ping - calls - setup_name"
+        )
+        assert (
+            labels_rts_cmdstats["command_and_metric_and_setup_and_branch"]
+            == "ping - calls - setup_name - master"
+        )
+        assert labels_rts_cmdstats["metric"] == "calls"
+        assert labels_rts_cmdstats["shard"] == "1"
+        assert labels_rts_cmdstats["metric_and_shard"] == "calls"
+
+        #
         assert "ci.benchmarks.redislabs/env/org/repo/test1/by.version/6.2.3/benchmark_end/setup_name/commandstats_cmdstat_ping_calls" in rts.ts().queryindex(
             ["metric-type=test-tag"]
         )
@@ -118,7 +174,7 @@ def test_export_redis_metrics():
         assert labels_rts_latencystats["shard"] == "1"
         assert labels_rts_latencystats["metric_and_shard"] == "p50"
         assert datapoint_errors == 0
-        assert datapoint_inserts == (1 * len(list(overall_end_time_metrics.keys())))
+        assert datapoint_inserts == (2 * len(list(overall_end_time_metrics.keys())))
         tf_github_branch = "master"
         datapoint_errors, datapoint_inserts = export_redis_metrics(
             artifact_version,

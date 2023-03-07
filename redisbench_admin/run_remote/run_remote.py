@@ -1288,9 +1288,36 @@ def commandstats_latencystats_process_name(
             shard = metric_and_shard.split("_shard_")[1]
         variant_labels_dict["metric"] = metric
         variant_labels_dict["command"] = command
+        variant_labels_dict["command_and_metric"] = "{} - {}".format(command, metric)
+        variant_labels_dict["command_and_metric_and_setup"] = "{} - {} - {}".format(
+            command, metric, setup_name
+        )
         variant_labels_dict["command_and_setup"] = "{} - {}".format(command, setup_name)
         variant_labels_dict["shard"] = shard
         variant_labels_dict["metric_and_shard"] = metric_and_shard
+
+        version = None
+        branch = None
+        if "version" in variant_labels_dict:
+            version = variant_labels_dict["version"]
+        if "branch" in variant_labels_dict:
+            branch = variant_labels_dict["branch"]
+
+        if version is not None:
+            variant_labels_dict[
+                "command_and_metric_and_version"
+            ] = "{} - {} - {}".format(command, metric, version)
+            variant_labels_dict[
+                "command_and_metric_and_setup_and_version"
+            ] = "{} - {} - {} - {}".format(command, metric, setup_name, version)
+
+        if branch is not None:
+            variant_labels_dict[
+                "command_and_metric_and_branch"
+            ] = "{} - {} - {}".format(command, metric, branch)
+            variant_labels_dict[
+                "command_and_metric_and_setup_and_branch"
+            ] = "{} - {} - {} - {}".format(command, metric, setup_name, branch)
 
 
 def shutdown_remote_redis(redis_conns, ssh_tunnel):
