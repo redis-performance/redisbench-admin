@@ -158,7 +158,12 @@ def run_local_command_logic(args, project_name, project_version):
                             shard_count,
                         ) = get_setup_type_and_primaries_count(setup_settings)
                         if args.allowed_setups != "":
-                            allowed_setups = args.allowed_setups.split()
+                            allowed_setups = args.allowed_setups.split(",")
+                            logging.info(
+                                "Checking if setup named {} of topology type {}. Total primaries: {} is in the allowed list of setups {}".format(
+                                    setup_name, setup_type, shard_count, allowed_setups
+                                )
+                            )
                             if setup_name not in allowed_setups:
                                 logging.warning(
                                     "SKIPPING setup named {} of topology type {}.".format(
