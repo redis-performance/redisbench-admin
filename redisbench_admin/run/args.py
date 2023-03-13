@@ -193,6 +193,8 @@ def common_run_args(parser):
         "--allowed-setups",
         type=str,
         default=SETUP,
+        nargs="?",
+        const="",
         help="Comma delimited allowed setups. By default all setups are allowed.",
     )
     parser.add_argument(
