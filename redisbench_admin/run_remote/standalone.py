@@ -71,33 +71,37 @@ def remote_module_files_cp(
     port,
     private_key,
     remote_module_file_dir,
-    server_public_ip,
+    server_public_ips,
     username,
 ):
     remote_module_files = []
-    if local_module_files is not None:
-        for local_module_file in local_module_files:
-            remote_module_file = "{}/{}".format(
-                remote_module_file_dir, os.path.basename(local_module_file)
-            )
-            # copy the module to the DB machine
-            copy_file_to_remote_setup(
-                server_public_ip,
-                username,
-                private_key,
-                local_module_file,
-                remote_module_file,
-                None,
-                port,
-            )
-            execute_remote_commands(
-                server_public_ip,
-                username,
-                private_key,
-                ["chmod 755 {}".format(remote_module_file)],
-                port,
-            )
-            remote_module_files.append(remote_module_file)
+    if type(server_public_ips) is str:
+        server_public_ips = [server_public_ips]
+
+    for server_public_ip in server_public_ips:
+        if local_module_files is not None:
+            for local_module_file in local_module_files:
+                remote_module_file = "{}/{}".format(
+                    remote_module_file_dir, os.path.basename(local_module_file)
+                )
+                # copy the module to the DB machine
+                copy_file_to_remote_setup(
+                    server_public_ip,
+                    username,
+                    private_key,
+                    local_module_file,
+                    remote_module_file,
+                    None,
+                    port,
+                )
+                execute_remote_commands(
+                    server_public_ip,
+                    username,
+                    private_key,
+                    ["chmod 755 {}".format(remote_module_file)],
+                    port,
+                )
+                remote_module_files.append(remote_module_file)
     return remote_module_files
 
 

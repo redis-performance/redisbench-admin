@@ -40,23 +40,27 @@ from redisbench_admin.utils.remote import (
 
 
 def remote_tmpdir_prune(
-    server_public_ip, ssh_port, temporary_dir, username, private_key
+    server_public_ips, ssh_port, temporary_dir, username, private_key
 ):
-    execute_remote_commands(
-        server_public_ip,
-        username,
-        private_key,
-        [
-            "mkdir -p {}".format(temporary_dir),
-            "rm -rf {}/*.log".format(temporary_dir),
-            "rm -rf {}/*.config".format(temporary_dir),
-            "rm -rf {}/*.rdb".format(temporary_dir),
-            "rm -rf {}/*.out".format(temporary_dir),
-            "rm -rf {}/*.data".format(temporary_dir),
-            "pkill -9 redis-server",
-        ],
-        ssh_port,
-    )
+    if type(server_public_ips) is str:
+        server_public_ips = [server_public_ips]
+
+    for server_public_ip in server_public_ips:
+        execute_remote_commands(
+            server_public_ip,
+            username,
+            private_key,
+            [
+                "mkdir -p {}".format(temporary_dir),
+                "rm -rf {}/*.log".format(temporary_dir),
+                "rm -rf {}/*.config".format(temporary_dir),
+                "rm -rf {}/*.rdb".format(temporary_dir),
+                "rm -rf {}/*.out".format(temporary_dir),
+                "rm -rf {}/*.data".format(temporary_dir),
+                "pkill -9 redis-server",
+            ],
+            ssh_port,
+        )
 
 
 def is_single_endpoint(setup_type):

@@ -265,6 +265,7 @@ def setup_remote_environment(
     )
     _, _, _ = tf.refresh()
     tf_output = tf.output()
+    logging.error("TF OUTPUT: {}".format(tf_output))
     server_private_ip = tf_output_or_none(tf_output, "server_private_ip")
     server_public_ip = tf_output_or_none(tf_output, "server_public_ip")
     client_private_ip = tf_output_or_none(tf_output, "client_private_ip")
@@ -291,17 +292,20 @@ def setup_remote_environment(
             "timeout_secs": tf_timeout_secs,
         },
     )
-    return retrieve_tf_connection_vars(return_code, tf)
-
-
-def retrieve_tf_connection_vars(return_code, tf):
     tf_output = tf.output()
+    return retrieve_tf_connection_vars(return_code, tf_output)
+
+
+def retrieve_tf_connection_vars(return_code, tf_output):
+    logging.error("TF OUTPUT setup_remote_environment: {}".format(tf_output))
     server_private_ip = tf_output["server_private_ip"]["value"][0]
     server_public_ip = tf_output["server_public_ip"]["value"][0]
     server_plaintext_port = 6379
     client_private_ip = tf_output["client_private_ip"]["value"][0]
     client_public_ip = tf_output["client_public_ip"]["value"][0]
     username = "ubuntu"
+    if "ssh_user" in tf_output:
+        username = tf_output["ssh_user"]["value"]
     return (
         return_code,
         username,
