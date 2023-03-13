@@ -214,6 +214,48 @@ def merge_default_and_specific_properties_dict_type(
                 )
 
 
+def extract_modules_dbconfig_parameters(
+    benchmark_config,
+    dbconfig_keyname,
+    mod_key="module-configuration-parameters",
+    default_group="default",
+):
+    modules_configuration_parameters_group_map = {default_group: {}}
+    modules_configuration_parameters_map = {}
+    if dbconfig_keyname in benchmark_config:
+        # legacy parse
+        if type(benchmark_config[dbconfig_keyname]) == list:
+            for k in benchmark_config[dbconfig_keyname]:
+                if mod_key in k:
+                    modules_configuration_parameters_map = k[mod_key]
+            modules_configuration_parameters_group_map[
+                default_group
+            ] = modules_configuration_parameters_map
+        # new parse
+        if type(benchmark_config[dbconfig_keyname]) == dict:
+            if mod_key in benchmark_config[dbconfig_keyname]:
+                modules_configuration_parameters_map = benchmark_config[
+                    dbconfig_keyname
+                ][mod_key]
+                variation_keys = modules_configuration_parameters_map.keys()
+                # legacy 1 - start right away with modules
+                if default_group not in variation_keys:
+                    modules_configuration_parameters_group_map[
+                        default_group
+                    ] = modules_configuration_parameters_map
+                # legacy 2 - only contains default
+                else:
+                    if default_group in variation_keys:
+                        modules_configuration_parameters_group_map[
+                        default_group
+                    ] = modules_configuration_parameters_map[default_group]
+                # new
+                    else:
+
+
+    return modules_configuration_parameters_group_map
+
+
 def extract_redis_dbconfig_parameters(benchmark_config, dbconfig_keyname):
     redis_configuration_parameters = {}
     modules_configuration_parameters_map = {}
