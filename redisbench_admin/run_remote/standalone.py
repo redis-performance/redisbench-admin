@@ -77,27 +77,46 @@ def remote_module_files_cp(
     remote_module_files = []
     if local_module_files is not None:
         for local_module_file in local_module_files:
-            remote_module_file = "{}/{}".format(
-                remote_module_file_dir, os.path.basename(local_module_file)
-            )
-            # copy the module to the DB machine
-            copy_file_to_remote_setup(
-                server_public_ip,
-                username,
-                private_key,
-                local_module_file,
-                remote_module_file,
-                None,
-                port,
-            )
-            execute_remote_commands(
-                server_public_ip,
-                username,
-                private_key,
-                ["chmod 755 {}".format(remote_module_file)],
-                port,
-            )
-            remote_module_files.append(remote_module_file)
+
+            splitted_module_and_plugins = local_module_file.split(" ")
+            if len(splitted_module_and_plugins) > 1:
+                logging.info(
+                    "Detected a module and plugin(s) pairs {}".format(
+                        splitted_module_and_plugins
+                    )
+                )
+            abs_splitted_module_and_plugins = [
+                os.path.abspath(x) for x in splitted_module_and_plugins
+            ]
+            remote_module_files_in = ""
+            for pos, local_module_file_and_plugin in enumerate(
+                abs_splitted_module_and_plugins, start=1
+            ):
+                remote_module_file = "{}/{}".format(
+                    remote_module_file_dir,
+                    os.path.basename(local_module_file_and_plugin),
+                )
+                # copy the module to the DB machine
+                copy_file_to_remote_setup(
+                    server_public_ip,
+                    username,
+                    private_key,
+                    local_module_file_and_plugin,
+                    remote_module_file,
+                    None,
+                    port,
+                )
+                execute_remote_commands(
+                    server_public_ip,
+                    username,
+                    private_key,
+                    ["chmod 755 {}".format(remote_module_file)],
+                    port,
+                )
+                if pos > 1:
+                    remote_module_files_in = remote_module_files_in + " "
+                remote_module_files_in = remote_module_files_in + remote_module_file
+        remote_module_files.append(remote_module_files_in)
     return remote_module_files
 
 
