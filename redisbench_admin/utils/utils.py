@@ -28,12 +28,19 @@ EPOCH = dt.datetime.utcfromtimestamp(0)
 def redis_server_config_module_part(
     command, local_module_file, modules_configuration_parameters_map
 ):
-    command.extend(
-        [
-            "--loadmodule",
-            os.path.abspath(local_module_file),
-        ]
-    )
+    # in the case of modules with plugins we split by space
+    splitted_module_and_plugins = local_module_file.split(" ")
+    if len(splitted_module_and_plugins) > 1:
+        logging.info(
+            "Detected a module and plugin(s) pairs {}".format(
+                splitted_module_and_plugins
+            )
+        )
+    abs_splitted_module_and_plugins = [
+        os.path.abspath(x) for x in splitted_module_and_plugins
+    ]
+    command.append("--loadmodule")
+    command.extend(abs_splitted_module_and_plugins)
     for (
         module_config_modulename,
         module_config_dict,
