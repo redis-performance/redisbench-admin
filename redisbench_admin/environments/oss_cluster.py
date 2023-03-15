@@ -9,6 +9,7 @@ from time import sleep
 
 import redis
 
+from redisbench_admin.run.cluster import split_primaries_per_db_nodes
 from redisbench_admin.utils.utils import (
     wait_for_conn,
     redis_server_config_module_part,
@@ -68,8 +69,9 @@ def spin_up_local_redis_cluster(
 
 
 def setup_redis_cluster_from_conns(redis_conns, shard_count, shard_host, start_port):
+    meet_cmds = []
     logging.info("Setting up cluster. Total {} primaries.".format(len(redis_conns)))
-    meet_cmds = generate_meet_cmds(shard_count, shard_host, start_port)
+    meet_cmds = generate_meet_cmds(shard_count, shard_host, start_port, meet_cmds)
     status = setup_oss_cluster_from_conns(meet_cmds, redis_conns, shard_count)
     if status is True:
         for conn in redis_conns:
@@ -77,12 +79,31 @@ def setup_redis_cluster_from_conns(redis_conns, shard_count, shard_host, start_p
     return status
 
 
-def generate_meet_cmds(shard_count, shard_host, start_port):
-    meet_cmds = []
+def generate_host_port_pairs(server_private_ips, shard_count, cluster_start_port):
+    host_port_pairs = []
+    (
+        primaries_per_node,
+        db_private_ips,
+        _,
+    ) = split_primaries_per_db_nodes(server_private_ips, None, shard_count)
+    shard_start = 1
+    for node_n, primaries_this_node in enumerate(primaries_per_node, start=0):
+        server_private_ip = db_private_ips[node_n]
+        for master_shard_id in range(
+            shard_start, shard_start + primaries_this_node + 1
+        ):
+            shard_port = master_shard_id + cluster_start_port - 1
+            host_port_pairs.append([server_private_ip, shard_port])
 
-    for master_shard_id in range(1, shard_count + 1):
-        shard_port = master_shard_id + start_port - 1
-        meet_cmds.append("CLUSTER MEET {} {}".format(shard_host, shard_port))
+    return host_port_pairs
+
+
+def generate_meet_cmds(
+    shard_count, server_private_ips, cluster_start_port, meet_cmds, shard_start=1
+):
+    generate_host_port_pairs(server_private_ips, shard_count, cluster_start_port)
+    for pair in generate_host_port_pairs:
+        meet_cmds.append("CLUSTER MEET {} {}".format(pair[0], pair[1]))
     return meet_cmds
 
 

@@ -175,7 +175,7 @@ def split_primaries_per_db_nodes(server_private_ips, server_public_ips, shard_co
         server_public_ips = [server_public_ips]
     if type(server_private_ips) is str:
         server_private_ips = [server_private_ips]
-    db_node_count = len(server_public_ips)
+    db_node_count = len(server_private_ips)
     primaries_per_db_node = db_node_count // shard_count
     remainder_first_node = db_node_count % shard_count
     first_node_primaries = primaries_per_db_node + remainder_first_node

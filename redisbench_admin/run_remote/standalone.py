@@ -54,16 +54,22 @@ def spin_up_standalone_remote_redis(
 
 
 def cp_local_dbdir_to_remote(
-    dbdir_folder, private_key, server_public_ip, temporary_dir, username
+    dbdir_folder, private_key, server_public_ips, temporary_dir, username
 ):
     if dbdir_folder is not None:
-        logging.info(
-            "Copying entire content of {} into temporary path: {}".format(
-                dbdir_folder, temporary_dir
+
+        if type(server_public_ips) is str:
+            server_public_ips = [server_public_ips]
+        for server_public_ip in server_public_ips:
+            logging.info(
+                "Copying entire content of {} into temporary path: {} of remote IP {}".format(
+                    dbdir_folder, temporary_dir, server_public_ip
+                )
             )
-        )
-        ssh = SSHSession(server_public_ip, username, key_file=open(private_key, "r"))
-        ssh.put_all(dbdir_folder, temporary_dir)
+            ssh = SSHSession(
+                server_public_ip, username, key_file=open(private_key, "r")
+            )
+            ssh.put_all(dbdir_folder, temporary_dir)
 
 
 def remote_module_files_cp(
