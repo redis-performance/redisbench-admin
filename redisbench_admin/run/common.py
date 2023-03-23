@@ -421,9 +421,8 @@ def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
     cmds = None
     res = 0
     if dbconfig_keyname in benchmark_config:
-        for k in benchmark_config[dbconfig_keyname]:
-            if "init_commands" in k:
-                cmds = k["init_commands"]
+        if "init_commands" in benchmark_config[dbconfig_keyname]:
+            cmds = benchmark_config[dbconfig_keyname]["init_commands"]
     if cmds is not None:
         for cmd in cmds:
             is_array = False
