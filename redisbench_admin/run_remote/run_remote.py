@@ -121,6 +121,12 @@ def run_remote_command_logic(args, project_name, project_version):
     tf_setup_name_sufix = "{}-{}".format(args.setup_name_sufix, tf_github_sha)
     s3_bucket_name = args.s3_bucket_name
     local_module_files = args.module_path
+    for pos, module_file in enumerate(local_module_files):
+        if " " in module_file:
+            logging.info(
+                "Detected multiple files in single module path {}".format(module_file)
+            )
+            local_module_files[pos] = module_file.split(" ")
     dbdir_folder = args.dbdir_folder
     private_key = args.private_key
     grafana_profile_dashboard = args.grafana_profile_dashboard

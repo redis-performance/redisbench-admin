@@ -76,7 +76,11 @@ def remote_module_files_cp(
     remote_module_files = []
     if local_module_files is not None:
         for local_module_file in local_module_files:
-            splitted_module_and_plugins = local_module_file.split(" ")
+            splitted_module_and_plugins = []
+            if type(local_module_file) is str:
+                splitted_module_and_plugins = local_module_file.split(" ")
+            if type(local_module_file) is list:
+                splitted_module_and_plugins = local_module_file
             if len(splitted_module_and_plugins) > 1:
                 logging.info(
                     "Detected a module and plugin(s) pairs {}".format(
