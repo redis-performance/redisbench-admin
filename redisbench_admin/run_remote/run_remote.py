@@ -379,7 +379,6 @@ def run_remote_command_logic(args, project_name, project_version):
                             s3_bucket_name, test_name, tf_github_org, tf_github_repo
                         )
                         if setup_type in args.allowed_envs:
-
                             logging.info(
                                 "Starting setup named {} of topology type {}. Total primaries: {}".format(
                                     setup_name, setup_type, shard_count
@@ -422,7 +421,6 @@ def run_remote_command_logic(args, project_name, project_version):
                                 # after we've created the env, even on error we should always teardown
                                 # in case of some unexpected error we fail the test
                                 try:
-
                                     (
                                         _,
                                         _,

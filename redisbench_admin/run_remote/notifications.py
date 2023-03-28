@@ -17,7 +17,6 @@ def generate_failure_notification(
     branch=None,
     tag=None,
 ):
-
     headline_test = "❌ FAILED CI job named {} in repo {}/{} due to {}".format(
         job_name, gh_org, gh_repo, failure_reason
     )
@@ -45,7 +44,6 @@ def generate_new_pr_comment_notification(
     regression_count,
     action,
 ):
-
     headline_test = "👨‍💻 {} PR Performance comment in repo {}/{}\n".format(
         action, gh_org, gh_repo
     )

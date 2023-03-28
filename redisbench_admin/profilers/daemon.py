@@ -282,7 +282,6 @@ class PerfDaemon:
 
 
 def main():
-
     _, project_description, project_version = populate_with_poetry_data()
     project_name = "perf-daemon"
     parser = argparse.ArgumentParser(

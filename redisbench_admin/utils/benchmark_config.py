@@ -344,7 +344,6 @@ def extract_benchmark_type_from_config(
     benchmark_config_present = False
     benchmark_type = None
     if config_key in benchmark_config:
-
         if type(benchmark_config[config_key]) == list:
             for entry in benchmark_config[config_key]:
                 if benchmark_type_key in entry:

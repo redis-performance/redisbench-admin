@@ -27,7 +27,6 @@ def spin_up_standalone_remote_redis(
     modules_configuration_parameters_map={},
     redis_7=True,
 ):
-
     full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
         logfile,
         redis_configuration_parameters,
@@ -77,7 +76,6 @@ def remote_module_files_cp(
     remote_module_files = []
     if local_module_files is not None:
         for local_module_file in local_module_files:
-
             splitted_module_and_plugins = local_module_file.split(" ")
             if len(splitted_module_and_plugins) > 1:
                 logging.info(
