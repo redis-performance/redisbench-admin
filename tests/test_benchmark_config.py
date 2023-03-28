@@ -231,7 +231,10 @@ def test_process_benchmark_definitions_remote_timeouts():
     )
     assert len(remote_envs_timeout.keys()) == 2
     # we have the default timeout + the one specified
-    assert list(remote_envs_timeout.values())[0] == 600 + 1200
+    timeouts = list(remote_envs_timeout.values())
+    timeouts.sort()
+    assert (600 + 1200) in timeouts
+    assert (3600 + 600 + 1200) in timeouts
 
 
 def test_get_testfiles_to_process():
