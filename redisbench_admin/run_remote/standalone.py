@@ -117,6 +117,11 @@ def remote_module_files_cp(
                     remote_module_files_in = remote_module_files_in + " "
                 remote_module_files_in = remote_module_files_in + remote_module_file
         remote_module_files.append(remote_module_files_in)
+    logging.info(
+        "There are a total of {} remote files {}".format(
+            len(remote_module_files), remote_module_files
+        )
+    )
     return remote_module_files
 
 
@@ -151,6 +156,9 @@ def generate_remote_standalone_redis_cmd(
                 command, remote_module_files, modules_configuration_parameters_map
             )
         if type(remote_module_files) == list:
+            logging.info(
+                "There are a total of {} modules".format(len(remote_module_files))
+            )
             for mod in remote_module_files:
                 redis_server_config_module_part(
                     command, mod, modules_configuration_parameters_map
