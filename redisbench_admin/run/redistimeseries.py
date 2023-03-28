@@ -304,7 +304,6 @@ def timeseries_test_sucess_flow(
                 branch_target_table_keyname,
                 branch_target_table_dict,
             ) in branch_target_tables.items():
-
                 logging.info(
                     "Setting target table by branch on key {}".format(
                         branch_target_table_keyname

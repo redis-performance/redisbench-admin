@@ -27,7 +27,6 @@ def spin_up_standalone_remote_redis(
     modules_configuration_parameters_map={},
     redis_7=True,
 ):
-
     full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
         logfile,
         redis_configuration_parameters,
@@ -77,7 +76,6 @@ def remote_module_files_cp(
     remote_module_files = []
     if local_module_files is not None:
         for local_module_file in local_module_files:
-
             splitted_module_and_plugins = local_module_file.split(" ")
             if len(splitted_module_and_plugins) > 1:
                 logging.info(
@@ -117,6 +115,11 @@ def remote_module_files_cp(
                     remote_module_files_in = remote_module_files_in + " "
                 remote_module_files_in = remote_module_files_in + remote_module_file
         remote_module_files.append(remote_module_files_in)
+    logging.info(
+        "There are a total of {} remote files {}".format(
+            len(remote_module_files), remote_module_files
+        )
+    )
     return remote_module_files
 
 
@@ -151,6 +154,9 @@ def generate_remote_standalone_redis_cmd(
                 command, remote_module_files, modules_configuration_parameters_map
             )
         if type(remote_module_files) == list:
+            logging.info(
+                "There are a total of {} modules".format(len(remote_module_files))
+            )
             for mod in remote_module_files:
                 redis_server_config_module_part(
                     command, mod, modules_configuration_parameters_map

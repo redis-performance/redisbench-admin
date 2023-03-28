@@ -23,6 +23,7 @@ def redis_modules_check(local_module_files):
                     local_module_file
                 )
                 logging.error(error_message)
+                status = False
             else:
                 logging.info(
                     "Confirmed that module artifact: '{}' exists!".format(

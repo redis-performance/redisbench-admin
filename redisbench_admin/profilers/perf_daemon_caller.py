@@ -128,5 +128,4 @@ class PerfDaemonRemoteCaller:
         return result
 
     def generate_outputs(self, use_case, **kwargs):
-
         return self.result, self.outputs, self.tabular_data_map

@@ -259,7 +259,6 @@ def get_profilers_map(profilers_list, total_involved_processes, max_profilers=1)
                         perf = Perf()
                         profilers_map[profiler_name].append(perf)
             if "vtune" in profiler_name:
-
                 for profilers_per_type in range(total_involved_processes):
                     logging.info(
                         "Preparing Intel(R) VTune(TM) profiler for proc {} of {}".format(

@@ -10,7 +10,6 @@ from redisbench_admin.export.export import export_command_logic
 
 
 def test_compare_command_logic():
-
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
     rts_port = 16379
     rts_pass = ""
