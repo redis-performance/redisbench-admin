@@ -27,7 +27,6 @@ def spin_up_standalone_remote_redis(
     modules_configuration_parameters_map={},
     redis_7=True,
 ):
-
     full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
         logfile,
         redis_configuration_parameters,
@@ -84,30 +83,57 @@ def remote_module_files_cp(
     if type(server_public_ips) is str:
         server_public_ips = [server_public_ips]
 
-    for server_public_ip in server_public_ips:
-        if local_module_files is not None:
-            for local_module_file in local_module_files:
+    if local_module_files is not None:
+        for local_module_file in local_module_files:
+            splitted_module_and_plugins = []
+            if type(local_module_file) is str:
+                splitted_module_and_plugins = local_module_file.split(" ")
+            if type(local_module_file) is list:
+                splitted_module_and_plugins = local_module_file
+            if len(splitted_module_and_plugins) > 1:
+                logging.info(
+                    "Detected a module and plugin(s) pairs {}".format(
+                        splitted_module_and_plugins
+                    )
+                )
+            abs_splitted_module_and_plugins = [
+                os.path.abspath(x) for x in splitted_module_and_plugins
+            ]
+            remote_module_files_in = ""
+            for pos, local_module_file_and_plugin in enumerate(
+                abs_splitted_module_and_plugins, start=1
+            ):
                 remote_module_file = "{}/{}".format(
-                    remote_module_file_dir, os.path.basename(local_module_file)
+                    remote_module_file_dir,
+                    os.path.basename(local_module_file_and_plugin),
                 )
-                # copy the module to the DB machine
-                copy_file_to_remote_setup(
-                    server_public_ip,
-                    username,
-                    private_key,
-                    local_module_file,
-                    remote_module_file,
-                    None,
-                    port,
-                )
-                execute_remote_commands(
-                    server_public_ip,
-                    username,
-                    private_key,
-                    ["chmod 755 {}".format(remote_module_file)],
-                    port,
-                )
-                remote_module_files.append(remote_module_file)
+                for server_public_ip in server_public_ips:
+                    # copy the module to the DB machine
+                    copy_file_to_remote_setup(
+                        server_public_ip,
+                        username,
+                        private_key,
+                        local_module_file_and_plugin,
+                        remote_module_file,
+                        None,
+                        port,
+                    )
+                    execute_remote_commands(
+                        server_public_ip,
+                        username,
+                        private_key,
+                        ["chmod 755 {}".format(remote_module_file)],
+                        port,
+                    )
+                if pos > 1:
+                    remote_module_files_in = remote_module_files_in + " "
+                remote_module_files_in = remote_module_files_in + remote_module_file
+        remote_module_files.append(remote_module_files_in)
+    logging.info(
+        "There are a total of {} remote files {}".format(
+            len(remote_module_files), remote_module_files
+        )
+    )
     return remote_module_files
 
 
@@ -142,6 +168,9 @@ def generate_remote_standalone_redis_cmd(
                 command, remote_module_files, modules_configuration_parameters_map
             )
         if type(remote_module_files) == list:
+            logging.info(
+                "There are a total of {} modules".format(len(remote_module_files))
+            )
             for mod in remote_module_files:
                 redis_server_config_module_part(
                     command, mod, modules_configuration_parameters_map

@@ -119,11 +119,12 @@ def test_run_local_command_logic_redis_benchmark():
         run_local_command_logic(args, "tool", "v0")
     except SystemExit as e:
         assert e.code == 0
-
-    r = redis.Redis()
-    total_keys = r.info("keyspace")["db0"]["keys"]
-    r.shutdown(nosave=True)
-    assert total_keys == 1000
+    finally:
+        r = redis.Redis()
+        r.ping()
+        total_keys = r.info("keyspace")["db0"]["keys"]
+        r.shutdown(nosave=True)
+        assert total_keys == 1000
 
 
 def test_run_local_command_logic():

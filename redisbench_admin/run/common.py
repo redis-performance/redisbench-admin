@@ -560,7 +560,6 @@ def run_redis_pre_steps(benchmark_config, r, required_modules):
         )
         search_specific_init(r, module_names)
     if required_modules is not None and len(required_modules) > 0:
-
         check_required_modules(module_names, required_modules)
 
         version = artifact_versions[0]
@@ -611,7 +610,6 @@ def dso_check(dso, local_module_file):
     if dso is None:
         logging.warning("No dso specified for perf analysis {}".format(dso))
         if local_module_file is not None:
-
             if type(local_module_file) == str:
                 dso = local_module_file
                 logging.warning(

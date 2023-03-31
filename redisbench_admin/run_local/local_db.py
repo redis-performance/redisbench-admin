@@ -136,7 +136,6 @@ def local_db_spin(
                 raise Exception("Redis process is not alive. Failing test.")
 
     if setup_type == "oss-cluster":
-
         cluster_init_steps(clusterconfig, redis_conns, local_module_file)
 
     if check_dbconfig_tool_requirement(benchmark_config):

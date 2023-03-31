@@ -729,7 +729,6 @@ def common_timeseries_extraction(
     target_tables = {}
     cleaned_metrics_arr = extract_results_table(metrics, results_dict)
     for cleaned_metric in cleaned_metrics_arr:
-
         metric_jsonpath = cleaned_metric[0]
         metric_context_path = cleaned_metric[1]
         metric_name = cleaned_metric[2]
