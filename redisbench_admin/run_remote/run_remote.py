@@ -794,6 +794,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 tf_triggering_env,
                                                 {"metric-type": "redis-metrics"},
                                                 expire_ms,
+                                                n_db_hosts,
                                             )
                                             if collect_commandstats:
                                                 (
@@ -817,6 +818,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     tf_triggering_env,
                                                     {"metric-type": "commandstats"},
                                                     expire_ms,
+                                                    n_db_hosts,
                                                 )
                                                 (
                                                     end_time_ms,
@@ -839,6 +841,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     tf_triggering_env,
                                                     {"metric-type": "latencystats"},
                                                     expire_ms,
+                                                    n_db_hosts,
                                                 )
 
                                         if setup_details["env"] is None:
@@ -1202,6 +1205,7 @@ def export_redis_metrics(
     tf_triggering_env,
     metadata_dict=None,
     expire_ms=0,
+    n_db_nodes=1,
 ):
     datapoint_errors = 0
     datapoint_inserts = 0
@@ -1236,11 +1240,16 @@ def export_redis_metrics(
             metric_name,
             metric_value,
         ) in overall_end_time_metrics.items():
+            setup_name_and_nodes = setup_name
+            if n_db_nodes > 1:
+                setup_name_and_nodes = setup_name_and_nodes + "-{}-nodes".format(
+                    n_db_nodes
+                )
             tsname_metric = "{}/{}/{}/benchmark_end/{}/{}".format(
                 sprefix,
                 test_name,
                 by_variant,
-                setup_name,
+                setup_name_and_nodes,
                 metric_name,
             )
 

@@ -341,7 +341,7 @@ def get_ts_metric_name(
     else:
         deployment_name = ""
     if n_db_nodes > 1:
-        deployment_name = deployment_name + "{}-nodes".format(n_db_nodes)
+        deployment_name = deployment_name + "-{}-nodes".format(n_db_nodes)
     ts_name = (
         "ci.benchmarks.redislabs/{by}/"
         "{triggering_env}/{github_org}/{github_repo}/"

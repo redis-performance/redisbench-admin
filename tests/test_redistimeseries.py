@@ -208,6 +208,8 @@ def test_timeseries_test_sucess_flow():
                 {"arch": "arm64", "os": "ubuntu:16.04", "compiler": "icc"},
                 "build",
                 "platform2",
+                None,
+                2,
             )
             assert "arm64".encode() in rts.smembers(project_archs_setname)
             assert "ubuntu:16.04".encode() in rts.smembers(project_oss_setname)
@@ -224,5 +226,40 @@ def test_timeseries_test_sucess_flow():
             assert len(rts.smembers(project_branches_setname)) == 1
             assert len(rts.smembers(project_versions_setname)) == 1
 
+            # check multi-node timeseries
+            rts.flushall()
+            deployment_type = "oss-cluster"
+            deployment_name = "oss-cluster-02-primaries"
+
+            timeseries_test_sucess_flow(
+                True,
+                project_version,
+                benchmark_config,
+                benchmark_duration_seconds,
+                dataset_load_duration_seconds,
+                metrics,
+                deployment_name,
+                deployment_type,
+                merged_exporter_timemetric_path,
+                results_dict,
+                rts,
+                start_time_ms,
+                test_name,
+                tf_github_branch,
+                tf_github_org,
+                tf_github_repo,
+                tf_triggering_env,
+                {"arch": "arm64", "os": "ubuntu:16.04", "compiler": "icc"},
+                "build",
+                "platform2",
+                None,
+                2,
+            )
+
+            keys = [x.decode() for x in rts.keys()]
+            for keyname in keys:
+                if "target_tables" not in keyname:
+                    if rts.type(keyname) is "TSDB-TYPE":
+                        assert "-2-nodes" in keyname
     except redis.exceptions.ConnectionError:
         pass
