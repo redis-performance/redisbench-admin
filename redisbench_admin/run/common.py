@@ -68,7 +68,7 @@ def prepare_benchmark_parameters(
     benchmark_config,
     benchmark_tool,
     server_plaintext_port,
-    server_private_ip,
+    server_private_ips,
     remote_results_file,
     isremote=False,
     current_workdir=None,
@@ -96,7 +96,7 @@ def prepare_benchmark_parameters(
                     isremote,
                     remote_results_file,
                     server_plaintext_port,
-                    server_private_ip,
+                    server_private_ips,
                     client_public_ip,
                     username,
                     private_key,
@@ -116,7 +116,7 @@ def prepare_benchmark_parameters(
             isremote,
             remote_results_file,
             server_plaintext_port,
-            server_private_ip,
+            server_private_ips,
             client_public_ip,
             username,
             private_key,
@@ -146,13 +146,17 @@ def prepare_benchmark_parameters_specif_tooling(
     isremote,
     remote_results_file,
     server_plaintext_port,
-    server_private_ip,
+    server_private_ips,
     client_public_ip,
     username,
     private_key,
     client_ssh_port,
     redis_password=None,
 ):
+    if type(server_private_ips) == list:
+        server_private_ip = server_private_ips[0]
+    else:
+        server_private_ip = server_private_ips
     if "redis-benchmark" in benchmark_tool:
         command_arr, command_str = prepare_redis_benchmark_command(
             benchmark_tool,
@@ -296,6 +300,7 @@ def common_exporter_logic(
     build_variant_name=None,
     running_platform=None,
     datapoints_timestamp=None,
+    n_db_nodes=1,
 ):
     per_version_time_series_dict = {}
     per_branch_time_series_dict = {}
@@ -341,6 +346,7 @@ def common_exporter_logic(
             build_variant_name,
             running_platform,
             testcase_metric_context_paths,
+            n_db_nodes,
         )
     if tf_github_branch is not None and tf_github_branch != "":
         # extract per branch datapoints
@@ -363,6 +369,7 @@ def common_exporter_logic(
             build_variant_name,
             running_platform,
             testcase_metric_context_paths,
+            n_db_nodes,
         )
     else:
         logging.error(

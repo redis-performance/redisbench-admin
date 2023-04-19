@@ -97,6 +97,8 @@ def test_timeseries_test_sucess_flow():
                     },
                     "build1",
                     "platform1",
+                    None,
+                    1,
                 )
 
             assert rts.exists(testcases_and_metric_context_path_setname)

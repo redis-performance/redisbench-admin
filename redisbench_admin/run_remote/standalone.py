@@ -17,7 +17,7 @@ from redisbench_admin.utils.utils import redis_server_config_module_part
 
 def spin_up_standalone_remote_redis(
     temporary_dir,
-    server_public_ip,
+    server_public_ips,
     username,
     private_key,
     remote_module_files,
@@ -35,6 +35,17 @@ def spin_up_standalone_remote_redis(
         modules_configuration_parameters_map,
         redis_7,
     )
+
+    if type(server_public_ips) is str:
+        server_public_ips = [server_public_ips]
+        server_public_ip = server_public_ips[0]
+        logging.info(
+            "Given we've received multiple IPs for DB server {} and this is a standalone we're using the first one: {}".format(
+                server_public_ips, server_public_ip
+            )
+        )
+    else:
+        server_public_ip = server_public_ips
 
     # start redis-server
     commands = [initial_redis_cmd]

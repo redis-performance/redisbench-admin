@@ -399,6 +399,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                 client_artifacts_map = {}
                                 temporary_dir = get_tmp_folder_rnd()
                                 (
+                                    n_db_hosts,
+                                    n_client_hosts,
                                     client_public_ip,
                                     server_plaintext_port,
                                     server_private_ip,
@@ -889,6 +891,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                             tf_github_repo,
                                             tf_triggering_env,
                                             metadata_tags,
+                                            None,
+                                            None,
+                                            None,
+                                            n_db_hosts,
                                         )
                                         if branch_target_tables is not None:
                                             for (

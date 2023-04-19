@@ -106,6 +106,8 @@ def copy_file_to_remote_setup(
 def fetch_file_from_remote_setup(
     server_public_ip, username, private_key, local_file, remote_file
 ):
+    if type(server_public_ip) == list:
+        server_public_ip = server_public_ip[0]
     logging.info(
         "Retrieving remote file {} from remote server {} ".format(
             remote_file, server_public_ip
@@ -148,6 +150,8 @@ def execute_remote_commands(
 
 
 def connect_remote_ssh(port, private_key, server_public_ip, username):
+    if type(server_public_ip) == list:
+        server_public_ip = server_public_ip[0]
     k = paramiko.RSAKey.from_private_key_file(private_key)
     c = paramiko.SSHClient()
     c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -683,6 +687,7 @@ def extract_perversion_timeseries_from_results(
     build_variant_name=None,
     running_platform=None,
     testcase_metric_context_paths=[],
+    n_db_nodes=1,
 ):
     break_by_key = "version"
     break_by_str = "by.{}".format(break_by_key)
@@ -703,6 +708,7 @@ def extract_perversion_timeseries_from_results(
         build_variant_name,
         running_platform,
         testcase_metric_context_paths,
+        n_db_nodes,
     )
     return True, branch_time_series_dict, target_tables
 
@@ -724,6 +730,7 @@ def common_timeseries_extraction(
     build_variant_name=None,
     running_platform=None,
     testcase_metric_context_paths=[],
+    n_db_nodes=1,
 ):
     time_series_dict = {}
     target_tables = {}
@@ -758,6 +765,7 @@ def common_timeseries_extraction(
             tf_triggering_env,
             time_series_dict,
             use_metric_context_path,
+            n_db_nodes,
         )
         target_tables[target_table_keyname] = target_table_dict
 
@@ -786,6 +794,7 @@ def from_metric_kv_to_timeserie(
     tf_triggering_env,
     time_series_dict,
     use_metric_context_path,
+    n_db_nodes=1,
 ):
     timeserie_tags, ts_name = get_ts_tags_and_name(
         break_by_key,
@@ -805,6 +814,7 @@ def from_metric_kv_to_timeserie(
         tf_github_repo,
         tf_triggering_env,
         use_metric_context_path,
+        n_db_nodes,
     )
     time_series_dict[ts_name] = {
         "labels": timeserie_tags.copy(),
@@ -881,6 +891,7 @@ def get_ts_tags_and_name(
     tf_github_repo,
     tf_triggering_env,
     use_metric_context_path,
+    n_db_nodes=1,
 ):
     # prepare tags
     timeserie_tags = get_project_ts_tags(
@@ -892,6 +903,7 @@ def get_ts_tags_and_name(
         metadata_tags,
         build_variant_name,
         running_platform,
+        n_db_nodes,
     )
     timeserie_tags[break_by_key] = break_by_value
     timeserie_tags["{}+{}".format("deployment_name", break_by_key)] = "{} {}".format(
@@ -907,6 +919,7 @@ def get_ts_tags_and_name(
             test_name, build_variant_name
         )
     timeserie_tags["metric"] = str(metric_name)
+    timeserie_tags["db_nodes"] = str(n_db_nodes)
     timeserie_tags["metric_name"] = metric_name
     timeserie_tags["metric_context_path"] = metric_context_path
     if metric_context_path is not None:
@@ -930,6 +943,7 @@ def get_ts_tags_and_name(
         use_metric_context_path,
         build_variant_name,
         running_platform,
+        n_db_nodes,
     )
     return timeserie_tags, ts_name
 
@@ -943,6 +957,7 @@ def get_project_ts_tags(
     metadata_tags={},
     build_variant_name=None,
     running_platform=None,
+    n_db_nodes=1,
 ):
     tags = {
         "github_org": tf_github_org,
@@ -951,6 +966,7 @@ def get_project_ts_tags(
         "deployment_type": deployment_type,
         "deployment_name": deployment_name,
         "triggering_env": tf_triggering_env,
+        "n_db_nodes": str(n_db_nodes),
     }
     if build_variant_name is not None:
         tags["build_variant"] = build_variant_name
@@ -976,6 +992,7 @@ def extract_perbranch_timeseries_from_results(
     build_variant_name=None,
     running_platform=None,
     testcase_metric_context_paths=[],
+    n_db_nodes=1,
 ):
     break_by_key = "branch"
     break_by_str = "by.{}".format(break_by_key)
@@ -996,6 +1013,7 @@ def extract_perbranch_timeseries_from_results(
         build_variant_name,
         running_platform,
         testcase_metric_context_paths,
+        n_db_nodes,
     )
     return True, branch_time_series_dict, target_tables
 

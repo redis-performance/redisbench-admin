@@ -39,6 +39,7 @@ def prepare_timeseries_dict(
     build_variant_name=None,
     running_platform=None,
     datapoints_timestamp=None,
+    n_db_nodes=1,
 ):
     time_series_dict = {}
     # check which metrics to extract
@@ -67,6 +68,7 @@ def prepare_timeseries_dict(
         build_variant_name,
         running_platform,
         datapoints_timestamp,
+        n_db_nodes,
     )
     time_series_dict.update(per_version_time_series_dict)
     time_series_dict.update(per_branch_time_series_dict)
@@ -93,6 +95,7 @@ def add_standardized_metric_bybranch(
     metadata_tags={},
     build_variant_name=None,
     running_platform=None,
+    n_db_nodes=1,
 ):
     if metric_value is not None:
         tsname_use_case_duration = get_ts_metric_name(
@@ -109,6 +112,7 @@ def add_standardized_metric_bybranch(
             False,
             build_variant_name,
             running_platform,
+            n_db_nodes,
         )
         labels = get_project_ts_tags(
             tf_github_org,
@@ -119,6 +123,7 @@ def add_standardized_metric_bybranch(
             metadata_tags,
             build_variant_name,
             running_platform,
+            n_db_nodes,
         )
         labels["branch"] = tf_github_branch
         labels["deployment_name+branch"] = "{} {}".format(
@@ -238,6 +243,7 @@ def timeseries_test_sucess_flow(
     build_variant_name=None,
     running_platform=None,
     timeseries_dict=None,
+    n_db_nodes=1,
 ):
     testcase_metric_context_paths = []
     version_target_tables = None
@@ -266,6 +272,7 @@ def timeseries_test_sucess_flow(
             build_variant_name,
             running_platform,
             start_time_ms,
+            n_db_nodes,
         )
     if push_results_redistimeseries:
         logging.info(
