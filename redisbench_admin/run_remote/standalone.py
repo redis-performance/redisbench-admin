@@ -56,7 +56,6 @@ def cp_local_dbdir_to_remote(
     dbdir_folder, private_key, server_public_ips, temporary_dir, username
 ):
     if dbdir_folder is not None:
-
         if type(server_public_ips) is str:
             server_public_ips = [server_public_ips]
         for server_public_ip in server_public_ips:

@@ -7,7 +7,10 @@ import logging
 
 from redisbench_admin.utils.remote import execute_remote_commands
 
-from redisbench_admin.environments.oss_cluster import generate_cluster_redis_server_args
+from redisbench_admin.environments.oss_cluster import (
+    generate_cluster_redis_server_args,
+    split_primaries_per_db_nodes,
+)
 from redisbench_admin.utils.utils import wait_for_conn
 
 
@@ -168,23 +171,3 @@ def spin_up_redis_cluster_remote_redis(
         shard_start = shard_start + primaries_this_node
 
     return logfiles
-
-
-def split_primaries_per_db_nodes(server_private_ips, server_public_ips, shard_count):
-    if type(server_public_ips) is str:
-        server_public_ips = [server_public_ips]
-    if type(server_private_ips) is str:
-        server_private_ips = [server_private_ips]
-    db_node_count = len(server_private_ips)
-    primaries_per_db_node = db_node_count // shard_count
-    remainder_first_node = db_node_count % shard_count
-    first_node_primaries = primaries_per_db_node + remainder_first_node
-    logging.info("DB node {} will have {} primaries".format(1, first_node_primaries))
-    primaries_per_node = [first_node_primaries]
-    for node_n, node_id in enumerate(range(2, db_node_count + 1), start=2):
-        logging.info("Setting")
-        logging.info(
-            "DB node {} will have {} primaries".format(node_n, primaries_per_db_node)
-        )
-        primaries_per_node.append(primaries_per_db_node)
-    return primaries_per_node, server_private_ips, server_public_ips

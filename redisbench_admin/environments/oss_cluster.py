@@ -9,7 +9,6 @@ from time import sleep
 
 import redis
 
-from redisbench_admin.run.cluster import split_primaries_per_db_nodes
 from redisbench_admin.utils.utils import (
     wait_for_conn,
     redis_server_config_module_part,
@@ -101,8 +100,10 @@ def generate_host_port_pairs(server_private_ips, shard_count, cluster_start_port
 def generate_meet_cmds(
     shard_count, server_private_ips, cluster_start_port, meet_cmds, shard_start=1
 ):
-    generate_host_port_pairs(server_private_ips, shard_count, cluster_start_port)
-    for pair in generate_host_port_pairs:
+    host_port_pairs = generate_host_port_pairs(
+        server_private_ips, shard_count, cluster_start_port
+    )
+    for pair in host_port_pairs:
         meet_cmds.append("CLUSTER MEET {} {}".format(pair[0], pair[1]))
     return meet_cmds
 
@@ -220,3 +221,23 @@ def generate_cluster_redis_server_args(
 
 def get_cluster_dbfilename(port):
     return "cluster-node-port-{}.rdb".format(port)
+
+
+def split_primaries_per_db_nodes(server_private_ips, server_public_ips, shard_count):
+    if type(server_public_ips) is str:
+        server_public_ips = [server_public_ips]
+    if type(server_private_ips) is str:
+        server_private_ips = [server_private_ips]
+    db_node_count = len(server_private_ips)
+    primaries_per_db_node = db_node_count // shard_count
+    remainder_first_node = db_node_count % shard_count
+    first_node_primaries = primaries_per_db_node + remainder_first_node
+    logging.info("DB node {} will have {} primaries".format(1, first_node_primaries))
+    primaries_per_node = [first_node_primaries]
+    for node_n, node_id in enumerate(range(2, db_node_count + 1), start=2):
+        logging.info("Setting")
+        logging.info(
+            "DB node {} will have {} primaries".format(node_n, primaries_per_db_node)
+        )
+        primaries_per_node.append(primaries_per_db_node)
+    return primaries_per_node, server_private_ips, server_public_ips

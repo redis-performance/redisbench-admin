@@ -8,12 +8,14 @@ import logging
 
 import redis
 
-from redisbench_admin.environments.oss_cluster import setup_redis_cluster_from_conns
+from redisbench_admin.environments.oss_cluster import (
+    setup_redis_cluster_from_conns,
+    split_primaries_per_db_nodes,
+)
 from redisbench_admin.run.cluster import (
     spin_up_redis_cluster_remote_redis,
     debug_reload_rdb,
     cluster_init_steps,
-    split_primaries_per_db_nodes,
 )
 from redisbench_admin.run.common import (
     check_dbconfig_tool_requirement,
