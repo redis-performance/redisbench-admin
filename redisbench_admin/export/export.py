@@ -154,6 +154,7 @@ def export_command_logic(args, project_name, project_version):
             github_org,
             github_repo,
             triggering_env,
+            1,
         )
         logging.info("Parsed a total of {} metrics".format(len(timeseries_dict.keys())))
     logging.info(
@@ -213,6 +214,7 @@ def export_json_to_timeseries_dict(
     tf_github_org,
     tf_github_repo,
     triggering_env,
+    n_db_nodes=1,
 ):
     results_dict = {}
     for test_name, d in benchmark_file.items():
@@ -237,6 +239,7 @@ def export_json_to_timeseries_dict(
                     tf_github_repo,
                     triggering_env,
                     False,
+                    n_db_nodes,
                 )
                 results_dict[ts_name] = {
                     "labels": timeserie_tags.copy(),

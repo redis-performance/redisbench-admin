@@ -34,6 +34,8 @@ def test_remote_env_setup():
     tf_setup_name_sufix = "suffix"
     benchmark_config = {}
     (
+        n_db_hosts,
+        n_client_hosts,
         client_public_ip,
         server_plaintext_port,
         server_private_ip,
@@ -59,6 +61,8 @@ def test_remote_env_setup():
     assert client_public_ip == "2.2.2.2"
     assert server_private_ip == "10.0.0.1"
     assert server_public_ip == "1.1.1.1"
+    assert n_client_hosts == 1
+    assert n_db_hosts == 1
 
     # using inventory but missing one manadatory key
     args = parser.parse_args(

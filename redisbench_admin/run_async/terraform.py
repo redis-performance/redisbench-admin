@@ -172,6 +172,7 @@ class TerraformClass:
         )
         _, _, _ = tf.refresh()
         tf_output = tf.output()
+        logging.error("TF OUTPUT setup_remote_environment: {}".format(tf_output))
         server_private_ip = tf_output_or_none(tf_output, "runner_private_ip")
         server_public_ip = tf_output_or_none(tf_output, "runner_public_ip")
         if server_private_ip is not None or server_public_ip is not None:
@@ -269,6 +270,7 @@ def terraform_spin_or_reuse_env(
     else:
         logging.info("Reusing remote setup {}".format(remote_id))
         tf = remote_envs[remote_id]
+        tf_output = tf.output()
         (
             tf_return_code,
             username,
@@ -277,7 +279,7 @@ def terraform_spin_or_reuse_env(
             server_plaintext_port,
             client_private_ip,
             client_public_ip,
-        ) = retrieve_tf_connection_vars(None, tf)
+        ) = retrieve_tf_connection_vars(None, tf_output)
     return (
         client_public_ip,
         deployment_type,

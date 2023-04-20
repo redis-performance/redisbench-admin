@@ -72,7 +72,16 @@ def remote_env_setup(
             tf_override_name,
             tf_folder_path,
         )
+    n_db_hosts = 1
+    n_client_hosts = 1
+    if type(server_public_ip) == list:
+        n_db_hosts = len(server_public_ip)
+    if type(client_public_ip) == list:
+        n_client_hosts = len(client_public_ip)
+
     return (
+        n_db_hosts,
+        n_client_hosts,
         client_public_ip,
         server_plaintext_port,
         server_private_ip,

@@ -3,7 +3,6 @@ import json
 import redis
 import yaml
 
-
 from redisbench_admin.run.redistimeseries import (
     prepare_timeseries_dict,
     timeseries_test_sucess_flow,
@@ -22,6 +21,7 @@ from redisbench_admin.utils.remote import (
     exporter_create_ts,
     get_overall_dashboard_keynames,
     common_timeseries_extraction,
+    retrieve_tf_connection_vars,
 )
 
 
@@ -474,3 +474,76 @@ def test_exporter_create_ts():
 
     except redis.exceptions.ConnectionError:
         pass
+
+
+def test_retrieve_tf_connection_vars():
+    tf_output = {
+        "client_private_ip": {
+            "sensitive": False,
+            "type": ["tuple", ["string"]],
+            "value": ["10.3.0.235"],
+        },
+        "client_public_ip": {
+            "sensitive": False,
+            "type": ["tuple", ["string"]],
+            "value": ["3.135.206.198"],
+        },
+        "server_private_ip": {
+            "sensitive": False,
+            "type": ["tuple", ["string"]],
+            "value": ["10.3.0.53"],
+        },
+        "server_public_ip": {
+            "sensitive": False,
+            "type": ["tuple", ["string"]],
+            "value": ["18.219.10.142"],
+        },
+    }
+    (
+        tf_return_code,
+        username,
+        server_private_ip,
+        server_public_ip,
+        server_plaintext_port,
+        client_private_ip,
+        client_public_ip,
+    ) = retrieve_tf_connection_vars(None, tf_output)
+    assert server_private_ip == "10.3.0.53"
+    assert server_public_ip == "18.219.10.142"
+    assert username == "ubuntu"
+
+    tf_output_new = {
+        "client_private_ip": {
+            "sensitive": False,
+            "type": ["tuple", [["tuple", ["string"]]]],
+            "value": [["10.3.0.175"]],
+        },
+        "client_public_ip": {
+            "sensitive": False,
+            "type": ["tuple", [["tuple", ["string"]]]],
+            "value": [["3.136.234.93"]],
+        },
+        "server_private_ip": {
+            "sensitive": False,
+            "type": ["tuple", [["tuple", ["string", "string", "string"]]]],
+            "value": [["10.3.0.236", "10.3.0.9", "10.3.0.211"]],
+        },
+        "server_public_ip": {
+            "sensitive": False,
+            "type": ["tuple", [["tuple", ["string", "string", "string"]]]],
+            "value": [["3.143.24.7", "13.58.158.80", "3.139.82.224"]],
+        },
+        "ssh_user": {"sensitive": False, "type": "string", "value": "ec2"},
+    }
+    (
+        tf_return_code,
+        username,
+        server_private_ip,
+        server_public_ip,
+        server_plaintext_port,
+        client_private_ip,
+        client_public_ip,
+    ) = retrieve_tf_connection_vars(None, tf_output_new)
+    assert server_private_ip == ["10.3.0.236", "10.3.0.9", "10.3.0.211"]
+    assert server_public_ip == ["3.143.24.7", "13.58.158.80", "3.139.82.224"]
+    assert username == "ec2"

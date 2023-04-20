@@ -133,7 +133,9 @@ def local_db_spin(
                 )
             )
             if is_process_alive(redis_process) is False:
-                raise Exception("Redis process is not alive. Failing test.")
+                raise Exception(
+                    "Redis shard #{} is not alive. Failing test.".format(shardn)
+                )
 
     if setup_type == "oss-cluster":
         cluster_init_steps(clusterconfig, redis_conns, local_module_file)

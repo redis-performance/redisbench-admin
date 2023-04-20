@@ -366,6 +366,8 @@ def run_remote_command_logic(args, project_name, project_version):
                             setup_name,
                             setup_type,
                             shard_count,
+                            shard_placement,
+                            required_db_node_count,
                         ) = get_setup_type_and_primaries_count(setup_settings)
                         if args.allowed_setups != "":
                             allowed_setups = args.allowed_setups.split(",")
@@ -399,6 +401,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                 client_artifacts_map = {}
                                 temporary_dir = get_tmp_folder_rnd()
                                 (
+                                    n_db_hosts,
+                                    n_client_hosts,
                                     client_public_ip,
                                     server_plaintext_port,
                                     server_private_ip,
@@ -423,6 +427,25 @@ def run_remote_command_logic(args, project_name, project_version):
                                     TF_OVERRIDE_NAME,
                                     TF_OVERRIDE_REMOTE,
                                 )
+
+                                if n_db_hosts < required_db_node_count:
+                                    logging.warning(
+                                        "SKIPPING test named {}, for setup named {} of topology type {} given node_count={} and the setup has {} nodes.".format(
+                                            test_name,
+                                            setup_name,
+                                            setup_type,
+                                            required_db_node_count,
+                                            n_db_hosts,
+                                        )
+                                    )
+                                    continue
+
+                                else:
+                                    logging.info(
+                                        "Setup requires {} db nodes. This remote setup has {}. All OK".format(
+                                            required_db_node_count, n_db_hosts
+                                        )
+                                    )
 
                                 # after we've created the env, even on error we should always teardown
                                 # in case of some unexpected error we fail the test
@@ -505,6 +528,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                             redis_password,
                                             flushall_on_every_test_start,
                                             ignore_keyspace_errors,
+                                            shard_placement,
+                                            required_db_node_count,
                                         )
                                         if benchmark_type == "read-only":
                                             ro_benchmark_set(
@@ -792,6 +817,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 tf_triggering_env,
                                                 {"metric-type": "redis-metrics"},
                                                 expire_ms,
+                                                n_db_hosts,
                                             )
                                             if collect_commandstats:
                                                 (
@@ -815,6 +841,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     tf_triggering_env,
                                                     {"metric-type": "commandstats"},
                                                     expire_ms,
+                                                    n_db_hosts,
                                                 )
                                                 (
                                                     end_time_ms,
@@ -837,6 +864,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     tf_triggering_env,
                                                     {"metric-type": "latencystats"},
                                                     expire_ms,
+                                                    n_db_hosts,
                                                 )
 
                                         if setup_details["env"] is None:
@@ -889,6 +917,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                             tf_github_repo,
                                             tf_triggering_env,
                                             metadata_tags,
+                                            None,
+                                            None,
+                                            None,
+                                            n_db_hosts,
                                         )
                                         if branch_target_tables is not None:
                                             for (
@@ -1196,6 +1228,7 @@ def export_redis_metrics(
     tf_triggering_env,
     metadata_dict=None,
     expire_ms=0,
+    n_db_nodes=1,
 ):
     datapoint_errors = 0
     datapoint_inserts = 0
@@ -1230,11 +1263,16 @@ def export_redis_metrics(
             metric_name,
             metric_value,
         ) in overall_end_time_metrics.items():
+            setup_name_and_nodes = setup_name
+            if n_db_nodes > 1:
+                setup_name_and_nodes = setup_name_and_nodes + "-{}-nodes".format(
+                    n_db_nodes
+                )
             tsname_metric = "{}/{}/{}/benchmark_end/{}/{}".format(
                 sprefix,
                 test_name,
                 by_variant,
-                setup_name,
+                setup_name_and_nodes,
                 metric_name,
             )
 

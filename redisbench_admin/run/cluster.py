@@ -7,7 +7,10 @@ import logging
 
 from redisbench_admin.utils.remote import execute_remote_commands
 
-from redisbench_admin.environments.oss_cluster import generate_cluster_redis_server_args
+from redisbench_admin.environments.oss_cluster import (
+    generate_cluster_redis_server_args,
+    split_primaries_per_db_nodes,
+)
 from redisbench_admin.utils.utils import wait_for_conn
 
 
@@ -101,8 +104,8 @@ def generate_startup_nodes_array(redis_conns):
 
 # noinspection PyBroadException
 def spin_up_redis_cluster_remote_redis(
-    server_public_ip,
-    server_private_ip,
+    server_public_ips,
+    server_private_ips,
     username,
     private_key,
     remote_module_files,
@@ -114,44 +117,60 @@ def spin_up_redis_cluster_remote_redis(
     modules_configuration_parameters_map,
     logname,
     redis_7=True,
+    required_db_nodes=1,
 ):
     logging.info("Generating the remote redis-server command arguments")
+
     redis_process_commands = []
     logfiles = []
     logname_prefix = logname[: len(logname) - 4] + "-"
-    for master_shard_id in range(1, shard_count + 1):
-        shard_port = master_shard_id + start_port - 1
-
-        command, logfile = generate_cluster_redis_server_args(
-            "redis-server",
-            dbdir_folder,
-            remote_module_files,
-            server_private_ip,
-            shard_port,
-            redis_configuration_parameters,
-            "yes",
-            modules_configuration_parameters_map,
-            logname_prefix,
-            "yes",
-            redis_7,
-        )
-        logging.error(
-            "Remote primary shard {} command: {}".format(
-                master_shard_id, " ".join(command)
-            )
-        )
-        logfiles.append(logfile)
-        redis_process_commands.append(" ".join(command))
-    res = execute_remote_commands(
-        server_public_ip, username, private_key, redis_process_commands, ssh_port
+    (
+        primaries_per_node,
+        server_private_ips,
+        server_public_ips,
+    ) = split_primaries_per_db_nodes(
+        server_private_ips, server_public_ips, shard_count, required_db_nodes
     )
-    for pos, res_pos in enumerate(res):
-        [recv_exit_status, stdout, stderr] = res_pos
-        if recv_exit_status != 0:
+    shard_start = 1
+    for node_n, primaries_this_node in enumerate(primaries_per_node, start=0):
+        server_private_ip = server_private_ips[node_n]
+        server_public_ip = server_public_ips[node_n]
+        for master_shard_id in range(
+            shard_start, shard_start + primaries_this_node + 1
+        ):
+            shard_port = master_shard_id + start_port - 1
+
+            command, logfile = generate_cluster_redis_server_args(
+                "redis-server",
+                dbdir_folder,
+                remote_module_files,
+                server_private_ip,
+                shard_port,
+                redis_configuration_parameters,
+                "yes",
+                modules_configuration_parameters_map,
+                logname_prefix,
+                "yes",
+                redis_7,
+            )
             logging.error(
-                "Remote primary shard {} command returned exit code {}. stdout {}. stderr {}".format(
-                    pos, recv_exit_status, stdout, stderr
+                "Remote primary shard {} command: {}".format(
+                    master_shard_id, " ".join(command)
                 )
             )
+            logfiles.append(logfile)
+            redis_process_commands.append(" ".join(command))
+        res = execute_remote_commands(
+            server_public_ip, username, private_key, redis_process_commands, ssh_port
+        )
+        for pos, res_pos in enumerate(res):
+            [recv_exit_status, stdout, stderr] = res_pos
+            if recv_exit_status != 0:
+                logging.error(
+                    "Remote primary shard {} command returned exit code {}. stdout {}. stderr {}".format(
+                        pos, recv_exit_status, stdout, stderr
+                    )
+                )
+        shard_start = shard_start + primaries_this_node
 
     return logfiles

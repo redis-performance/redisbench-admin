@@ -67,9 +67,14 @@ def spin_up_local_redis_cluster(
     return redis_processes, redis_conns
 
 
-def setup_redis_cluster_from_conns(redis_conns, shard_count, shard_host, start_port):
+def setup_redis_cluster_from_conns(
+    redis_conns, shard_count, shard_host, start_port, db_nodes=1
+):
+    meet_cmds = []
     logging.info("Setting up cluster. Total {} primaries.".format(len(redis_conns)))
-    meet_cmds = generate_meet_cmds(shard_count, shard_host, start_port)
+    meet_cmds = generate_meet_cmds(
+        shard_count, shard_host, start_port, meet_cmds, 1, db_nodes
+    )
     status = setup_oss_cluster_from_conns(meet_cmds, redis_conns, shard_count)
     if status is True:
         for conn in redis_conns:
@@ -77,12 +82,38 @@ def setup_redis_cluster_from_conns(redis_conns, shard_count, shard_host, start_p
     return status
 
 
-def generate_meet_cmds(shard_count, shard_host, start_port):
-    meet_cmds = []
+def generate_host_port_pairs(
+    server_private_ips, shard_count, cluster_start_port, required_node_count=1
+):
+    host_port_pairs = []
+    (primaries_per_node, db_private_ips, _,) = split_primaries_per_db_nodes(
+        server_private_ips, None, shard_count, required_node_count
+    )
+    shard_start = 1
+    for node_n, primaries_this_node in enumerate(primaries_per_node, start=0):
+        server_private_ip = db_private_ips[node_n]
+        for master_shard_id in range(
+            shard_start, shard_start + primaries_this_node + 1
+        ):
+            shard_port = master_shard_id + cluster_start_port - 1
+            host_port_pairs.append([server_private_ip, shard_port])
 
-    for master_shard_id in range(1, shard_count + 1):
-        shard_port = master_shard_id + start_port - 1
-        meet_cmds.append("CLUSTER MEET {} {}".format(shard_host, shard_port))
+    return host_port_pairs
+
+
+def generate_meet_cmds(
+    shard_count,
+    server_private_ips,
+    cluster_start_port,
+    meet_cmds,
+    shard_start=1,
+    db_nodes=1,
+):
+    host_port_pairs = generate_host_port_pairs(
+        server_private_ips, shard_count, cluster_start_port, db_nodes
+    )
+    for pair in host_port_pairs:
+        meet_cmds.append("CLUSTER MEET {} {}".format(pair[0], pair[1]))
     return meet_cmds
 
 
@@ -199,3 +230,40 @@ def generate_cluster_redis_server_args(
 
 def get_cluster_dbfilename(port):
     return "cluster-node-port-{}.rdb".format(port)
+
+
+def split_primaries_per_db_nodes(
+    server_private_ips, server_public_ips, shard_count, required_node_count=None
+):
+    if type(server_public_ips) is str:
+        server_public_ips = [server_public_ips]
+    if type(server_private_ips) is str:
+        server_private_ips = [server_private_ips]
+    db_node_count = len(server_private_ips)
+    if required_node_count is None:
+        required_node_count = db_node_count
+    if db_node_count < required_node_count:
+        error_msg = "There are less servers ({}) than the required ones for this setup {}. Failing test...".format(
+            db_node_count, required_node_count
+        )
+        logging.error(error_msg)
+        raise Exception(error_msg)
+    if server_public_ips is not None:
+        server_public_ips = server_public_ips[0:required_node_count]
+    if server_private_ips is not None:
+        server_private_ips = server_private_ips[0:required_node_count]
+    primaries_per_db_node = shard_count // required_node_count
+    remainder_first_node = shard_count % required_node_count
+    first_node_primaries = primaries_per_db_node + remainder_first_node
+    logging.info("DB node {} will have {} primaries".format(1, first_node_primaries))
+    primaries_per_node = [first_node_primaries]
+    for node_n, node_id in enumerate(range(2, required_node_count + 1), start=2):
+        logging.info("Setting")
+        logging.info(
+            "DB node {} will have {} primaries".format(node_n, primaries_per_db_node)
+        )
+        primaries_per_node.append(primaries_per_db_node)
+    logging.info("Final primaries per node {}".format(primaries_per_node))
+    logging.info("Final server_private_ips {}".format(server_private_ips))
+    logging.info("Final server_public_ips {}".format(server_public_ips))
+    return primaries_per_node, server_private_ips, server_public_ips

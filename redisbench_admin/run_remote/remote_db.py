@@ -8,7 +8,10 @@ import logging
 
 import redis
 
-from redisbench_admin.environments.oss_cluster import setup_redis_cluster_from_conns
+from redisbench_admin.environments.oss_cluster import (
+    setup_redis_cluster_from_conns,
+    split_primaries_per_db_nodes,
+)
 from redisbench_admin.run.cluster import (
     spin_up_redis_cluster_remote_redis,
     debug_reload_rdb,
@@ -40,23 +43,27 @@ from redisbench_admin.utils.remote import (
 
 
 def remote_tmpdir_prune(
-    server_public_ip, ssh_port, temporary_dir, username, private_key
+    server_public_ips, ssh_port, temporary_dir, username, private_key
 ):
-    execute_remote_commands(
-        server_public_ip,
-        username,
-        private_key,
-        [
-            "mkdir -p {}".format(temporary_dir),
-            "rm -rf {}/*.log".format(temporary_dir),
-            "rm -rf {}/*.config".format(temporary_dir),
-            "rm -rf {}/*.rdb".format(temporary_dir),
-            "rm -rf {}/*.out".format(temporary_dir),
-            "rm -rf {}/*.data".format(temporary_dir),
-            "pkill -9 redis-server",
-        ],
-        ssh_port,
-    )
+    if type(server_public_ips) is str:
+        server_public_ips = [server_public_ips]
+
+    for server_public_ip in server_public_ips:
+        execute_remote_commands(
+            server_public_ip,
+            username,
+            private_key,
+            [
+                "mkdir -p {}".format(temporary_dir),
+                "rm -rf {}/*.log".format(temporary_dir),
+                "rm -rf {}/*.config".format(temporary_dir),
+                "rm -rf {}/*.rdb".format(temporary_dir),
+                "rm -rf {}/*.out".format(temporary_dir),
+                "rm -rf {}/*.data".format(temporary_dir),
+                "pkill -9 redis-server",
+            ],
+            ssh_port,
+        )
 
 
 def is_single_endpoint(setup_type):
@@ -78,8 +85,8 @@ def remote_db_spin(
     required_modules,
     return_code,
     server_plaintext_port,
-    server_private_ip,
-    server_public_ip,
+    server_private_ips,
+    server_public_ips,
     setup_name,
     setup_type,
     shard_count,
@@ -102,6 +109,8 @@ def remote_db_spin(
     redis_password=None,
     flushall_on_every_test_start=False,
     ignore_keyspace_errors=False,
+    shard_placement="sparse",
+    required_node_count=1,
 ):
     (
         _,
@@ -119,7 +128,7 @@ def remote_db_spin(
         cp_local_dbdir_to_remote(
             dbdir_folder,
             private_key,
-            server_public_ip,
+            server_public_ips,
             temporary_dir,
             username,
         )
@@ -129,7 +138,7 @@ def remote_db_spin(
             db_ssh_port,
             private_key,
             remote_module_file_dir,
-            server_public_ip,
+            server_public_ips,
             username,
         )
     # setup Redis
@@ -138,9 +147,12 @@ def remote_db_spin(
     topology_setup_start_time = datetime.datetime.now()
     if setup_type == "oss-cluster":
         if skip_redis_setup is False:
+            logging.info(
+                "Setting up oss-cluster with {} nodes".format(required_node_count)
+            )
             logfiles = spin_up_redis_cluster_remote_redis(
-                server_public_ip,
-                server_private_ip,
+                server_public_ips,
+                server_private_ips,
                 username,
                 private_key,
                 remote_module_files,
@@ -152,41 +164,102 @@ def remote_db_spin(
                 modules_configuration_parameters_map,
                 logname,
                 redis_7,
+                required_node_count,
             )
-        try:
-            for p in range(cluster_start_port, cluster_start_port + shard_count):
-                local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
-                    p,
-                    server_private_ip,
-                    server_public_ip,
-                    username,
-                    db_ssh_port,
-                    private_key,
-                    redis_password,
+            if shard_placement == "sparse":
+                logging.info(
+                    "Setting up sparse placement between {} nodes".format(
+                        required_node_count
+                    )
                 )
-                local_redis_conn.ping()
-                redis_conns.append(local_redis_conn)
-        except redis.exceptions.ConnectionError as e:
-            logging.error("A error occurred while spinning DB: {}".format(e.__str__()))
-            logfile = logfiles[0]
+                (
+                    primaries_per_node,
+                    db_private_ips,
+                    db_public_ips,
+                ) = split_primaries_per_db_nodes(
+                    server_private_ips,
+                    server_public_ips,
+                    shard_count,
+                    required_node_count,
+                )
+            else:
+                logging.info(
+                    "Setting up dense placement between {} nodes".format(
+                        required_node_count
+                    )
+                )
+                (
+                    primaries_per_node,
+                    db_private_ips,
+                    db_public_ips,
+                ) = split_primaries_per_db_nodes(
+                    server_private_ips[0],
+                    server_public_ips[0],
+                    shard_count,
+                    required_node_count,
+                )
+            logging.info(
+                "Shard placement is {}. {} primaries per node. DB private IPs: {}; DB public IPs {}".format(
+                    shard_placement, primaries_per_node, db_private_ips, db_public_ips
+                )
+            )
 
-            remote_file = "{}/{}".format(temporary_dir, logfile)
-            logging.error(
-                "Trying to fetch DB remote log {} into {}".format(remote_file, logfile)
-            )
-            db_error_artifacts(
-                db_ssh_port,
-                dirname,
-                full_logfiles,
-                logname,
-                private_key,
-                s3_bucket_name,
-                s3_bucket_path,
-                server_public_ip,
-                temporary_dir,
-                True,
-                username,
-            )
+            shard_start = 1
+            for node_n, primaries_this_node in enumerate(primaries_per_node, start=0):
+                server_private_ip = db_private_ips[node_n]
+                server_public_ip = db_public_ips[node_n]
+                for master_shard_id in range(
+                    shard_start, shard_start + primaries_this_node + 1
+                ):
+                    shard_port = master_shard_id + cluster_start_port - 1
+                    try:
+                        local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
+                            shard_port,
+                            server_private_ip,
+                            server_public_ip,
+                            username,
+                            db_ssh_port,
+                            private_key,
+                            redis_password,
+                        )
+                        local_redis_conn.ping()
+                        redis_conns.append(local_redis_conn)
+                    except redis.exceptions.ConnectionError as e:
+                        logging.error(
+                            "A error occurred while spinning DB: {}".format(e.__str__())
+                        )
+                        logfile = logfiles[0]
+
+                        remote_file = "{}/{}".format(temporary_dir, logfile)
+                        logging.error(
+                            "Trying to fetch DB remote log {} into {}".format(
+                                remote_file, logfile
+                            )
+                        )
+                        db_error_artifacts(
+                            db_ssh_port,
+                            dirname,
+                            full_logfiles,
+                            logname,
+                            private_key,
+                            s3_bucket_name,
+                            s3_bucket_path,
+                            server_public_ip,
+                            temporary_dir,
+                            True,
+                            username,
+                        )
+                shard_start = shard_start + primaries_this_node
+
+    # we only use the 1st node for single endpoint tests
+    # for client connections, even on cluster setups we always reload the
+    # cluster info via cluster slots, so we can indeed only use the 1st node ip
+    if type(server_private_ips) is str:
+        server_private_ip = server_private_ips
+        server_public_ip = server_public_ips
+    else:
+        server_private_ip = server_private_ips[0]
+        server_public_ip = server_public_ips[0]
 
     if is_single_endpoint(setup_type):
         try:
@@ -234,8 +307,9 @@ def remote_db_spin(
         setup_redis_cluster_from_conns(
             redis_conns,
             shard_count,
-            server_private_ip,
+            server_private_ips,
             cluster_start_port,
+            required_node_count,
         )
         server_plaintext_port = cluster_start_port
 

@@ -17,7 +17,7 @@ from redisbench_admin.utils.utils import redis_server_config_module_part
 
 def spin_up_standalone_remote_redis(
     temporary_dir,
-    server_public_ip,
+    server_public_ips,
     username,
     private_key,
     remote_module_files,
@@ -36,6 +36,17 @@ def spin_up_standalone_remote_redis(
         redis_7,
     )
 
+    if type(server_public_ips) is str:
+        server_public_ips = [server_public_ips]
+        server_public_ip = server_public_ips[0]
+        logging.info(
+            "Given we've received multiple IPs for DB server {} and this is a standalone we're using the first one: {}".format(
+                server_public_ips, server_public_ip
+            )
+        )
+    else:
+        server_public_ip = server_public_ips
+
     # start redis-server
     commands = [initial_redis_cmd]
     res = execute_remote_commands(
@@ -53,16 +64,21 @@ def spin_up_standalone_remote_redis(
 
 
 def cp_local_dbdir_to_remote(
-    dbdir_folder, private_key, server_public_ip, temporary_dir, username
+    dbdir_folder, private_key, server_public_ips, temporary_dir, username
 ):
     if dbdir_folder is not None:
-        logging.info(
-            "Copying entire content of {} into temporary path: {}".format(
-                dbdir_folder, temporary_dir
+        if type(server_public_ips) is str:
+            server_public_ips = [server_public_ips]
+        for server_public_ip in server_public_ips:
+            logging.info(
+                "Copying entire content of {} into temporary path: {} of remote IP {}".format(
+                    dbdir_folder, temporary_dir, server_public_ip
+                )
             )
-        )
-        ssh = SSHSession(server_public_ip, username, key_file=open(private_key, "r"))
-        ssh.put_all(dbdir_folder, temporary_dir)
+            ssh = SSHSession(
+                server_public_ip, username, key_file=open(private_key, "r")
+            )
+            ssh.put_all(dbdir_folder, temporary_dir)
 
 
 def remote_module_files_cp(
@@ -70,10 +86,13 @@ def remote_module_files_cp(
     port,
     private_key,
     remote_module_file_dir,
-    server_public_ip,
+    server_public_ips,
     username,
 ):
     remote_module_files = []
+    if type(server_public_ips) is str:
+        server_public_ips = [server_public_ips]
+
     if local_module_files is not None:
         for local_module_file in local_module_files:
             splitted_module_and_plugins = []
@@ -98,23 +117,24 @@ def remote_module_files_cp(
                     remote_module_file_dir,
                     os.path.basename(local_module_file_and_plugin),
                 )
-                # copy the module to the DB machine
-                copy_file_to_remote_setup(
-                    server_public_ip,
-                    username,
-                    private_key,
-                    local_module_file_and_plugin,
-                    remote_module_file,
-                    None,
-                    port,
-                )
-                execute_remote_commands(
-                    server_public_ip,
-                    username,
-                    private_key,
-                    ["chmod 755 {}".format(remote_module_file)],
-                    port,
-                )
+                for server_public_ip in server_public_ips:
+                    # copy the module to the DB machine
+                    copy_file_to_remote_setup(
+                        server_public_ip,
+                        username,
+                        private_key,
+                        local_module_file_and_plugin,
+                        remote_module_file,
+                        None,
+                        port,
+                    )
+                    execute_remote_commands(
+                        server_public_ip,
+                        username,
+                        private_key,
+                        ["chmod 755 {}".format(remote_module_file)],
+                        port,
+                    )
                 if pos > 1:
                     remote_module_files_in = remote_module_files_in + " "
                 remote_module_files_in = remote_module_files_in + remote_module_file

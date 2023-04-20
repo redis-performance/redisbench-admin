@@ -396,7 +396,10 @@ def test_extract_test_feasible_setups():
     ]
     assert standalone_setup_type == "oss-standalone"
     assert standalone_shard_count == 1
-    n, t, c = get_setup_type_and_primaries_count(test_setups["oss-standalone"])
+    n, t, c, placement, node_count = get_setup_type_and_primaries_count(
+        test_setups["oss-standalone"]
+    )
+    assert node_count == 1
     assert standalone_setup_type == t
     assert standalone_shard_count == c
 
@@ -406,8 +409,11 @@ def test_extract_test_feasible_setups():
     osscluster_shard_count = test_setups["oss-cluster-3-primaries"]["redis_topology"][
         "primaries"
     ]
-    n, t, c = get_setup_type_and_primaries_count(test_setups["oss-cluster-3-primaries"])
+    n, t, c, placement, node_count = get_setup_type_and_primaries_count(
+        test_setups["oss-cluster-3-primaries"]
+    )
     assert osscluster_setup_type == t
+    assert node_count == 1
     assert osscluster_shard_count == c
 
     # wrong read
