@@ -109,6 +109,8 @@ def remote_db_spin(
     redis_password=None,
     flushall_on_every_test_start=False,
     ignore_keyspace_errors=False,
+    shard_placement="sparse",
+    required_node_count=1,
 ):
     (
         _,
@@ -145,6 +147,9 @@ def remote_db_spin(
     topology_setup_start_time = datetime.datetime.now()
     if setup_type == "oss-cluster":
         if skip_redis_setup is False:
+            logging.info(
+                "Setting up oss-cluster with {} nodes".format(required_node_count)
+            )
             logfiles = spin_up_redis_cluster_remote_redis(
                 server_public_ips,
                 server_private_ips,
@@ -159,14 +164,46 @@ def remote_db_spin(
                 modules_configuration_parameters_map,
                 logname,
                 redis_7,
+                required_node_count,
             )
-            (
-                primaries_per_node,
-                db_private_ips,
-                db_public_ips,
-            ) = split_primaries_per_db_nodes(
-                server_private_ips, server_public_ips, shard_count
+            if shard_placement == "sparse":
+                logging.info(
+                    "Setting up sparse placement between {} nodes".format(
+                        required_node_count
+                    )
+                )
+                (
+                    primaries_per_node,
+                    db_private_ips,
+                    db_public_ips,
+                ) = split_primaries_per_db_nodes(
+                    server_private_ips,
+                    server_public_ips,
+                    shard_count,
+                    required_node_count,
+                )
+            else:
+                logging.info(
+                    "Setting up dense placement between {} nodes".format(
+                        required_node_count
+                    )
+                )
+                (
+                    primaries_per_node,
+                    db_private_ips,
+                    db_public_ips,
+                ) = split_primaries_per_db_nodes(
+                    server_private_ips[0],
+                    server_public_ips[0],
+                    shard_count,
+                    required_node_count,
+                )
+            logging.info(
+                "Shard placement is {}. {} primaries per node. DB private IPs: {}; DB public IPs {}".format(
+                    shard_placement, primaries_per_node, db_private_ips, db_public_ips
+                )
             )
+
             shard_start = 1
             for node_n, primaries_this_node in enumerate(primaries_per_node, start=0):
                 server_private_ip = db_private_ips[node_n]
@@ -272,6 +309,7 @@ def remote_db_spin(
             shard_count,
             server_private_ips,
             cluster_start_port,
+            required_node_count,
         )
         server_plaintext_port = cluster_start_port
 

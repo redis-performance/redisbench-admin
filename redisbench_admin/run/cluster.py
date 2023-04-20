@@ -117,6 +117,7 @@ def spin_up_redis_cluster_remote_redis(
     modules_configuration_parameters_map,
     logname,
     redis_7=True,
+    required_db_nodes=1,
 ):
     logging.info("Generating the remote redis-server command arguments")
 
@@ -127,7 +128,9 @@ def spin_up_redis_cluster_remote_redis(
         primaries_per_node,
         server_private_ips,
         server_public_ips,
-    ) = split_primaries_per_db_nodes(server_private_ips, server_public_ips, shard_count)
+    ) = split_primaries_per_db_nodes(
+        server_private_ips, server_public_ips, shard_count, required_db_nodes
+    )
     shard_start = 1
     for node_n, primaries_this_node in enumerate(primaries_per_node, start=0):
         server_private_ip = server_private_ips[node_n]

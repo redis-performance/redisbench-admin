@@ -366,6 +366,8 @@ def run_remote_command_logic(args, project_name, project_version):
                             setup_name,
                             setup_type,
                             shard_count,
+                            shard_placement,
+                            required_db_node_count,
                         ) = get_setup_type_and_primaries_count(setup_settings)
                         if args.allowed_setups != "":
                             allowed_setups = args.allowed_setups.split(",")
@@ -425,6 +427,25 @@ def run_remote_command_logic(args, project_name, project_version):
                                     TF_OVERRIDE_NAME,
                                     TF_OVERRIDE_REMOTE,
                                 )
+
+                                if n_db_hosts < required_db_node_count:
+                                    logging.warning(
+                                        "SKIPPING test named {}, for setup named {} of topology type {} given node_count={} and the setup has {} nodes.".format(
+                                            test_name,
+                                            setup_name,
+                                            setup_type,
+                                            required_db_node_count,
+                                            n_db_hosts,
+                                        )
+                                    )
+                                    continue
+
+                                else:
+                                    logging.info(
+                                        "Setup requires {} db nodes. This remote setup has {}. All OK".format(
+                                            required_db_node_count, n_db_hosts
+                                        )
+                                    )
 
                                 # after we've created the env, even on error we should always teardown
                                 # in case of some unexpected error we fail the test
@@ -507,6 +528,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                             redis_password,
                                             flushall_on_every_test_start,
                                             ignore_keyspace_errors,
+                                            shard_placement,
+                                            required_db_node_count,
                                         )
                                         if benchmark_type == "read-only":
                                             ro_benchmark_set(

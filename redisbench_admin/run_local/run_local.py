@@ -156,6 +156,8 @@ def run_local_command_logic(args, project_name, project_version):
                             setup_name,
                             setup_type,
                             shard_count,
+                            _,
+                            _,
                         ) = get_setup_type_and_primaries_count(setup_settings)
                         if args.allowed_setups != "":
                             allowed_setups = args.allowed_setups.split(",")

@@ -500,7 +500,11 @@ def extract_test_feasible_setups(
             "name": "oss-standalone",
             "type": "oss-standalone",
             "redis_topology": {"primaries": 1, "replicas": 0},
-            "resources": {"requests": {"cpu": "1000m"}, "limits": {"cpu": "2000m"}},
+            "resources": {
+                "nodes": 1,
+                "requests": {"cpu": "1000m"},
+                "limits": {"cpu": "2000m"},
+            },
         }
         logging.info(
             "Using a backwards compatible 'oss-standalone' setup, with settings: {}".format(
@@ -515,7 +519,16 @@ def get_setup_type_and_primaries_count(setup_settings):
     setup_type = setup_settings["type"]
     setup_name = setup_settings["name"]
     shard_count = setup_settings["redis_topology"]["primaries"]
-    return setup_name, setup_type, shard_count
+
+    node_count = 1
+    shard_placement = "dense"
+    if "redis_topology" in setup_settings:
+        if "placement" in setup_settings["redis_topology"]:
+            shard_placement = setup_settings["redis_topology"]["placement"]
+    if "resources" in setup_settings:
+        if "nodes" in setup_settings["resources"]:
+            node_count = setup_settings["resources"]["nodes"]
+    return setup_name, setup_type, shard_count, shard_placement, node_count
 
 
 def merge_default_and_config_metrics(
