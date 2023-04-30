@@ -119,5 +119,11 @@ def create_run_remote_arguments(parser):
         action="store_true",
         help="skip environment variables check",
     )
+    parser.add_argument(
+        "--continue-on-module-check-error",
+        default=False,
+        action="store_true",
+        help="Continue running benchmarks even if module check failed",
+    )
 
     return parser
