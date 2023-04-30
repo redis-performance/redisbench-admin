@@ -72,6 +72,7 @@ def remote_module_files_cp(
     remote_module_file_dir,
     server_public_ip,
     username,
+    continue_on_module_check_error=False,
 ):
     remote_module_files = []
     if local_module_files is not None:
@@ -99,7 +100,7 @@ def remote_module_files_cp(
                     os.path.basename(local_module_file_and_plugin),
                 )
                 # copy the module to the DB machine
-                copy_file_to_remote_setup(
+                cp_res = copy_file_to_remote_setup(
                     server_public_ip,
                     username,
                     private_key,
@@ -107,14 +108,16 @@ def remote_module_files_cp(
                     remote_module_file,
                     None,
                     port,
+                    continue_on_module_check_error,
                 )
-                execute_remote_commands(
-                    server_public_ip,
-                    username,
-                    private_key,
-                    ["chmod 755 {}".format(remote_module_file)],
-                    port,
-                )
+                if cp_res:
+                    execute_remote_commands(
+                        server_public_ip,
+                        username,
+                        private_key,
+                        ["chmod 755 {}".format(remote_module_file)],
+                        port,
+                    )
                 if pos > 1:
                     remote_module_files_in = remote_module_files_in + " "
                 remote_module_files_in = remote_module_files_in + remote_module_file

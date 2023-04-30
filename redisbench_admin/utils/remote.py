@@ -63,8 +63,10 @@ def copy_file_to_remote_setup(
     remote_file,
     dirname=None,
     port=22,
+    continue_on_module_check_error=False,
 ):
     full_local_path = local_file
+    res = False
     if dirname is not None:
         full_local_path = "{}/{}".format(dirname, local_file)
     logging.info(
@@ -94,12 +96,20 @@ def copy_file_to_remote_setup(
         )
         res = True
     else:
-        logging.error(
-            "Local file {} does not exists. aborting...".format(full_local_path)
-        )
-        raise Exception(
-            "Local file {} does not exists. aborting...".format(full_local_path)
-        )
+        if continue_on_module_check_error:
+            logging.warning(
+                "Continuing running benchmarks after module check failed on file: {}. Full path {}".format(
+                    local_file, full_local_path
+                )
+            )
+        else:
+            logging.error(
+                "Local file {} does not exists. aborting...".format(full_local_path)
+            )
+
+            raise Exception(
+                "Local file {} does not exists. aborting...".format(full_local_path)
+            )
     return res
 
 

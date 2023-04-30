@@ -178,21 +178,29 @@ def run_remote_command_logic(args, project_name, project_version):
             logging.critical("{}. Exiting right away!".format(failure_reason))
             exit(1)
 
+    continue_on_module_check_error = args.continue_on_module_check_error
     module_check_status, error_message = redis_modules_check(local_module_files)
     if module_check_status is False:
-        if webhook_notifications_active:
-            failure_reason = error_message
-            generate_failure_notification(
-                webhook_client_slack,
-                ci_job_name,
-                ci_job_link,
-                failure_reason,
-                tf_github_org,
-                tf_github_repo,
-                tf_github_branch,
-                None,
+        if continue_on_module_check_error is False:
+            if webhook_notifications_active:
+                failure_reason = error_message
+                generate_failure_notification(
+                    webhook_client_slack,
+                    ci_job_name,
+                    ci_job_link,
+                    failure_reason,
+                    tf_github_org,
+                    tf_github_repo,
+                    tf_github_branch,
+                    None,
+                )
+            exit(1)
+        else:
+            logging.error(
+                "the module check failed with the following message {} but you've decided to continue anyway.".format(
+                    error_message
+                )
             )
-        exit(1)
 
     common_properties_log(
         tf_bin_path,
@@ -505,6 +513,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             redis_password,
                                             flushall_on_every_test_start,
                                             ignore_keyspace_errors,
+                                            continue_on_module_check_error,
                                         )
                                         if benchmark_type == "read-only":
                                             ro_benchmark_set(

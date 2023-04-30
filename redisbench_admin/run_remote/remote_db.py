@@ -102,6 +102,7 @@ def remote_db_spin(
     redis_password=None,
     flushall_on_every_test_start=False,
     ignore_keyspace_errors=False,
+    continue_on_module_check_error=False,
 ):
     (
         _,
@@ -131,6 +132,7 @@ def remote_db_spin(
             remote_module_file_dir,
             server_public_ip,
             username,
+            continue_on_module_check_error,
         )
     # setup Redis
     redis_setup_result = True
@@ -228,6 +230,11 @@ def remote_db_spin(
                 temporary_dir,
                 True,
                 username,
+            )
+            raise Exception(
+                "A error occurred while spinning DB: {}. Aborting...".format(
+                    e.__str__()
+                )
             )
 
     if cluster_enabled and skip_redis_setup is False:
