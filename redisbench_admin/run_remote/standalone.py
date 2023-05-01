@@ -118,6 +118,9 @@ def remote_module_files_cp(
                         ["chmod 755 {}".format(remote_module_file)],
                         port,
                     )
+                else:
+                    # If the copy was unsuccessful restore path to original
+                    remote_module_file = local_module_file_and_plugin
                 if pos > 1:
                     remote_module_files_in = remote_module_files_in + " "
                 remote_module_files_in = remote_module_files_in + remote_module_file
