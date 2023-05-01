@@ -16,18 +16,6 @@ files = [
 dev = ["black", "coverage", "isort", "pre-commit", "pyenchant", "pylint"]
 
 [[package]]
-name = "ansicolors"
-version = "1.1.8"
-description = "ANSI colors for Python"
-category = "main"
-optional = false
-python-versions = "*"
-files = [
-    {file = "ansicolors-1.1.8-py2.py3-none-any.whl", hash = "sha256:00d2dde5a675579325902536738dd27e4fac1fd68f773fe36c21044eb559e187"},
-    {file = "ansicolors-1.1.8.zip", hash = "sha256:99f94f5e3348a0bcd43c82e5fc4414013ccc19d70bd939ad71e0133ce9c372e0"},
-]
-
-[[package]]
 name = "appdirs"
 version = "1.4.4"
 description = "A small Python module for determining appropriate platform-specific dirs, e.g. a \"user data dir\"."
@@ -2881,4 +2869,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.7.0"
-content-hash = "2a07045d44a62915e2b4540f6edf9584cd2c67f1f1b5811d5d67398f6bd48d95"
+content-hash = "1436bf5f86aca7c6fbfd413ab9595c0b89d81e5cb2c0d862c52ce58250c20ddc"

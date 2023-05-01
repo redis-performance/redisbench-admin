@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "redisbench-admin"
-version = "0.10.11"
+version = "0.10.12"
 description = "Redis benchmark run helper. A wrapper around Redis and Redis Modules benchmark tools ( ftsb_redisearch, memtier_benchmark, redis-benchmark, aibench, etc... )."
 authors = ["filipecosta90 <filipecosta.90@gmail.com>","Redis Performance Group <performance@redis.com>"]
 readme = "README.md"
@@ -32,7 +32,6 @@ flask-restx = "^0.5.1"
 Flask-HTTPAuth = "^4.4.0"
 daemonize = "^2.5.0"
 pandas = "^1.0"
-ansicolors = "^1.1.8"
 matplotlib = "^3.1.2"
 psutil = "^5.6.6"
 Jinja2 = "^3.0.3"
