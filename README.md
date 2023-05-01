@@ -25,14 +25,12 @@ Current supported benchmark tools:
 - [redisgraph-benchmark-go](https://github.com/RedisGraph/redisgraph-benchmark-go)
 - [ftsb_redisearch](https://github.com/RediSearch/ftsb)
 - [ann-benchmarks](https://github.com/RedisAI/ann-benchmarks)
-- [SOON][aibench](https://github.com/RedisAI/aibench)
 
 ## Installation
 
 Installation is done using pip, the package installer for Python, in the following manner:
 
 ```bash
-python3 -m pip install https://codeload.github.com/redis/redis-py/zip/refs/tags/v4.2.0rc3
 python3 -m pip install redisbench-admin
 ```
 
