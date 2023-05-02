@@ -100,6 +100,11 @@ def remote_module_files_cp(
                     remote_module_file_dir,
                     file_basename,
                 )
+                logging.info(
+                    "remote_module_file: {}. basename: {}".format(
+                        remote_module_file, file_basename
+                    )
+                )
                 # copy the module to the DB machine
                 cp_res = copy_file_to_remote_setup(
                     server_public_ip,
@@ -122,6 +127,11 @@ def remote_module_files_cp(
                 else:
                     # If the copy was unsuccessful restore path to original basename
                     remote_module_file = file_basename
+                    logging.info(
+                        "Given the copy was unsuccessful restore path to original basename: {}.".format(
+                            remote_module_file
+                        )
+                    )
                 if pos > 1:
                     remote_module_files_in = remote_module_files_in + " "
                 remote_module_files_in = remote_module_files_in + remote_module_file

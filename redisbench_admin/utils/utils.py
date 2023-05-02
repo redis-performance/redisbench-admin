@@ -36,9 +36,14 @@ def redis_server_config_module_part(
                 splitted_module_and_plugins
             )
         )
-    abs_splitted_module_and_plugins = [
-        os.path.abspath(x) for x in splitted_module_and_plugins
-    ]
+
+    abs_splitted_module_and_plugins = []
+    for x in splitted_module_and_plugins:
+        if os.path.exists(os.path.abspath(x)):
+            abs_splitted_module_and_plugins.append(os.path.abspath(x))
+        else:
+            abs_splitted_module_and_plugins.append(x)
+
     command.append("--loadmodule")
     command.extend(abs_splitted_module_and_plugins)
     for (
