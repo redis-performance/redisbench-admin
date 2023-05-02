@@ -95,9 +95,15 @@ def remote_module_files_cp(
             for pos, local_module_file_and_plugin in enumerate(
                 abs_splitted_module_and_plugins, start=1
             ):
+                file_basename = os.path.basename(local_module_file_and_plugin)
                 remote_module_file = "{}/{}".format(
                     remote_module_file_dir,
-                    os.path.basename(local_module_file_and_plugin),
+                    file_basename,
+                )
+                logging.info(
+                    "remote_module_file: {}. basename: {}".format(
+                        remote_module_file, file_basename
+                    )
                 )
                 # copy the module to the DB machine
                 cp_res = copy_file_to_remote_setup(
@@ -117,6 +123,14 @@ def remote_module_files_cp(
                         private_key,
                         ["chmod 755 {}".format(remote_module_file)],
                         port,
+                    )
+                else:
+                    # If the copy was unsuccessful restore path to original basename
+                    remote_module_file = file_basename
+                    logging.info(
+                        "Given the copy was unsuccessful restore path to original basename: {}.".format(
+                            remote_module_file
+                        )
                     )
                 if pos > 1:
                     remote_module_files_in = remote_module_files_in + " "
