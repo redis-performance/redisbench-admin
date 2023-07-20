@@ -768,52 +768,30 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 tf_github_branch, artifact_version
                                             )
                                         ):
-                                            (
-                                                end_time_ms,
-                                                _,
-                                                overall_end_time_metrics,
-                                            ) = collect_redis_metrics(
-                                                redis_conns,
-                                                ["memory"],
-                                                {
-                                                    "memory": [
-                                                        "used_memory",
-                                                        "used_memory_dataset",
-                                                    ]
-                                                },
-                                            )
-                                            if total_shards_cpu_usage is not None:
-                                                overall_end_time_metrics[
-                                                    "total_shards_used_cpu_pct"
-                                                ] = total_shards_cpu_usage
-                                            expire_ms = 7 * 24 * 60 * 60 * 1000
-                                            export_redis_metrics(
-                                                artifact_version,
-                                                end_time_ms,
-                                                overall_end_time_metrics,
-                                                rts,
-                                                setup_name,
-                                                setup_type,
-                                                test_name,
-                                                tf_github_branch,
-                                                tf_github_org,
-                                                tf_github_repo,
-                                                tf_triggering_env,
-                                                {"metric-type": "redis-metrics"},
-                                                expire_ms,
-                                            )
-                                            if collect_commandstats:
+                                            try:
                                                 (
                                                     end_time_ms,
                                                     _,
-                                                    overall_commandstats_metrics,
+                                                    overall_end_time_metrics,
                                                 ) = collect_redis_metrics(
-                                                    redis_conns, ["commandstats"]
+                                                    redis_conns,
+                                                    ["memory"],
+                                                    {
+                                                        "memory": [
+                                                            "used_memory",
+                                                            "used_memory_dataset",
+                                                        ]
+                                                    },
                                                 )
+                                                if total_shards_cpu_usage is not None:
+                                                    overall_end_time_metrics[
+                                                        "total_shards_used_cpu_pct"
+                                                    ] = total_shards_cpu_usage
+                                                expire_ms = 7 * 24 * 60 * 60 * 1000
                                                 export_redis_metrics(
                                                     artifact_version,
                                                     end_time_ms,
-                                                    overall_commandstats_metrics,
+                                                    overall_end_time_metrics,
                                                     rts,
                                                     setup_name,
                                                     setup_type,
@@ -822,30 +800,71 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     tf_github_org,
                                                     tf_github_repo,
                                                     tf_triggering_env,
-                                                    {"metric-type": "commandstats"},
+                                                    {"metric-type": "redis-metrics"},
                                                     expire_ms,
                                                 )
-                                                (
-                                                    end_time_ms,
-                                                    _,
-                                                    overall_commandstats_metrics,
-                                                ) = collect_redis_metrics(
-                                                    redis_conns, ["latencystats"]
+                                                if collect_commandstats:
+                                                    (
+                                                        end_time_ms,
+                                                        _,
+                                                        overall_commandstats_metrics,
+                                                    ) = collect_redis_metrics(
+                                                        redis_conns, ["commandstats"]
+                                                    )
+                                                    export_redis_metrics(
+                                                        artifact_version,
+                                                        end_time_ms,
+                                                        overall_commandstats_metrics,
+                                                        rts,
+                                                        setup_name,
+                                                        setup_type,
+                                                        test_name,
+                                                        tf_github_branch,
+                                                        tf_github_org,
+                                                        tf_github_repo,
+                                                        tf_triggering_env,
+                                                        {"metric-type": "commandstats"},
+                                                        expire_ms,
+                                                    )
+                                                    (
+                                                        end_time_ms,
+                                                        _,
+                                                        overall_commandstats_metrics,
+                                                    ) = collect_redis_metrics(
+                                                        redis_conns, ["latencystats"]
+                                                    )
+                                                    export_redis_metrics(
+                                                        artifact_version,
+                                                        end_time_ms,
+                                                        overall_commandstats_metrics,
+                                                        rts,
+                                                        setup_name,
+                                                        setup_type,
+                                                        test_name,
+                                                        tf_github_branch,
+                                                        tf_github_org,
+                                                        tf_github_repo,
+                                                        tf_triggering_env,
+                                                        {"metric-type": "latencystats"},
+                                                        expire_ms,
+                                                    )
+                                            except redis.exceptions.ConnectionError as e:
+                                                db_error_artifacts(
+                                                    db_ssh_port,
+                                                    dirname,
+                                                    full_logfiles,
+                                                    logname,
+                                                    private_key,
+                                                    s3_bucket_name,
+                                                    s3_bucket_path,
+                                                    server_public_ip,
+                                                    temporary_dir,
+                                                    args.upload_results_s3,
+                                                    username,
                                                 )
-                                                export_redis_metrics(
-                                                    artifact_version,
-                                                    end_time_ms,
-                                                    overall_commandstats_metrics,
-                                                    rts,
-                                                    setup_name,
-                                                    setup_type,
-                                                    test_name,
-                                                    tf_github_branch,
-                                                    tf_github_org,
-                                                    tf_github_repo,
-                                                    tf_triggering_env,
-                                                    {"metric-type": "latencystats"},
-                                                    expire_ms,
+                                                return_code |= 1
+                                                raise Exception(
+                                                    "Failed to run remote benchmark."
                                                 )
 
                                         if setup_details["env"] is None:
