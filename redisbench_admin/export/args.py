@@ -52,6 +52,7 @@ def create_export_arguments(parser):
     parser.add_argument("--github_repo", type=str, default=None)
     parser.add_argument("--github_org", type=str, default=None)
     parser.add_argument("--github_branch", type=str, default=None, nargs="?", const="")
+    parser.add_argument("--circle_pull_request", type=str, default=None, nargs="?", const="")
     parser.add_argument("--triggering_env", type=str, default="ci")
     parser.add_argument(
         "--exporter",

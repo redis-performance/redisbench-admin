@@ -22,9 +22,8 @@ from redisbench_admin.run_async.async_env import tar_files
 from redisbench_admin.run_async.benchmark import BenchmarkClass
 from redisbench_admin.run_remote.notifications import generate_failure_notification
 from redisbench_admin.run_async.render_files import (
-    renderServiceFile,
-    renderRunFile,
-    savePemFile,
+    render_run_script,
+    save_pem_file,
 )
 from redisbench_admin.run_async.terraform import (
     TerraformClass,
@@ -204,8 +203,8 @@ def run_async_command_logic(argv, args, project_name, project_version):
         benchmark.benchmark_definitions, benchmark.default_specs
     )
 
-    # create service file
-    renderServiceFile(
+    # create a script to run benchmarks
+    render_run_script(
         access_key=EC2_ACCESS_KEY,
         secret_key=EC2_SECRET_KEY,
         region=EC2_REGION,
@@ -215,9 +214,8 @@ def run_async_command_logic(argv, args, project_name, project_version):
         argv=argv,
     )
 
-    # create run.py file for running redisbench-cli
-    renderRunFile()
-    savePemFile(EC2_PRIVATE_PEM)
+    # save ssh key for ec2 machine that later on will be used to run commands
+    save_pem_file(EC2_PRIVATE_PEM)
 
     # copy module file
     if len(args.module_path) != 0:
@@ -260,14 +258,8 @@ def run_async_command_logic(argv, args, project_name, project_version):
             "/etc/apt/sources.list.d/hashicorp.list",
             "sudo apt update",
             "sudo apt install terraform",
-            "curl -sSL https://install.python-poetry.org | POETRY_VERSION=1.2.2 python3 -",
-            'cd work_dir/redisbench-admin && PATH="/home/ubuntu/.local/bin:$PATH" poetry config '
-            "virtualenvs.in-project true",
-            'cd work_dir/redisbench-admin && PATH="/home/ubuntu/.local/bin:$PATH" poetry install',
-            "./work_dir/deps/readies/bin/getdocker",
-            "cd work_dir && sudo cp tests/benchmarks/redisbench-admin.service /etc/systemd/system",
-            "sudo systemctl daemon-reload",
-            "sudo systemctl start redisbench-admin.service",
+            "pip3 install redisbench-admin -update",
+            "./runbenchmark &",
         ],
         "22",
         get_pty=True,
