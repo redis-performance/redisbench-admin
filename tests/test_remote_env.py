@@ -41,6 +41,7 @@ def test_remote_env_setup():
         db_ssh_port,
         client_ssh_port,
         username,
+        spot_instance_error,
     ) = remote_env_setup(
         args,
         benchmark_config,
@@ -54,11 +55,16 @@ def test_remote_env_setup():
         tf_github_sha,
         tf_setup_name_sufix,
         tf_triggering_env,
+        7200,
+        None,
+        None,
+        False,
     )
 
     assert client_public_ip == "2.2.2.2"
     assert server_private_ip == "10.0.0.1"
     assert server_public_ip == "1.1.1.1"
+    assert spot_instance_error == False
 
     # using inventory but missing one manadatory key
     args = parser.parse_args(

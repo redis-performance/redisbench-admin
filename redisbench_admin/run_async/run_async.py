@@ -26,7 +26,7 @@ from redisbench_admin.run_async.render_files import (
     renderRunFile,
     savePemFile,
 )
-from redisbench_admin.run_async.terraform import (
+from redisbench_admin.run_async.async_terraform import (
     TerraformClass,
 )
 from redisbench_admin.utils.remote import (

@@ -65,6 +65,7 @@ def export_command_logic(args, project_name, project_version):
         else:
             (
                 _,
+                _,
                 metrics,
                 exporter_timemetric_path,
                 _,

@@ -20,4 +20,4 @@ exporter:
     metrics:
       - "$.OverallQueryRates.Total"
     mode: higher-better
-    baseline-branch: master
+    higher-better: master

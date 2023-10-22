@@ -1,0 +1,23 @@
+version: 0.5
+exporter:
+  redistimeseries:
+    test_name: "$.test_name"
+    version: "$.environment.version"
+    build: "$.environment.version"
+    branch: "$.environment.branch"
+    hash: "$.environment.hash"
+    timemetric: "$.test_metrics.memtier.'ALL STATS'.Runtime.'Start time'"
+    metrics:
+      - "$.test_metrics.memtier.'ALL STATS'.Totals.'Percentile Latencies'.'p99.00'"
+      - "$.test_metrics.memtier.'ALL STATS'.Totals.'Percentile Latencies'.'p50.00'"
+      - "$.test_metrics.memtier.'ALL STATS'.Totals.'Percentile Latencies'.'p99.00'"
+      - "$.test_metrics.memtier.'ALL STATS'.Totals.'Ops/sec'"
+      - "$.test_metrics.memtier.'ALL STATS'.Totals.'Average Latency'"
+      - "$.test_metrics.memtier.'ALL STATS'.Totals.'Min Latency'"
+      - "$.test_metrics.memtier.'ALL STATS'.Totals.'Max Latency'"
+  comparison:
+    metrics:
+      - "Ops/sec"
+    mode: higher-better
+    baseline-branch: master
+    baseline-version: latest

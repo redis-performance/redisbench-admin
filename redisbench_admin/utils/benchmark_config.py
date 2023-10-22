@@ -67,6 +67,7 @@ def prepare_benchmark_definitions(args):
 
     (
         default_kpis,
+        default_remote,
         default_metrics,
         exporter_timemetric_path,
         default_specs,
@@ -75,7 +76,7 @@ def prepare_benchmark_definitions(args):
     for usecase_filename in files:
         with open(usecase_filename, "r", encoding="utf8") as stream:
             test_result, benchmark_config, test_name = get_final_benchmark_config(
-                default_kpis, stream, usecase_filename
+                default_kpis, default_remote, stream, usecase_filename
             )
             result &= test_result
             if test_result:
@@ -109,6 +110,7 @@ def get_defaults(defaults_filename):
     default_metrics = []
     exporter_timemetric_path = None
     default_kpis = None
+    default_remote = None
     default_specs = None
     cluster_config = None
     if os.path.exists(defaults_filename):
@@ -118,12 +120,14 @@ def get_defaults(defaults_filename):
             )
             (
                 default_kpis,
+                default_remote,
                 default_metrics,
                 exporter_timemetric_path,
                 default_specs,
                 cluster_config,
             ) = process_default_yaml_properties_file(
                 default_kpis,
+                default_remote,
                 default_metrics,
                 defaults_filename,
                 exporter_timemetric_path,
@@ -131,6 +135,7 @@ def get_defaults(defaults_filename):
             )
     return (
         default_kpis,
+        default_remote,
         default_metrics,
         exporter_timemetric_path,
         default_specs,
@@ -138,7 +143,7 @@ def get_defaults(defaults_filename):
     )
 
 
-def get_final_benchmark_config(default_kpis, stream, usecase_filename):
+def get_final_benchmark_config(default_kpis, default_remote, stream, usecase_filename):
     result = False
     benchmark_config = None
     test_name = None
@@ -149,6 +154,11 @@ def get_final_benchmark_config(default_kpis, stream, usecase_filename):
         if default_kpis is not None:
             merge_default_and_specific_properties_dict_type(
                 benchmark_config, default_kpis, kpis_keyname, usecase_filename
+            )
+        kpis_keyname = "remote"
+        if default_remote is not None:
+            merge_default_and_specific_properties_dict_type(
+                benchmark_config, default_remote, kpis_keyname, usecase_filename
             )
         test_name = benchmark_config["name"]
         result = True
@@ -261,12 +271,24 @@ def extract_redis_dbconfig_parameters(benchmark_config, dbconfig_keyname):
 
 
 def process_default_yaml_properties_file(
-    default_kpis, default_metrics, defaults_filename, exporter_timemetric_path, stream
+    default_kpis,
+    default_remote,
+    default_metrics,
+    defaults_filename,
+    exporter_timemetric_path,
+    stream,
 ):
     default_config = yaml.safe_load(stream)
     default_specs = None
     cluster_config = None
     default_metrics, exporter_timemetric_path = extract_exporter_metrics(default_config)
+    if "remote" in default_config:
+        logging.info(
+            "Loading default REMOTE specifications from file: {}".format(
+                defaults_filename
+            )
+        )
+        default_remote = default_config["remote"]
     if "kpis" in default_config:
         logging.info(
             "Loading default KPIs specifications from file: {}".format(
@@ -288,6 +310,7 @@ def process_default_yaml_properties_file(
         cluster_config = default_config["clusterconfig"]
     return (
         default_kpis,
+        default_remote,
         default_metrics,
         exporter_timemetric_path,
         default_specs,

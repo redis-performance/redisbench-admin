@@ -348,11 +348,14 @@ def test_process_default_yaml_properties_file():
     with open("./tests/test_data/common-properties-v0.1.yml", "r") as yml_file:
         (
             default_kpis,
+            _,
             default_metrics,
             exporter_timemetric_path,
             default_specs,
             cluster_config,
-        ) = process_default_yaml_properties_file(None, None, "1.yml", None, yml_file)
+        ) = process_default_yaml_properties_file(
+            None, None, None, "1.yml", None, yml_file
+        )
         assert exporter_timemetric_path == "$.StartTime"
         assert default_kpis is None
         assert default_specs is None
@@ -371,7 +374,7 @@ def test_extract_test_feasible_setups():
     usecase_filename = "./tests/test_data/tsbs-devops-ingestion-scale100-4days-v2.yml"
     with open(usecase_filename, "r") as stream:
         _, benchmark_config, test_name = get_final_benchmark_config(
-            default_kpis, stream, usecase_filename
+            default_kpis, None, stream, usecase_filename
         )
     assert cluster_config == {
         "init_commands": [
@@ -412,7 +415,7 @@ def test_extract_test_feasible_setups():
 
     # wrong read
     res, benchmark_config, test_name = get_final_benchmark_config(
-        default_kpis, stream, "dont exist"
+        default_kpis, None, stream, "dont exist"
     )
     assert res == False
     assert benchmark_config == None
