@@ -73,6 +73,46 @@ def test_export_command_logic():
         assert e.code == 0
 
 
+def test_export_command_logic():
+    rts_host = os.getenv("RTS_DATASINK_HOST", None)
+    rts_port = 16379
+    rts_pass = ""
+    if rts_host is None:
+        return
+    rts = redis.Redis(port=16379, host=rts_host)
+    rts.ping()
+    rts.flushall()
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_export_arguments(parser)
+    args = parser.parse_args(
+        args=[
+            "--benchmark-result-file",
+            "./tests/test_data/result_report_1690282709.835491.json",
+            "--exporter-spec-file",
+            "./tests/test_data/common-properties-enterprise.yml",
+            "--redistimeseries_host",
+            rts_host,
+            "--redistimeseries_port",
+            "{}".format(rts_port),
+            "--redistimeseries_pass",
+            "{}".format(rts_pass),
+            "--deployment-type",
+            "enterprise",
+            "--github_repo",
+            "redis",
+            "--github_org",
+            "redis",
+        ]
+    )
+    try:
+        export_command_logic(args, "tool", "v0")
+    except SystemExit as e:
+        assert e.code == 0
+
+
 def test_export_opereto_csv_to_timeseries_dict():
     break_by_dict = {"branch": "master", "version": "6.2.0"}
     benchmark_file = "./tests/test_data/2021-10-01.120753test_1sh_1wk_dual_ep_mixed_2thr_50conns_persistent_mtls_msetmget_kb_1p_csv_string.csv"

@@ -6,7 +6,7 @@
 import logging
 import tarfile
 
-from redisbench_admin.run_async.terraform import (
+from redisbench_admin.run_async.async_terraform import (
     retrieve_inventory_info,
     terraform_spin_or_reuse_env,
 )

@@ -5,10 +5,13 @@
 #
 import logging
 
+from python_terraform import TerraformCommandError
+
 from redisbench_admin.run_remote.terraform import (
     retrieve_inventory_info,
     terraform_spin_or_reuse_env,
 )
+from redisbench_admin.utils.remote import check_remote_setup_spot_instance
 
 
 def remote_env_setup(
@@ -27,6 +30,7 @@ def remote_env_setup(
     tf_timeout_secs=7200,
     tf_override_name=None,
     tf_folder_path=None,
+    spot_instance_error=False,
 ):
     server_plaintext_port = args.db_port
     db_ssh_port = args.db_ssh_port
@@ -44,34 +48,83 @@ def remote_env_setup(
                 "Missing one of the required keys for inventory usage. Exiting..."
             )
             exit(1)
-        logging.info("Using the following connection addresses.")
-        logging.info("client_public_ip={}".format(client_public_ip))
-        logging.info("server_public_ip={}".format(server_public_ip))
-        logging.info("server_private_ip={}".format(server_private_ip))
+
     else:
-        (
-            client_public_ip,
-            _,
-            _,
-            server_private_ip,
-            server_public_ip,
-            username,
-        ) = terraform_spin_or_reuse_env(
-            benchmark_config,
-            remote_envs,
-            repetition,
-            test_name,
-            tf_bin_path,
-            tf_github_actor,
-            tf_github_org,
-            tf_github_repo,
-            tf_github_sha,
-            tf_setup_name_sufix,
-            tf_triggering_env,
-            tf_timeout_secs,
-            tf_override_name,
-            tf_folder_path,
+        contains_spot, tf_folder_spot_path = check_remote_setup_spot_instance(
+            benchmark_config["remote"]
         )
+        spot_available_and_used = False
+        if contains_spot:
+            logging.info(f"detected spot instance config in {tf_folder_spot_path}.")
+            if spot_instance_error is False:
+                logging.info(
+                    f"Will deploy the detected spot instance config in {tf_folder_spot_path}."
+                )
+                try:
+                    (
+                        client_public_ip,
+                        _,
+                        _,
+                        server_private_ip,
+                        server_public_ip,
+                        username,
+                    ) = terraform_spin_or_reuse_env(
+                        benchmark_config,
+                        remote_envs,
+                        repetition,
+                        test_name,
+                        tf_bin_path,
+                        tf_github_actor,
+                        tf_github_org,
+                        tf_github_repo,
+                        tf_github_sha,
+                        tf_setup_name_sufix,
+                        tf_triggering_env,
+                        tf_timeout_secs,
+                        tf_override_name,
+                        tf_folder_spot_path,
+                    )
+                    spot_available_and_used = True
+                except TerraformCommandError as error:
+                    spot_instance_error = True
+                    logging.error(
+                        "Received the following error while trying to deploy the spot instance setup: {}.".format(
+                            error.__str__()
+                        )
+                    )
+                    pass
+            else:
+                logging.warning(
+                    f"Even though there is a spot instance config, avoiding deploying it."
+                )
+        if spot_available_and_used is False:
+            (
+                client_public_ip,
+                _,
+                _,
+                server_private_ip,
+                server_public_ip,
+                username,
+            ) = terraform_spin_or_reuse_env(
+                benchmark_config,
+                remote_envs,
+                repetition,
+                test_name,
+                tf_bin_path,
+                tf_github_actor,
+                tf_github_org,
+                tf_github_repo,
+                tf_github_sha,
+                tf_setup_name_sufix,
+                tf_triggering_env,
+                tf_timeout_secs,
+                tf_override_name,
+                tf_folder_path,
+            )
+    logging.info("Using the following connection addresses.")
+    logging.info(f"client_public_ip={client_public_ip}")
+    logging.info(f"server_public_ip={server_public_ip}")
+    logging.info(f"server_private_ip={server_private_ip}")
     return (
         client_public_ip,
         server_plaintext_port,
@@ -80,4 +133,5 @@ def remote_env_setup(
         db_ssh_port,
         client_ssh_port,
         username,
+        spot_instance_error,
     )

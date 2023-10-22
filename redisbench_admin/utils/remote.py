@@ -300,6 +300,7 @@ def setup_remote_environment(
             "triggering_env": tf_triggering_env,
             "timeout_secs": tf_timeout_secs,
         },
+        raise_on_error=True,
     )
     return retrieve_tf_connection_vars(return_code, tf)
 
@@ -548,13 +549,28 @@ def common_tf(branch, path, repo, temporary_dir=None, destroy=False):
     return terraform_working_dir
 
 
+def check_remote_setup_spot_instance(
+    remote_setup_config,
+):
+    logging.info(f"Checking for spot instance config within... {remote_setup_config}")
+    spot_path = None
+    contains_spot_instance = False
+    for remote_setup_property in remote_setup_config:
+        if "spot_instance" in remote_setup_property:
+            spot_path = "/terraform/" + remote_setup_property["spot_instance"]
+            contains_spot_instance = True
+            logging.info(f"Detected spot instance config. Setup path: {spot_path}")
+
+    return contains_spot_instance, spot_path
+
+
 def fetch_remote_setup_from_config(
     remote_setup_config,
     repo="https://github.com/redis-performance/testing-infrastructure.git",
     branch="master",
     path=None,
 ):
-    setup_type = None
+    setup_type = "oss-standalone"
     setup = None
     if path is None:
         for remote_setup_property in remote_setup_config:
@@ -562,6 +578,8 @@ def fetch_remote_setup_from_config(
                 setup_type = remote_setup_property["type"]
             if "setup" in remote_setup_property:
                 setup = remote_setup_property["setup"]
+            if "spot_instance" in remote_setup_property:
+                spot_path = "/terraform/" + remote_setup_property["spot_instance"]
         # fetch terraform folder
         path = "/terraform/{}-{}".format(setup_type, setup)
     terraform_working_dir = common_tf(branch, path, repo)

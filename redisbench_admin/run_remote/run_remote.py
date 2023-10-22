@@ -304,6 +304,9 @@ def run_remote_command_logic(args, project_name, project_version):
     # contains the overall target-tables ( if any target is defined )
     overall_tables = {}
 
+    # Used to only deploy spot once per run
+    spot_instance_error = False
+
     for benchmark_type, bench_by_dataset_map in benchmark_runs_plan.items():
         if return_code != 0 and args.fail_fast:
             logging.warning(
@@ -414,6 +417,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                     db_ssh_port,
                                     client_ssh_port,
                                     username,
+                                    spot_instance_error,
                                 ) = remote_env_setup(
                                     args,
                                     benchmark_config,
@@ -430,6 +434,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                     tf_timeout_secs,
                                     TF_OVERRIDE_NAME,
                                     TF_OVERRIDE_REMOTE,
+                                    spot_instance_error,
                                 )
 
                                 # after we've created the env, even on error we should always teardown
@@ -848,7 +853,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                                         {"metric-type": "latencystats"},
                                                         expire_ms,
                                                     )
-                                            except redis.exceptions.ConnectionError as e:
+                                            except (
+                                                redis.exceptions.ConnectionError
+                                            ) as e:
                                                 db_error_artifacts(
                                                     db_ssh_port,
                                                     dirname,
@@ -1054,9 +1061,7 @@ def run_remote_command_logic(args, project_name, project_version):
 
                             else:
                                 logging.info(
-                                    "Test {} does not have remote config. Skipping test.".format(
-                                        test_name
-                                    )
+                                    f"Test {test_name} does not have remote config. Skipping test."
                                 )
 
     if len(benchmark_artifacts_links) > 0:

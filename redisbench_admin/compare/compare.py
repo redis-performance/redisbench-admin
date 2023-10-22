@@ -124,6 +124,7 @@ def compare_command_logic(args, project_name, project_version):
     simplify_table = args.simple_table
     print_regressions_only = args.print_regressions_only
     print_improvements_only = args.print_improvements_only
+    skip_unstable = args.skip_unstable
     baseline_tag = args.baseline_tag
     comparison_tag = args.comparison_tag
     last_n_baseline = args.last_n
@@ -258,6 +259,7 @@ def compare_command_logic(args, project_name, project_version):
         comparison_deployment_name,
         print_improvements_only,
         print_regressions_only,
+        skip_unstable,
         regressions_percent_lower_limit,
         simplify_table,
         test,
@@ -348,7 +350,12 @@ def compare_command_logic(args, project_name, project_version):
             user_input = "n"
             html_url = "n/a"
             regression_count = len(detected_regressions)
-            baseline_str, by_str, comparison_str = get_by_strings(
+            (
+                baseline_str,
+                by_str_baseline,
+                comparison_str,
+                by_str_comparison,
+            ) = get_by_strings(
                 baseline_branch,
                 comparison_branch,
                 baseline_tag,
@@ -476,6 +483,7 @@ def compute_regression_table(
     comparison_deployment_name="oss-standalone",
     print_improvements_only=False,
     print_regressions_only=False,
+    skip_unstable=False,
     regressions_percent_lower_limit=5.0,
     simplify_table=False,
     test="",
@@ -508,7 +516,7 @@ def compute_regression_table(
     logging.info(
         "Using a time-delta from {} to {}".format(from_human_str, to_human_str)
     )
-    baseline_str, by_str, comparison_str = get_by_strings(
+    baseline_str, by_str_baseline, comparison_str, by_str_comparison = get_by_strings(
         baseline_branch,
         comparison_branch,
         baseline_tag,
@@ -557,7 +565,8 @@ def compute_regression_table(
         comparison_deployment_name,
         baseline_str,
         comparison_str,
-        by_str,
+        by_str_baseline,
+        by_str_comparison,
         from_ts_ms,
         to_ts_ms,
         last_n_baseline,
@@ -566,6 +575,7 @@ def compute_regression_table(
         metric_name,
         print_improvements_only,
         print_regressions_only,
+        skip_unstable,
         regressions_percent_lower_limit,
         rts,
         simplify_table,
@@ -627,36 +637,54 @@ def get_by_strings(
     baseline_tag,
     comparison_tag,
 ):
-    use_tag = False
-    use_branch = False
-    by_str = ""
+    baseline_covered = False
+    comparison_covered = False
+    by_str_baseline = ""
+    by_str_comparison = ""
     baseline_str = ""
     comparison_str = ""
-    if (baseline_branch is not None) and comparison_branch is not None:
-        use_branch = True
-        by_str = "branch"
+    if baseline_branch is not None:
+        baseline_covered = True
+        by_str_baseline = "branch"
         baseline_str = baseline_branch
+    if comparison_branch is not None:
+        comparison_covered = True
+        by_str_baseline = "branch"
         comparison_str = comparison_branch
 
-    if baseline_tag is not None and comparison_tag is not None:
-        use_tag = True
-        by_str = "version"
+    if baseline_tag is not None:
+        if comparison_covered:
+            logging.error(
+                "--baseline-branch and --baseline-tag are mutually exclusive. Pick one..."
+            )
+            exit(1)
+        baseline_covered = True
+        by_str_baseline = "version"
         baseline_str = baseline_tag
+
+    if comparison_tag is not None:
+        # check if we had already covered comparison
+        if comparison_covered:
+            logging.error(
+                "--comparison-branch and --comparison-tag are mutually exclusive. Pick one..."
+            )
+            exit(1)
+        comparison_covered = True
+        by_str_comparison = "version"
         comparison_str = comparison_tag
-    if use_branch is False and use_tag is False:
+
+    if baseline_covered is False:
+        logging.error(
+            "You need to provider either " + "( --baseline-branch or --baseline-tag ) "
+        )
+        exit(1)
+    if comparison_covered is False:
         logging.error(
             "You need to provider either "
-            + "( --baseline-branch and --comparison-branch ) "
-            + "or ( --baseline-tag and --comparison-tag ) args"
+            + "( --comparison-branch or --comparison-tag ) "
         )
         exit(1)
-    if use_branch is True and use_tag is True:
-        logging.error(
-            +"( --baseline-branch and --comparison-branch ) "
-            + "and ( --baseline-tag and --comparison-tag ) args are mutually exclusive"
-        )
-        exit(1)
-    return baseline_str, by_str, comparison_str
+    return baseline_str, by_str_baseline, comparison_str, by_str_comparison
 
 
 def from_rts_to_regression_table(
@@ -664,7 +692,8 @@ def from_rts_to_regression_table(
     comparison_deployment_name,
     baseline_str,
     comparison_str,
-    by_str,
+    by_str_baseline,
+    by_str_comparison,
     from_ts_ms,
     to_ts_ms,
     last_n_baseline,
@@ -673,6 +702,7 @@ def from_rts_to_regression_table(
     metric_name,
     print_improvements_only,
     print_regressions_only,
+    skip_unstable,
     regressions_percent_lower_limit,
     rts,
     simplify_table,
@@ -693,8 +723,11 @@ def from_rts_to_regression_table(
     noise_waterline = 3
     progress = tqdm(unit="benchmark time-series", total=len(test_names))
     for test_name in test_names:
+        multi_value_baseline = check_multi_value_filter(baseline_str)
+        multi_value_comparison = check_multi_value_filter(comparison_str)
+
         filters_baseline = [
-            "{}={}".format(by_str, baseline_str),
+            "{}={}".format(by_str_baseline, baseline_str),
             "metric={}".format(metric_name),
             "{}={}".format(test_filter, test_name),
             "deployment_name={}".format(baseline_deployment_name),
@@ -703,7 +736,7 @@ def from_rts_to_regression_table(
         if running_platform is not None:
             filters_baseline.append("running_platform={}".format(running_platform))
         filters_comparison = [
-            "{}={}".format(by_str, comparison_str),
+            "{}={}".format(by_str_comparison, comparison_str),
             "metric={}".format(metric_name),
             "{}={}".format(test_filter, test_name),
             "deployment_name={}".format(comparison_deployment_name),
@@ -729,18 +762,10 @@ def from_rts_to_regression_table(
                     comparison_str, len(comparison_timeseries), test_name
                 )
             )
-        if len(baseline_timeseries) > 1:
-            logging.warning(
-                "\t\tTime-series: {}".format(", ".join(baseline_timeseries))
-            )
-            logging.info("Checking if Totals will reduce timeseries.")
-            new_base = []
-            for ts_name in baseline_timeseries:
-                if "Totals" in ts_name:
-                    new_base.append(ts_name)
-            baseline_timeseries = new_base
+        if len(baseline_timeseries) > 1 and multi_value_baseline is False:
+            baseline_timeseries = get_only_Totals(baseline_timeseries)
 
-        if len(baseline_timeseries) != 1:
+        if len(baseline_timeseries) != 1 and multi_value_baseline is False:
             if verbose:
                 logging.warning(
                     "Skipping this test given the value of timeseries !=1. Baseline timeseries {}".format(
@@ -751,34 +776,23 @@ def from_rts_to_regression_table(
                     logging.warning(
                         "\t\tTime-series: {}".format(", ".join(baseline_timeseries))
                     )
-
             continue
-        else:
-            ts_name_baseline = baseline_timeseries[0]
 
-        if len(comparison_timeseries) > 1:
-            logging.warning(
-                "\t\tTime-series: {}".format(", ".join(comparison_timeseries))
-            )
-            logging.info("Checking if Totals will reduce timeseries.")
-            new_base = []
-            for ts_name in comparison_timeseries:
-                if "Totals" in ts_name:
-                    new_base.append(ts_name)
-            comparison_timeseries = new_base
-        if len(comparison_timeseries) != 1:
+        if len(comparison_timeseries) > 1 and multi_value_comparison is False:
+            comparison_timeseries = get_only_Totals(comparison_timeseries)
+        if len(comparison_timeseries) != 1 and multi_value_comparison is False:
             if verbose:
                 logging.warning(
                     "Comparison timeseries {}".format(len(comparison_timeseries))
                 )
             continue
-        else:
-            ts_name_comparison = comparison_timeseries[0]
 
         baseline_v = "N/A"
         comparison_v = "N/A"
         baseline_values = []
+        baseline_datapoints = []
         comparison_values = []
+        comparison_datapoints = []
         percentage_change = 0.0
         baseline_v_str = "N/A"
         comparison_v_str = "N/A"
@@ -788,9 +802,11 @@ def from_rts_to_regression_table(
 
         note = ""
         try:
-            baseline_datapoints = rts.ts().revrange(
-                ts_name_baseline, from_ts_ms, to_ts_ms
-            )
+            for ts_name_baseline in baseline_timeseries:
+                datapoints_inner = rts.ts().revrange(
+                    ts_name_baseline, from_ts_ms, to_ts_ms
+                )
+                baseline_datapoints.extend(datapoints_inner)
             (
                 baseline_pct_change,
                 baseline_v,
@@ -804,10 +820,12 @@ def from_rts_to_regression_table(
                 last_n_baseline,
                 verbose,
             )
+            for ts_name_comparison in comparison_timeseries:
+                datapoints_inner = rts.ts().revrange(
+                    ts_name_comparison, from_ts_ms, to_ts_ms
+                )
+                comparison_datapoints.extend(datapoints_inner)
 
-            comparison_datapoints = rts.ts().revrange(
-                ts_name_comparison, from_ts_ms, to_ts_ms
-            )
             (
                 comparison_pct_change,
                 comparison_v,
@@ -834,28 +852,17 @@ def from_rts_to_regression_table(
             pass
         unstable = False
         if baseline_v != "N/A" and comparison_v != "N/A":
-            stamp_b = ""
-            unstable = False
             if comparison_pct_change > 10.0 or baseline_pct_change > 10.0:
                 note = "UNSTABLE (very high variance)"
                 unstable = True
-            if baseline_pct_change > 10.0:
-                stamp_b = "UNSTABLE"
-            if simplify_table:
-                baseline_v_str = " {:.0f}".format(baseline_v)
-            else:
-                baseline_v_str = " {:.0f} +- {:.1f}% {} ({} datapoints)".format(
-                    baseline_v, baseline_pct_change, stamp_b, len(baseline_values)
-                )
-            stamp_c = ""
-            if comparison_pct_change > 10.0:
-                stamp_c = "UNSTABLE"
-            if simplify_table:
-                comparison_v_str = " {:.0f}".format(comparison_v)
-            else:
-                comparison_v_str = " {:.0f} +- {:.1f}% {} ({} datapoints)".format(
-                    comparison_v, comparison_pct_change, stamp_c, len(comparison_values)
-                )
+
+            baseline_v_str = prepare_value_str(
+                baseline_pct_change, baseline_v, baseline_values, simplify_table
+            )
+            comparison_v_str = prepare_value_str(
+                comparison_pct_change, comparison_v, comparison_values, simplify_table
+            )
+
             if metric_mode == "higher-better":
                 percentage_change = (
                     float(comparison_v) / float(baseline_v) - 1
@@ -875,9 +882,11 @@ def from_rts_to_regression_table(
                     note = note + " REGRESSION"
                     detected_regressions.append(test_name)
                 elif percentage_change < -noise_waterline:
-                    note = note + " potential REGRESSION"
+                    if simplify_table is False:
+                        note = note + " potential REGRESSION"
                 else:
-                    note = note + " -- no change --"
+                    if simplify_table is False:
+                        note = note + " No Change"
 
             if percentage_change > 0.0 and not unstable:
                 if percentage_change > waterline:
@@ -885,9 +894,11 @@ def from_rts_to_regression_table(
                     total_improvements = total_improvements + 1
                     note = note + " IMPROVEMENT"
                 elif percentage_change > noise_waterline:
-                    note = note + " potential IMPROVEMENT"
+                    if simplify_table is False:
+                        note = note + " potential IMPROVEMENT"
                 else:
-                    note = note + " -- no change --"
+                    if simplify_table is False:
+                        note = note + " No Change"
 
             if (
                 detected_improvement is False
@@ -906,6 +917,8 @@ def from_rts_to_regression_table(
                 should_add_line = True
             if print_all:
                 should_add_line = True
+            if unstable and skip_unstable:
+                should_add_line = False
 
             if should_add_line:
                 total_comparison_points = total_comparison_points + 1
@@ -914,7 +927,6 @@ def from_rts_to_regression_table(
                     comparison_v_str,
                     note,
                     percentage_change,
-                    simplify_table,
                     table,
                     test_name,
                 )
@@ -927,6 +939,39 @@ def from_rts_to_regression_table(
         total_unstable,
         total_comparison_points,
     )
+
+
+def get_only_Totals(baseline_timeseries):
+    logging.warning("\t\tTime-series: {}".format(", ".join(baseline_timeseries)))
+    logging.info("Checking if Totals will reduce timeseries.")
+    new_base = []
+    for ts_name in baseline_timeseries:
+        if "Totals" in ts_name:
+            new_base.append(ts_name)
+    baseline_timeseries = new_base
+    return baseline_timeseries
+
+
+def check_multi_value_filter(baseline_str):
+    multi_value_baseline = False
+    if "(" in baseline_str and "," in baseline_str and ")" in baseline_str:
+        multi_value_baseline = True
+    return multi_value_baseline
+
+
+def prepare_value_str(baseline_pct_change, baseline_v, baseline_values, simplify_table):
+    baseline_v_str = " {:.0f}".format(baseline_v)
+    stamp_b = ""
+    if baseline_pct_change > 10.0:
+        stamp_b = "UNSTABLE "
+    if len(baseline_values) > 1:
+        baseline_v_str += " +- {:.1f}% {}".format(
+            baseline_pct_change,
+            stamp_b,
+        )
+    if simplify_table is False and len(baseline_values) > 1:
+        baseline_v_str += "({} datapoints)".format(len(baseline_values))
+    return baseline_v_str
 
 
 def get_test_names_from_db(rts, tags_regex_string, test_names, used_key):
@@ -962,30 +1007,19 @@ def add_line(
     comparison_v_str,
     note,
     percentage_change,
-    simplify_table,
     table,
     test_name,
 ):
     percentage_change_str = "{:.1f}% ".format(percentage_change)
-    if simplify_table:
-        table.append(
-            [
-                test_name,
-                baseline_v_str,
-                comparison_v_str,
-                percentage_change_str,
-            ]
-        )
-    else:
-        table.append(
-            [
-                test_name,
-                baseline_v_str,
-                comparison_v_str,
-                percentage_change_str,
-                note.strip(),
-            ]
-        )
+    table.append(
+        [
+            test_name,
+            baseline_v_str,
+            comparison_v_str,
+            percentage_change_str,
+            note.strip(),
+        ]
+    )
 
 
 def get_v_pct_change_and_largest_var(

@@ -50,11 +50,14 @@ def test_merge_default_and_config_metrics():
     with open("./tests/test_data/common-properties-v0.1.yml", "r") as yml_file:
         (
             default_kpis,
+            _,
             default_metrics,
             exporter_timemetric_path,
             default_specs,
             cluster_config,
-        ) = process_default_yaml_properties_file(None, None, "1.yml", None, yml_file)
+        ) = process_default_yaml_properties_file(
+            None, None, None, "1.yml", None, yml_file
+        )
         assert exporter_timemetric_path == "$.StartTime"
         merged_exporter_timemetric_path, metrics = merge_default_and_config_metrics(
             {}, default_metrics, exporter_timemetric_path
@@ -67,11 +70,14 @@ def test_merge_default_and_config_metrics():
     with open("./tests/test_data/common-properties-v0.1.yml", "r") as yml_file:
         (
             default_kpis,
+            _,
             default_metrics,
             exporter_timemetric_path,
             default_specs,
             cluster_config,
-        ) = process_default_yaml_properties_file(None, None, "1.yml", None, yml_file)
+        ) = process_default_yaml_properties_file(
+            None, None, None, "1.yml", None, yml_file
+        )
         assert exporter_timemetric_path == "$.StartTime"
         assert default_specs == None
         with open(
