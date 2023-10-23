@@ -871,7 +871,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
                                                 return_code |= 1
                                                 raise Exception(
-                                                    "Failed to run remote benchmark."
+                                                    "Failed to run remote benchmark. {}".format(
+                                                        e.__str__()
+                                                    )
                                                 )
 
                                         if setup_details["env"] is None:

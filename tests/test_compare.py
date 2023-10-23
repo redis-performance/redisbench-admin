@@ -134,7 +134,7 @@ def test_compare_command_logic():
         assert total_improvements == 0
         assert detected_regressions == []
         # ensure that we have testcases date
-        assert "(1 datapoints)" in comment_body
+        assert "0.0%" in comment_body
         assert (
             "Detected a total of {} stable tests between versions".format(total_tests)
             in comment_body

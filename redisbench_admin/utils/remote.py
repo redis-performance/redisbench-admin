@@ -578,8 +578,6 @@ def fetch_remote_setup_from_config(
                 setup_type = remote_setup_property["type"]
             if "setup" in remote_setup_property:
                 setup = remote_setup_property["setup"]
-            if "spot_instance" in remote_setup_property:
-                spot_path = "/terraform/" + remote_setup_property["spot_instance"]
         # fetch terraform folder
         path = "/terraform/{}-{}".format(setup_type, setup)
     terraform_working_dir = common_tf(branch, path, repo)

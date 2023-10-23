@@ -649,7 +649,7 @@ def get_by_strings(
         baseline_str = baseline_branch
     if comparison_branch is not None:
         comparison_covered = True
-        by_str_baseline = "branch"
+        by_str_comparison = "branch"
         comparison_str = comparison_branch
 
     if baseline_tag is not None:

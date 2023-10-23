@@ -95,7 +95,7 @@ def remote_env_setup(
                     pass
             else:
                 logging.warning(
-                    f"Even though there is a spot instance config, avoiding deploying it."
+                    "Even though there is a spot instance config, avoiding deploying it."
                 )
         if spot_available_and_used is False:
             (
