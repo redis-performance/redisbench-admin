@@ -10,6 +10,7 @@ jobs:
     strategy:
       matrix:
         python-version: [ '3.9', '3.10' ]
+      fail-fast: false
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
       USING_COVERAGE: "3.10"
