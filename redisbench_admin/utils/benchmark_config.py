@@ -49,6 +49,7 @@ def parse_exporter_timemetric(metric_path: str, results_dict: dict):
         logging.error(
             "Unable to parse time-metric {}. Error: {}".format(metric_path, e.__str__())
         )
+        pass
     return datapoints_timestamp
 
 

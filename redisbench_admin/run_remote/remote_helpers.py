@@ -286,8 +286,12 @@ def post_process_remote_run(
             start_time_str,
             stdout,
         )
-    with open(local_benchmark_output_filename, "r") as json_file:
-        results_dict = json.load(json_file)
+    try:
+        with open(local_benchmark_output_filename, "r") as json_file:
+            results_dict = json.load(json_file)
+    except json.decoder.JSONDecodeError as e:
+        logging.error("Received error while decoding JSON: {}".format(e.__str__()))
+        pass
     # check KPIs
     return_code = results_dict_kpi_check(benchmark_config, results_dict, return_code)
     # if the benchmark tool is redisgraph-benchmark-go and

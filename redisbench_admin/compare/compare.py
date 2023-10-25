@@ -649,7 +649,7 @@ def get_by_strings(
         baseline_str = baseline_branch
     if comparison_branch is not None:
         comparison_covered = True
-        by_str_baseline = "branch"
+        by_str_comparison = "branch"
         comparison_str = comparison_branch
 
     if baseline_tag is not None:
@@ -960,7 +960,12 @@ def check_multi_value_filter(baseline_str):
 
 
 def prepare_value_str(baseline_pct_change, baseline_v, baseline_values, simplify_table):
-    baseline_v_str = " {:.0f}".format(baseline_v)
+    if baseline_v < 1.0:
+        baseline_v_str = " {:.2f}".format(baseline_v)
+    elif baseline_v < 10.0:
+        baseline_v_str = " {:.1f}".format(baseline_v)
+    else:
+        baseline_v_str = " {:.0f}".format(baseline_v)
     stamp_b = ""
     if baseline_pct_change > 10.0:
         stamp_b = "UNSTABLE "
