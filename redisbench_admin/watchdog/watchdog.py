@@ -45,13 +45,14 @@ def get_ci_ec2_instances_by_state(ec2_client, ci_machines_prefix, requested_stat
 def get_vname_timeout_secs(instance):
     vm_name = ""
     timeout_secs = None
-    for tag_dict in instance["Tags"]:
-        key = tag_dict["Key"]
-        key_v = tag_dict["Value"]
-        if key == "Name":
-            vm_name = key_v
-        if key == "timeout_secs":
-            timeout_secs = int(key_v)
+    if "Tags" in instance:
+        for tag_dict in instance["Tags"]:
+            key = tag_dict["Key"]
+            key_v = tag_dict["Value"]
+            if key == "Name":
+                vm_name = key_v
+            if key == "timeout_secs":
+                timeout_secs = int(key_v)
     return vm_name, timeout_secs
 
 
@@ -94,7 +95,8 @@ def termination_check(
     total_instances,
     vm_name,
 ):
-    if ci_machines_prefix in vm_name:
+    # terminates also VMs without name set
+    if ci_machines_prefix in vm_name or vm_name == "":
         total_instances = total_instances + 1
         elapsed = current_datetime - launch_time
         will_terminate = False
