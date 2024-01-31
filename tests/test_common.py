@@ -366,6 +366,7 @@ def test_extract_test_feasible_setups():
     defaults_filename = "./tests/test_data/common-properties-v0.3.yml"
     (
         default_kpis,
+        _,
         default_metrics,
         exporter_timemetric_path,
         default_specs,

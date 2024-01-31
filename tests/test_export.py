@@ -90,7 +90,7 @@ def test_export_command_logic():
     args = parser.parse_args(
         args=[
             "--benchmark-result-file",
-            "./tests/test_data/result_report_1690282709.835491.json",
+            "./tests/test_data/results/result_report_1690282709.835491.json",
             "--exporter-spec-file",
             "./tests/test_data/common-properties-enterprise.yml",
             "--redistimeseries_host",

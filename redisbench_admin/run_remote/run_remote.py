@@ -306,6 +306,8 @@ def run_remote_command_logic(args, project_name, project_version):
 
     # Used to only deploy spot once per run
     spot_instance_error = False
+    ts_key_spot_price = f"ts:{tf_triggering_env}:tests:spot_price"
+    ts_key_full_price = f"ts:{tf_triggering_env}:tests:full_price"
 
     for benchmark_type, bench_by_dataset_map in benchmark_runs_plan.items():
         if return_code != 0 and args.fail_fast:
@@ -418,6 +420,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                     client_ssh_port,
                                     username,
                                     spot_instance_error,
+                                    spot_price_counter,
+                                    full_price_counter,
                                 ) = remote_env_setup(
                                     args,
                                     benchmark_config,
@@ -435,6 +439,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                     TF_OVERRIDE_NAME,
                                     TF_OVERRIDE_REMOTE,
                                     spot_instance_error,
+                                    0,
+                                    0,
                                 )
 
                                 # after we've created the env, even on error we should always teardown
@@ -442,9 +448,28 @@ def run_remote_command_logic(args, project_name, project_version):
                                 try:
                                     (
                                         _,
-                                        _,
+                                        start_time_setup_ms,
                                         testcase_start_time_str,
                                     ) = get_start_time_vars()
+                                    if args.push_results_redistimeseries:
+                                        logging.info(
+                                            f"Updating overall spot price tests counter {ts_key_spot_price}"
+                                        )
+                                        rts.ts().add(
+                                            ts_key_spot_price,
+                                            start_time_setup_ms,
+                                            spot_price_counter,
+                                            duplicate_policy="sum",
+                                        )
+                                        logging.info(
+                                            f"Updating overall spot price full counter {ts_key_spot_price}"
+                                        )
+                                        rts.ts().add(
+                                            ts_key_full_price,
+                                            start_time_setup_ms,
+                                            full_price_counter,
+                                            duplicate_policy="sum",
+                                        )
                                     logname = "{}_{}.log".format(
                                         test_name, testcase_start_time_str
                                     )
@@ -871,7 +896,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
                                                 return_code |= 1
                                                 raise Exception(
-                                                    "Failed to run remote benchmark."
+                                                    "Failed to run remote benchmark. {}".format(
+                                                        e.__str__()
+                                                    )
                                                 )
 
                                         if setup_details["env"] is None:

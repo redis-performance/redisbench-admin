@@ -31,6 +31,8 @@ def remote_env_setup(
     tf_override_name=None,
     tf_folder_path=None,
     spot_instance_error=False,
+    spot_price_counter=0,
+    full_price_counter=0,
 ):
     server_plaintext_port = args.db_port
     db_ssh_port = args.db_ssh_port
@@ -85,6 +87,7 @@ def remote_env_setup(
                         tf_folder_spot_path,
                     )
                     spot_available_and_used = True
+                    spot_price_counter = spot_price_counter + 1
                 except TerraformCommandError as error:
                     spot_instance_error = True
                     logging.error(
@@ -95,7 +98,7 @@ def remote_env_setup(
                     pass
             else:
                 logging.warning(
-                    f"Even though there is a spot instance config, avoiding deploying it."
+                    "Even though there is a spot instance config, avoiding deploying it."
                 )
         if spot_available_and_used is False:
             (
@@ -121,6 +124,7 @@ def remote_env_setup(
                 tf_override_name,
                 tf_folder_path,
             )
+            full_price_counter = full_price_counter + 1
     logging.info("Using the following connection addresses.")
     logging.info(f"client_public_ip={client_public_ip}")
     logging.info(f"server_public_ip={server_public_ip}")
@@ -134,4 +138,6 @@ def remote_env_setup(
         client_ssh_port,
         username,
         spot_instance_error,
+        spot_price_counter,
+        full_price_counter,
     )

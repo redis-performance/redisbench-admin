@@ -124,7 +124,7 @@ def test_generate_standalone_redis_server_args():
         "--dir",
         ".",
         "--loadmodule",
-        os.path.abspath(local_module_file),
+        local_module_file,
     ]
 
     cmd = generate_standalone_redis_server_args(
@@ -156,7 +156,7 @@ def test_generate_standalone_redis_server_args():
         "--dir",
         ".",
         "--loadmodule",
-        os.path.abspath(local_module_file),
+        local_module_file,
         "CHUNK_SIZE_BYTES",
         "128",
     ]
