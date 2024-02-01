@@ -3,6 +3,7 @@
 #  Copyright (c) 2021., Redis Labs Modules
 #  All rights reserved.
 #
+import os
 
 from redisbench_admin.run.args import common_run_args
 from redisbench_admin.run.common import REDIS_BINARY

@@ -11,6 +11,7 @@ import sys
 import datetime
 import traceback
 import redis
+from redisbench_admin.run.git import git_vars_crosscheck
 
 import redisbench_admin.run.metrics
 from redisbench_admin.profilers.perf import PERF_CALLGRAPH_MODE
@@ -30,7 +31,10 @@ from redisbench_admin.run.metrics import (
     from_info_to_overall_shard_cpu,
     collect_cpu_data,
 )
-from redisbench_admin.run.redistimeseries import datasink_profile_tabular_data
+from redisbench_admin.run.redistimeseries import (
+    datasink_profile_tabular_data,
+    timeseries_test_sucess_flow,
+)
 from redisbench_admin.run.run import (
     calculate_client_tool_duration_and_check,
     define_benchmark_plan,
@@ -49,6 +53,7 @@ from redisbench_admin.profilers.profilers_local import (
 from redisbench_admin.utils.benchmark_config import (
     prepare_benchmark_definitions,
     results_dict_kpi_check,
+    get_metadata_tags,
 )
 from redisbench_admin.utils.local import (
     get_local_run_full_filename,
@@ -67,14 +72,21 @@ def run_local_command_logic(args, project_name, project_version):
             project_name=project_name, project_version=project_version
         )
     )
+    tf_github_org = args.github_org
+    tf_github_actor = args.github_actor
+    tf_github_repo = args.github_repo
+    tf_github_sha = args.github_sha
+    tf_github_branch = args.github_branch
+
     (
+        github_actor,
+        github_branch,
         github_org_name,
         github_repo_name,
         github_sha,
-        github_actor,
-        github_branch,
-        github_branch_detached,
-    ) = extract_git_vars()
+    ) = git_vars_crosscheck(
+        tf_github_actor, tf_github_branch, tf_github_org, tf_github_repo, tf_github_sha
+    )
 
     dbdir_folder = args.dbdir_folder
     os.path.abspath(".")
@@ -125,7 +137,7 @@ def run_local_command_logic(args, project_name, project_version):
         _,
         benchmark_definitions,
         default_metrics,
-        _,
+        exporter_timemetric_path,
         default_specs,
         clusterconfig,
     ) = prepare_benchmark_definitions(args)
@@ -189,6 +201,8 @@ def run_local_command_logic(args, project_name, project_version):
                                     if " " in binary:
                                         binary = binary.split(" ")
                                     (
+                                        result_db_spin,
+                                        artifact_version,
                                         cluster_api_enabled,
                                         redis_conns,
                                         redis_processes,
@@ -205,6 +219,11 @@ def run_local_command_logic(args, project_name, project_version):
                                         setup_type,
                                         shard_count,
                                     )
+                                    if result_db_spin is False:
+                                        logging.warning(
+                                            "Skipping this test given DB spin stage failed..."
+                                        )
+                                        continue
                                     if benchmark_type == "read-only":
                                         logging.info(
                                             "Given the benchmark for this setup is ready-only we will prepare to reuse it on the next read-only benchmarks (if any )."
@@ -352,6 +371,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     s3_bucket_name,
                                     test_name,
                                 )
+
                                 if (
                                     profilers_enabled
                                     and args.push_results_redistimeseries
@@ -377,7 +397,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     start_time_str,
                                     stdout,
                                 )
-
+                                results_dict = {}
                                 with open(
                                     local_benchmark_output_filename, "r"
                                 ) as json_file:
@@ -395,6 +415,31 @@ def run_local_command_logic(args, project_name, project_version):
                                     return_code = results_dict_kpi_check(
                                         benchmark_config, results_dict, return_code
                                     )
+
+                                metadata_tags = get_metadata_tags(benchmark_config)
+                                (
+                                    _,
+                                    branch_target_tables,
+                                ) = timeseries_test_sucess_flow(
+                                    args.push_results_redistimeseries,
+                                    artifact_version,
+                                    benchmark_config,
+                                    benchmark_duration_seconds,
+                                    0,
+                                    default_metrics,
+                                    setup_name,
+                                    setup_type,
+                                    exporter_timemetric_path,
+                                    results_dict,
+                                    rts,
+                                    start_time_ms,
+                                    test_name,
+                                    github_branch,
+                                    github_org_name,
+                                    github_repo_name,
+                                    tf_triggering_env,
+                                )
+
                                 if setup_details["env"] is None:
                                     if args.keep_env_and_topo is False:
                                         for conn in redis_conns:

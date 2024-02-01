@@ -189,6 +189,10 @@ class TerraformClass:
                 "github_repo": tf_github_repo,
                 "triggering_env": tf_triggering_env,
                 "timeout_secs": tf_timeout_secs,
+                "Project": tf_github_org,
+                "project": tf_github_org,
+                "Environment": tf_github_org,
+                "environment": tf_github_org,
             },
         )
         return self.retrieve_tf_connection_vars(return_code, tf)
