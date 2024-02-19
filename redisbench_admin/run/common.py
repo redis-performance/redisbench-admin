@@ -699,6 +699,8 @@ def print_results_table_stdout(
     setup_name,
     test_name,
     cpu_usage=None,
+    kv_overall={},
+    metric_names=[],
 ):
     # check which metrics to extract
     (_, metrics,) = merge_default_and_config_metrics(
@@ -714,6 +716,11 @@ def print_results_table_stdout(
     results_matrix = extract_results_table(metrics, results_dict)
     if cpu_usage is not None:
         results_matrix.append(["Total shards CPU usage %", "", "", cpu_usage])
+    for metric_name in metric_names:
+        if metric_name in kv_overall:
+            metric_value = kv_overall[metric_name]
+            results_matrix.append([f"Total shards {metric_name}", "", "", metric_value])
+
     results_matrix = [[x[0], "{:.3f}".format(x[3])] for x in results_matrix]
     writer = MarkdownTableWriter(
         table_name=table_name,

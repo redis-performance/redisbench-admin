@@ -29,8 +29,10 @@ from redisbench_admin.run.common import (
 )
 from redisbench_admin.run.metrics import (
     from_info_to_overall_shard_cpu,
+    collect_redis_metrics,
     collect_cpu_data,
 )
+
 from redisbench_admin.run.redistimeseries import (
     datasink_profile_tabular_data,
     timeseries_test_sucess_flow,
@@ -93,6 +95,8 @@ def run_local_command_logic(args, project_name, project_version):
     required_modules = args.required_module
     profilers_enabled = args.enable_profilers
     s3_bucket_name = args.s3_bucket_name
+    flushall_on_every_test_start = args.flushall_on_every_test_start
+    ignore_keyspace_errors = args.ignore_keyspace_errors
     profilers_list = []
     if profilers_enabled:
         profilers_list = args.profilers.split(",")
@@ -218,6 +222,8 @@ def run_local_command_logic(args, project_name, project_version):
                                         required_modules,
                                         setup_type,
                                         shard_count,
+                                        flushall_on_every_test_start,
+                                        ignore_keyspace_errors,
                                     )
                                     if result_db_spin is False:
                                         logging.warning(
@@ -372,6 +378,21 @@ def run_local_command_logic(args, project_name, project_version):
                                     test_name,
                                 )
 
+                                (
+                                    end_time_ms,
+                                    _,
+                                    overall_end_time_metrics,
+                                ) = collect_redis_metrics(
+                                    redis_conns,
+                                    ["memory"],
+                                    {
+                                        "memory": [
+                                            "used_memory",
+                                            "used_memory_dataset",
+                                        ]
+                                    },
+                                )
+
                                 if (
                                     profilers_enabled
                                     and args.push_results_redistimeseries
@@ -409,6 +430,11 @@ def run_local_command_logic(args, project_name, project_version):
                                         setup_name,
                                         test_name,
                                         total_shards_cpu_usage,
+                                        overall_end_time_metrics,
+                                        [
+                                            "memory_used_memory",
+                                            "memory_used_memory_dataset",
+                                        ],
                                     )
 
                                     # check KPIs

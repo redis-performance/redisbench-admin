@@ -46,8 +46,11 @@ def local_db_spin(
     required_modules,
     setup_type,
     shard_count,
+    flushall_on_every_test_start=False,
+    ignore_keyspace_errors=False,
 ):
     redis_conns = []
+    artifact_version = "n/a"
     result = True
     temporary_dir = tempfile.mkdtemp()
     cluster_api_enabled = False
@@ -68,7 +71,13 @@ def local_db_spin(
         if dataset is not None:
             logging.info("Given this benchmark requires an RDB load will skip it...")
             result = False
-            return result, cluster_api_enabled, redis_conns, redis_processes
+            return (
+                result,
+                artifact_version,
+                cluster_api_enabled,
+                redis_conns,
+                redis_processes,
+            )
     else:
         # setup Redis
         # copy the rdb to DB machine
@@ -152,6 +161,13 @@ def local_db_spin(
         r.client_setname("redisbench-admin-standalone")
         redis_conns.append(r)
 
+    if dataset is None:
+        if flushall_on_every_test_start:
+            logging.info("Will flush all data at test start...")
+            for shard_n, shard_conn in enumerate(redis_conns):
+                logging.info(f"Flushing all in shard {shard_n}...")
+                shard_conn.flushall()
+
     if check_dbconfig_tool_requirement(benchmark_config):
         logging.info("Detected the requirements to load data via client tool")
         local_benchmark_output_filename = "{}/load-data.txt".format(temporary_dir)
@@ -189,10 +205,7 @@ def local_db_spin(
             )
         )
 
-    dbconfig_keyspacelen_check(
-        benchmark_config,
-        redis_conns,
-    )
+    dbconfig_keyspacelen_check(benchmark_config, redis_conns, ignore_keyspace_errors)
 
     artifact_version = run_redis_pre_steps(
         benchmark_config, redis_conns[0], required_modules
