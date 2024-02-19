@@ -21,7 +21,6 @@ TF_OVERRIDE_NAME = os.getenv("TF_OVERRIDE_NAME", None)
 REMOTE_DB_PORT = int(os.getenv("REMOTE_DB_PORT", "6379"))
 REMOTE_DB_PASS = os.getenv("REMOTE_DB_PASS", None)
 REMOTE_PRIVATE_KEYNAME = os.getenv("REMOTE_PRIVATE_KEYNAME", DEFAULT_PRIVATE_KEY)
-REMOTE_SKIP_DB_SETUP = bool(int(os.getenv("REMOTE_SKIP_DB_SETUP", "0")))
 FLUSHALL_AT_START = bool(int(os.getenv("FLUSHALL_AT_START", "0")))
 FLUSHALL_AT_END = bool(int(os.getenv("FLUSHALL_AT_END", "0")))
 IGNORE_KEYSPACE_ERRORS = bool(int(os.getenv("IGNORE_KEYSPACE_ERRORS", "0")))
@@ -60,12 +59,6 @@ def create_run_remote_arguments(parser):
     )
     parser.add_argument("--db_port", type=int, default=REMOTE_DB_PORT)
     parser.add_argument("--db_pass", type=str, default=REMOTE_DB_PASS)
-    parser.add_argument(
-        "--skip-db-setup",
-        type=bool,
-        default=REMOTE_SKIP_DB_SETUP,
-        help="skip db setup/teardown steps. Usefull when you want to target an existing DB",
-    )
     parser.add_argument(
         "--flushall_on_every_test_start",
         type=bool,
