@@ -290,7 +290,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     benchmark_config,
                                     full_benchmark_path,
                                     args.port,
-                                    "127.0.0.1",
+                                    args.host,
                                     local_benchmark_output_filename,
                                     False,
                                     benchmark_tool_workdir,
