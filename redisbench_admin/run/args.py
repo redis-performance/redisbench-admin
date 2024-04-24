@@ -40,9 +40,10 @@ COMMANDSTATS_ENABLED = bool(int(os.getenv("COMMANDSTATS_ENABLED", 1)))
 PROFILERS = os.getenv("PROFILERS", PROFILERS_DEFAULT)
 MAX_PROFILERS_PER_TYPE = int(os.getenv("MAX_PROFILERS", 1))
 PROFILE_FREQ = os.getenv("PROFILE_FREQ", PROFILE_FREQ_DEFAULT)
-KEEP_ENV = bool(os.getenv("KEEP_ENV", False))
+KEEP_ENV = bool(int(os.getenv("KEEP_ENV", "0")))
 ALLOWED_TOOLS_DEFAULT = "memtier_benchmark,redis-benchmark,redisgraph-benchmark-go,ycsb,go-ycsb,tsbs_run_queries_redistimeseries,tsbs_load_redistimeseries,ftsb_redisearch,aibench_run_inference_redisai_vision,ann-benchmarks"
 ALLOWED_BENCH_TOOLS = os.getenv("ALLOWED_BENCH_TOOLS", ALLOWED_TOOLS_DEFAULT)
+SKIP_DB_SETUP = bool(int(os.getenv("SKIP_DB_SETUP", "0")))
 
 
 def common_run_args(parser):
@@ -52,6 +53,12 @@ def common_run_args(parser):
         default=KEEP_ENV,
         action="store_true",
         help="Keep environment and topology up after benchmark.",
+    )
+    parser.add_argument(
+        "--skip-db-setup",
+        type=bool,
+        default=SKIP_DB_SETUP,
+        help="skip db setup/teardown steps. Usefull when you want to target an existing DB",
     )
     parser.add_argument(
         "--fail_fast",

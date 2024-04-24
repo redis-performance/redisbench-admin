@@ -30,7 +30,7 @@ from redisbench_admin.utils.utils import (
 )
 
 # environment variables
-PERFORMANCE_RTS_PUSH = bool(os.getenv("PUSH_RTS", False))
+PERFORMANCE_RTS_PUSH = bool(int(os.getenv("PUSH_RTS", "0")))
 PERFORMANCE_RTS_AUTH = os.getenv("PERFORMANCE_RTS_AUTH", None)
 PERFORMANCE_RTS_USER = os.getenv("PERFORMANCE_RTS_USER", None)
 PERFORMANCE_RTS_HOST = os.getenv("PERFORMANCE_RTS_HOST", "localhost")
@@ -51,7 +51,7 @@ def get_git_root(path):
 
 def view_bar_simple(a, b):
     res = a / int(b) * 100
-    sys.stdout.write("\r    Complete precent: %.2f %%" % res)
+    sys.stdout.write("\r    Complete percent: %.2f %%" % res)
     sys.stdout.flush()
 
 
@@ -296,6 +296,10 @@ def setup_remote_environment(
             "github_actor": tf_github_actor,
             "setup_name": tf_setup_name,
             "github_org": tf_github_org,
+            "Project": tf_github_org,
+            "project": tf_github_org,
+            "Environment": tf_github_org,
+            "environment": tf_github_org,
             "github_repo": tf_github_repo,
             "triggering_env": tf_triggering_env,
             "timeout_secs": tf_timeout_secs,
@@ -969,6 +973,10 @@ def get_project_ts_tags(
     tags = {
         "github_org": tf_github_org,
         "github_repo": tf_github_repo,
+        "Project": tf_github_org,
+        "project": tf_github_org,
+        "Environment": tf_github_org,
+        "environment": tf_github_org,
         "github_org/github_repo": "{}/{}".format(tf_github_org, tf_github_repo),
         "deployment_type": deployment_type,
         "deployment_name": deployment_name,
