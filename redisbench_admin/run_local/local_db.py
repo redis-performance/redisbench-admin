@@ -79,84 +79,86 @@ def local_db_spin(
                 redis_processes,
             )
     else:
-        # setup Redis
-        # copy the rdb to DB machine
-        redis_7 = args.redis_7
-        logging.info(
-            "Using local temporary dir to spin up Redis Instance. Path: {}".format(
-                temporary_dir
-            )
-        )
-        if dbdir_folder is not None:
-            from distutils.dir_util import copy_tree
-
-            copy_tree(dbdir_folder, temporary_dir)
+        if args.skip_redis_spin is False:
+            # setup Redis
+            # copy the rdb to DB machine
+            redis_7 = args.redis_7
             logging.info(
-                "Copied entire content of {} into temporary path: {}".format(
-                    dbdir_folder, temporary_dir
+                "Using local temporary dir to spin up Redis Instance. Path: {}".format(
+                    temporary_dir
                 )
             )
-        (
-            _,
-            _,
-            redis_configuration_parameters,
-            dataset_load_timeout_secs,
-            modules_configuration_parameters_map,
-        ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
+            if dbdir_folder is not None:
+                from distutils.dir_util import copy_tree
 
-        logging.info(
-            "Using a dataset load timeout of {} seconds.".format(
-                dataset_load_timeout_secs
-            )
-        )
-
-        if setup_type == "oss-cluster":
-            cluster_api_enabled = True
-            shard_host = "127.0.0.1"
-            redis_processes, redis_conns = spin_up_local_redis_cluster(
-                binary,
-                temporary_dir,
-                shard_count,
-                shard_host,
-                args.port,
-                local_module_file,
-                redis_configuration_parameters,
-                dataset_load_timeout_secs,
-                modules_configuration_parameters_map,
-                redis_7,
-            )
-
-            status = setup_redis_cluster_from_conns(
-                redis_conns, shard_count, shard_host, args.port
-            )
-            if status is False:
-                raise Exception("Redis cluster setup failed. Failing test.")
-
-        if setup_type == "oss-standalone":
-            redis_processes = spin_up_local_redis(
-                binary,
-                args.port,
-                temporary_dir,
-                local_module_file,
-                redis_configuration_parameters,
-                dbdir_folder,
-                dataset_load_timeout_secs,
-                modules_configuration_parameters_map,
-                redis_7,
-            )
-        if setup_type == "oss-cluster":
-            for shardn, redis_process in enumerate(redis_processes):
+                copy_tree(dbdir_folder, temporary_dir)
                 logging.info(
-                    "Checking if shard #{} process with pid={} is alive".format(
-                        shardn + 1, redis_process.pid
+                    "Copied entire content of {} into temporary path: {}".format(
+                        dbdir_folder, temporary_dir
                     )
                 )
-                if is_process_alive(redis_process) is False:
-                    raise Exception("Redis process is not alive. Failing test.")
-            cluster_init_steps(clusterconfig, redis_conns, local_module_file)
+            (
+                _,
+                _,
+                redis_configuration_parameters,
+                dataset_load_timeout_secs,
+                modules_configuration_parameters_map,
+            ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
+
+            logging.info(
+                "Using a dataset load timeout of {} seconds.".format(
+                    dataset_load_timeout_secs
+                )
+            )
+
+            if setup_type == "oss-cluster":
+                cluster_api_enabled = True
+                redis_processes, redis_conns = spin_up_local_redis_cluster(
+                    binary,
+                    temporary_dir,
+                    shard_count,
+                    args.host,
+                    args.port,
+                    local_module_file,
+                    redis_configuration_parameters,
+                    dataset_load_timeout_secs,
+                    modules_configuration_parameters_map,
+                    redis_7,
+                )
+
+                status = setup_redis_cluster_from_conns(
+                    redis_conns, shard_count, args.host, args.port
+                )
+                if status is False:
+                    raise Exception("Redis cluster setup failed. Failing test.")
+
+            if setup_type == "oss-standalone":
+                redis_processes = spin_up_local_redis(
+                    binary,
+                    args.port,
+                    temporary_dir,
+                    local_module_file,
+                    redis_configuration_parameters,
+                    dbdir_folder,
+                    dataset_load_timeout_secs,
+                    modules_configuration_parameters_map,
+                    redis_7,
+                )
+            if setup_type == "oss-cluster":
+                for shardn, redis_process in enumerate(redis_processes):
+                    logging.info(
+                        "Checking if shard #{} process with pid={} is alive".format(
+                            shardn + 1, redis_process.pid
+                        )
+                    )
+                    if is_process_alive(redis_process) is False:
+                        raise Exception("Redis process is not alive. Failing test.")
+                cluster_init_steps(clusterconfig, redis_conns, local_module_file)
+        else:
+            logging.info("Skipping DB spin step...")
 
     if setup_type == "oss-standalone":
-        r = redis.Redis(port=args.port)
+        r = redis.Redis(port=args.port, host=args.host)
         r.ping()
         r.client_setname("redisbench-admin-standalone")
         redis_conns.append(r)
@@ -184,7 +186,7 @@ def local_db_spin(
             benchmark_config,
             full_benchmark_path,
             args.port,
-            "localhost",
+            args.host,
             local_benchmark_output_filename,
             False,
             benchmark_tool_workdir,
