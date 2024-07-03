@@ -12,7 +12,7 @@ perf-daemon = "redisbench_admin.profilers.daemon:main"
 [tool.poetry.dependencies]
 python = "^3.10.0"
 humanize = "^2.4.0"
-requests = "^2.23.0"
+requests = "2.31.0"
 py_cpuinfo = "^5.0.0"
 boto3 = "^1.13.24"
 tqdm = "^4.46.1"
