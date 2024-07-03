@@ -638,6 +638,14 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict, expire_msecs=0):
 
 def exporter_create_ts(rts, time_series, timeseries_name):
     updated_create = False
+    final_labels = {}
+    for label_name, value in time_series["labels"].items():
+        if value is not None:
+            final_labels[label_name] = value
+        else:
+            logging.warning(f"The label {label_name} value was None. skipping it...")
+
+    time_series["labels"] = final_labels
     try:
         if rts.exists(timeseries_name):
             updated_create = check_rts_labels(rts, time_series, timeseries_name)
@@ -647,11 +655,22 @@ def exporter_create_ts(rts, time_series, timeseries_name):
                     timeseries_name, time_series["labels"]
                 )
             )
+
             rts.ts().create(
                 timeseries_name, labels=time_series["labels"], chunk_size=128
             )
             updated_create = True
-
+    except redis.exceptions.DataError as e:
+        logging.error(
+            "While creating timeseries named {} with the following labels: {} this error ocurred: {}".format(
+                timeseries_name, time_series["labels"], e.__str__()
+            )
+        )
+        raise Exception(
+            "While creating timeseries named {} with the following labels: {} this error ocurred: {}".format(
+                timeseries_name, time_series["labels"], e.__str__()
+            )
+        )
     except redis.exceptions.ResponseError as e:
         if "already exists" in e.__str__():
             updated_create = check_rts_labels(rts, time_series, timeseries_name)
