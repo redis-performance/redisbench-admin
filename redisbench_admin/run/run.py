@@ -30,6 +30,20 @@ def calculate_client_tool_duration_and_check(
     return benchmark_duration_seconds
 
 
+def merge_dicts(dict1, dict2):
+    result = dict1.copy()  # Start with dict1's keys and values
+    for key, value in dict2.items():
+        if key in result:
+            if isinstance(result[key], dict) and isinstance(value, dict):
+                # Recursively merge nested dictionaries
+                result[key] = merge_dicts(result[key], value)
+            # If it's not a dict, we keep the value from dict1 (result)
+        else:
+            result[key] = value
+    print(f"merging dict1 {dict1} with with dict2 {dict2}. final {result}")
+    return result
+
+
 def define_benchmark_plan(benchmark_definitions, default_specs):
     benchmark_runs_plan = {}
     for test_name, benchmark_config in benchmark_definitions.items():
@@ -80,6 +94,11 @@ def define_benchmark_plan(benchmark_definitions, default_specs):
                     )
                 )
             else:
+                # add benchmark
+                if "dbconfig" in setup_settings:
+                    benchmark_config["dbconfig"] = merge_dicts(
+                        benchmark_config["dbconfig"], setup_settings["dbconfig"]
+                    )
                 benchmark_runs_plan[benchmark_type][dataset_name][setup_name][
                     "benchmarks"
                 ][test_name] = benchmark_config

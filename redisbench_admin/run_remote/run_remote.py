@@ -1008,6 +1008,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             default_metrics,
                                             results_dict,
                                             setup_name,
+                                            setup_type,
                                             test_name,
                                             total_shards_cpu_usage,
                                         )

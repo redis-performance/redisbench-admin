@@ -722,7 +722,6 @@ def from_rts_to_regression_table(
     total_comparison_points = 0
     noise_waterline = 3
     progress = tqdm(unit="benchmark time-series", total=len(test_names))
-    at_comparison = 0
     for test_name in test_names:
         multi_value_baseline = check_multi_value_filter(baseline_str)
         multi_value_comparison = check_multi_value_filter(comparison_str)

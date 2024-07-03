@@ -269,8 +269,8 @@ def timeseries_test_sucess_flow(
         )
     if push_results_redistimeseries:
         logging.info(
-            "Pushing results to RedisTimeSeries. Have {} distinct data-points to insert.".format(
-                len(timeseries_dict.keys())
+            "Pushing results to RedisTimeSeries. Have {} distinct data-points to insert. (deployment_name={}, deployment_type={})".format(
+                len(timeseries_dict.keys()), deployment_name, deployment_type
             )
         )
         push_data_to_redistimeseries(rts, timeseries_dict)
