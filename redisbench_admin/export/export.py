@@ -42,7 +42,13 @@ def export_command_logic(args, project_name, project_version):
     deployment_name = args.deployment_name
     deployment_type = args.deployment_type
     results_format = args.results_format
-    (_, github_branch, github_org, github_repo, _,) = git_vars_crosscheck(
+    (
+        _,
+        github_branch,
+        github_org,
+        github_repo,
+        _,
+    ) = git_vars_crosscheck(
         None, args.github_branch, args.github_org, args.github_repo, None
     )
     exporter_timemetric_path = None

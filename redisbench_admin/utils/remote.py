@@ -731,7 +731,10 @@ def extract_perversion_timeseries_from_results(
 ):
     break_by_key = "version"
     break_by_str = "by.{}".format(break_by_key)
-    (branch_time_series_dict, target_tables,) = common_timeseries_extraction(
+    (
+        branch_time_series_dict,
+        target_tables,
+    ) = common_timeseries_extraction(
         break_by_key,
         break_by_str,
         datapoints_timestamp,
@@ -902,9 +905,9 @@ def from_metric_kv_to_timeserie(
 
         target_table_dict[target_name] = target_value
 
-        target_table_dict[
-            "{}:percent {}".format(target_name, comparison_type)
-        ] = target_value_pct_str
+        target_table_dict["{}:percent {}".format(target_name, comparison_type)] = (
+            target_value_pct_str
+        )
     return target_table_keyname, target_table_dict
 
 
