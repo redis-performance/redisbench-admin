@@ -53,6 +53,7 @@ tox-poetry-installer = {extras = ["poetry"], version = "^0.10.3"}
 
 [tool.poetry.group.dev.dependencies]
 tox-poetry-installer = {extras = ["poetry"], version = "^0.10.3"}
+docker = "^7.1.0"
 
 [build-system]
 requires = ["poetry_core>=1.0.0"]
