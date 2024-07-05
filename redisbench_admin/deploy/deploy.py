@@ -73,7 +73,15 @@ def deploy_command_logic(args, project_name, project_version):
     tf_triggering_env = "redisbench-admin-deploy"
     logging.info("Setting an infra timeout of {} secs".format(infra_timeout_secs))
     if args.destroy is False:
-        (tf_return_code, _, _, _, _, _, _,) = setup_remote_environment(
+        (
+            tf_return_code,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+        ) = setup_remote_environment(
             tf,
             tf_github_sha,
             tf_github_actor,

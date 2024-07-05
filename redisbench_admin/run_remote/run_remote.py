@@ -1008,6 +1008,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             default_metrics,
                                             results_dict,
                                             setup_name,
+                                            setup_type,
                                             test_name,
                                             total_shards_cpu_usage,
                                         )
@@ -1373,20 +1374,20 @@ def commandstats_latencystats_process_name(
             branch = variant_labels_dict["branch"]
 
         if version is not None:
-            variant_labels_dict[
-                "command_and_metric_and_version"
-            ] = "{} - {} - {}".format(command, metric, version)
-            variant_labels_dict[
-                "command_and_metric_and_setup_and_version"
-            ] = "{} - {} - {} - {}".format(command, metric, setup_name, version)
+            variant_labels_dict["command_and_metric_and_version"] = (
+                "{} - {} - {}".format(command, metric, version)
+            )
+            variant_labels_dict["command_and_metric_and_setup_and_version"] = (
+                "{} - {} - {} - {}".format(command, metric, setup_name, version)
+            )
 
         if branch is not None:
-            variant_labels_dict[
-                "command_and_metric_and_branch"
-            ] = "{} - {} - {}".format(command, metric, branch)
-            variant_labels_dict[
-                "command_and_metric_and_setup_and_branch"
-            ] = "{} - {} - {} - {}".format(command, metric, setup_name, branch)
+            variant_labels_dict["command_and_metric_and_branch"] = (
+                "{} - {} - {}".format(command, metric, branch)
+            )
+            variant_labels_dict["command_and_metric_and_setup_and_branch"] = (
+                "{} - {} - {} - {}".format(command, metric, setup_name, branch)
+            )
 
 
 def shutdown_remote_redis(redis_conns, ssh_tunnel):

@@ -400,9 +400,9 @@ class Perf:
             "Main THREAD Flame Graph: " + use_case, details
         )
         if artifact_result is True:
-            outputs[
-                "Main THREAD Flame Graph {}".format(identifier)
-            ] = flame_graph_output
+            outputs["Main THREAD Flame Graph {}".format(identifier)] = (
+                flame_graph_output
+            )
         result &= artifact_result
 
         tid = self.pid
@@ -440,9 +440,9 @@ class Perf:
         )
 
         if artifact_result is True:
-            outputs[
-                "perf report per dso,sym {}".format(identifier)
-            ] = perf_report_artifact
+            outputs["perf report per dso,sym {}".format(identifier)] = (
+                perf_report_artifact
+            )
         result &= artifact_result
 
         # generate perf report per dso,sym
@@ -460,9 +460,9 @@ class Perf:
         )
 
         if artifact_result is True:
-            outputs[
-                "perf report per dso,sym with callgraph {}".format(identifier)
-            ] = perf_report_artifact
+            outputs["perf report per dso,sym with callgraph {}".format(identifier)] = (
+                perf_report_artifact
+            )
         result &= artifact_result
 
         # generate perf report per dso,sym,srcline
@@ -487,9 +487,9 @@ class Perf:
         )
 
         if artifact_result is True:
-            outputs[
-                "perf report per dso,sym,srcline {}".format(identifier)
-            ] = perf_report_artifact
+            outputs["perf report per dso,sym,srcline {}".format(identifier)] = (
+                perf_report_artifact
+            )
         result &= artifact_result
 
         self.logger.info(
@@ -527,9 +527,9 @@ class Perf:
         )
 
         if artifact_result is True:
-            outputs[
-                "perf report top self-cpu {}".format(identifier)
-            ] = perf_report_artifact
+            outputs["perf report top self-cpu {}".format(identifier)] = (
+                perf_report_artifact
+            )
         result &= artifact_result
 
         # generate perf report --stdio report
@@ -546,9 +546,9 @@ class Perf:
             )
 
             if artifact_result is True:
-                outputs[
-                    "perf report top self-cpu (dso={})".format(binary)
-                ] = perf_report_artifact
+                outputs["perf report top self-cpu (dso={})".format(binary)] = (
+                    perf_report_artifact
+                )
         result &= artifact_result
 
         if self.callgraph_mode == "dwarf":
@@ -590,9 +590,9 @@ class Perf:
                 )
                 result &= artifact_result
                 if artifact_result is True:
-                    outputs[
-                        "Top entries in text form by LOC"
-                    ] = pprof_artifact_text_output
+                    outputs["Top entries in text form by LOC"] = (
+                        pprof_artifact_text_output
+                    )
                     tabular_data_map["text-lines"] = tabular_data
                 self.logger.info("Generating pprof png output")
                 pprof_png_output = self.output + ".pprof.png"
@@ -604,9 +604,9 @@ class Perf:
                     self.output,
                 )
                 if artifact_result is True:
-                    outputs[
-                        "Output graph image in PNG format"
-                    ] = pprof_artifact_png_output
+                    outputs["Output graph image in PNG format"] = (
+                        pprof_artifact_png_output
+                    )
                 result &= artifact_result
 
         # save stack collapsed

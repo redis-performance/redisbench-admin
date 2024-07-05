@@ -13,6 +13,11 @@ import traceback
 import redis
 from redisbench_admin.run.git import git_vars_crosscheck
 
+from redisbench_admin.utils.remote import (
+    get_project_ts_tags,
+    push_data_to_redistimeseries,
+)
+
 import redisbench_admin.run.metrics
 from redisbench_admin.profilers.perf import PERF_CALLGRAPH_MODE
 from redisbench_admin.profilers.profilers_schema import (
@@ -60,9 +65,7 @@ from redisbench_admin.utils.benchmark_config import (
 from redisbench_admin.utils.local import (
     get_local_run_full_filename,
 )
-from redisbench_admin.utils.remote import (
-    extract_git_vars,
-)
+
 from redisbench_admin.utils.results import post_process_benchmark_results
 
 import threading
@@ -428,6 +431,7 @@ def run_local_command_logic(args, project_name, project_version):
                                         default_metrics,
                                         results_dict,
                                         setup_name,
+                                        setup_type,
                                         test_name,
                                         total_shards_cpu_usage,
                                         overall_end_time_metrics,
@@ -435,6 +439,21 @@ def run_local_command_logic(args, project_name, project_version):
                                             "memory_used_memory",
                                             "memory_used_memory_dataset",
                                         ],
+                                    )
+                                    export_redis_metrics(
+                                        artifact_version,
+                                        end_time_ms,
+                                        overall_end_time_metrics,
+                                        rts,
+                                        setup_name,
+                                        setup_type,
+                                        test_name,
+                                        tf_github_branch,
+                                        tf_github_org,
+                                        tf_github_repo,
+                                        tf_triggering_env,
+                                        {"metric-type": "redis-metrics"},
+                                        0,
                                     )
 
                                     # check KPIs
@@ -464,6 +483,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     github_org_name,
                                     github_repo_name,
                                     tf_triggering_env,
+                                    metadata_tags,
                                 )
 
                                 if setup_details["env"] is None:
@@ -526,3 +546,151 @@ def teardown_local_setup(redis_conns, redis_processes, setup_name):
     for conn in redis_conns:
         conn.shutdown(nosave=True)
     logging.info("Tear-down completed")
+
+
+def export_redis_metrics(
+    artifact_version,
+    end_time_ms,
+    overall_end_time_metrics,
+    rts,
+    setup_name,
+    setup_type,
+    test_name,
+    tf_github_branch,
+    tf_github_org,
+    tf_github_repo,
+    tf_triggering_env,
+    metadata_dict=None,
+    expire_ms=0,
+):
+    datapoint_errors = 0
+    datapoint_inserts = 0
+    sprefix = (
+        "ci.benchmarks.redislabs/"
+        + "{triggering_env}/{github_org}/{github_repo}".format(
+            triggering_env=tf_triggering_env,
+            github_org=tf_github_org,
+            github_repo=tf_github_repo,
+        )
+    )
+
+    logging.info(
+        "Adding a total of {} server side metrics collected at the end of benchmark (deployment_name={}, deployment_type={})".format(
+            len(list(overall_end_time_metrics.items())), setup_name, setup_type
+        )
+    )
+    timeseries_dict = {}
+    by_variants = {}
+    if tf_github_branch is not None and tf_github_branch != "":
+        by_variants["by.branch/{}".format(tf_github_branch)] = {
+            "branch": tf_github_branch
+        }
+    if artifact_version is not None and artifact_version != "":
+        by_variants["by.version/{}".format(artifact_version)] = {
+            "version": artifact_version
+        }
+    for (
+        by_variant,
+        variant_labels_dict,
+    ) in by_variants.items():
+        for (
+            metric_name,
+            metric_value,
+        ) in overall_end_time_metrics.items():
+            tsname_metric = "{}/{}/{}/benchmark_end/{}/{}".format(
+                sprefix,
+                test_name,
+                by_variant,
+                setup_name,
+                metric_name,
+            )
+
+            logging.debug(
+                "Adding a redis server side metric collected at the end of benchmark."
+                + " metric_name={} metric_value={} time-series name: {}".format(
+                    metric_name,
+                    metric_value,
+                    tsname_metric,
+                )
+            )
+            variant_labels_dict["metric"] = metric_name
+            commandstats_latencystats_process_name(
+                metric_name, "commandstats_cmdstat_", setup_name, variant_labels_dict
+            )
+            commandstats_latencystats_process_name(
+                metric_name,
+                "latencystats_latency_percentiles_usec_",
+                setup_name,
+                variant_labels_dict,
+            )
+
+            variant_labels_dict["test_name"] = test_name
+            if metadata_dict is not None:
+                variant_labels_dict.update(metadata_dict)
+
+            timeseries_dict[tsname_metric] = {
+                "labels": get_project_ts_tags(
+                    tf_github_org,
+                    tf_github_repo,
+                    setup_name,
+                    setup_type,
+                    tf_triggering_env,
+                    variant_labels_dict,
+                    None,
+                    None,
+                ),
+                "data": {end_time_ms: metric_value},
+            }
+    i_errors, i_inserts = push_data_to_redistimeseries(rts, timeseries_dict, expire_ms)
+    datapoint_errors = datapoint_errors + i_errors
+    datapoint_inserts = datapoint_inserts + i_inserts
+    return datapoint_errors, datapoint_inserts
+
+
+def commandstats_latencystats_process_name(
+    metric_name, prefix, setup_name, variant_labels_dict
+):
+    if prefix in metric_name:
+        command_and_metric_and_shard = metric_name[len(prefix) :]
+        command = (
+            command_and_metric_and_shard[0]
+            + command_and_metric_and_shard[1:].split("_", 1)[0]
+        )
+        metric_and_shard = command_and_metric_and_shard[1:].split("_", 1)[1]
+        metric = metric_and_shard
+        shard = "1"
+        if "_shard_" in metric_and_shard:
+            metric = metric_and_shard.split("_shard_")[0]
+            shard = metric_and_shard.split("_shard_")[1]
+        variant_labels_dict["metric"] = metric
+        variant_labels_dict["command"] = command
+        variant_labels_dict["command_and_metric"] = "{} - {}".format(command, metric)
+        variant_labels_dict["command_and_metric_and_setup"] = "{} - {} - {}".format(
+            command, metric, setup_name
+        )
+        variant_labels_dict["command_and_setup"] = "{} - {}".format(command, setup_name)
+        variant_labels_dict["shard"] = shard
+        variant_labels_dict["metric_and_shard"] = metric_and_shard
+
+        version = None
+        branch = None
+        if "version" in variant_labels_dict:
+            version = variant_labels_dict["version"]
+        if "branch" in variant_labels_dict:
+            branch = variant_labels_dict["branch"]
+
+        if version is not None:
+            variant_labels_dict["command_and_metric_and_version"] = (
+                "{} - {} - {}".format(command, metric, version)
+            )
+            variant_labels_dict["command_and_metric_and_setup_and_version"] = (
+                "{} - {} - {} - {}".format(command, metric, setup_name, version)
+            )
+
+        if branch is not None:
+            variant_labels_dict["command_and_metric_and_branch"] = (
+                "{} - {} - {}".format(command, metric, branch)
+            )
+            variant_labels_dict["command_and_metric_and_setup_and_branch"] = (
+                "{} - {} - {} - {}".format(command, metric, setup_name, branch)
+            )

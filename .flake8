@@ -2,7 +2,7 @@
 max-line-length = 120
 max-complexity = 10
 select = C,E,F,W,B,B950
-ignore = E203,E501,W503,E722,B001,C901
+ignore = E203,E501,W503,E721,E722,B001,C901
 exclude =
     .git,
     test_*,

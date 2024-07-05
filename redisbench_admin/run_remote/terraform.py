@@ -31,7 +31,11 @@ def terraform_spin_or_reuse_env(
     tf_override_name=None,
     tf_folder_path=None,
 ):
-    (remote_setup, deployment_type, remote_id,) = fetch_remote_setup_from_config(
+    (
+        remote_setup,
+        deployment_type,
+        remote_id,
+    ) = fetch_remote_setup_from_config(
         benchmark_config["remote"],
         "https://github.com/redis-performance/testing-infrastructure.git",
         "master",

@@ -206,7 +206,10 @@ def prepare_benchmark_parameters_specif_tooling(
         if isremote is True:
             benchmark_tool = "/tmp/{}".format(benchmark_tool)
             input_data_file = "/tmp/input.data"
-        (command_arr, command_str,) = prepare_tsbs_benchmark_command(
+        (
+            command_arr,
+            command_str,
+        ) = prepare_tsbs_benchmark_command(
             benchmark_tool,
             server_private_ip,
             server_plaintext_port,
@@ -218,7 +221,10 @@ def prepare_benchmark_parameters_specif_tooling(
             cluster_api_enabled,
         )
     if "memtier_benchmark" in benchmark_tool:
-        (command_arr, command_str,) = prepare_memtier_benchmark_command(
+        (
+            command_arr,
+            command_str,
+        ) = prepare_memtier_benchmark_command(
             benchmark_tool,
             server_private_ip,
             server_plaintext_port,
@@ -236,7 +242,10 @@ def prepare_benchmark_parameters_specif_tooling(
             ann_path = stdout[0].strip() + "/run/ann/pkg/multirun.py"
             logging.info("Remote ann-benchmark path: {}".format(ann_path))
 
-        (command_arr, command_str,) = prepare_ann_benchmark_command(
+        (
+            command_arr,
+            command_str,
+        ) = prepare_ann_benchmark_command(
             server_private_ip,
             server_plaintext_port,
             cluster_api_enabled,
@@ -250,7 +259,10 @@ def prepare_benchmark_parameters_specif_tooling(
         if isremote is True:
             benchmark_tool = "/tmp/{}".format(benchmark_tool)
             input_data_file = "/tmp/input.data"
-        (command_arr, command_str,) = prepare_ftsb_benchmark_command(
+        (
+            command_arr,
+            command_str,
+        ) = prepare_ftsb_benchmark_command(
             benchmark_tool,
             server_private_ip,
             server_plaintext_port,
@@ -267,7 +279,10 @@ def prepare_benchmark_parameters_specif_tooling(
         if isremote is True:
             benchmark_tool = "/tmp/{}".format(benchmark_tool)
             input_data_file = "/tmp/input.data"
-        (command_arr, command_str,) = prepare_aibench_benchmark_command(
+        (
+            command_arr,
+            command_str,
+        ) = prepare_aibench_benchmark_command(
             benchmark_tool,
             server_private_ip,
             server_plaintext_port,
@@ -489,15 +504,30 @@ def extract_test_feasible_setups(
                         if setup_name == setup["name"]:
                             feasible_setups_map[setup_name] = setup
     if len(feasible_setups_map.keys()) == 0 and backwards_compatible:
-        feasible_setups_map["oss-standalone"] = {
-            "name": "oss-standalone",
-            "type": "oss-standalone",
+        setup_name = "oss-standalone"
+        setup_type = "oss-standalone"
+        OVERRIDE_SETUP_TYPE = os.getenv("OVERRIDE_SETUP_TYPE", None)
+        if OVERRIDE_SETUP_TYPE is not None:
+            logging.info(
+                f"Overriding SETUP_TYPE with {OVERRIDE_SETUP_TYPE} (original value was {setup_type})"
+            )
+            setup_type = OVERRIDE_SETUP_TYPE
+        OVERRIDE_SETUP_NAME = os.getenv("OVERRIDE_SETUP_NAME", None)
+        if OVERRIDE_SETUP_NAME is not None:
+            logging.info(
+                f"Overriding SETUP_NAME with {OVERRIDE_SETUP_NAME} (original value was {setup_name})"
+            )
+            setup_name = OVERRIDE_SETUP_NAME
+
+        feasible_setups_map[setup_name] = {
+            "name": setup_name,
+            "type": setup_type,
             "redis_topology": {"primaries": 1, "replicas": 0},
             "resources": {"requests": {"cpu": "1000m"}, "limits": {"cpu": "2000m"}},
         }
         logging.info(
             "Using a backwards compatible 'oss-standalone' setup, with settings: {}".format(
-                feasible_setups_map["oss-standalone"]
+                feasible_setups_map[setup_name]
             )
         )
 
@@ -508,6 +538,18 @@ def get_setup_type_and_primaries_count(setup_settings):
     setup_type = setup_settings["type"]
     setup_name = setup_settings["name"]
     shard_count = setup_settings["redis_topology"]["primaries"]
+    OVERRIDE_SETUP_TYPE = os.getenv("OVERRIDE_SETUP_TYPE", None)
+    if OVERRIDE_SETUP_TYPE is not None:
+        logging.info(
+            f"Overriding SETUP_TYPE with {OVERRIDE_SETUP_TYPE} (original value was {setup_type})"
+        )
+        setup_type = OVERRIDE_SETUP_TYPE
+    OVERRIDE_SETUP_NAME = os.getenv("OVERRIDE_SETUP_NAME", None)
+    if OVERRIDE_SETUP_NAME is not None:
+        logging.info(
+            f"Overriding SETUP_NAME with {OVERRIDE_SETUP_NAME} (original value was {setup_name})"
+        )
+        setup_name = OVERRIDE_SETUP_NAME
     return setup_name, setup_type, shard_count
 
 
@@ -697,18 +739,24 @@ def print_results_table_stdout(
     default_metrics,
     results_dict,
     setup_name,
+    setup_type,
     test_name,
     cpu_usage=None,
     kv_overall={},
     metric_names=[],
 ):
     # check which metrics to extract
-    (_, metrics,) = merge_default_and_config_metrics(
+    (
+        _,
+        metrics,
+    ) = merge_default_and_config_metrics(
         benchmark_config,
         default_metrics,
         None,
     )
-    table_name = "Results for {} test-case on {} topology".format(test_name, setup_name)
+    table_name = "Results for {} test-case on {} topology (type={})".format(
+        test_name, setup_name, setup_type
+    )
     results_matrix_headers = [
         "Metric JSON Path",
         "Metric Value",

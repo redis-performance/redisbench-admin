@@ -42,6 +42,8 @@ def test_remote_env_setup():
         client_ssh_port,
         username,
         spot_instance_error,
+        spot_price_counter,
+        full_price_counter,
     ) = remote_env_setup(
         args,
         benchmark_config,
