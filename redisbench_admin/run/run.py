@@ -4,6 +4,7 @@
 #  All rights reserved.
 #
 import logging
+import copy
 
 from redisbench_admin.run.common import extract_test_feasible_setups
 from redisbench_admin.run_remote.consts import min_recommended_benchmark_duration
@@ -31,7 +32,7 @@ def calculate_client_tool_duration_and_check(
 
 
 def merge_dicts(dict1, dict2):
-    result = dict1.copy()  # Start with dict1's keys and values
+    result = copy.deepcopy(dict1)  # Start with dict1's keys and values
     for key, value in dict2.items():
         if key in result:
             if isinstance(result[key], dict) and isinstance(value, dict):
@@ -56,8 +57,11 @@ def define_benchmark_plan(benchmark_definitions, default_specs):
             benchmark_runs_plan[benchmark_type] = {}
 
         # extract dataset-name
-        dbconfig_present, dataset_name, _, _, _ = extract_redis_dbconfig_parameters(
-            benchmark_config, "dbconfig"
+        benchmark_contains_dbconfig, dataset_name, _, _, _ = (
+            extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
+        )
+        logging.info(
+            f"Benchmark contains specific dbconfig on test {test_name}: {benchmark_contains_dbconfig}"
         )
         if dataset_name is None:
             dataset_name = test_name
@@ -74,6 +78,13 @@ def define_benchmark_plan(benchmark_definitions, default_specs):
         )
 
         for setup_name, setup_settings in test_setups.items():
+            setup_contains_dbconfig = False
+            if "dbconfig" in setup_settings:
+                setup_contains_dbconfig = True
+            logging.error(
+                f"setup ({setup_name}): {setup_settings}. contains dbconfig {setup_contains_dbconfig}"
+            )
+
             if setup_name not in benchmark_runs_plan[benchmark_type][dataset_name]:
                 benchmark_runs_plan[benchmark_type][dataset_name][setup_name] = {}
                 benchmark_runs_plan[benchmark_type][dataset_name][setup_name][
@@ -82,6 +93,7 @@ def define_benchmark_plan(benchmark_definitions, default_specs):
                 benchmark_runs_plan[benchmark_type][dataset_name][setup_name][
                     "benchmarks"
                 ] = {}
+
             if (
                 test_name
                 in benchmark_runs_plan[benchmark_type][dataset_name][setup_name][
@@ -94,11 +106,23 @@ def define_benchmark_plan(benchmark_definitions, default_specs):
                     )
                 )
             else:
-                # add benchmark
-                if "dbconfig" in setup_settings:
-                    benchmark_config["dbconfig"] = merge_dicts(
-                        benchmark_config["dbconfig"], setup_settings["dbconfig"]
+                # check if we need to merge dbconfigs from the setup defaults
+                if setup_contains_dbconfig:
+                    if "dbconfig" not in benchmark_config:
+                        benchmark_config["dbconfig"] = {}
+                    setup_dbconfig = setup_settings["dbconfig"]
+                    benchmark_dbconfig = benchmark_config["dbconfig"]
+                    logging.info(
+                        f"Merging setup dbconfig: {setup_dbconfig}, with benchmark dbconfig {benchmark_dbconfig}"
                     )
+                    final_db_config = merge_dicts(benchmark_dbconfig, setup_dbconfig)
+                    logging.info(f"FINAL DB CONFIG: {final_db_config}")
+                    benchmark_config["dbconfig"] = final_db_config
+
+                logging.info(
+                    f"final benchmark config for setup: {setup_name} and test: {test_name}. {benchmark_config}"
+                )
+                # add benchmark
                 benchmark_runs_plan[benchmark_type][dataset_name][setup_name][
                     "benchmarks"
                 ][test_name] = benchmark_config

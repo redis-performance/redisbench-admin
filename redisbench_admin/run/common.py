@@ -499,6 +499,36 @@ def extract_test_feasible_setups(
         for setup_name in feasible_setups_list:
             if default_specs is not None:
                 feasible_setups_map[setup_name] = {}
+                #  spec:
+                #   setups:
+                #   - name: oss-standalone
+                #     type: oss-standalone
+                #     redis_topology:
+                #       primaries: 1
+                #       replicas: 1
+                #       placement: "sparse"
+                #     resources:
+                #       requests:
+                #         cpus: "2"
+                #         memory: "10g"
+                #   - name: oss-standalone-threads-6
+                #     type: oss-standalone
+                #     redis_topology:
+                #       primaries: 1
+                #       replicas: 1
+                #       placement: "sparse"
+                #     resources:
+                #       requests:
+                #         cpus: "2"
+                #         memory: "10g"
+                #     dbconfig:
+                #       module-configuration-parameters:
+                #         redisearch:
+                #           WORKERS: 6
+                #           MIN_OPERATION_WORKERS: 6
+                #         module-oss:
+                #           WORKERS: 6
+                #           MIN_OPERATION_WORKERS: 6
                 if "setups" in default_specs:
                     for setup in default_specs["setups"]:
                         if setup_name == setup["name"]:
@@ -530,7 +560,9 @@ def extract_test_feasible_setups(
                 feasible_setups_map[setup_name]
             )
         )
-
+    logging.info(
+        f"There a total of {len(feasible_setups_map.keys())} setups. Setups: {feasible_setups_map}"
+    )
     return feasible_setups_map
 
 

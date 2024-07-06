@@ -21,7 +21,7 @@ exporter:
     baseline-branch: master
 spec:
   setups:
-  - name: oss-standalone-threads-6
+  - name: oss-standalone
     type: oss-standalone
     redis_topology:
       primaries: 1
@@ -30,6 +30,16 @@ spec:
     resources:
       requests:
         cpus: "2"
+        memory: "10g"
+  - name: oss-standalone-threads-6
+    type: oss-standalone
+    redis_topology:
+      primaries: 1
+      replicas: 1
+      placement: "sparse"
+    resources:
+      requests:
+        cpus: "7"
         memory: "10g"
     dbconfig:
       module-configuration-parameters:

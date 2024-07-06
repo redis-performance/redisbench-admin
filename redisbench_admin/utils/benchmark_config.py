@@ -258,10 +258,12 @@ def extract_redis_dbconfig_parameters(benchmark_config, dbconfig_keyname):
                 cp = benchmark_config[dbconfig_keyname]["configuration-parameters"]
                 for k, v in cp.items():
                     redis_configuration_parameters[k] = v
-                if "dataset_load_timeout_secs" in cp:
-                    dataset_load_timeout_secs = cp["dataset_load_timeout_secs"]
-                if "dataset_name" in cp:
-                    dataset_name = cp["dataset_name"]
+            if "dataset_load_timeout_secs" in benchmark_config[dbconfig_keyname]:
+                dataset_load_timeout_secs = benchmark_config[dbconfig_keyname][
+                    "dataset_load_timeout_secs"
+                ]
+            if "dataset_name" in benchmark_config[dbconfig_keyname]:
+                dataset_name = benchmark_config[dbconfig_keyname]["dataset_name"]
 
     return (
         dbconfig_present,
