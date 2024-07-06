@@ -113,6 +113,12 @@ To run a specific test:
 $ tox -- tests/test_redistimeseries.py
 ```
 
+To run a specific test with verbose logging:
+
+```sh
+# tox -- -vv --log-cli-level=INFO tests/test_run.py
+```
+
 ## License
 
 redisbench-admin is distributed under the BSD3 license - see [LICENSE](LICENSE)
