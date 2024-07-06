@@ -107,10 +107,4 @@ def test_define_benchmark_plan():
             "dbconfig"
         ]
     )
-    # 'module-configuration-parameters'
-
-    # assert True
-    # TODO: add this check when the feature is ready
-    # assert (
-    #     benchmark_plan == expected_output
-    # ), f"Expected {expected_output}, but got {benchmark_plan}"
+    assert len(benchmark_plan["mixed"]["dataset1"].keys()) == 2

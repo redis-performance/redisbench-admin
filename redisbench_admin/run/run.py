@@ -78,10 +78,11 @@ def define_benchmark_plan(benchmark_definitions, default_specs):
         )
 
         for setup_name, setup_settings in test_setups.items():
+            test_benchmark_config = copy.deepcopy(benchmark_config)
             setup_contains_dbconfig = False
             if "dbconfig" in setup_settings:
                 setup_contains_dbconfig = True
-            logging.error(
+            logging.info(
                 f"setup ({setup_name}): {setup_settings}. contains dbconfig {setup_contains_dbconfig}"
             )
 
@@ -108,23 +109,23 @@ def define_benchmark_plan(benchmark_definitions, default_specs):
             else:
                 # check if we need to merge dbconfigs from the setup defaults
                 if setup_contains_dbconfig:
-                    if "dbconfig" not in benchmark_config:
-                        benchmark_config["dbconfig"] = {}
+                    if "dbconfig" not in test_benchmark_config:
+                        test_benchmark_config["dbconfig"] = {}
                     setup_dbconfig = setup_settings["dbconfig"]
-                    benchmark_dbconfig = benchmark_config["dbconfig"]
+                    benchmark_dbconfig = test_benchmark_config["dbconfig"]
                     logging.info(
-                        f"Merging setup dbconfig: {setup_dbconfig}, with benchmark dbconfig {benchmark_dbconfig}"
+                        f"Merging setup dbconfig: {setup_dbconfig}, with benchmark dbconfig {test_benchmark_config}"
                     )
                     final_db_config = merge_dicts(benchmark_dbconfig, setup_dbconfig)
                     logging.info(f"FINAL DB CONFIG: {final_db_config}")
-                    benchmark_config["dbconfig"] = final_db_config
+                    test_benchmark_config["dbconfig"] = final_db_config
 
                 logging.info(
-                    f"final benchmark config for setup: {setup_name} and test: {test_name}. {benchmark_config}"
+                    f"final benchmark config for setup: {setup_name} and test: {test_name}. {test_benchmark_config}"
                 )
                 # add benchmark
                 benchmark_runs_plan[benchmark_type][dataset_name][setup_name][
                     "benchmarks"
-                ][test_name] = benchmark_config
+                ][test_name] = test_benchmark_config
 
     return benchmark_runs_plan
