@@ -40,7 +40,7 @@ watchdog = "^2.1.6"
 redis = "^4.2.2"
 slack-sdk = "^3.15.2"
 slack-bolt = "^1.13.0"
-certifi = "^2021.10.8"
+certifi = ">=2021.10.8,<2025.0.0"
 pygithub = "^1.57"
 
 [tool.poetry.dev-dependencies]
