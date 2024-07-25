@@ -28,9 +28,9 @@ WantedBy=multi-user.target
         argv.append("--private_key")
         argv.append("/home/ubuntu/work_dir/tests/benchmarks/benchmarks.redislabs.pem")
     else:
-        argv[argv.index(args.private_key)] = (
-            "/home/ubuntu/work_dir/tests/benchmarks/benchmarks.redislabs.pem"
-        )
+        argv[
+            argv.index(args.private_key)
+        ] = "/home/ubuntu/work_dir/tests/benchmarks/benchmarks.redislabs.pem"
     if len(args.module_path) != 0:
         argv[argv.index(args.module_path[0])] = (
             "/home/ubuntu/work_dir/tests/benchmarks/"

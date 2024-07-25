@@ -1043,9 +1043,9 @@ def get_v_pct_change_and_largest_var(
             if last_n < 0 or (last_n > 0 and len(comparison_values) < last_n):
                 comparison_values.append(tuple[1])
         comparison_df = pd.DataFrame(comparison_values)
-        comparison_median = float(comparison_df.median())
+        comparison_median = float(comparison_df.median().iloc[0])
         comparison_v = comparison_median
-        comparison_std = float(comparison_df.std())
+        comparison_std = float(comparison_df.std().iloc[0])
         if verbose:
             logging.info(
                 "comparison_datapoints: {} value: {}; std-dev: {}; median: {}".format(

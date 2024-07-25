@@ -544,11 +544,15 @@ def common_tf(branch, path, repo, temporary_dir=None, destroy=False):
         temporary_dir = tempfile.mkdtemp()
     if destroy is False:
         logging.info(
-            "Fetching infrastructure definition from git repo {}/{} (branch={}). Using local dir {} to store state".format(
+            "Fetching infrastructure definition from git repo {}{} (branch={}). Using local dir {} to store state".format(
                 repo, path, branch, temporary_dir
             )
         )
         git.Repo.clone_from(repo, temporary_dir, branch=branch, depth=1)
+        logging.info(f"ensuring folder exists: {temporary_dir}")
+        assert os.path.exists(temporary_dir) and os.path.isdir(
+            temporary_dir
+        ), f"Folder '{temporary_dir}' does not exist"
     terraform_working_dir = temporary_dir + path
     return terraform_working_dir
 
@@ -561,7 +565,7 @@ def check_remote_setup_spot_instance(
     contains_spot_instance = False
     for remote_setup_property in remote_setup_config:
         if "spot_instance" in remote_setup_property:
-            spot_path = "/terraform/" + remote_setup_property["spot_instance"]
+            spot_path = "terraform/" + remote_setup_property["spot_instance"]
             contains_spot_instance = True
             logging.info(f"Detected spot instance config. Setup path: {spot_path}")
 
@@ -731,10 +735,7 @@ def extract_perversion_timeseries_from_results(
 ):
     break_by_key = "version"
     break_by_str = "by.{}".format(break_by_key)
-    (
-        branch_time_series_dict,
-        target_tables,
-    ) = common_timeseries_extraction(
+    (branch_time_series_dict, target_tables,) = common_timeseries_extraction(
         break_by_key,
         break_by_str,
         datapoints_timestamp,
@@ -905,9 +906,9 @@ def from_metric_kv_to_timeserie(
 
         target_table_dict[target_name] = target_value
 
-        target_table_dict["{}:percent {}".format(target_name, comparison_type)] = (
-            target_value_pct_str
-        )
+        target_table_dict[
+            "{}:percent {}".format(target_name, comparison_type)
+        ] = target_value_pct_str
     return target_table_keyname, target_table_dict
 
 

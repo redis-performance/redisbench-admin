@@ -206,10 +206,7 @@ def prepare_benchmark_parameters_specif_tooling(
         if isremote is True:
             benchmark_tool = "/tmp/{}".format(benchmark_tool)
             input_data_file = "/tmp/input.data"
-        (
-            command_arr,
-            command_str,
-        ) = prepare_tsbs_benchmark_command(
+        (command_arr, command_str,) = prepare_tsbs_benchmark_command(
             benchmark_tool,
             server_private_ip,
             server_plaintext_port,
@@ -221,10 +218,7 @@ def prepare_benchmark_parameters_specif_tooling(
             cluster_api_enabled,
         )
     if "memtier_benchmark" in benchmark_tool:
-        (
-            command_arr,
-            command_str,
-        ) = prepare_memtier_benchmark_command(
+        (command_arr, command_str,) = prepare_memtier_benchmark_command(
             benchmark_tool,
             server_private_ip,
             server_plaintext_port,
@@ -242,10 +236,7 @@ def prepare_benchmark_parameters_specif_tooling(
             ann_path = stdout[0].strip() + "/run/ann/pkg/multirun.py"
             logging.info("Remote ann-benchmark path: {}".format(ann_path))
 
-        (
-            command_arr,
-            command_str,
-        ) = prepare_ann_benchmark_command(
+        (command_arr, command_str,) = prepare_ann_benchmark_command(
             server_private_ip,
             server_plaintext_port,
             cluster_api_enabled,
@@ -259,10 +250,7 @@ def prepare_benchmark_parameters_specif_tooling(
         if isremote is True:
             benchmark_tool = "/tmp/{}".format(benchmark_tool)
             input_data_file = "/tmp/input.data"
-        (
-            command_arr,
-            command_str,
-        ) = prepare_ftsb_benchmark_command(
+        (command_arr, command_str,) = prepare_ftsb_benchmark_command(
             benchmark_tool,
             server_private_ip,
             server_plaintext_port,
@@ -279,10 +267,7 @@ def prepare_benchmark_parameters_specif_tooling(
         if isremote is True:
             benchmark_tool = "/tmp/{}".format(benchmark_tool)
             input_data_file = "/tmp/input.data"
-        (
-            command_arr,
-            command_str,
-        ) = prepare_aibench_benchmark_command(
+        (command_arr, command_str,) = prepare_aibench_benchmark_command(
             benchmark_tool,
             server_private_ip,
             server_plaintext_port,
@@ -778,10 +763,7 @@ def print_results_table_stdout(
     metric_names=[],
 ):
     # check which metrics to extract
-    (
-        _,
-        metrics,
-    ) = merge_default_and_config_metrics(
+    (_, metrics,) = merge_default_and_config_metrics(
         benchmark_config,
         default_metrics,
         None,
