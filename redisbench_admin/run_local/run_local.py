@@ -298,6 +298,12 @@ def run_local_command_logic(args, project_name, project_version):
                                     False,
                                     benchmark_tool_workdir,
                                     cluster_api_enabled,
+                                    "clientconfig",
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    args.password,
                                 )
                                 redis_pids = [
                                     redis_process.pid
