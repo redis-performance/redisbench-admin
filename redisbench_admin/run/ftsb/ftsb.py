@@ -55,12 +55,16 @@ def prepare_ftsb_benchmark_command(
 
 
 def extract_ftsb_extra_links(
-    benchmark_config, benchmark_tool, config_key="clientconfig"
+    benchmark_config, benchmark_tool, config_key="clientconfig", architecture="x86_64"
 ):
     remote_tool_link = "/tmp/{}".format(benchmark_tool)
+    arch_txt = "amd64"
+    if architecture == "aarch64":
+        arch_txt = "arm64"
+
     tool_link = (
         "https://s3.amazonaws.com/benchmarks.redislabs/"
-        + "redisearch/tools/ftsb/{}_linux_amd64".format(benchmark_tool)
+        + f"redisearch/tools/ftsb/{benchmark_tool}_linux_{arch_txt}"
     )
     queries_file_link = None
     for entry in benchmark_config[config_key]:

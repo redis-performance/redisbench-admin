@@ -104,6 +104,7 @@ def remote_db_spin(
     ignore_keyspace_errors=False,
     continue_on_module_check_error=False,
     keyspace_check_timeout=60,
+    architecture="x86_64",
 ):
     (
         _,
@@ -337,6 +338,7 @@ def remote_db_spin(
             [],
             False,
             redis_password,
+            architecture,
         )
         logging.info(
             "Finished loading the data via client tool. Took {} seconds. Result={}".format(
