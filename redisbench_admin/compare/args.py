@@ -6,7 +6,7 @@
 
 # environment variables
 import datetime
-
+import os
 from redisbench_admin.run.common import get_start_time_vars, PERFORMANCE_GH_TOKEN
 from redisbench_admin.utils.remote import (
     PERFORMANCE_RTS_HOST,
@@ -29,6 +29,10 @@ _, NOW_UTC, _ = get_start_time_vars()
 LAST_MONTH_UTC = NOW_UTC - (31 * 24 * 60 * 60 * 1000)
 START_TIME_NOW_UTC, _, _ = get_start_time_vars()
 START_TIME_LAST_MONTH_UTC = START_TIME_NOW_UTC - datetime.timedelta(days=30)
+ARCH_X86 = "x86_64"
+ARCH_ARM = "aarch64"
+VALID_ARCHS = [ARCH_X86, ARCH_ARM]
+ARCH = os.getenv("ARCH", ARCH_X86)
 
 
 def create_compare_arguments(parser):
@@ -56,6 +60,20 @@ def create_compare_arguments(parser):
     parser.add_argument("--metric_name", type=str, default=None)
     parser.add_argument("--running_platform", type=str, default=None)
     parser.add_argument("--extra-filter", type=str, default=None)
+    parser.add_argument(
+        "--baseline_architecture",
+        type=str,
+        required=False,
+        default=ARCH,
+        help=f"Architecture to filter baseline time-series. One of {VALID_ARCHS}.",
+    )
+    parser.add_argument(
+        "--comparison_architecture",
+        type=str,
+        required=False,
+        default=ARCH,
+        help=f"Architecture to filter comparison time-series. One of {VALID_ARCHS}.",
+    )
     parser.add_argument(
         "--last_n",
         type=int,

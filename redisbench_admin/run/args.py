@@ -44,9 +44,20 @@ KEEP_ENV = bool(int(os.getenv("KEEP_ENV", "0")))
 ALLOWED_TOOLS_DEFAULT = "memtier_benchmark,redis-benchmark,redisgraph-benchmark-go,ycsb,go-ycsb,tsbs_run_queries_redistimeseries,tsbs_load_redistimeseries,ftsb_redisearch,aibench_run_inference_redisai_vision,ann-benchmarks"
 ALLOWED_BENCH_TOOLS = os.getenv("ALLOWED_BENCH_TOOLS", ALLOWED_TOOLS_DEFAULT)
 SKIP_DB_SETUP = bool(int(os.getenv("SKIP_DB_SETUP", "0")))
+ARCH_X86 = "x86_64"
+ARCH_ARM = "aarch64"
+VALID_ARCHS = [ARCH_X86, ARCH_ARM]
+ARCH = os.getenv("ARCH", ARCH_X86)
 
 
 def common_run_args(parser):
+    parser.add_argument(
+        "--architecture",
+        type=str,
+        required=False,
+        default=ARCH,
+        help=f"Architecture to run the benchmark on. One of {VALID_ARCHS}.",
+    )
     parser.add_argument(
         "--keep_env_and_topo",
         required=False,

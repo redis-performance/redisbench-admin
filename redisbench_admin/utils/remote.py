@@ -21,6 +21,7 @@ from tqdm import tqdm
 
 from redisbench_admin.environments.oss_cluster import get_cluster_dbfilename
 from redisbench_admin.run.metrics import extract_results_table
+from redisbench_admin.run.args import ARCH_X86
 from redisbench_admin.utils.local import check_dataset_local_requirements
 from redisbench_admin.utils.utils import (
     get_ts_metric_name,
@@ -929,6 +930,7 @@ def get_ts_tags_and_name(
     tf_github_repo,
     tf_triggering_env,
     use_metric_context_path,
+    arch=ARCH_X86,
 ):
     # prepare tags
     timeserie_tags = get_project_ts_tags(
@@ -956,6 +958,7 @@ def get_ts_tags_and_name(
         )
     timeserie_tags["metric"] = str(metric_name)
     timeserie_tags["metric_name"] = metric_name
+    timeserie_tags["arch"] = arch
     timeserie_tags["metric_context_path"] = metric_context_path
     if metric_context_path is not None:
         timeserie_tags["test_name:metric_context_path"] = "{}:{}".format(
@@ -978,6 +981,7 @@ def get_ts_tags_and_name(
         use_metric_context_path,
         build_variant_name,
         running_platform,
+        arch,
     )
     return timeserie_tags, ts_name
 

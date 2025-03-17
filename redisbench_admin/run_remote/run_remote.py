@@ -21,7 +21,7 @@ from redisbench_admin.profilers.perf_daemon_caller import (
     PerfDaemonRemoteCaller,
     PERF_DAEMON_LOGNAME,
 )
-from redisbench_admin.run.args import PROFILE_FREQ
+from redisbench_admin.run.args import PROFILE_FREQ, VALID_ARCHS
 from redisbench_admin.run.common import (
     get_start_time_vars,
     BENCHMARK_REPETITIONS,
@@ -300,6 +300,14 @@ def run_remote_command_logic(args, project_name, project_version):
     benchmark_artifacts_table_name = "Benchmark client artifacts"
     benchmark_artifacts_table_headers = ["Setup", "Test-case", "Artifact", "link"]
     benchmark_artifacts_links = []
+    architecture = args.architecture
+    if architecture not in VALID_ARCHS:
+        logging.critical(
+            f"The specified architecture {architecture} is not valid. Specify one of {VALID_ARCHS}"
+        )
+        exit(1)
+    else:
+        logging.info("Running benchmark for architecture {architecture}")
 
     # contains the overall target-tables ( if any target is defined )
     overall_tables = {}
@@ -441,6 +449,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                     spot_instance_error,
                                     0,
                                     0,
+                                    architecture,
                                 )
 
                                 # after we've created the env, even on error we should always teardown

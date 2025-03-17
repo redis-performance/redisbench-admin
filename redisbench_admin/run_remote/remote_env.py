@@ -7,6 +7,7 @@ import logging
 
 from python_terraform import TerraformCommandError
 
+from redisbench_admin.run.args import ARCH_X86, ARCH_ARM
 from redisbench_admin.run_remote.terraform import (
     retrieve_inventory_info,
     terraform_spin_or_reuse_env,
@@ -33,11 +34,22 @@ def remote_env_setup(
     spot_instance_error=False,
     spot_price_counter=0,
     full_price_counter=0,
+    architecture=ARCH_X86,
 ):
     server_plaintext_port = args.db_port
     db_ssh_port = args.db_ssh_port
     client_ssh_port = args.client_ssh_port
     username = args.user
+    if architecture != ARCH_X86 and tf_folder_path is not None:
+        logging.info(
+            f"Checking if the architecture info is specified on the terraform path {tf_folder_path}"
+        )
+        if architecture is ARCH_ARM and ARCH_ARM not in tf_folder_path:
+            logging.info(f"adding suffix '-{ARCH_ARM}' to {tf_folder_path}")
+            tf_folder_path = "{tf_folder_path}-{ARCH_ARM}"
+        else:
+            logging.info(f"'-{ARCH_ARM}' suffix already in {tf_folder_path}")
+
     if args.inventory is not None:
         (
             status,

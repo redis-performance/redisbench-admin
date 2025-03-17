@@ -57,9 +57,13 @@ def define_benchmark_plan(benchmark_definitions, default_specs):
             benchmark_runs_plan[benchmark_type] = {}
 
         # extract dataset-name
-        benchmark_contains_dbconfig, dataset_name, _, _, _ = (
-            extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
-        )
+        (
+            benchmark_contains_dbconfig,
+            dataset_name,
+            _,
+            _,
+            _,
+        ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
         logging.info(
             f"Benchmark contains specific dbconfig on test {test_name}: {benchmark_contains_dbconfig}"
         )
