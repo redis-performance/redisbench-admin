@@ -21,7 +21,6 @@ from tqdm import tqdm
 
 from redisbench_admin.environments.oss_cluster import get_cluster_dbfilename
 from redisbench_admin.run.metrics import extract_results_table
-from redisbench_admin.run.args import ARCH_X86
 from redisbench_admin.utils.local import check_dataset_local_requirements
 from redisbench_admin.utils.utils import (
     get_ts_metric_name,
@@ -29,6 +28,12 @@ from redisbench_admin.utils.utils import (
     EC2_SECRET_KEY,
     EC2_ACCESS_KEY,
 )
+
+ARCH_X86 = "x86_64"
+ARCH_ARM = "aarch64"
+VALID_ARCHS = [ARCH_X86, ARCH_ARM]
+ARCH = os.getenv("ARCH", ARCH_X86)
+
 
 # environment variables
 PERFORMANCE_RTS_PUSH = bool(int(os.getenv("PUSH_RTS", "0")))
