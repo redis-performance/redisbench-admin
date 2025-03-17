@@ -702,45 +702,54 @@ def dso_check(dso, local_module_file):
 
 
 def dbconfig_keyspacelen_check(
-    benchmark_config, redis_conns, ignore_keyspace_errors=False
+    benchmark_config, redis_conns, ignore_keyspace_errors=False, timeout=60
 ):
-    result = True
+    start_time = time.time()
     (
         requires_keyspacelen_check,
         keyspacelen,
     ) = check_dbconfig_keyspacelen_requirement(benchmark_config)
-    if requires_keyspacelen_check:
-        result = False
+
+    if not requires_keyspacelen_check:
+        return True
+
+    attempt = 0
+    while time.time() - start_time < timeout:
         logging.info(
-            "Ensuring keyspace length requirement = {} is met.".format(keyspacelen)
+            f"Ensuring keyspace length requirement = {keyspacelen} is met. attempt #{attempt + 1}"
         )
         total_keys = 0
         for shard_conn in redis_conns:
             keyspace_dict = shard_conn.info("keyspace")
             for _, dbdict in keyspace_dict.items():
-                shard_keys = dbdict["keys"]
-                total_keys += shard_keys
+                total_keys += dbdict.get("keys", 0)
 
         if total_keys == keyspacelen:
             logging.info(
-                "The total numbers of keys in setup matches the expected spec: {}=={}".format(
+                "The total number of keys in setup matches the expected spec: {} == {}".format(
                     keyspacelen, total_keys
                 )
             )
-            result = True
-        else:
-            logging.error(
-                "The total numbers of keys in setup does not match the expected spec: {}!={}. Aborting...".format(
-                    keyspacelen, total_keys
-                )
+            return True
+
+        logging.warning(
+            "Keyspace length mismatch ({} != {}). Retrying in {} seconds...".format(
+                total_keys, keyspacelen, 2**attempt
             )
-            if ignore_keyspace_errors is False:
-                raise Exception(
-                    "The total numbers of keys in setup does not match the expected spec: {}!={}. Aborting...".format(
-                        keyspacelen, total_keys
-                    )
-                )
-    return result
+        )
+        time.sleep(2**attempt)  # Exponential backoff
+        attempt += 1
+
+    logging.error(
+        f"The total number of keys in setup does not match the expected spec: {keyspacelen} != {total_keys}. Aborting after {attempt + 1} tries..."
+    )
+
+    if not ignore_keyspace_errors:
+        raise Exception(
+            f"The total number of keys in setup does not match the expected spec: {keyspacelen} != {total_keys}. Aborting after {attempt + 1} tries..."
+        )
+
+    return False
 
 
 def common_properties_log(

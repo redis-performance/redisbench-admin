@@ -30,6 +30,7 @@ def terraform_spin_or_reuse_env(
     tf_timeout_secs=7200,
     tf_override_name=None,
     tf_folder_path=None,
+    architecture="x86_64",
 ):
     (
         remote_setup,
@@ -40,11 +41,10 @@ def terraform_spin_or_reuse_env(
         "https://github.com/redis-performance/testing-infrastructure.git",
         "master",
         tf_folder_path,
+        architecture,
     )
     logging.info(
-        "Repetition {} of {}. Deploying test {} on AWS using {}".format(
-            repetition, BENCHMARK_REPETITIONS, test_name, remote_setup
-        )
+        f"Repetition {repetition} of {BENCHMARK_REPETITIONS}. Deploying test {test_name} on AWS using (architecture={architecture}) {remote_setup}"
     )
     if tf_override_name is None:
         tf_setup_name = "{}{}".format(remote_setup, tf_setup_name_sufix)

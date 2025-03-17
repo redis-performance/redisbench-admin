@@ -7,6 +7,7 @@ import logging
 
 from python_terraform import TerraformCommandError
 
+from redisbench_admin.run.args import ARCH_X86
 from redisbench_admin.run_remote.terraform import (
     retrieve_inventory_info,
     terraform_spin_or_reuse_env,
@@ -33,12 +34,18 @@ def remote_env_setup(
     spot_instance_error=False,
     spot_price_counter=0,
     full_price_counter=0,
+    architecture=ARCH_X86,
 ):
     server_plaintext_port = args.db_port
     db_ssh_port = args.db_ssh_port
     client_ssh_port = args.client_ssh_port
     username = args.user
+
+    logging.info(f"specified arch for deployment {architecture}")
     if args.inventory is not None:
+        logging.info(
+            f"inventory info passed. avoiding to deploy using terraform {args.inventory}"
+        )
         (
             status,
             client_public_ip,
@@ -85,6 +92,7 @@ def remote_env_setup(
                         tf_timeout_secs,
                         tf_override_name,
                         tf_folder_spot_path,
+                        architecture,
                     )
                     spot_available_and_used = True
                     spot_price_counter = spot_price_counter + 1
@@ -123,6 +131,7 @@ def remote_env_setup(
                 tf_timeout_secs,
                 tf_override_name,
                 tf_folder_path,
+                architecture,
             )
             full_price_counter = full_price_counter + 1
     logging.info("Using the following connection addresses.")

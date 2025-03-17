@@ -158,7 +158,7 @@ def local_db_spin(
             logging.info("Skipping DB spin step...")
 
     if setup_type == "oss-standalone":
-        r = redis.Redis(port=args.port, host=args.host)
+        r = redis.Redis(port=args.port, host=args.host, password=args.password)
         r.ping()
         r.client_setname("redisbench-admin-standalone")
         redis_conns.append(r)
@@ -192,6 +192,11 @@ def local_db_spin(
             benchmark_tool_workdir,
             cluster_api_enabled,
             "dbconfig",
+            None,
+            None,
+            None,
+            None,
+            args.password,
         )
 
         # run the benchmark
@@ -206,7 +211,6 @@ def local_db_spin(
                 load_via_benchmark_duration_seconds
             )
         )
-
     dbconfig_keyspacelen_check(benchmark_config, redis_conns, ignore_keyspace_errors)
 
     artifact_version = run_redis_pre_steps(

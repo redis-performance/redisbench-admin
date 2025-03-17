@@ -331,6 +331,7 @@ def get_ts_metric_name(
     use_metric_context_path=False,
     build_variant_name=None,
     running_platform=None,
+    arch="x86_64",
 ):
     if use_metric_context_path:
         metric_name = "{}/{}".format(metric_name, metric_context_path)
@@ -361,6 +362,11 @@ def get_ts_metric_name(
             metric=metric_name,
         )
     )
+    if arch != "x86_64":
+        logging.info(
+            f"Extending timeseries name with architecture given it's not x86. arch={arch}"
+        )
+        ts_name = ts_name + f"arch={arch}"
     return ts_name
 
 

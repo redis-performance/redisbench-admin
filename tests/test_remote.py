@@ -106,6 +106,22 @@ def test_fetch_remote_setup_from_config():
     assert type == "oss-standalone"
 
 
+def test_fetch_remote_setup_from_config_aarch64():
+    architecture = "aarch64"
+    path = None
+    branch = "master"
+    repo = "https://github.com/redis-performance/testing-infrastructure.git"
+    terraform_working_dir, type, _ = fetch_remote_setup_from_config(
+        [{"type": "oss-standalone"}, {"setup": "redisearch-m5"}],
+        repo,
+        branch,
+        path,
+        architecture,
+    )
+    assert type == "oss-standalone"
+    assert terraform_working_dir.endswith("/oss-standalone-redisearch-m5-aarch64")
+
+
 def test_push_data_to_redistimeseries():
     time_series_dict = {}
     try:

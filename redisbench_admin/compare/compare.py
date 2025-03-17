@@ -22,6 +22,7 @@ from redisbench_admin.run_remote.notifications import (
     generate_new_pr_comment_notification,
 )
 from redisbench_admin.utils.remote import get_overall_dashboard_keynames
+from redisbench_admin.compare.args import ARCH_X86
 
 
 def get_project_compare_zsets(triggering_env, org, repo):
@@ -225,6 +226,8 @@ def compare_command_logic(args, project_name, project_version):
         "redisjson": "UErSC0jGk",
         "redistimeseries": "2WMw61UGz",
     }
+    baseline_architecture = args.baseline_architecture
+    comparison_architecture = args.comparison_architecture
     uid = None
     if tf_github_repo.lower() in grafana_dashboards_uids:
         uid = grafana_dashboards_uids[tf_github_repo.lower()]
@@ -274,6 +277,8 @@ def compare_command_logic(args, project_name, project_version):
         to_ts_ms,
         use_metric_context_path,
         running_platform,
+        baseline_architecture,
+        comparison_architecture,
     )
     comment_body = ""
     if total_comparison_points > 0:
@@ -498,6 +503,8 @@ def compute_regression_table(
     to_ts_ms=None,
     use_metric_context_path=None,
     running_platform=None,
+    baseline_architecture=ARCH_X86,
+    comparison_architecture=ARCH_X86,
 ):
     START_TIME_NOW_UTC, _, _ = get_start_time_vars()
     START_TIME_LAST_MONTH_UTC = START_TIME_NOW_UTC - datetime.timedelta(days=31)
@@ -584,6 +591,8 @@ def compute_regression_table(
         tf_triggering_env,
         verbose,
         running_platform,
+        baseline_architecture,
+        comparison_architecture,
     )
     logging.info(
         "Printing differential analysis between {} and {}".format(
@@ -711,6 +720,8 @@ def from_rts_to_regression_table(
     tf_triggering_env,
     verbose,
     running_platform=None,
+    baseline_architecture=ARCH_X86,
+    comparison_architecture=ARCH_X86,
 ):
     print_all = print_regressions_only is False and print_improvements_only is False
     table = []
@@ -735,6 +746,8 @@ def from_rts_to_regression_table(
         ]
         if running_platform is not None:
             filters_baseline.append("running_platform={}".format(running_platform))
+        if baseline_architecture != ARCH_X86:
+            filters_baseline.append(f"arch={baseline_architecture}")
         filters_comparison = [
             "{}={}".format(by_str_comparison, comparison_str),
             "metric={}".format(metric_name),
@@ -744,6 +757,8 @@ def from_rts_to_regression_table(
         ]
         if running_platform is not None:
             filters_comparison.append("running_platform={}".format(running_platform))
+        if comparison_architecture != ARCH_X86:
+            filters_comparison.append(f"arch={comparison_architecture}")
         baseline_timeseries = rts.ts().queryindex(filters_baseline)
         comparison_timeseries = rts.ts().queryindex(filters_comparison)
 

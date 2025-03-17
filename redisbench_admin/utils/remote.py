@@ -29,6 +29,12 @@ from redisbench_admin.utils.utils import (
     EC2_ACCESS_KEY,
 )
 
+ARCH_X86 = "x86_64"
+ARCH_ARM = "aarch64"
+VALID_ARCHS = [ARCH_X86, ARCH_ARM]
+ARCH = os.getenv("ARCH", ARCH_X86)
+
+
 # environment variables
 PERFORMANCE_RTS_PUSH = bool(int(os.getenv("PUSH_RTS", "0")))
 PERFORMANCE_RTS_AUTH = os.getenv("PERFORMANCE_RTS_AUTH", None)
@@ -270,7 +276,9 @@ def setup_remote_environment(
     _, _, _ = tf.init(
         capture_output=True,
         backend_config={
-            "key": "benchmarks/infrastructure/{}.tfstate".format(tf_setup_name)
+            "key": "benchmarks/infrastructure/{}.tfstate".format(
+                tf_setup_name.replace("/", "-")
+            )
         },
     )
     _, _, _ = tf.refresh()
@@ -573,8 +581,10 @@ def fetch_remote_setup_from_config(
     repo="https://github.com/redis-performance/testing-infrastructure.git",
     branch="master",
     path=None,
+    architecture=ARCH_X86,
 ):
     setup_type = "oss-standalone"
+    logging.info(f"fetch_remote_setup_from_config, architecture={architecture}")
     setup = None
     if path is None:
         for remote_setup_property in remote_setup_config:
@@ -584,7 +594,17 @@ def fetch_remote_setup_from_config(
                 setup = remote_setup_property["setup"]
         # fetch terraform folder
         path = "/terraform/{}-{}".format(setup_type, setup)
+    if architecture != ARCH_X86:
+        logging.info(
+            f"Checking if the architecture info is specified on the terraform path {path}"
+        )
+        if architecture == ARCH_ARM and ARCH_ARM not in path:
+            logging.info(f"adding suffix '-{ARCH_ARM}' to {path}")
+            path = f"{path}-{ARCH_ARM}"
+        else:
+            logging.info(f"'-{ARCH_ARM}' suffix already in {path}")
     terraform_working_dir = common_tf(branch, path, repo)
+
     return terraform_working_dir, setup_type, setup
 
 
@@ -929,6 +949,7 @@ def get_ts_tags_and_name(
     tf_github_repo,
     tf_triggering_env,
     use_metric_context_path,
+    arch=ARCH_X86,
 ):
     # prepare tags
     timeserie_tags = get_project_ts_tags(
@@ -956,6 +977,7 @@ def get_ts_tags_and_name(
         )
     timeserie_tags["metric"] = str(metric_name)
     timeserie_tags["metric_name"] = metric_name
+    timeserie_tags["arch"] = arch
     timeserie_tags["metric_context_path"] = metric_context_path
     if metric_context_path is not None:
         timeserie_tags["test_name:metric_context_path"] = "{}:{}".format(
@@ -978,6 +1000,7 @@ def get_ts_tags_and_name(
         use_metric_context_path,
         build_variant_name,
         running_platform,
+        arch,
     )
     return timeserie_tags, ts_name
 

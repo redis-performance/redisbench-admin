@@ -29,7 +29,6 @@ def prepare_ftsb_benchmark_command(
     :return: [string] containing the required command to run the benchmark given the configurations
     """
     command_arr = [executable_path]
-
     command_arr.extend(
         ["--host", "{}:{}".format(server_private_ip, server_plaintext_port)]
     )
