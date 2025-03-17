@@ -53,6 +53,7 @@ def run_remote_client_tool(
     redis_conns=[],
     do_post_process=True,
     redis_password=None,
+    architecture="x86_64",
 ):
     (
         benchmark_min_tool_version,
@@ -83,6 +84,7 @@ def run_remote_client_tool(
         arch_str,
         client_ssh_port,
         private_key,
+        architecture,
     )
     if "ann-benchmarks" in benchmark_tool:
         logging.info(
