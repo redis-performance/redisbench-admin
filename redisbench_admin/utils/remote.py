@@ -276,7 +276,9 @@ def setup_remote_environment(
     _, _, _ = tf.init(
         capture_output=True,
         backend_config={
-            "key": "benchmarks/infrastructure/{}.tfstate".format(tf_setup_name)
+            "key": "benchmarks/infrastructure/{}.tfstate".format(
+                tf_setup_name.replace("/", "-")
+            )
         },
     )
     _, _, _ = tf.refresh()
@@ -582,6 +584,7 @@ def fetch_remote_setup_from_config(
     architecture=ARCH_X86,
 ):
     setup_type = "oss-standalone"
+    logging.info(f"fetch_remote_setup_from_config, architecture={architecture}")
     setup = None
     if path is None:
         for remote_setup_property in remote_setup_config:
@@ -595,7 +598,7 @@ def fetch_remote_setup_from_config(
         logging.info(
             f"Checking if the architecture info is specified on the terraform path {path}"
         )
-        if architecture is ARCH_ARM and ARCH_ARM not in path:
+        if architecture == ARCH_ARM and ARCH_ARM not in path:
             logging.info(f"adding suffix '-{ARCH_ARM}' to {path}")
             path = f"{path}-{ARCH_ARM}"
         else:

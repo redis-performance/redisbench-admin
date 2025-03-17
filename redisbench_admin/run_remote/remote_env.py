@@ -40,17 +40,8 @@ def remote_env_setup(
     db_ssh_port = args.db_ssh_port
     client_ssh_port = args.client_ssh_port
     username = args.user
-    logging.info(f"specified arch for deployment {architecture}")
-    if architecture != ARCH_X86 and tf_folder_path is not None:
-        logging.info(
-            f"Checking if the architecture info is specified on the terraform path {tf_folder_path}"
-        )
-        if architecture is ARCH_ARM and ARCH_ARM not in tf_folder_path:
-            logging.info(f"adding suffix '-{ARCH_ARM}' to {tf_folder_path}")
-            tf_folder_path = "{tf_folder_path}-{ARCH_ARM}"
-        else:
-            logging.info(f"'-{ARCH_ARM}' suffix already in {tf_folder_path}")
 
+    logging.info(f"specified arch for deployment {architecture}")
     if args.inventory is not None:
         logging.info(
             f"inventory info passed. avoiding to deploy using terraform {args.inventory}"
@@ -101,6 +92,7 @@ def remote_env_setup(
                         tf_timeout_secs,
                         tf_override_name,
                         tf_folder_spot_path,
+                        architecture,
                     )
                     spot_available_and_used = True
                     spot_price_counter = spot_price_counter + 1
@@ -117,6 +109,9 @@ def remote_env_setup(
                     "Even though there is a spot instance config, avoiding deploying it."
                 )
         if spot_available_and_used is False:
+            import pdb
+
+            pdb.set_trace()
             (
                 client_public_ip,
                 _,
@@ -139,6 +134,7 @@ def remote_env_setup(
                 tf_timeout_secs,
                 tf_override_name,
                 tf_folder_path,
+                architecture,
             )
             full_price_counter = full_price_counter + 1
     logging.info("Using the following connection addresses.")
