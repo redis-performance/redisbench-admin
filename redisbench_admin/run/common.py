@@ -716,7 +716,7 @@ def dbconfig_keyspacelen_check(
     attempt = 0
     while time.time() - start_time < timeout:
         logging.info(
-            f"Ensuring keyspace length requirement = {keyspacelen} is met. attempt #{attempt+1}"
+            f"Ensuring keyspace length requirement = {keyspacelen} is met. attempt #{attempt + 1}"
         )
         total_keys = 0
         for shard_conn in redis_conns:
@@ -741,12 +741,12 @@ def dbconfig_keyspacelen_check(
         attempt += 1
 
     logging.error(
-        f"The total number of keys in setup does not match the expected spec: {keyspacelen} != {total_keys}. Aborting after {attempt+1} tries..."
+        f"The total number of keys in setup does not match the expected spec: {keyspacelen} != {total_keys}. Aborting after {attempt + 1} tries..."
     )
 
     if not ignore_keyspace_errors:
         raise Exception(
-            f"The total number of keys in setup does not match the expected spec: {keyspacelen} != {total_keys}. Aborting after {attempt+1} tries..."
+            f"The total number of keys in setup does not match the expected spec: {keyspacelen} != {total_keys}. Aborting after {attempt + 1} tries..."
         )
 
     return False
