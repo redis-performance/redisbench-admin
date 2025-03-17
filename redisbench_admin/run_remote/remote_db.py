@@ -103,6 +103,7 @@ def remote_db_spin(
     flushall_on_every_test_start=False,
     ignore_keyspace_errors=False,
     continue_on_module_check_error=False,
+    keyspace_check_timeout=60,
 ):
     (
         _,

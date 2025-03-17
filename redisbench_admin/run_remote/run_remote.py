@@ -307,7 +307,7 @@ def run_remote_command_logic(args, project_name, project_version):
         )
         exit(1)
     else:
-        logging.info("Running benchmark for architecture {architecture}")
+        logging.info(f"Running benchmark for architecture {architecture}")
 
     # contains the overall target-tables ( if any target is defined )
     overall_tables = {}

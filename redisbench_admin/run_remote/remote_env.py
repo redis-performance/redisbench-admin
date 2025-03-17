@@ -40,6 +40,7 @@ def remote_env_setup(
     db_ssh_port = args.db_ssh_port
     client_ssh_port = args.client_ssh_port
     username = args.user
+    logging.info(f"specified arch for deployment {architecture}")
     if architecture != ARCH_X86 and tf_folder_path is not None:
         logging.info(
             f"Checking if the architecture info is specified on the terraform path {tf_folder_path}"
@@ -51,6 +52,9 @@ def remote_env_setup(
             logging.info(f"'-{ARCH_ARM}' suffix already in {tf_folder_path}")
 
     if args.inventory is not None:
+        logging.info(
+            f"inventory info passed. avoiding to deploy using terraform {args.inventory}"
+        )
         (
             status,
             client_public_ip,

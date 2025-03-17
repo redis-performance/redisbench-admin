@@ -579,6 +579,7 @@ def fetch_remote_setup_from_config(
     repo="https://github.com/redis-performance/testing-infrastructure.git",
     branch="master",
     path=None,
+    architecture=ARCH_X86,
 ):
     setup_type = "oss-standalone"
     setup = None
@@ -590,7 +591,17 @@ def fetch_remote_setup_from_config(
                 setup = remote_setup_property["setup"]
         # fetch terraform folder
         path = "/terraform/{}-{}".format(setup_type, setup)
+    if architecture != ARCH_X86:
+        logging.info(
+            f"Checking if the architecture info is specified on the terraform path {path}"
+        )
+        if architecture is ARCH_ARM and ARCH_ARM not in path:
+            logging.info(f"adding suffix '-{ARCH_ARM}' to {path}")
+            path = f"{path}-{ARCH_ARM}"
+        else:
+            logging.info(f"'-{ARCH_ARM}' suffix already in {path}")
     terraform_working_dir = common_tf(branch, path, repo)
+
     return terraform_working_dir, setup_type, setup
 
 
