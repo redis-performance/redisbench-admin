@@ -109,9 +109,6 @@ def remote_env_setup(
                     "Even though there is a spot instance config, avoiding deploying it."
                 )
         if spot_available_and_used is False:
-            import pdb
-
-            pdb.set_trace()
             (
                 client_public_ip,
                 _,
