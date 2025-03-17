@@ -7,7 +7,7 @@ import logging
 
 from python_terraform import TerraformCommandError
 
-from redisbench_admin.run.args import ARCH_X86, ARCH_ARM
+from redisbench_admin.run.args import ARCH_X86
 from redisbench_admin.run_remote.terraform import (
     retrieve_inventory_info,
     terraform_spin_or_reuse_env,
