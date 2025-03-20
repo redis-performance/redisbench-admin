@@ -49,6 +49,7 @@ def compare_command_logic(args, project_name, project_version):
         port=args.redistimeseries_port,
         password=args.redistimeseries_pass,
         username=args.redistimeseries_user,
+        retry_on_timeout=True,
     )
     rts.ping()
     default_baseline_branch = None

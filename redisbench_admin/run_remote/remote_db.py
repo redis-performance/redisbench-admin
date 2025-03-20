@@ -136,6 +136,7 @@ def remote_db_spin(
             username,
             continue_on_module_check_error,
         )
+        logging.info(f"final remote module files {remote_module_files}...")
     # setup Redis
     redis_setup_result = True
     redis_conns = []

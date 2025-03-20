@@ -75,7 +75,9 @@ def remote_module_files_cp(
     continue_on_module_check_error=False,
 ):
     remote_module_files = []
+
     if local_module_files is not None:
+        logging.info(f"there is a total of  {len(local_module_files)} modules")
         for local_module_file in local_module_files:
             splitted_module_and_plugins = []
             if type(local_module_file) is str:
@@ -135,7 +137,7 @@ def remote_module_files_cp(
                 if pos > 1:
                     remote_module_files_in = remote_module_files_in + " "
                 remote_module_files_in = remote_module_files_in + remote_module_file
-        remote_module_files.append(remote_module_files_in)
+            remote_module_files.append(remote_module_files_in)
     logging.info(
         "There are a total of {} remote files {}".format(
             len(remote_module_files), remote_module_files

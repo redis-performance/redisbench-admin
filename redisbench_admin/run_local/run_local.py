@@ -129,6 +129,7 @@ def run_local_command_logic(args, project_name, project_version):
             host=args.redistimeseries_host,
             port=args.redistimeseries_port,
             password=args.redistimeseries_pass,
+            retry_on_timeout=True,
         )
         rts.ping()
 
