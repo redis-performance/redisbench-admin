@@ -9,7 +9,7 @@ import logging
 import os
 import sys
 import tempfile
-
+import time
 import git
 import paramiko
 import pysftp
@@ -93,13 +93,22 @@ def copy_file_to_remote_setup(
             cnopts=cnopts,
             port=port,
         )
-        srv.put(full_local_path, remote_file, callback=view_bar_simple)
-        srv.close()
+        if srv.exists(remote_file):
+            print(f"Remote file {remote_file} already exists. Skipping the copy.")
+        else:
+            uploaded_file = srv.put(
+                full_local_path, remote_file, callback=view_bar_simple
+            )
+            print(f"File uploaded to: {uploaded_file}")
         logging.info(
             "Finished Copying file {} to remote server {} ".format(
                 full_local_path, remote_file
             )
         )
+        file_info = srv.stat(remote_file)
+        print(f"Remote file size: {file_info.st_size} bytes")
+        print(f"Remote file permissions: {oct(file_info.st_mode)[-3:]}")
+        srv.close()
         res = True
     else:
         if continue_on_module_check_error:
@@ -314,6 +323,9 @@ def setup_remote_environment(
         },
         raise_on_error=True,
     )
+    infra_wait_secs = 60
+    logging.warning(f"Infra ready wait... for {infra_wait_secs} secs")
+    time.sleep(infra_wait_secs)
     return retrieve_tf_connection_vars(return_code, tf)
 
 
@@ -616,42 +628,50 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict, expire_msecs=0):
             unit="benchmark time-series", total=len(time_series_dict.values())
         )
         for timeseries_name, time_series in time_series_dict.items():
-            exporter_create_ts(rts, time_series, timeseries_name)
-            for timestamp, value in time_series["data"].items():
-                try:
-                    if timestamp is None:
-                        logging.warning("The provided timestamp is null. Using auto-ts")
-                        rts.ts().add(
-                            timeseries_name,
-                            value,
-                            duplicate_policy="last",
+            try:
+                exporter_create_ts(rts, time_series, timeseries_name)
+                for timestamp, value in time_series["data"].items():
+                    try:
+                        if timestamp is None:
+                            logging.warning(
+                                "The provided timestamp is null. Using auto-ts"
+                            )
+                            rts.ts().add(
+                                timeseries_name,
+                                value,
+                                duplicate_policy="last",
+                            )
+                        else:
+                            rts.ts().add(
+                                timeseries_name,
+                                timestamp,
+                                value,
+                                duplicate_policy="last",
+                            )
+                        datapoint_inserts += 1
+                    except redis.exceptions.DataError:
+                        logging.warning(
+                            "Error while inserting datapoint ({} : {}) in timeseries named {}. ".format(
+                                timestamp, value, timeseries_name
+                            )
                         )
-                    else:
-                        rts.ts().add(
-                            timeseries_name,
-                            timestamp,
-                            value,
-                            duplicate_policy="last",
+                        datapoint_errors += 1
+                        pass
+                    except redis.exceptions.ResponseError:
+                        logging.warning(
+                            "Error while inserting datapoint ({} : {}) in timeseries named {}. ".format(
+                                timestamp, value, timeseries_name
+                            )
                         )
-                    datapoint_inserts += 1
-                except redis.exceptions.DataError:
-                    logging.warning(
-                        "Error while inserting datapoint ({} : {}) in timeseries named {}. ".format(
-                            timestamp, value, timeseries_name
-                        )
-                    )
-                    datapoint_errors += 1
-                    pass
-                except redis.exceptions.ResponseError:
-                    logging.warning(
-                        "Error while inserting datapoint ({} : {}) in timeseries named {}. ".format(
-                            timestamp, value, timeseries_name
-                        )
-                    )
-                    datapoint_errors += 1
-                    pass
-            if expire_msecs > 0:
-                rts.pexpire(timeseries_name, expire_msecs)
+                        datapoint_errors += 1
+                        pass
+                if expire_msecs > 0:
+                    rts.pexpire(timeseries_name, expire_msecs)
+            except redis.exceptions.TimeoutError:
+                logging.error(
+                    f"Error while working in timeseries named {timeseries_name}. "
+                )
+                datapoint_errors += 1
             progress.update()
     return datapoint_errors, datapoint_inserts
 

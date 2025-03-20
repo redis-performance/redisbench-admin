@@ -276,6 +276,7 @@ def run_remote_command_logic(args, project_name, project_version):
             host=args.redistimeseries_host,
             port=args.redistimeseries_port,
             password=args.redistimeseries_pass,
+            retry_on_timeout=True,
         )
         rts.ping()
 
@@ -553,6 +554,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                             flushall_on_every_test_start,
                                             ignore_keyspace_errors,
                                             continue_on_module_check_error,
+                                            60,
+                                            architecture,
                                         )
                                         if benchmark_type == "read-only":
                                             ro_benchmark_set(
@@ -698,6 +701,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                         redis_conns,
                                         True,
                                         redis_password,
+                                        architecture,
                                     )
 
                                     if profilers_enabled:

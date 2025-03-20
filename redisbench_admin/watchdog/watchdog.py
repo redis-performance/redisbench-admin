@@ -153,6 +153,7 @@ def watchdog_command_logic(args, project_name, project_version):
         host=args.redistimeseries_host,
         port=args.redistimeseries_port,
         password=args.redistimeseries_pass,
+        retry_on_timeout=True,
     )
     rts.ping()
     ec2_client = boto3.client("ec2")

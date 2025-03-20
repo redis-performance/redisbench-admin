@@ -66,8 +66,11 @@ def remote_tool_pre_bench_step(
     arch_str,
     client_ssh_port,
     private_key,
+    architecture="x86_64",
 ):
-    logging.info("Settting up remote tool {} requirements".format(benchmark_tool))
+    logging.info(
+        f"Settting up remote tool {benchmark_tool} requirements. architecture ={architecture}"
+    )
     if benchmark_tool == "redisgraph-benchmark-go":
         setup_remote_benchmark_tool_redisgraph_benchmark_go(
             client_public_ip,
@@ -90,7 +93,9 @@ def remote_tool_pre_bench_step(
             queries_file_link,
             remote_tool_link,
             tool_link,
-        ) = extract_ftsb_extra_links(benchmark_config, benchmark_tool, config_key)
+        ) = extract_ftsb_extra_links(
+            benchmark_config, benchmark_tool, config_key, architecture
+        )
         logging.info(
             "FTSB Extracted:\nremote tool input: {}\nremote tool link: {}\ntool path: {}".format(
                 queries_file_link, remote_tool_link, tool_link

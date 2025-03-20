@@ -124,7 +124,7 @@ def define_benchmark_plan(benchmark_definitions, default_specs):
                     logging.info(f"FINAL DB CONFIG: {final_db_config}")
                     test_benchmark_config["dbconfig"] = final_db_config
 
-                logging.info(
+                logging.debug(
                     f"final benchmark config for setup: {setup_name} and test: {test_name}. {test_benchmark_config}"
                 )
                 # add benchmark
