@@ -5,7 +5,7 @@
 #
 import logging
 import datetime as dt
-
+import redis
 from jsonpath_ng import parse
 
 
@@ -99,28 +99,33 @@ def collect_redis_metrics(
     for conn_n, conn in enumerate(redis_conns):
         conn_res = {}
         for section in sections:
-            info = conn.info(section)
-            conn_res[section] = info
-            if section not in overall:
-                overall[section] = {}
-            for k, v in info.items():
-                collect = True
-                if section_filter is not None:
-                    if section in section_filter:
-                        if k not in section_filter[section]:
-                            collect = False
-                if collect and type(v) is float or type(v) is int:
-                    if k not in overall[section]:
-                        overall[section][k] = 0
-                    overall[section][k] += v
-                if collect and type(v) is dict:
-                    for inner_k, inner_v in v.items():
-                        if type(inner_v) is float or type(inner_v) is int:
-                            final_str_k = "{}_{}".format(k, inner_k)
-                            if multi_shard:
-                                final_str_k += "_shard_{}".format(conn_n + 1)
-                            if final_str_k not in overall[section]:
-                                overall[section][final_str_k] = inner_v
+            try:
+                info = conn.info(section)
+                conn_res[section] = info
+                if section not in overall:
+                    overall[section] = {}
+                for k, v in info.items():
+                    collect = True
+                    if section_filter is not None:
+                        if section in section_filter:
+                            if k not in section_filter[section]:
+                                collect = False
+                    if collect and type(v) is float or type(v) is int:
+                        if k not in overall[section]:
+                            overall[section][k] = 0
+                        overall[section][k] += v
+                    if collect and type(v) is dict:
+                        for inner_k, inner_v in v.items():
+                            if type(inner_v) is float or type(inner_v) is int:
+                                final_str_k = "{}_{}".format(k, inner_k)
+                                if multi_shard:
+                                    final_str_k += "_shard_{}".format(conn_n + 1)
+                                if final_str_k not in overall[section]:
+                                    overall[section][final_str_k] = inner_v
+            except redis.exceptions.ConnectionError as e:
+                logging.warning(
+                    f"Unable to collect section {section} from redis. error: {e.__str__}"
+                )
 
         res.append(conn_res)
 

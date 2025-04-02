@@ -135,10 +135,31 @@ def compare_command_logic(args, project_name, project_version):
         last_n_baseline = args.last_n_baseline
     if last_n_comparison < 0:
         last_n_comparison = args.last_n_comparison
-    logging.info("Using last {} samples for baseline analysis".format(last_n_baseline))
-    logging.info(
-        "Using last {} samples for comparison analysis".format(last_n_comparison)
-    )
+    first_n_baseline = args.first_n_baseline
+    first_n_comparison = args.first_n_comparison
+    # Log the interval of values considered
+    if first_n_baseline >= 0:
+        logging.info(
+            "Using samples in the range [{}:{}] for baseline analysis".format(
+                first_n_baseline, last_n_baseline
+            )
+        )
+    else:
+        logging.info(
+            "Using last {} samples for baseline analysis".format(last_n_baseline)
+        )
+
+    if first_n_comparison >= 0:
+        logging.info(
+            "Using samples in the range [{}:{}] for comparison analysis".format(
+                first_n_comparison, last_n_comparison
+            )
+        )
+    else:
+        logging.info(
+            "Using last {} samples for comparison analysis".format(last_n_comparison)
+        )
+
     verbose = args.verbose
     regressions_percent_lower_limit = args.regressions_percent_lower_limit
     metric_name = args.metric_name
@@ -280,6 +301,8 @@ def compare_command_logic(args, project_name, project_version):
         running_platform,
         baseline_architecture,
         comparison_architecture,
+        first_n_baseline,
+        first_n_comparison,
     )
     comment_body = ""
     if total_comparison_points > 0:
@@ -506,6 +529,8 @@ def compute_regression_table(
     running_platform=None,
     baseline_architecture=ARCH_X86,
     comparison_architecture=ARCH_X86,
+    first_n_baseline=-1,
+    first_n_comparison=-1,
 ):
     START_TIME_NOW_UTC, _, _ = get_start_time_vars()
     START_TIME_LAST_MONTH_UTC = START_TIME_NOW_UTC - datetime.timedelta(days=31)
@@ -594,6 +619,8 @@ def compute_regression_table(
         running_platform,
         baseline_architecture,
         comparison_architecture,
+        first_n_baseline,
+        first_n_comparison,
     )
     logging.info(
         "Printing differential analysis between {} and {}".format(
@@ -723,6 +750,8 @@ def from_rts_to_regression_table(
     running_platform=None,
     baseline_architecture=ARCH_X86,
     comparison_architecture=ARCH_X86,
+    first_n_baseline=-1,
+    first_n_comparison=-1,
 ):
     print_all = print_regressions_only is False and print_improvements_only is False
     table = []
@@ -835,6 +864,7 @@ def from_rts_to_regression_table(
                 largest_variance,
                 last_n_baseline,
                 verbose,
+                first_n_baseline,
             )
             for ts_name_comparison in comparison_timeseries:
                 datapoints_inner = rts.ts().revrange(
@@ -854,6 +884,7 @@ def from_rts_to_regression_table(
                 largest_variance,
                 last_n_comparison,
                 verbose,
+                first_n_comparison,
             )
 
             waterline = regressions_percent_lower_limit
@@ -1051,13 +1082,25 @@ def get_v_pct_change_and_largest_var(
     largest_variance,
     last_n=-1,
     verbose=False,
+    first_n=-1,
 ):
     comparison_nsamples = len(comparison_datapoints)
     if comparison_nsamples > 0:
         _, comparison_v = comparison_datapoints[0]
-        for tuple in comparison_datapoints:
-            if last_n < 0 or (last_n > 0 and len(comparison_values) < last_n):
-                comparison_values.append(tuple[1])
+
+        # Apply first_n and last_n boundaries
+        start_idx = 0 if first_n < 0 else max(0, min(first_n, comparison_nsamples))
+        end_idx = (
+            comparison_nsamples
+            if last_n < 0
+            else max(0, min(last_n, comparison_nsamples))
+        )
+
+        selected_data = comparison_datapoints[start_idx:end_idx]
+
+        for tuple in selected_data:
+            comparison_values.append(tuple[1])
+
         comparison_df = pd.DataFrame(comparison_values)
         comparison_median = float(comparison_df.median())
         comparison_v = comparison_median

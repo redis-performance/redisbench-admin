@@ -86,7 +86,7 @@ def define_benchmark_plan(benchmark_definitions, default_specs):
             setup_contains_dbconfig = False
             if "dbconfig" in setup_settings:
                 setup_contains_dbconfig = True
-            logging.info(
+            logging.debug(
                 f"setup ({setup_name}): {setup_settings}. contains dbconfig {setup_contains_dbconfig}"
             )
 
