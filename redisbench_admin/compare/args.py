@@ -93,6 +93,18 @@ def create_compare_arguments(parser):
         help="Use the last N samples for each time-serie. by default will use last value only",
     )
     parser.add_argument(
+        "--first_n_baseline",
+        type=int,
+        default=-1,
+        help="Use the last N samples for each time-serie. by default will use last 7 available values",
+    )
+    parser.add_argument(
+        "--first_n_comparison",
+        type=int,
+        default=-1,
+        help="Use the last N samples for each time-serie. by default will use last value only",
+    )
+    parser.add_argument(
         "--from-date",
         type=lambda s: datetime.datetime.strptime(s, "%Y-%m-%d"),
         default=START_TIME_LAST_MONTH_UTC,

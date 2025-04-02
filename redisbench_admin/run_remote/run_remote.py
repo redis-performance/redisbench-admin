@@ -134,7 +134,7 @@ def run_remote_command_logic(args, project_name, project_version):
     keep_env_and_topo = args.keep_env_and_topo
     skip_remote_db_setup = args.skip_db_setup
     flushall_on_every_test_start = args.flushall_on_every_test_start
-    redis_7 = args.redis_7
+    redis_7 = True
     cluster_start_port = 20000
     redis_password = args.db_pass
     ignore_keyspace_errors = args.ignore_keyspace_errors
@@ -317,6 +317,7 @@ def run_remote_command_logic(args, project_name, project_version):
     spot_instance_error = False
     ts_key_spot_price = f"ts:{tf_triggering_env}:tests:spot_price"
     ts_key_full_price = f"ts:{tf_triggering_env}:tests:full_price"
+    ts_key_architecture = f"ts:{tf_triggering_env}:tests:arch:{architecture}"
 
     for benchmark_type, bench_by_dataset_map in benchmark_runs_plan.items():
         if return_code != 0 and args.fail_fast:
@@ -365,6 +366,8 @@ def run_remote_command_logic(args, project_name, project_version):
                         )
                         continue
                     metadata_tags = get_metadata_tags(benchmark_config)
+                    if "arch" not in metadata_tags:
+                        metadata_tags["arch"] = architecture
                     logging.info(
                         "Including the extra metadata tags into this test generated time-series: {}".format(
                             metadata_tags
@@ -462,6 +465,15 @@ def run_remote_command_logic(args, project_name, project_version):
                                         testcase_start_time_str,
                                     ) = get_start_time_vars()
                                     if args.push_results_redistimeseries:
+                                        logging.info(
+                                            f"Updating overall arch tests counter {ts_key_architecture}"
+                                        )
+                                        rts.ts().add(
+                                            ts_key_architecture,
+                                            start_time_setup_ms,
+                                            1,
+                                            duplicate_policy="sum",
+                                        )
                                         logging.info(
                                             f"Updating overall spot price tests counter {ts_key_spot_price}"
                                         )
@@ -843,7 +855,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     tf_github_org,
                                                     tf_github_repo,
                                                     tf_triggering_env,
-                                                    {"metric-type": "redis-metrics"},
+                                                    {
+                                                        "metric-type": "redis-metrics",
+                                                        "arch": architecture,
+                                                    },
                                                     expire_ms,
                                                 )
                                                 if collect_commandstats:
@@ -866,7 +881,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                                         tf_github_org,
                                                         tf_github_repo,
                                                         tf_triggering_env,
-                                                        {"metric-type": "commandstats"},
+                                                        {
+                                                            "metric-type": "commandstats",
+                                                            "arch": architecture,
+                                                        },
                                                         expire_ms,
                                                     )
                                                     (
@@ -888,7 +906,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                                         tf_github_org,
                                                         tf_github_repo,
                                                         tf_triggering_env,
-                                                        {"metric-type": "latencystats"},
+                                                        {
+                                                            "metric-type": "latencystats",
+                                                            "arch": architecture,
+                                                        },
                                                         expire_ms,
                                                     )
                                             except (
