@@ -315,25 +315,22 @@ def compare_command_logic(args, project_name, project_version):
         comparison_summary = "In summary:\n"
         if total_stable > 0:
             comparison_summary += (
-                "- Detected a total of {} stable tests between versions.\n".format(
-                    total_stable,
-                )
+                f"- Detected a total of {total_stable} stable tests between versions.\n"
             )
 
         if total_unstable > 0:
             comparison_summary += (
-                "- Detected a total of {} highly unstable benchmarks.\n".format(
-                    total_unstable
-                )
+                f"- Detected a total of {total_unstable} highly unstable benchmarks.\n"
             )
         if total_improvements > 0:
-            comparison_summary += "- Detected a total of {} improvements above the improvement water line.\n".format(
-                total_improvements
+            comparison_summary += (
+                f"- Detected a total of {total_improvements} improvements above the improvement water line.\n"
             )
         if total_regressions > 0:
-            comparison_summary += "- Detected a total of {} regressions bellow the regression water line {}.\n".format(
-                total_regressions, args.regressions_percent_lower_limit
+            comparison_summary += (
+                f"- Detected a total of {total_regressions} regressions bellow the regression water line {args.regressions_percent_lower_limit}%.\n"
             )
+        comparison_summary += "\n"
 
         comment_body += comparison_summary
         comment_body += "\n"
@@ -1102,9 +1099,9 @@ def get_v_pct_change_and_largest_var(
             comparison_values.append(tuple[1])
 
         comparison_df = pd.DataFrame(comparison_values)
-        comparison_median = float(comparison_df.median())
+        comparison_median = float(comparison_df.median().iloc[0])
         comparison_v = comparison_median
-        comparison_std = float(comparison_df.std())
+        comparison_std = float(comparison_df.std().iloc[0])
         if verbose:
             logging.info(
                 "comparison_datapoints: {} value: {}; std-dev: {}; median: {}".format(

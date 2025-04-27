@@ -629,6 +629,15 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict, expire_msecs=0):
         )
         for timeseries_name, time_series in time_series_dict.items():
             try:
+                arch = "x86_64"
+                if "arch" in time_series["labels"]:
+                    arch = time_series["labels"]["arch"]
+                if arch == "aarch64" and "aarch64" not in timeseries_name:
+                    original_timeseries_name = timeseries_name
+                    timeseries_name = f"{timeseries_name}/arch/{arch}"
+                    logging.warning(
+                        f"overriding key named {original_timeseries_name} given it does not contain arch and it's not x86_64. new key={timeseries_name}"
+                    )
                 exporter_create_ts(rts, time_series, timeseries_name)
                 for timestamp, value in time_series["data"].items():
                     try:
