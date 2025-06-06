@@ -161,6 +161,8 @@ def test_export_command_logic_google_benchmark():
             "{}".format(rts_pass),
             "--github_branch",
             "branch-feature-1",
+            "--architecture",
+            "x86_64",
         ]
     )
     try:

@@ -77,8 +77,19 @@ def export_command_logic(args, project_name, project_version):
                 _,
                 _,
             ) = get_defaults(exporter_spec_file)
+    arch = args.architecture
+    logging.info("Using the following architecture on the timeseries: {}".format(arch))
 
     extra_tags_dict = split_tags_string(args.extra_tags)
+    if "results_format" not in extra_tags_dict:
+        extra_tags_dict["results_format"] = results_format
+        logging.info(f"Adding results_format={results_format} to extra tags")
+    if "arch" not in extra_tags_dict:
+        extra_tags_dict["arch"] = arch
+        logging.info(f"Adding arch={arch} to extra tags")
+    if "architecture" not in extra_tags_dict:
+        extra_tags_dict["architecture"] = arch
+        logging.info(f"Adding architecture={arch} to extra tags")
     logging.info("Using the following extra tags: {}".format(extra_tags_dict))
 
     results_dict = {}
@@ -161,6 +172,7 @@ def export_command_logic(args, project_name, project_version):
             github_org,
             github_repo,
             triggering_env,
+            arch,
         )
         logging.info("Parsed a total of {} metrics".format(len(timeseries_dict.keys())))
     logging.info(
@@ -221,6 +233,7 @@ def export_json_to_timeseries_dict(
     tf_github_org,
     tf_github_repo,
     triggering_env,
+    arch,
 ):
     results_dict = {}
     for test_name, d in benchmark_file.items():
@@ -245,6 +258,7 @@ def export_json_to_timeseries_dict(
                     tf_github_repo,
                     triggering_env,
                     False,
+                    arch,
                 )
                 results_dict[ts_name] = {
                     "labels": timeserie_tags.copy(),

@@ -4,12 +4,17 @@
 #  All rights reserved.
 #
 import datetime
-
+import os
 from redisbench_admin.utils.remote import (
     PERFORMANCE_RTS_HOST,
     PERFORMANCE_RTS_PORT,
     PERFORMANCE_RTS_AUTH,
 )
+
+ARCH_X86 = "x86_64"
+ARCH_ARM = "aarch64"
+VALID_ARCHS = [ARCH_X86, ARCH_ARM]
+ARCH = os.getenv("ARCH", ARCH_X86)
 
 
 def create_export_arguments(parser):
@@ -18,6 +23,13 @@ def create_export_arguments(parser):
         type=str,
         required=True,
         help="benchmark results file to read results from.",
+    )
+    parser.add_argument(
+        "--architecture",
+        type=str,
+        required=False,
+        default=ARCH,
+        help=f"Architecture to run the benchmark on. One of {VALID_ARCHS}.",
     )
     parser.add_argument(
         "--exporter-spec-file",
