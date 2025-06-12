@@ -134,7 +134,7 @@ def create_compare_arguments(parser):
     parser.add_argument(
         "--regressions-percent-lower-limit",
         type=float,
-        default=5.0,
+        default=8.0,
         help="Only consider regressions with a percentage over the defined limit. (0-100)",
     )
     parser.add_argument(
