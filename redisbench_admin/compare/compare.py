@@ -250,9 +250,12 @@ def compare_command_logic(args, project_name, project_version):
     }
     baseline_architecture = args.baseline_architecture
     comparison_architecture = args.comparison_architecture
-    uid = None
-    if tf_github_repo.lower() in grafana_dashboards_uids:
+    uid = args.grafana_uid
+    if tf_github_repo.lower() in grafana_dashboards_uids and uid is None:
         uid = grafana_dashboards_uids[tf_github_repo.lower()]
+        logging.info(f"Using uid from grafana_dashboards_uids. {grafana_dashboards_uids}. uid={uid}")
+    else:
+        logging.info(f"Using uid from args. uid={uid}")
     grafana_link_base = None
     if uid is not None:
         grafana_link_base = "{}/{}".format(grafana_base_dashboard, uid)

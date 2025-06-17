@@ -162,6 +162,10 @@ def create_compare_arguments(parser):
         default="https://benchmarksrediscom.grafana.net/d/",
     )
     parser.add_argument(
+        "--grafana_uid",
+        default=None,
+    )
+    parser.add_argument(
         "--auto-approve",
         required=False,
         default=False,
