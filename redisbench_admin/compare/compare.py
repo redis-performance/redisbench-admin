@@ -333,7 +333,9 @@ def compare_command_logic(args, project_name, project_version):
             if total_unstable_comparison > 0:
                 unstable_details.append(f"{total_unstable_comparison} comparison")
 
-            unstable_breakdown = " (" + ", ".join(unstable_details) + ")" if unstable_details else ""
+            unstable_breakdown = (
+                " (" + ", ".join(unstable_details) + ")" if unstable_details else ""
+            )
             comparison_summary += (
                 "- Detected a total of {} highly unstable benchmarks{}.\n".format(
                     total_unstable, unstable_breakdown
@@ -342,10 +344,8 @@ def compare_command_logic(args, project_name, project_version):
 
             # Add latency confirmation summary if applicable
             if total_latency_confirmed_regressions > 0:
-                comparison_summary += (
-                    "- Latency analysis confirmed regressions in {} of the unstable tests:\n".format(
-                        total_latency_confirmed_regressions
-                    )
+                comparison_summary += "- Latency analysis confirmed regressions in {} of the unstable tests:\n".format(
+                    total_latency_confirmed_regressions
                 )
 
                 # Add detailed breakdown as bullet points with test links
@@ -354,7 +354,9 @@ def compare_command_logic(args, project_name, project_version):
                         test_name = detail["test_name"]
                         commands_info = []
                         for cmd_detail in detail["commands"]:
-                            commands_info.append(f"{cmd_detail['command']} +{cmd_detail['change_percent']:.1f}%")
+                            commands_info.append(
+                                f"{cmd_detail['command']} +{cmd_detail['change_percent']:.1f}%"
+                            )
 
                         if commands_info:
                             # Create test link if grafana_link_base is available
@@ -362,16 +364,24 @@ def compare_command_logic(args, project_name, project_version):
                             if grafana_link_base is not None:
                                 grafana_test_link = f"{grafana_link_base}?orgId=1&var-test_case={test_name}"
                                 if baseline_branch is not None:
-                                    grafana_test_link += f"&var-branch={baseline_branch}"
+                                    grafana_test_link += (
+                                        f"&var-branch={baseline_branch}"
+                                    )
                                 if comparison_branch is not None:
-                                    grafana_test_link += f"&var-branch={comparison_branch}"
+                                    grafana_test_link += (
+                                        f"&var-branch={comparison_branch}"
+                                    )
                                 grafana_test_link += "&from=now-30d&to=now"
-                                test_display_name = f"[{test_name}]({grafana_test_link})"
+                                test_display_name = (
+                                    f"[{test_name}]({grafana_test_link})"
+                                )
 
                             # Add confidence indicator if available
                             confidence_indicator = ""
                             if "high_confidence" in detail:
-                                confidence_indicator = " 🔴" if detail["high_confidence"] else " ⚠️"
+                                confidence_indicator = (
+                                    " 🔴" if detail["high_confidence"] else " ⚠️"
+                                )
 
                             comparison_summary += f"  - {test_display_name}: {', '.join(commands_info)}{confidence_indicator}\n"
         if total_improvements > 0:
@@ -703,7 +713,7 @@ def compute_regression_table(
 
         # Extract percentage value
         try:
-            percentage_val = float(percentage_str.replace('%', '').strip())
+            percentage_val = float(percentage_str.replace("%", "").strip())
         except:
             percentage_val = 0.0
 
@@ -718,7 +728,9 @@ def compute_regression_table(
             # No changes and potential changes (below significance threshold)
             no_changes_table.append(row)
         elif abs(percentage_val) > 3.0:  # Significant changes based on percentage
-            if (percentage_val > 0 and metric_mode == "higher-better") or (percentage_val < 0 and metric_mode == "lower-better"):
+            if (percentage_val > 0 and metric_mode == "higher-better") or (
+                percentage_val < 0 and metric_mode == "lower-better"
+            ):
                 improvements_table.append(row)
             else:
                 regressions_table.append(row)
@@ -730,7 +742,7 @@ def compute_regression_table(
         """Extract percentage value from row for sorting"""
         try:
             percentage_str = row[3] if len(row) > 3 else "0.0%"
-            return float(percentage_str.replace('%', '').strip())
+            return float(percentage_str.replace("%", "").strip())
         except:
             return 0.0
 
@@ -814,7 +826,11 @@ def compute_regression_table(
 
     # Add hidden no-changes table
     if no_changes_table:
-        mystdout.write("<details>\n<summary>Tests with No Significant Changes ({} tests)</summary>\n\n".format(len(no_changes_table)))
+        mystdout.write(
+            "<details>\n<summary>Tests with No Significant Changes ({} tests)</summary>\n\n".format(
+                len(no_changes_table)
+            )
+        )
         no_changes_writer.dump(mystdout, False)
         mystdout.write("\n</details>\n")
 
@@ -1091,7 +1107,9 @@ def from_rts_to_regression_table(
                 # Build detailed unstable note
                 unstable_parts = []
                 if unstable_baseline and unstable_comparison:
-                    unstable_parts.append("UNSTABLE (baseline & comparison high variance)")
+                    unstable_parts.append(
+                        "UNSTABLE (baseline & comparison high variance)"
+                    )
                 elif unstable_baseline:
                     unstable_parts.append("UNSTABLE (baseline high variance)")
                 elif unstable_comparison:
@@ -1115,21 +1133,57 @@ def from_rts_to_regression_table(
                     )
 
                     # Check server-side p50 latency
-                    server_latency_note, server_confirms_regression, server_regression_details = check_latency_for_unstable_throughput(
-                        rts, test_name, baseline_str, comparison_str, by_str_baseline, by_str_comparison,
-                        baseline_deployment_name, comparison_deployment_name, tf_triggering_env,
-                        from_ts_ms, to_ts_ms, last_n_baseline, last_n_comparison,
-                        first_n_baseline, first_n_comparison, running_platform,
-                        baseline_architecture, comparison_architecture, verbose
+                    (
+                        server_latency_note,
+                        server_confirms_regression,
+                        server_regression_details,
+                    ) = check_latency_for_unstable_throughput(
+                        rts,
+                        test_name,
+                        baseline_str,
+                        comparison_str,
+                        by_str_baseline,
+                        by_str_comparison,
+                        baseline_deployment_name,
+                        comparison_deployment_name,
+                        tf_triggering_env,
+                        from_ts_ms,
+                        to_ts_ms,
+                        last_n_baseline,
+                        last_n_comparison,
+                        first_n_baseline,
+                        first_n_comparison,
+                        running_platform,
+                        baseline_architecture,
+                        comparison_architecture,
+                        verbose,
                     )
 
                     # Check client-side latency metrics
-                    client_latency_note, client_confirms_regression, client_regression_details = check_client_side_latency(
-                        rts, test_name, baseline_str, comparison_str, by_str_baseline, by_str_comparison,
-                        baseline_deployment_name, comparison_deployment_name, tf_triggering_env,
-                        from_ts_ms, to_ts_ms, last_n_baseline, last_n_comparison,
-                        first_n_baseline, first_n_comparison, running_platform,
-                        baseline_architecture, comparison_architecture, verbose
+                    (
+                        client_latency_note,
+                        client_confirms_regression,
+                        client_regression_details,
+                    ) = check_client_side_latency(
+                        rts,
+                        test_name,
+                        baseline_str,
+                        comparison_str,
+                        by_str_baseline,
+                        by_str_comparison,
+                        baseline_deployment_name,
+                        comparison_deployment_name,
+                        tf_triggering_env,
+                        from_ts_ms,
+                        to_ts_ms,
+                        last_n_baseline,
+                        last_n_comparison,
+                        first_n_baseline,
+                        first_n_comparison,
+                        running_platform,
+                        baseline_architecture,
+                        comparison_architecture,
+                        verbose,
                     )
 
                     # Combine results from both server and client side
@@ -1141,8 +1195,12 @@ def from_rts_to_regression_table(
 
                     # Only confirm regression if BOTH server and client side show evidence AND data is stable enough
                     # Check if either server or client data contains unstable indicators
-                    server_has_unstable = server_latency_note and "UNSTABLE" in server_latency_note
-                    client_has_unstable = client_latency_note and "UNSTABLE" in client_latency_note
+                    server_has_unstable = (
+                        server_latency_note and "UNSTABLE" in server_latency_note
+                    )
+                    client_has_unstable = (
+                        client_latency_note and "UNSTABLE" in client_latency_note
+                    )
 
                     # Don't confirm regression if either side has unstable data
                     if server_has_unstable or client_has_unstable:
@@ -1154,68 +1212,125 @@ def from_rts_to_regression_table(
                             unstable_sides.append("client")
                         blocked_note = f"regression blocked due to unstable {' and '.join(unstable_sides)} latency data"
                         note += f"; {blocked_note}"
-                        logging.info(f"Blocking regression confirmation for '{test_name}' due to unstable latency data")
+                        logging.info(
+                            f"Blocking regression confirmation for '{test_name}' due to unstable latency data"
+                        )
                         if server_has_unstable:
                             logging.info(f"  Server-side latency data is unstable")
                         if client_has_unstable:
                             logging.info(f"  Client-side latency data is unstable")
                     else:
-                        both_confirm_regression = server_confirms_regression and client_confirms_regression
+                        both_confirm_regression = (
+                            server_confirms_regression and client_confirms_regression
+                        )
 
                     if combined_latency_notes:
                         combined_note = "; ".join(combined_latency_notes)
                         note += f"; {combined_note}"
-                        logging.info(f"Combined latency check result for '{test_name}': {combined_note}")
+                        logging.info(
+                            f"Combined latency check result for '{test_name}': {combined_note}"
+                        )
 
                         if both_confirm_regression:
-                            logging.info(f"BOTH server and client latency analysis CONFIRM regression for '{test_name}'")
+                            logging.info(
+                                f"BOTH server and client latency analysis CONFIRM regression for '{test_name}'"
+                            )
 
                             # Set the flag for counting confirmed regressions
                             latency_confirms_regression = True
 
                             # Combine regression details from both server and client
-                            combined_regression_details = server_regression_details or client_regression_details
+                            combined_regression_details = (
+                                server_regression_details or client_regression_details
+                            )
                             if combined_regression_details:
-                                combined_regression_details["server_side"] = server_confirms_regression
-                                combined_regression_details["client_side"] = client_confirms_regression
+                                combined_regression_details[
+                                    "server_side"
+                                ] = server_confirms_regression
+                                combined_regression_details[
+                                    "client_side"
+                                ] = client_confirms_regression
 
                                 # 2nd level confirmation is sufficient - always add to confirmed regressions
-                                logging.info(f"Adding '{test_name}' to confirmed regressions based on 2nd level validation")
+                                logging.info(
+                                    f"Adding '{test_name}' to confirmed regressions based on 2nd level validation"
+                                )
 
                                 # Perform 3rd-level analysis: variance + p99 check for additional confidence scoring
-                                logging.info(f"Performing 3rd-level analysis (variance + p99) for confidence scoring on '{test_name}'")
-                                confidence_note, high_confidence = perform_variance_and_p99_analysis(
-                                    rts, test_name, baseline_str, comparison_str, by_str_baseline, by_str_comparison,
-                                    baseline_deployment_name, comparison_deployment_name, tf_triggering_env,
-                                    from_ts_ms, to_ts_ms, last_n_baseline, last_n_comparison,
-                                    first_n_baseline, first_n_comparison, running_platform,
-                                    baseline_architecture, comparison_architecture, verbose
+                                logging.info(
+                                    f"Performing 3rd-level analysis (variance + p99) for confidence scoring on '{test_name}'"
+                                )
+                                (
+                                    confidence_note,
+                                    high_confidence,
+                                ) = perform_variance_and_p99_analysis(
+                                    rts,
+                                    test_name,
+                                    baseline_str,
+                                    comparison_str,
+                                    by_str_baseline,
+                                    by_str_comparison,
+                                    baseline_deployment_name,
+                                    comparison_deployment_name,
+                                    tf_triggering_env,
+                                    from_ts_ms,
+                                    to_ts_ms,
+                                    last_n_baseline,
+                                    last_n_comparison,
+                                    first_n_baseline,
+                                    first_n_comparison,
+                                    running_platform,
+                                    baseline_architecture,
+                                    comparison_architecture,
+                                    verbose,
                                 )
 
                                 if confidence_note:
                                     note += f"; {confidence_note}"
-                                    logging.info(f"Confidence analysis for '{test_name}': {confidence_note}")
+                                    logging.info(
+                                        f"Confidence analysis for '{test_name}': {confidence_note}"
+                                    )
                                     # Use 3rd level confidence if available
-                                    combined_regression_details["high_confidence"] = high_confidence
+                                    combined_regression_details[
+                                        "high_confidence"
+                                    ] = high_confidence
                                 else:
                                     # No 3rd level data available - default to moderate confidence since 2nd level confirmed
-                                    logging.info(f"No 3rd level data available for '{test_name}' - using 2nd level confirmation")
-                                    combined_regression_details["high_confidence"] = True  # 2nd level confirmation is reliable
+                                    logging.info(
+                                        f"No 3rd level data available for '{test_name}' - using 2nd level confirmation"
+                                    )
+                                    combined_regression_details[
+                                        "high_confidence"
+                                    ] = True  # 2nd level confirmation is reliable
 
                                 # Always add to confirmed regressions when 2nd level confirms
-                                latency_confirmed_regression_details.append(combined_regression_details)
+                                latency_confirmed_regression_details.append(
+                                    combined_regression_details
+                                )
                         elif server_confirms_regression or client_confirms_regression:
-                            side_confirmed = 'server' if server_confirms_regression else 'client'
-                            side_not_confirmed = 'client' if server_confirms_regression else 'server'
+                            side_confirmed = (
+                                "server" if server_confirms_regression else "client"
+                            )
+                            side_not_confirmed = (
+                                "client" if server_confirms_regression else "server"
+                            )
                             insufficient_evidence_note = f"only {side_confirmed} side confirms regression ({side_not_confirmed} side stable) - insufficient evidence"
                             note += f"; {insufficient_evidence_note}"
-                            logging.info(f"Only {side_confirmed} side confirms regression for '{test_name}' - insufficient evidence")
+                            logging.info(
+                                f"Only {side_confirmed} side confirms regression for '{test_name}' - insufficient evidence"
+                            )
                         else:
-                            no_regression_note = "neither server nor client side confirms regression"
+                            no_regression_note = (
+                                "neither server nor client side confirms regression"
+                            )
                             note += f"; {no_regression_note}"
-                            logging.info(f"Neither server nor client side confirms regression for '{test_name}'")
+                            logging.info(
+                                f"Neither server nor client side confirms regression for '{test_name}'"
+                            )
                     else:
-                        logging.info(f"No latency data available for secondary check on '{test_name}'")
+                        logging.info(
+                            f"No latency data available for secondary check on '{test_name}'"
+                        )
 
             baseline_v_str = prepare_value_str(
                 baseline_pct_change, baseline_v, baseline_values, simplify_table
@@ -1356,15 +1471,12 @@ def check_client_side_latency(
             "Tests.INSERT.AverageLatency_us_",
             "Tests.READ.AverageLatency_us_",
             "Tests.SEARCH.AverageLatency_us_",
-            "Tests.UPDATE.AverageLatency_us_"
+            "Tests.UPDATE.AverageLatency_us_",
         ]
 
         client_latency_notes = []
         significant_client_latency_increases = 0
-        regression_details = {
-            "test_name": test_name,
-            "commands": []
-        }
+        regression_details = {"test_name": test_name, "commands": []}
 
         for metric in client_metrics:
             # Build filters for client-side latency metric
@@ -1398,14 +1510,20 @@ def check_client_side_latency(
 
             if len(baseline_client_ts) == 0 or len(comparison_client_ts) == 0:
                 if verbose:
-                    logging.info(f"  No client-side data found for metric '{metric}' in {test_name}")
+                    logging.info(
+                        f"  No client-side data found for metric '{metric}' in {test_name}"
+                    )
                 continue
 
-            logging.info(f"  Found client-side metric '{metric}': {len(baseline_client_ts)} baseline, {len(comparison_client_ts)} comparison time-series")
+            logging.info(
+                f"  Found client-side metric '{metric}': {len(baseline_client_ts)} baseline, {len(comparison_client_ts)} comparison time-series"
+            )
 
             # Filter out target time-series
             baseline_client_ts = [ts for ts in baseline_client_ts if "target" not in ts]
-            comparison_client_ts = [ts for ts in comparison_client_ts if "target" not in ts]
+            comparison_client_ts = [
+                ts for ts in comparison_client_ts if "target" not in ts
+            ]
 
             if len(baseline_client_ts) == 0 or len(comparison_client_ts) == 0:
                 continue
@@ -1416,11 +1534,15 @@ def check_client_side_latency(
 
             # Get client-side latency data
             baseline_client_data = rts.ts().revrange(baseline_ts, from_ts_ms, to_ts_ms)
-            comparison_client_data = rts.ts().revrange(comparison_ts, from_ts_ms, to_ts_ms)
+            comparison_client_data = rts.ts().revrange(
+                comparison_ts, from_ts_ms, to_ts_ms
+            )
 
             if len(baseline_client_data) == 0 or len(comparison_client_data) == 0:
                 if verbose:
-                    logging.info(f"  No data points for metric '{metric}': baseline={len(baseline_client_data)}, comparison={len(comparison_client_data)}")
+                    logging.info(
+                        f"  No data points for metric '{metric}': baseline={len(baseline_client_data)}, comparison={len(comparison_client_data)}"
+                    )
                 continue
 
             # Calculate client-side latency statistics
@@ -1428,36 +1550,78 @@ def check_client_side_latency(
             comparison_client_values = []
 
             (_, baseline_client_median, _) = get_v_pct_change_and_largest_var(
-                baseline_client_data, 0, 0, baseline_client_values, 0,
-                last_n_baseline, verbose, first_n_baseline
+                baseline_client_data,
+                0,
+                0,
+                baseline_client_values,
+                0,
+                last_n_baseline,
+                verbose,
+                first_n_baseline,
             )
 
             (_, comparison_client_median, _) = get_v_pct_change_and_largest_var(
-                comparison_client_data, 0, 0, comparison_client_values, 0,
-                last_n_comparison, verbose, first_n_comparison
+                comparison_client_data,
+                0,
+                0,
+                comparison_client_values,
+                0,
+                last_n_comparison,
+                verbose,
+                first_n_comparison,
             )
 
             if baseline_client_median == "N/A" or comparison_client_median == "N/A":
                 if verbose:
-                    logging.info(f"  Could not calculate median for metric '{metric}': baseline={baseline_client_median}, comparison={comparison_client_median}")
+                    logging.info(
+                        f"  Could not calculate median for metric '{metric}': baseline={baseline_client_median}, comparison={comparison_client_median}"
+                    )
                 continue
 
             # Calculate variance (coefficient of variation) for both baseline and comparison
-            baseline_client_mean = statistics.mean(baseline_client_values) if baseline_client_values else 0
-            baseline_client_stdev = statistics.stdev(baseline_client_values) if len(baseline_client_values) > 1 else 0
-            baseline_client_cv = (baseline_client_stdev / baseline_client_mean * 100) if baseline_client_mean > 0 else float('inf')
+            baseline_client_mean = (
+                statistics.mean(baseline_client_values) if baseline_client_values else 0
+            )
+            baseline_client_stdev = (
+                statistics.stdev(baseline_client_values)
+                if len(baseline_client_values) > 1
+                else 0
+            )
+            baseline_client_cv = (
+                (baseline_client_stdev / baseline_client_mean * 100)
+                if baseline_client_mean > 0
+                else float("inf")
+            )
 
-            comparison_client_mean = statistics.mean(comparison_client_values) if comparison_client_values else 0
-            comparison_client_stdev = statistics.stdev(comparison_client_values) if len(comparison_client_values) > 1 else 0
-            comparison_client_cv = (comparison_client_stdev / comparison_client_mean * 100) if comparison_client_mean > 0 else float('inf')
+            comparison_client_mean = (
+                statistics.mean(comparison_client_values)
+                if comparison_client_values
+                else 0
+            )
+            comparison_client_stdev = (
+                statistics.stdev(comparison_client_values)
+                if len(comparison_client_values) > 1
+                else 0
+            )
+            comparison_client_cv = (
+                (comparison_client_stdev / comparison_client_mean * 100)
+                if comparison_client_mean > 0
+                else float("inf")
+            )
 
             # Calculate client-side latency change (for latency, higher is worse)
-            client_latency_change = (float(comparison_client_median) / float(baseline_client_median) - 1) * 100.0
+            client_latency_change = (
+                float(comparison_client_median) / float(baseline_client_median) - 1
+            ) * 100.0
 
-            logging.info(f"  Client metric '{metric}': baseline={baseline_client_median:.2f} (CV={baseline_client_cv:.1f}%), comparison={comparison_client_median:.2f} (CV={comparison_client_cv:.1f}%), change={client_latency_change:.1f}%")
+            logging.info(
+                f"  Client metric '{metric}': baseline={baseline_client_median:.2f} (CV={baseline_client_cv:.1f}%), comparison={comparison_client_median:.2f} (CV={comparison_client_cv:.1f}%), change={client_latency_change:.1f}%"
+            )
 
             # Check if client latency data is too unstable to be reliable
-            client_data_unstable = baseline_client_cv > 50.0 or comparison_client_cv > 50.0
+            client_data_unstable = (
+                baseline_client_cv > 50.0 or comparison_client_cv > 50.0
+            )
 
             if client_data_unstable:
                 # Mark as unstable client latency data
@@ -1467,9 +1631,15 @@ def check_client_side_latency(
                 if comparison_client_cv > 50.0:
                     unstable_reason.append(f"comparison CV={comparison_client_cv:.1f}%")
 
-                client_latency_notes.append(f"{metric} UNSTABLE ({', '.join(unstable_reason)} - data too noisy for reliable analysis)")
-                logging.warning(f"  Client metric '{metric}': UNSTABLE latency data detected - {', '.join(unstable_reason)}")
-            elif abs(client_latency_change) > 5.0:  # Only report significant client latency changes for stable data
+                client_latency_notes.append(
+                    f"{metric} UNSTABLE ({', '.join(unstable_reason)} - data too noisy for reliable analysis)"
+                )
+                logging.warning(
+                    f"  Client metric '{metric}': UNSTABLE latency data detected - {', '.join(unstable_reason)}"
+                )
+            elif (
+                abs(client_latency_change) > 5.0
+            ):  # Only report significant client latency changes for stable data
                 direction = "increased" if client_latency_change > 0 else "decreased"
 
                 # Adjust significance threshold based on baseline variance
@@ -1483,25 +1653,39 @@ def check_client_side_latency(
                     # High variance - require much larger change
                     significance_threshold = 25.0
 
-                client_latency_notes.append(f"{metric} {direction} {abs(client_latency_change):.1f}% (baseline CV={baseline_client_cv:.1f}%)")
-                logging.info(f"  Client metric '{metric}': SIGNIFICANT latency change detected ({direction} {abs(client_latency_change):.1f}%, baseline CV={baseline_client_cv:.1f}%)")
+                client_latency_notes.append(
+                    f"{metric} {direction} {abs(client_latency_change):.1f}% (baseline CV={baseline_client_cv:.1f}%)"
+                )
+                logging.info(
+                    f"  Client metric '{metric}': SIGNIFICANT latency change detected ({direction} {abs(client_latency_change):.1f}%, baseline CV={baseline_client_cv:.1f}%)"
+                )
 
                 # Track significant client latency increases (potential regression confirmation)
                 if client_latency_change > significance_threshold:
                     significant_client_latency_increases += 1
-                    regression_details["commands"].append({
-                        "command": metric,
-                        "change_percent": client_latency_change,
-                        "direction": direction,
-                        "baseline_cv": baseline_client_cv,
-                        "comparison_cv": comparison_client_cv
-                    })
-                    logging.info(f"  Client metric '{metric}': CONFIRMS regression (change={client_latency_change:.1f}% > threshold={significance_threshold:.1f}%)")
+                    regression_details["commands"].append(
+                        {
+                            "command": metric,
+                            "change_percent": client_latency_change,
+                            "direction": direction,
+                            "baseline_cv": baseline_client_cv,
+                            "comparison_cv": comparison_client_cv,
+                        }
+                    )
+                    logging.info(
+                        f"  Client metric '{metric}': CONFIRMS regression (change={client_latency_change:.1f}% > threshold={significance_threshold:.1f}%)"
+                    )
                 else:
-                    logging.info(f"  Client metric '{metric}': Change below significance threshold (change={client_latency_change:.1f}% <= threshold={significance_threshold:.1f}%)")
+                    logging.info(
+                        f"  Client metric '{metric}': Change below significance threshold (change={client_latency_change:.1f}% <= threshold={significance_threshold:.1f}%)"
+                    )
             elif verbose:
-                client_latency_notes.append(f"{metric} stable (CV={baseline_client_cv:.1f}%)")
-                logging.info(f"  Client metric '{metric}': latency stable (change={client_latency_change:.1f}%, baseline CV={baseline_client_cv:.1f}%)")
+                client_latency_notes.append(
+                    f"{metric} stable (CV={baseline_client_cv:.1f}%)"
+                )
+                logging.info(
+                    f"  Client metric '{metric}': latency stable (change={client_latency_change:.1f}%, baseline CV={baseline_client_cv:.1f}%)"
+                )
 
         # Determine if client-side latency confirms regression
         confirms_regression = significant_client_latency_increases > 0
@@ -1509,11 +1693,19 @@ def check_client_side_latency(
         # Return combined client latency notes
         if client_latency_notes:
             result = "; ".join(client_latency_notes)
-            logging.info(f"Client-side latency check completed for {test_name}: {result}")
-            return result, confirms_regression, regression_details if confirms_regression else None
+            logging.info(
+                f"Client-side latency check completed for {test_name}: {result}"
+            )
+            return (
+                result,
+                confirms_regression,
+                regression_details if confirms_regression else None,
+            )
         else:
             result = "client latency stable" if len(client_metrics) > 0 else None
-            logging.info(f"Client-side latency check completed for {test_name}: {result or 'no data'}")
+            logging.info(
+                f"Client-side latency check completed for {test_name}: {result or 'no data'}"
+            )
             return result, False, None
 
     except Exception as e:
@@ -1584,7 +1776,9 @@ def perform_variance_and_p99_analysis(
         comparison_p99_ts = rts.ts().queryindex(filters_comparison)
 
         logging.info(f"Found {len(baseline_p99_ts)} baseline p99 latency time-series")
-        logging.info(f"Found {len(comparison_p99_ts)} comparison p99 latency time-series")
+        logging.info(
+            f"Found {len(comparison_p99_ts)} comparison p99 latency time-series"
+        )
 
         # Filter out target time-series and unwanted commands (reuse existing function)
         def should_exclude_timeseries(ts_name):
@@ -1595,26 +1789,34 @@ def perform_variance_and_p99_analysis(
             excluded_commands = ["config", "info", "ping", "cluster", "resetstat"]
             return any(cmd in ts_name_lower for cmd in excluded_commands)
 
-        baseline_p99_ts = [ts for ts in baseline_p99_ts if not should_exclude_timeseries(ts)]
-        comparison_p99_ts = [ts for ts in comparison_p99_ts if not should_exclude_timeseries(ts)]
+        baseline_p99_ts = [
+            ts for ts in baseline_p99_ts if not should_exclude_timeseries(ts)
+        ]
+        comparison_p99_ts = [
+            ts for ts in comparison_p99_ts if not should_exclude_timeseries(ts)
+        ]
 
         if len(baseline_p99_ts) == 0 or len(comparison_p99_ts) == 0:
-            logging.warning(f"No p99 latency data found for {test_name} after filtering")
+            logging.warning(
+                f"No p99 latency data found for {test_name} after filtering"
+            )
             return None, False
 
         # Extract command names from time-series (reuse existing function)
         def extract_command_from_ts(ts_name):
             """Extract meaningful command name from time-series name"""
             # Look for latencystats_latency_percentiles_usec_<COMMAND>_p99 pattern
-            match = re.search(r'latencystats_latency_percentiles_usec_([^_/]+)_p99', ts_name)
+            match = re.search(
+                r"latencystats_latency_percentiles_usec_([^_/]+)_p99", ts_name
+            )
             if match:
                 return match.group(1)
             # Look for command= pattern in the time-series name
-            match = re.search(r'command=([^/]+)', ts_name)
+            match = re.search(r"command=([^/]+)", ts_name)
             if match:
                 return match.group(1)
             # If no specific pattern found, try to extract from the end of the path
-            parts = ts_name.split('/')
+            parts = ts_name.split("/")
             if len(parts) > 0:
                 return parts[-1]
             return "unknown"
@@ -1636,10 +1838,14 @@ def perform_variance_and_p99_analysis(
             comparison_by_command[cmd].append(ts)
 
         # Find common commands between baseline and comparison
-        common_commands = set(baseline_by_command.keys()) & set(comparison_by_command.keys())
+        common_commands = set(baseline_by_command.keys()) & set(
+            comparison_by_command.keys()
+        )
 
         if not common_commands:
-            logging.warning(f"No common commands found for p99 variance analysis in {test_name}")
+            logging.warning(
+                f"No common commands found for p99 variance analysis in {test_name}"
+            )
             return None, False
 
         variance_notes = []
@@ -1662,7 +1868,9 @@ def perform_variance_and_p99_analysis(
                 comparison_ts_list = get_only_Totals(comparison_ts_list)
 
             if len(baseline_ts_list) != 1 or len(comparison_ts_list) != 1:
-                logging.warning(f"  Skipping {command}: baseline={len(baseline_ts_list)}, comparison={len(comparison_ts_list)} time-series")
+                logging.warning(
+                    f"  Skipping {command}: baseline={len(baseline_ts_list)}, comparison={len(comparison_ts_list)} time-series"
+                )
                 continue
 
             # Get p99 latency data for this command
@@ -1678,7 +1886,9 @@ def perform_variance_and_p99_analysis(
                 comparison_p99_data.extend(datapoints)
 
             if len(baseline_p99_data) < 3 or len(comparison_p99_data) < 3:
-                logging.warning(f"  Insufficient p99 data for {command}: baseline={len(baseline_p99_data)}, comparison={len(comparison_p99_data)} datapoints")
+                logging.warning(
+                    f"  Insufficient p99 data for {command}: baseline={len(baseline_p99_data)}, comparison={len(comparison_p99_data)} datapoints"
+                )
                 continue
 
             # Extract values for variance calculation
@@ -1687,44 +1897,78 @@ def perform_variance_and_p99_analysis(
 
             # Calculate variance (coefficient of variation)
             baseline_mean = statistics.mean(baseline_values)
-            baseline_stdev = statistics.stdev(baseline_values) if len(baseline_values) > 1 else 0
-            baseline_cv = (baseline_stdev / baseline_mean * 100) if baseline_mean > 0 else float('inf')
+            baseline_stdev = (
+                statistics.stdev(baseline_values) if len(baseline_values) > 1 else 0
+            )
+            baseline_cv = (
+                (baseline_stdev / baseline_mean * 100)
+                if baseline_mean > 0
+                else float("inf")
+            )
 
             comparison_mean = statistics.mean(comparison_values)
-            comparison_stdev = statistics.stdev(comparison_values) if len(comparison_values) > 1 else 0
-            comparison_cv = (comparison_stdev / comparison_mean * 100) if comparison_mean > 0 else float('inf')
+            comparison_stdev = (
+                statistics.stdev(comparison_values) if len(comparison_values) > 1 else 0
+            )
+            comparison_cv = (
+                (comparison_stdev / comparison_mean * 100)
+                if comparison_mean > 0
+                else float("inf")
+            )
 
             # Calculate p99 change
-            p99_change = ((comparison_mean - baseline_mean) / baseline_mean * 100) if baseline_mean > 0 else 0
+            p99_change = (
+                ((comparison_mean - baseline_mean) / baseline_mean * 100)
+                if baseline_mean > 0
+                else 0
+            )
 
             # Assess confidence based on variance and p99 change
             if baseline_cv < 30:  # Low variance in baseline (< 30% CV)
                 if abs(p99_change) > 15:  # Significant p99 change
                     high_confidence_indicators += 1
-                    p99_notes.append(f"{command} p99 {'+' if p99_change > 0 else ''}{p99_change:.1f}% (stable baseline)")
+                    p99_notes.append(
+                        f"{command} p99 {'+' if p99_change > 0 else ''}{p99_change:.1f}% (stable baseline)"
+                    )
                 else:
-                    p99_notes.append(f"{command} p99 {'+' if p99_change > 0 else ''}{p99_change:.1f}% (stable baseline, minor change)")
+                    p99_notes.append(
+                        f"{command} p99 {'+' if p99_change > 0 else ''}{p99_change:.1f}% (stable baseline, minor change)"
+                    )
             elif baseline_cv < 50:  # Moderate variance
                 if abs(p99_change) > 25:  # Need larger change for confidence
                     high_confidence_indicators += 1
-                    p99_notes.append(f"{command} p99 {'+' if p99_change > 0 else ''}{p99_change:.1f}% (moderate baseline variance)")
+                    p99_notes.append(
+                        f"{command} p99 {'+' if p99_change > 0 else ''}{p99_change:.1f}% (moderate baseline variance)"
+                    )
                 else:
-                    p99_notes.append(f"{command} p99 {'+' if p99_change > 0 else ''}{p99_change:.1f}% (moderate baseline variance, uncertain)")
+                    p99_notes.append(
+                        f"{command} p99 {'+' if p99_change > 0 else ''}{p99_change:.1f}% (moderate baseline variance, uncertain)"
+                    )
             else:  # High variance
                 if abs(p99_change) > 40:  # Need very large change for confidence
                     high_confidence_indicators += 1
-                    p99_notes.append(f"{command} p99 {'+' if p99_change > 0 else ''}{p99_change:.1f}% (high baseline variance, large change)")
+                    p99_notes.append(
+                        f"{command} p99 {'+' if p99_change > 0 else ''}{p99_change:.1f}% (high baseline variance, large change)"
+                    )
                 else:
-                    p99_notes.append(f"{command} p99 {'+' if p99_change > 0 else ''}{p99_change:.1f}% (high baseline variance, low confidence)")
+                    p99_notes.append(
+                        f"{command} p99 {'+' if p99_change > 0 else ''}{p99_change:.1f}% (high baseline variance, low confidence)"
+                    )
 
             variance_notes.append(f"{command} baseline CV={baseline_cv:.1f}%")
 
             if verbose:
-                logging.info(f"  Command {command}: baseline CV={baseline_cv:.1f}%, comparison CV={comparison_cv:.1f}%, p99 change={p99_change:.1f}%")
+                logging.info(
+                    f"  Command {command}: baseline CV={baseline_cv:.1f}%, comparison CV={comparison_cv:.1f}%, p99 change={p99_change:.1f}%"
+                )
 
         # Determine overall confidence
-        confidence_ratio = high_confidence_indicators / total_indicators if total_indicators > 0 else 0
-        high_confidence = confidence_ratio >= 0.5  # At least 50% of indicators show high confidence
+        confidence_ratio = (
+            high_confidence_indicators / total_indicators if total_indicators > 0 else 0
+        )
+        high_confidence = (
+            confidence_ratio >= 0.5
+        )  # At least 50% of indicators show high confidence
 
         # Create confidence note
         confidence_parts = []
@@ -1738,9 +1982,13 @@ def perform_variance_and_p99_analysis(
         if confidence_note:
             confidence_level = "HIGH" if high_confidence else "LOW"
             cv_explanation = "CV=coefficient of variation (data stability: <30% stable, 30-50% moderate, >50% unstable)"
-            confidence_note = f"confidence={confidence_level} ({confidence_note}; {cv_explanation})"
+            confidence_note = (
+                f"confidence={confidence_level} ({confidence_note}; {cv_explanation})"
+            )
 
-        logging.info(f"Variance and p99 analysis completed for {test_name}: confidence={confidence_ratio:.2f}, high_confidence={high_confidence}")
+        logging.info(
+            f"Variance and p99 analysis completed for {test_name}: confidence={confidence_ratio:.2f}, high_confidence={high_confidence}"
+        )
         return confidence_note, high_confidence
 
     except Exception as e:
@@ -1749,11 +1997,25 @@ def perform_variance_and_p99_analysis(
 
 
 def check_latency_for_unstable_throughput(
-    rts, test_name, baseline_str, comparison_str, by_str_baseline, by_str_comparison,
-    baseline_deployment_name, comparison_deployment_name, tf_triggering_env,
-    from_ts_ms, to_ts_ms, last_n_baseline, last_n_comparison,
-    first_n_baseline, first_n_comparison, running_platform,
-    baseline_architecture, comparison_architecture, verbose
+    rts,
+    test_name,
+    baseline_str,
+    comparison_str,
+    by_str_baseline,
+    by_str_comparison,
+    baseline_deployment_name,
+    comparison_deployment_name,
+    tf_triggering_env,
+    from_ts_ms,
+    to_ts_ms,
+    last_n_baseline,
+    last_n_comparison,
+    first_n_baseline,
+    first_n_comparison,
+    running_platform,
+    baseline_architecture,
+    comparison_architecture,
+    verbose,
 ):
     """
     Check latency (p50) for unstable throughput metrics to provide additional context.
@@ -1796,8 +2058,12 @@ def check_latency_for_unstable_throughput(
         baseline_latency_ts = rts.ts().queryindex(filters_baseline)
         comparison_latency_ts = rts.ts().queryindex(filters_comparison)
 
-        logging.info(f"Found {len(baseline_latency_ts)} baseline p50 latency time-series")
-        logging.info(f"Found {len(comparison_latency_ts)} comparison p50 latency time-series")
+        logging.info(
+            f"Found {len(baseline_latency_ts)} baseline p50 latency time-series"
+        )
+        logging.info(
+            f"Found {len(comparison_latency_ts)} comparison p50 latency time-series"
+        )
 
         if verbose and baseline_latency_ts:
             logging.info(f"Baseline latency time-series: {baseline_latency_ts}")
@@ -1822,28 +2088,44 @@ def check_latency_for_unstable_throughput(
         comparison_latency_ts_before = len(comparison_latency_ts)
 
         # Apply filtering and log what gets excluded
-        baseline_excluded = [ts for ts in baseline_latency_ts if should_exclude_timeseries(ts)]
-        comparison_excluded = [ts for ts in comparison_latency_ts if should_exclude_timeseries(ts)]
+        baseline_excluded = [
+            ts for ts in baseline_latency_ts if should_exclude_timeseries(ts)
+        ]
+        comparison_excluded = [
+            ts for ts in comparison_latency_ts if should_exclude_timeseries(ts)
+        ]
 
-        baseline_latency_ts = [ts for ts in baseline_latency_ts if not should_exclude_timeseries(ts)]
-        comparison_latency_ts = [ts for ts in comparison_latency_ts if not should_exclude_timeseries(ts)]
+        baseline_latency_ts = [
+            ts for ts in baseline_latency_ts if not should_exclude_timeseries(ts)
+        ]
+        comparison_latency_ts = [
+            ts for ts in comparison_latency_ts if not should_exclude_timeseries(ts)
+        ]
 
-        logging.info(f"After filtering: baseline {baseline_latency_ts_before} -> {len(baseline_latency_ts)}, "
-                    f"comparison {comparison_latency_ts_before} -> {len(comparison_latency_ts)}")
+        logging.info(
+            f"After filtering: baseline {baseline_latency_ts_before} -> {len(baseline_latency_ts)}, "
+            f"comparison {comparison_latency_ts_before} -> {len(comparison_latency_ts)}"
+        )
 
         if baseline_excluded:
-            logging.info(f"Excluded {len(baseline_excluded)} baseline administrative command time-series")
+            logging.info(
+                f"Excluded {len(baseline_excluded)} baseline administrative command time-series"
+            )
             if verbose:
                 for ts in baseline_excluded:
                     logging.info(f"  Excluded baseline: {ts}")
         if comparison_excluded:
-            logging.info(f"Excluded {len(comparison_excluded)} comparison administrative command time-series")
+            logging.info(
+                f"Excluded {len(comparison_excluded)} comparison administrative command time-series"
+            )
             if verbose:
                 for ts in comparison_excluded:
                     logging.info(f"  Excluded comparison: {ts}")
 
         if len(baseline_latency_ts) == 0 or len(comparison_latency_ts) == 0:
-            logging.warning(f"No p50 latency data found for {test_name} after filtering")
+            logging.warning(
+                f"No p50 latency data found for {test_name} after filtering"
+            )
             return None, False, None
 
         # Extract command names from time-series to match baseline and comparison
@@ -1852,18 +2134,20 @@ def check_latency_for_unstable_throughput(
             import re
 
             # Look for latencystats_latency_percentiles_usec_<COMMAND>_p50 pattern
-            match = re.search(r'latencystats_latency_percentiles_usec_([^_/]+)_p50', ts_name)
+            match = re.search(
+                r"latencystats_latency_percentiles_usec_([^_/]+)_p50", ts_name
+            )
             if match:
                 return match.group(1)
 
             # Look for command= pattern in the time-series name
-            match = re.search(r'command=([^/]+)', ts_name)
+            match = re.search(r"command=([^/]+)", ts_name)
             if match:
                 return match.group(1)
 
             # If no specific pattern found, try to extract from the end of the path
             # e.g., .../Ops/sec/GET -> GET
-            parts = ts_name.split('/')
+            parts = ts_name.split("/")
             if len(parts) > 0:
                 return parts[-1]
             return "unknown"
@@ -1889,22 +2173,29 @@ def check_latency_for_unstable_throughput(
             comparison_by_command[cmd].append(ts)
 
         # Find common commands between baseline and comparison
-        common_commands = set(baseline_by_command.keys()) & set(comparison_by_command.keys())
+        common_commands = set(baseline_by_command.keys()) & set(
+            comparison_by_command.keys()
+        )
 
         logging.info(f"Baseline commands found: {sorted(baseline_by_command.keys())}")
-        logging.info(f"Comparison commands found: {sorted(comparison_by_command.keys())}")
-        logging.info(f"Common commands for latency comparison: {sorted(common_commands)}")
+        logging.info(
+            f"Comparison commands found: {sorted(comparison_by_command.keys())}"
+        )
+        logging.info(
+            f"Common commands for latency comparison: {sorted(common_commands)}"
+        )
 
         if not common_commands:
-            logging.warning(f"No common commands found for latency comparison in {test_name}")
+            logging.warning(
+                f"No common commands found for latency comparison in {test_name}"
+            )
             return None, False, None
 
         latency_notes = []
-        significant_latency_increases = 0  # Track commands with significant latency increases
-        regression_details = {
-            "test_name": test_name,
-            "commands": []
-        }
+        significant_latency_increases = (
+            0  # Track commands with significant latency increases
+        )
+        regression_details = {"test_name": test_name, "commands": []}
 
         # Compare latency for each command individually
         for command in sorted(common_commands):
@@ -1912,18 +2203,26 @@ def check_latency_for_unstable_throughput(
             baseline_ts_list = baseline_by_command[command]
             comparison_ts_list = comparison_by_command[command]
 
-            logging.info(f"  Command {command}: {len(baseline_ts_list)} baseline, {len(comparison_ts_list)} comparison time-series")
+            logging.info(
+                f"  Command {command}: {len(baseline_ts_list)} baseline, {len(comparison_ts_list)} comparison time-series"
+            )
 
             # If multiple time-series for the same command, try to get the best one
             if len(baseline_ts_list) > 1:
-                logging.info(f"  Multiple baseline time-series for {command}, filtering...")
+                logging.info(
+                    f"  Multiple baseline time-series for {command}, filtering..."
+                )
                 baseline_ts_list = get_only_Totals(baseline_ts_list)
             if len(comparison_ts_list) > 1:
-                logging.info(f"  Multiple comparison time-series for {command}, filtering...")
+                logging.info(
+                    f"  Multiple comparison time-series for {command}, filtering..."
+                )
                 comparison_ts_list = get_only_Totals(comparison_ts_list)
 
             if len(baseline_ts_list) != 1 or len(comparison_ts_list) != 1:
-                logging.warning(f"  Skipping {command}: baseline={len(baseline_ts_list)}, comparison={len(comparison_ts_list)} time-series")
+                logging.warning(
+                    f"  Skipping {command}: baseline={len(baseline_ts_list)}, comparison={len(comparison_ts_list)} time-series"
+                )
                 continue
 
             # Get latency data for this command
@@ -1939,45 +2238,93 @@ def check_latency_for_unstable_throughput(
                 comparison_latency_data.extend(datapoints)
 
             if len(baseline_latency_data) == 0 or len(comparison_latency_data) == 0:
-                logging.warning(f"  No latency data for {command}: baseline={len(baseline_latency_data)}, comparison={len(comparison_latency_data)} datapoints")
+                logging.warning(
+                    f"  No latency data for {command}: baseline={len(baseline_latency_data)}, comparison={len(comparison_latency_data)} datapoints"
+                )
                 continue
 
-            logging.info(f"  Command {command}: {len(baseline_latency_data)} baseline, {len(comparison_latency_data)} comparison datapoints")
+            logging.info(
+                f"  Command {command}: {len(baseline_latency_data)} baseline, {len(comparison_latency_data)} comparison datapoints"
+            )
 
             # Calculate latency statistics for this command
             baseline_latency_values = []
             comparison_latency_values = []
 
             (_, baseline_latency_median, _) = get_v_pct_change_and_largest_var(
-                baseline_latency_data, 0, 0, baseline_latency_values, 0,
-                last_n_baseline, verbose, first_n_baseline
+                baseline_latency_data,
+                0,
+                0,
+                baseline_latency_values,
+                0,
+                last_n_baseline,
+                verbose,
+                first_n_baseline,
             )
 
             (_, comparison_latency_median, _) = get_v_pct_change_and_largest_var(
-                comparison_latency_data, 0, 0, comparison_latency_values, 0,
-                last_n_comparison, verbose, first_n_comparison
+                comparison_latency_data,
+                0,
+                0,
+                comparison_latency_values,
+                0,
+                last_n_comparison,
+                verbose,
+                first_n_comparison,
             )
 
             if baseline_latency_median == "N/A" or comparison_latency_median == "N/A":
-                logging.warning(f"  Could not calculate median for {command}: baseline={baseline_latency_median}, comparison={comparison_latency_median}")
+                logging.warning(
+                    f"  Could not calculate median for {command}: baseline={baseline_latency_median}, comparison={comparison_latency_median}"
+                )
                 continue
 
             # Calculate variance (coefficient of variation) for both baseline and comparison
-            baseline_latency_mean = statistics.mean(baseline_latency_values) if baseline_latency_values else 0
-            baseline_latency_stdev = statistics.stdev(baseline_latency_values) if len(baseline_latency_values) > 1 else 0
-            baseline_latency_cv = (baseline_latency_stdev / baseline_latency_mean * 100) if baseline_latency_mean > 0 else float('inf')
+            baseline_latency_mean = (
+                statistics.mean(baseline_latency_values)
+                if baseline_latency_values
+                else 0
+            )
+            baseline_latency_stdev = (
+                statistics.stdev(baseline_latency_values)
+                if len(baseline_latency_values) > 1
+                else 0
+            )
+            baseline_latency_cv = (
+                (baseline_latency_stdev / baseline_latency_mean * 100)
+                if baseline_latency_mean > 0
+                else float("inf")
+            )
 
-            comparison_latency_mean = statistics.mean(comparison_latency_values) if comparison_latency_values else 0
-            comparison_latency_stdev = statistics.stdev(comparison_latency_values) if len(comparison_latency_values) > 1 else 0
-            comparison_latency_cv = (comparison_latency_stdev / comparison_latency_mean * 100) if comparison_latency_mean > 0 else float('inf')
+            comparison_latency_mean = (
+                statistics.mean(comparison_latency_values)
+                if comparison_latency_values
+                else 0
+            )
+            comparison_latency_stdev = (
+                statistics.stdev(comparison_latency_values)
+                if len(comparison_latency_values) > 1
+                else 0
+            )
+            comparison_latency_cv = (
+                (comparison_latency_stdev / comparison_latency_mean * 100)
+                if comparison_latency_mean > 0
+                else float("inf")
+            )
 
             # Calculate latency change (for latency, lower is better)
-            latency_change = (float(comparison_latency_median) / float(baseline_latency_median) - 1) * 100.0
+            latency_change = (
+                float(comparison_latency_median) / float(baseline_latency_median) - 1
+            ) * 100.0
 
-            logging.info(f"  Command {command}: baseline p50={baseline_latency_median:.2f} (CV={baseline_latency_cv:.1f}%), comparison p50={comparison_latency_median:.2f} (CV={comparison_latency_cv:.1f}%), change={latency_change:.1f}%")
+            logging.info(
+                f"  Command {command}: baseline p50={baseline_latency_median:.2f} (CV={baseline_latency_cv:.1f}%), comparison p50={comparison_latency_median:.2f} (CV={comparison_latency_cv:.1f}%), change={latency_change:.1f}%"
+            )
 
             # Check if latency data is too unstable to be reliable
-            latency_data_unstable = baseline_latency_cv > 50.0 or comparison_latency_cv > 50.0
+            latency_data_unstable = (
+                baseline_latency_cv > 50.0 or comparison_latency_cv > 50.0
+            )
 
             if latency_data_unstable:
                 # Mark as unstable latency data
@@ -1985,11 +2332,19 @@ def check_latency_for_unstable_throughput(
                 if baseline_latency_cv > 50.0:
                     unstable_reason.append(f"baseline CV={baseline_latency_cv:.1f}%")
                 if comparison_latency_cv > 50.0:
-                    unstable_reason.append(f"comparison CV={comparison_latency_cv:.1f}%")
+                    unstable_reason.append(
+                        f"comparison CV={comparison_latency_cv:.1f}%"
+                    )
 
-                latency_notes.append(f"{command} p50 UNSTABLE ({', '.join(unstable_reason)} - data too noisy for reliable analysis)")
-                logging.warning(f"  Command {command}: UNSTABLE latency data detected - {', '.join(unstable_reason)}")
-            elif abs(latency_change) > 5.0:  # Only report significant latency changes for stable data
+                latency_notes.append(
+                    f"{command} p50 UNSTABLE ({', '.join(unstable_reason)} - data too noisy for reliable analysis)"
+                )
+                logging.warning(
+                    f"  Command {command}: UNSTABLE latency data detected - {', '.join(unstable_reason)}"
+                )
+            elif (
+                abs(latency_change) > 5.0
+            ):  # Only report significant latency changes for stable data
                 direction = "increased" if latency_change > 0 else "decreased"
 
                 # Adjust significance threshold based on baseline variance
@@ -2003,25 +2358,39 @@ def check_latency_for_unstable_throughput(
                     # High variance - require much larger change
                     significance_threshold = 25.0
 
-                latency_notes.append(f"{command} p50 {direction} {abs(latency_change):.1f}% (baseline CV={baseline_latency_cv:.1f}%)")
-                logging.info(f"  Command {command}: SIGNIFICANT latency change detected ({direction} {abs(latency_change):.1f}%, baseline CV={baseline_latency_cv:.1f}%)")
+                latency_notes.append(
+                    f"{command} p50 {direction} {abs(latency_change):.1f}% (baseline CV={baseline_latency_cv:.1f}%)"
+                )
+                logging.info(
+                    f"  Command {command}: SIGNIFICANT latency change detected ({direction} {abs(latency_change):.1f}%, baseline CV={baseline_latency_cv:.1f}%)"
+                )
 
                 # Track significant latency increases (potential regression confirmation)
                 if latency_change > significance_threshold:
                     significant_latency_increases += 1
-                    regression_details["commands"].append({
-                        "command": command,
-                        "change_percent": latency_change,
-                        "direction": direction,
-                        "baseline_cv": baseline_latency_cv,
-                        "comparison_cv": comparison_latency_cv
-                    })
-                    logging.info(f"  Command {command}: CONFIRMS regression (change={latency_change:.1f}% > threshold={significance_threshold:.1f}%)")
+                    regression_details["commands"].append(
+                        {
+                            "command": command,
+                            "change_percent": latency_change,
+                            "direction": direction,
+                            "baseline_cv": baseline_latency_cv,
+                            "comparison_cv": comparison_latency_cv,
+                        }
+                    )
+                    logging.info(
+                        f"  Command {command}: CONFIRMS regression (change={latency_change:.1f}% > threshold={significance_threshold:.1f}%)"
+                    )
                 else:
-                    logging.info(f"  Command {command}: Change below significance threshold (change={latency_change:.1f}% <= threshold={significance_threshold:.1f}%)")
+                    logging.info(
+                        f"  Command {command}: Change below significance threshold (change={latency_change:.1f}% <= threshold={significance_threshold:.1f}%)"
+                    )
             elif verbose:
-                latency_notes.append(f"{command} p50 stable (CV={baseline_latency_cv:.1f}%)")
-                logging.info(f"  Command {command}: latency stable (change={latency_change:.1f}%, baseline CV={baseline_latency_cv:.1f}%)")
+                latency_notes.append(
+                    f"{command} p50 stable (CV={baseline_latency_cv:.1f}%)"
+                )
+                logging.info(
+                    f"  Command {command}: latency stable (change={latency_change:.1f}%, baseline CV={baseline_latency_cv:.1f}%)"
+                )
 
         # Determine if latency confirms regression
         confirms_regression = significant_latency_increases > 0
@@ -2030,10 +2399,16 @@ def check_latency_for_unstable_throughput(
         if latency_notes:
             result = "; ".join(latency_notes)
             logging.info(f"Latency check completed for {test_name}: {result}")
-            return result, confirms_regression, regression_details if confirms_regression else None
+            return (
+                result,
+                confirms_regression,
+                regression_details if confirms_regression else None,
+            )
         else:
             result = "p50 latency stable" if common_commands else None
-            logging.info(f"Latency check completed for {test_name}: {result or 'no data'}")
+            logging.info(
+                f"Latency check completed for {test_name}: {result or 'no data'}"
+            )
             return result, False, None
 
     except Exception as e:
@@ -2051,7 +2426,9 @@ def get_only_Totals(baseline_timeseries):
 
     # If no "Totals" time-series found, try to pick the best alternative
     if len(new_base) == 0:
-        logging.warning("No 'Totals' time-series found, trying to pick best alternative.")
+        logging.warning(
+            "No 'Totals' time-series found, trying to pick best alternative."
+        )
         # Prefer time-series without quotes in metric names
         unquoted_series = [ts for ts in baseline_timeseries if "'" not in ts]
         if unquoted_series:
@@ -2070,7 +2447,11 @@ def get_only_Totals(baseline_timeseries):
 
         # If we still have multiple, take the first one
         if len(new_base) > 1:
-            logging.warning("Still multiple time-series after filtering, taking the first one: {}".format(new_base[0]))
+            logging.warning(
+                "Still multiple time-series after filtering, taking the first one: {}".format(
+                    new_base[0]
+                )
+            )
             new_base = [new_base[0]]
 
     baseline_timeseries = new_base
@@ -2139,13 +2520,13 @@ def add_line(
     percentage_change,
     table,
     test_name,
-    grafana_link_base = None,
-    baseline_branch = None,
-    baseline_version = None,
-    comparison_branch = None,
-    comparison_version = None,
-    from_date = None,
-    to_date = None,
+    grafana_link_base=None,
+    baseline_branch=None,
+    baseline_version=None,
+    comparison_branch=None,
+    comparison_version=None,
+    from_date=None,
+    to_date=None,
 ):
     grafana_link = None
     if grafana_link_base is not None:

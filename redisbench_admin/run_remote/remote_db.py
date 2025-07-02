@@ -406,9 +406,17 @@ def db_error_artifacts(
     upload_s3,
     username,
 ):
+    # Import the zip check function
+    from redisbench_admin.run_remote.standalone import ensure_zip_available
+
+    # Ensure zip is available before trying to use it
+    ensure_zip_available(server_public_ip, username, private_key, db_ssh_port)
+
     local_zipfile = "{}.zip".format(logname)
     remote_zipfile = "/home/{}/{}".format(username, local_zipfile)
-    execute_remote_commands(
+
+    # Create zip file
+    zip_result = execute_remote_commands(
         server_public_ip,
         username,
         private_key,
@@ -417,26 +425,57 @@ def db_error_artifacts(
         ],
         db_ssh_port,
     )
-    failed_remote_run_artifact_store(
-        upload_s3,
-        server_public_ip,
-        dirname,
-        remote_zipfile,
-        local_zipfile,
-        s3_bucket_name,
-        s3_bucket_path,
-        username,
-        private_key,
-    )
+
+    # Check if zip creation was successful
+    zip_success = True
+    for pos, res_pos in enumerate(zip_result):
+        [recv_exit_status, stdout, stderr] = res_pos
+        if recv_exit_status != 0:
+            logging.warning(
+                "Zip creation failed with exit code {}. stdout: {}. stderr: {}".format(
+                    recv_exit_status, stdout, stderr
+                )
+            )
+            zip_success = False
+
+    # Only try to upload if zip was created successfully
+    if zip_success:
+        try:
+            failed_remote_run_artifact_store(
+                upload_s3,
+                server_public_ip,
+                dirname,
+                remote_zipfile,
+                local_zipfile,
+                s3_bucket_name,
+                s3_bucket_path,
+                username,
+                private_key,
+            )
+        except Exception as e:
+            logging.warning(
+                "Failed to upload zip file to S3: {}. Continuing without upload.".format(
+                    e
+                )
+            )
+    else:
+        logging.warning("Skipping S3 upload due to zip creation failure")
     if len(full_logfiles) > 0:
-        failed_remote_run_artifact_store(
-            upload_s3,
-            server_public_ip,
-            dirname,
-            full_logfiles[0],
-            logname,
-            s3_bucket_name,
-            s3_bucket_path,
-            username,
-            private_key,
-        )
+        try:
+            failed_remote_run_artifact_store(
+                upload_s3,
+                server_public_ip,
+                dirname,
+                full_logfiles[0],
+                logname,
+                s3_bucket_name,
+                s3_bucket_path,
+                username,
+                private_key,
+            )
+        except Exception as e:
+            logging.warning(
+                "Failed to upload logfile to S3: {}. Continuing without upload.".format(
+                    e
+                )
+            )

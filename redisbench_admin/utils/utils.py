@@ -128,33 +128,51 @@ def upload_artifacts_to_s3(
     if region_name is None:
         region_name = EC2_REGION
     logging.info("-- uploading results to s3 -- ")
-    if aws_access_key_id is not None and aws_secret_access_key is not None:
-        logging.info("-- Using REQUEST PROVIDED AWS credentials -- ")
-        session = boto3.Session(
-            aws_access_key_id, aws_secret_access_key, aws_session_token, region_name
-        )
-        s3 = session.resource("s3")
-    else:
-        logging.info("-- Using default AWS credentials -- ")
-        s3 = boto3.resource("s3")
-    bucket = s3.Bucket(s3_bucket_name)
-    progress = tqdm(unit="files", total=len(artifacts))
 
-    for full_artifact_path in artifacts:
-        artifact = os.path.basename(full_artifact_path)
-        object_key = "{bucket_path}{filename}".format(
-            bucket_path=s3_bucket_path, filename=artifact
+    try:
+        if aws_access_key_id is not None and aws_secret_access_key is not None:
+            logging.info("-- Using REQUEST PROVIDED AWS credentials -- ")
+            session = boto3.Session(
+                aws_access_key_id, aws_secret_access_key, aws_session_token, region_name
+            )
+            s3 = session.resource("s3")
+        else:
+            logging.info("-- Using default AWS credentials -- ")
+            s3 = boto3.resource("s3")
+        bucket = s3.Bucket(s3_bucket_name)
+        progress = tqdm(unit="files", total=len(artifacts))
+
+        for full_artifact_path in artifacts:
+            try:
+                artifact = os.path.basename(full_artifact_path)
+                object_key = "{bucket_path}{filename}".format(
+                    bucket_path=s3_bucket_path, filename=artifact
+                )
+
+                bucket.upload_file(full_artifact_path, object_key)
+                object_acl = s3.ObjectAcl(s3_bucket_name, object_key)
+                object_acl.put(ACL="public-read")
+                progress.update()
+                url = "https://s3.{0}.amazonaws.com/{1}/{2}{3}".format(
+                    region_name, s3_bucket_name, s3_bucket_path, quote_plus(artifact)
+                )
+                artifacts_map[artifact] = url
+                logging.info("Successfully uploaded {} to S3".format(artifact))
+            except Exception as e:
+                logging.warning(
+                    "Failed to upload artifact {} to S3: {}. Skipping this file.".format(
+                        full_artifact_path, e
+                    )
+                )
+                progress.update()
+        progress.close()
+    except Exception as e:
+        logging.error(
+            "Failed to initialize S3 connection: {}. No files will be uploaded.".format(
+                e
+            )
         )
 
-        bucket.upload_file(full_artifact_path, object_key)
-        object_acl = s3.ObjectAcl(s3_bucket_name, object_key)
-        object_acl.put(ACL="public-read")
-        progress.update()
-        url = "https://s3.{0}.amazonaws.com/{1}/{2}{3}".format(
-            region_name, s3_bucket_name, s3_bucket_path, quote_plus(artifact)
-        )
-        artifacts_map[artifact] = url
-    progress.close()
     return artifacts_map
 
 

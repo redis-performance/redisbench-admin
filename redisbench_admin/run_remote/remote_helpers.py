@@ -71,6 +71,23 @@ def remote_tool_pre_bench_step(
     logging.info(
         f"Settting up remote tool {benchmark_tool} requirements. architecture ={architecture}"
     )
+
+    # Check and install benchmark tools if needed
+    if benchmark_tool == "memtier_benchmark":
+        from redisbench_admin.run_remote.standalone import (
+            ensure_memtier_benchmark_available,
+        )
+
+        ensure_memtier_benchmark_available(
+            client_public_ip, username, private_key, client_ssh_port
+        )
+    elif benchmark_tool == "redis-benchmark":
+        from redisbench_admin.run_remote.standalone import ensure_redis_server_available
+
+        # redis-benchmark comes with redis-server, so ensure redis-server is installed
+        ensure_redis_server_available(
+            client_public_ip, username, private_key, client_ssh_port
+        )
     if benchmark_tool == "redisgraph-benchmark-go":
         setup_remote_benchmark_tool_redisgraph_benchmark_go(
             client_public_ip,
@@ -89,11 +106,7 @@ def remote_tool_pre_bench_step(
         )
 
     if "ftsb_" in benchmark_tool:
-        (
-            queries_file_link,
-            remote_tool_link,
-            tool_link,
-        ) = extract_ftsb_extra_links(
+        (queries_file_link, remote_tool_link, tool_link,) = extract_ftsb_extra_links(
             benchmark_config, benchmark_tool, config_key, architecture
         )
         logging.info(

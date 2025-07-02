@@ -35,14 +35,7 @@ def test_define_benchmark_plan():
     }
     default_specs = {}
     with open("./tests/test_data/defaults-with-dbconfig.yml", "r") as yml_file:
-        (
-            _,
-            _,
-            _,
-            _,
-            default_specs,
-            _,
-        ) = process_default_yaml_properties_file(
+        (_, _, _, _, default_specs, _,) = process_default_yaml_properties_file(
             None, None, None, "1.yml", None, yml_file
         )
 

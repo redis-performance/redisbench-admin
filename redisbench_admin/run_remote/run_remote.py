@@ -161,7 +161,24 @@ def run_remote_command_logic(args, project_name, project_version):
         )
         webhook_client_slack = WebhookClient(webhook_url)
 
-    if args.skip_env_vars_verify is False:
+    # Only check AWS credentials when actually needed
+    needs_aws_for_infrastructure = (
+        args.inventory is None
+    )  # No inventory = need to deploy with Terraform
+    needs_aws_for_s3 = args.upload_results_s3  # S3 upload enabled
+
+    if args.skip_env_vars_verify is False and (
+        needs_aws_for_infrastructure or needs_aws_for_s3
+    ):
+        # Log why AWS credentials are being checked
+        aws_reasons = []
+        if needs_aws_for_infrastructure:
+            aws_reasons.append("infrastructure deployment (no --inventory provided)")
+        if needs_aws_for_s3:
+            aws_reasons.append("S3 upload (--upload_results_s3 enabled)")
+
+        logging.info("AWS credentials required for: {}".format(", ".join(aws_reasons)))
+
         env_check_status, failure_reason = check_ec2_env()
         if env_check_status is False:
             if webhook_notifications_active:
@@ -177,6 +194,10 @@ def run_remote_command_logic(args, project_name, project_version):
                 )
             logging.critical("{}. Exiting right away!".format(failure_reason))
             exit(1)
+    elif args.skip_env_vars_verify is False:
+        logging.info(
+            "AWS credentials check skipped (using --inventory and S3 upload disabled)"
+        )
 
     continue_on_module_check_error = args.continue_on_module_check_error
     module_check_status, error_message = redis_modules_check(local_module_files)
@@ -1408,20 +1429,20 @@ def commandstats_latencystats_process_name(
             branch = variant_labels_dict["branch"]
 
         if version is not None:
-            variant_labels_dict["command_and_metric_and_version"] = (
-                "{} - {} - {}".format(command, metric, version)
-            )
-            variant_labels_dict["command_and_metric_and_setup_and_version"] = (
-                "{} - {} - {} - {}".format(command, metric, setup_name, version)
-            )
+            variant_labels_dict[
+                "command_and_metric_and_version"
+            ] = "{} - {} - {}".format(command, metric, version)
+            variant_labels_dict[
+                "command_and_metric_and_setup_and_version"
+            ] = "{} - {} - {} - {}".format(command, metric, setup_name, version)
 
         if branch is not None:
-            variant_labels_dict["command_and_metric_and_branch"] = (
-                "{} - {} - {}".format(command, metric, branch)
-            )
-            variant_labels_dict["command_and_metric_and_setup_and_branch"] = (
-                "{} - {} - {} - {}".format(command, metric, setup_name, branch)
-            )
+            variant_labels_dict[
+                "command_and_metric_and_branch"
+            ] = "{} - {} - {}".format(command, metric, branch)
+            variant_labels_dict[
+                "command_and_metric_and_setup_and_branch"
+            ] = "{} - {} - {} - {}".format(command, metric, setup_name, branch)
 
 
 def shutdown_remote_redis(redis_conns, ssh_tunnel):
