@@ -89,6 +89,20 @@ def generate_meet_cmds(shard_count, shard_host, start_port):
 def setup_oss_cluster_from_conns(meet_cmds, redis_conns, shard_count):
     status = False
     try:
+        # Pre-setup validation: check uptime and cluster mode
+        for primary_pos, redis_conn in enumerate(redis_conns):
+            redis_conn.ping()
+
+            server_info = redis_conn.info("server")
+            uptime = server_info.get("uptime_in_seconds", 0)
+            cluster_enabled = server_info.get("cluster_enabled", 0)
+            tcp_port = server_info.get("tcp_port", "n/a")
+
+            logging.info(
+                f"Node {primary_pos} ({tcp_port}): uptime={uptime}s cluster_enabled={cluster_enabled}"
+            )
+
+        # Send meet commands
         for primary_pos, redis_conn in enumerate(redis_conns):
             logging.info(
                 "Sending to primary #{} a total of {} MEET commands".format(
@@ -138,6 +152,29 @@ def setup_oss_cluster_from_conns(meet_cmds, redis_conns, shard_count):
                 )
                 logging.info("Node {}: cluster_state {}".format(n, cluster_state_ok))
                 sleep(1)
+
+        # Post-setup validation: check uptime and cluster mode
+        sleep(10)
+        for primary_pos, redis_conn in enumerate(redis_conns):
+            redis_conn.ping()
+
+            server_info = redis_conn.info("server")
+            uptime = server_info.get("uptime_in_seconds", 0)
+            server_info = redis_conn.info("cluster")
+            cluster_enabled = server_info.get("cluster_enabled", -1)
+            tcp_port = server_info.get("tcp_port", "n/a")
+
+            logging.info(
+                f"Node {primary_pos} ({tcp_port}): uptime={uptime}s cluster_enabled={cluster_enabled}"
+            )
+
+            if cluster_enabled != 1:
+                logging.error(
+                    "Node {}: cluster mode is not enabled (cluster_enabled={})".format(
+                        primary_pos, cluster_enabled
+                    )
+                )
+                return False
         status = True
     except redis.exceptions.RedisError as e:
         logging.warning("Received an error {}".format(e.__str__()))

@@ -188,8 +188,6 @@ BENCHMARK_CPU_STATS_GLOBAL = {}
 
 
 def collect_cpu_data(redis_conns=[], delta_secs: float = 5.0, delay_start: float = 1.0):
-    global BENCHMARK_CPU_STATS_GLOBAL
-    global BENCHMARK_RUNNING_GLOBAL
     import time
 
     counter = 0

@@ -1,7 +1,3 @@
-clusterconfig:
-  init_commands:
-  - commands:
-    - search.CLUSTERREFRESH
 exporter:
   comparison:
     baseline-branch: master

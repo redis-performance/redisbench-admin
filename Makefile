@@ -5,25 +5,12 @@
 # Code quality and compliance checks
 compliance:
 	@echo "🔍 Running compliance checks..."
-	@if poetry run black --check redisbench_admin; then \
-		echo "📝 Black formatting: ✅ PASSED"; \
-	else \
-		echo "📝 Black formatting: ❌ FAILED"; \
-		echo "💡 Run 'make format' to fix formatting issues"; \
-		exit 1; \
-	fi
-	@if poetry run flake8 redisbench_admin; then \
-		echo "🔍 Flake8 linting: ✅ PASSED"; \
-	else \
-		echo "🔍 Flake8 linting: ❌ FAILED"; \
-		exit 1; \
-	fi
-	@echo "✅ All compliance checks passed!"
+	tox -e compliance
 
 # Fix code formatting issues
 format:
 	@echo "🔧 Fixing code formatting..."
-	poetry run black redisbench_admin
+	tox -e format
 	@echo "✅ Code formatting fixed!"
 
 # Alias for format

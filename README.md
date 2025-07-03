@@ -110,7 +110,13 @@ $ tox
 
 To run a specific test:
 ```sh
-$ tox -- tests/test_redistimeseries.py
+$ tox -- tests/test_defaults_purpose_built_env.py
+```
+
+To run a specific test and persist the docker container used for timeseries:
+
+```
+tox  --docker-dont-stop=rts_datasink  -- -vv --log-cli-level=INFO  tests/test_defaults_purpose_built_env.py 
 ```
 
 To run a specific test with verbose logging:
