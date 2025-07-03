@@ -106,11 +106,7 @@ def remote_tool_pre_bench_step(
         )
 
     if "ftsb_" in benchmark_tool:
-        (
-            queries_file_link,
-            remote_tool_link,
-            tool_link,
-        ) = extract_ftsb_extra_links(
+        (queries_file_link, remote_tool_link, tool_link,) = extract_ftsb_extra_links(
             benchmark_config, benchmark_tool, config_key, architecture
         )
         logging.info(

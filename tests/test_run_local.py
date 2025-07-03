@@ -259,6 +259,19 @@ def test_run_local_dry_run():
             def mock_info(section=None):
                 if section == "keyspace":
                     return {}  # Empty keyspace for dry-run
+                elif section == "server":
+                    return {
+                        "redis_version": "7.0.0",
+                        "redis_mode": "standalone",
+                        "arch_bits": 64,
+                        "multiplexing_api": "epoll",
+                        "gcc_version": "9.4.0",
+                        "process_id": 12345,
+                        "run_id": "test-run-id",
+                        "tcp_port": 6379,
+                        "uptime_in_seconds": 100,
+                        "uptime_in_days": 0
+                    }
                 else:
                     return {
                         "process_id": 12345,
@@ -267,7 +280,6 @@ def test_run_local_dry_run():
                         "arch_bits": 64,
                         "multiplexing_api": "epoll",
                         "gcc_version": "9.4.0",
-                        "process_id": 12345,
                         "run_id": "test-run-id",
                         "tcp_port": 6379,
                         "uptime_in_seconds": 100,
@@ -353,8 +365,32 @@ def test_run_local_dry_run_with_preload():
                     return {
                         "db0": {"keys": 1000, "expires": 0}
                     }  # Simulated preloaded data
+                elif section == "server":
+                    return {
+                        "redis_version": "7.0.0",
+                        "redis_mode": "standalone",
+                        "arch_bits": 64,
+                        "multiplexing_api": "epoll",
+                        "gcc_version": "9.4.0",
+                        "process_id": 12345,
+                        "run_id": "test-run-id",
+                        "tcp_port": 6379,
+                        "uptime_in_seconds": 100,
+                        "uptime_in_days": 0
+                    }
                 else:
-                    return {"process_id": 12345}
+                    return {
+                        "process_id": 12345,
+                        "redis_version": "7.0.0",
+                        "redis_mode": "standalone",
+                        "arch_bits": 64,
+                        "multiplexing_api": "epoll",
+                        "gcc_version": "9.4.0",
+                        "run_id": "test-run-id",
+                        "tcp_port": 6379,
+                        "uptime_in_seconds": 100,
+                        "uptime_in_days": 0
+                    }
 
             mock_redis_instance.info.side_effect = mock_info_with_preload
 
