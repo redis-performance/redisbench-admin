@@ -69,6 +69,7 @@ from redisbench_admin.utils.remote import (
     get_project_ts_tags,
     push_data_to_redistimeseries,
     fetch_remote_id_from_config,
+    perform_connectivity_test,
 )
 
 from redisbench_admin.utils.utils import (
@@ -694,6 +695,62 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     primary_one_pid, PERF_CALLGRAPH_MODE
                                                 )
                                             )
+
+                                    # Handle dry-run modes
+                                    if args.dry_run or args.dry_run_with_preload:
+                                        logging.info(
+                                            "🏃 Dry-run mode detected - performing connectivity tests"
+                                        )
+
+                                        # Test basic connectivity after setup
+                                        connectivity_success = (
+                                            perform_connectivity_test(
+                                                redis_conns, "after environment setup"
+                                            )
+                                        )
+
+                                        if args.dry_run_with_preload:
+                                            logging.info(
+                                                "📦 Dry-run with preload - data loading already completed during setup"
+                                            )
+                                            # Test connectivity after preload (data was loaded during remote_db_spin)
+                                            connectivity_success = (
+                                                perform_connectivity_test(
+                                                    redis_conns, "after data preloading"
+                                                )
+                                                and connectivity_success
+                                            )
+
+                                        # Print dry-run summary
+                                        logging.info("=" * 50)
+                                        logging.info("🎯 DRY-RUN SUMMARY")
+                                        logging.info("=" * 50)
+                                        logging.info(
+                                            f"✅ Infrastructure: {'Deployed' if args.inventory is None else 'Using existing'}"
+                                        )
+                                        logging.info(
+                                            f"✅ Database: {setup_type} ({'cluster' if cluster_enabled else 'standalone'}) started"
+                                        )
+                                        logging.info(
+                                            f"✅ Client tools: Setup completed on {client_public_ip}"
+                                        )
+                                        logging.info(
+                                            f"{'✅' if connectivity_success else '❌'} Connectivity: {len(redis_conns)} connection(s) tested"
+                                        )
+                                        if args.dry_run_with_preload:
+                                            logging.info(
+                                                "✅ Data preload: Completed during setup"
+                                            )
+                                        logging.info(
+                                            "🏁 Dry-run completed successfully"
+                                        )
+                                        logging.info(
+                                            "⏭️  Benchmark execution skipped (dry-run mode)"
+                                        )
+                                        logging.info("=" * 50)
+
+                                        # Skip benchmark execution and continue to next test
+                                        continue
 
                                     logging.info(
                                         "Will store benchmark json output to local file {}".format(
@@ -1429,20 +1486,20 @@ def commandstats_latencystats_process_name(
             branch = variant_labels_dict["branch"]
 
         if version is not None:
-            variant_labels_dict[
-                "command_and_metric_and_version"
-            ] = "{} - {} - {}".format(command, metric, version)
-            variant_labels_dict[
-                "command_and_metric_and_setup_and_version"
-            ] = "{} - {} - {} - {}".format(command, metric, setup_name, version)
+            variant_labels_dict["command_and_metric_and_version"] = (
+                "{} - {} - {}".format(command, metric, version)
+            )
+            variant_labels_dict["command_and_metric_and_setup_and_version"] = (
+                "{} - {} - {} - {}".format(command, metric, setup_name, version)
+            )
 
         if branch is not None:
-            variant_labels_dict[
-                "command_and_metric_and_branch"
-            ] = "{} - {} - {}".format(command, metric, branch)
-            variant_labels_dict[
-                "command_and_metric_and_setup_and_branch"
-            ] = "{} - {} - {} - {}".format(command, metric, setup_name, branch)
+            variant_labels_dict["command_and_metric_and_branch"] = (
+                "{} - {} - {}".format(command, metric, branch)
+            )
+            variant_labels_dict["command_and_metric_and_setup_and_branch"] = (
+                "{} - {} - {} - {}".format(command, metric, setup_name, branch)
+            )
 
 
 def shutdown_remote_redis(redis_conns, ssh_tunnel):

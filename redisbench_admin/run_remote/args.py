@@ -113,6 +113,18 @@ def create_run_remote_arguments(parser):
         help="skip environment variables check",
     )
     parser.add_argument(
+        "--dry-run",
+        default=False,
+        action="store_true",
+        help="Setup environment and test connectivity without running benchmarks",
+    )
+    parser.add_argument(
+        "--dry-run-with-preload",
+        default=False,
+        action="store_true",
+        help="Setup environment, preload data, and test connectivity without running benchmarks",
+    )
+    parser.add_argument(
         "--continue-on-module-check-error",
         default=False,
         action="store_true",

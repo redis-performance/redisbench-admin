@@ -1216,9 +1216,9 @@ def from_rts_to_regression_table(
                             f"Blocking regression confirmation for '{test_name}' due to unstable latency data"
                         )
                         if server_has_unstable:
-                            logging.info(f"  Server-side latency data is unstable")
+                            logging.info("  Server-side latency data is unstable")
                         if client_has_unstable:
-                            logging.info(f"  Client-side latency data is unstable")
+                            logging.info("  Client-side latency data is unstable")
                     else:
                         both_confirm_regression = (
                             server_confirms_regression and client_confirms_regression
@@ -1244,12 +1244,12 @@ def from_rts_to_regression_table(
                                 server_regression_details or client_regression_details
                             )
                             if combined_regression_details:
-                                combined_regression_details[
-                                    "server_side"
-                                ] = server_confirms_regression
-                                combined_regression_details[
-                                    "client_side"
-                                ] = client_confirms_regression
+                                combined_regression_details["server_side"] = (
+                                    server_confirms_regression
+                                )
+                                combined_regression_details["client_side"] = (
+                                    client_confirms_regression
+                                )
 
                                 # 2nd level confirmation is sufficient - always add to confirmed regressions
                                 logging.info(
@@ -1291,17 +1291,17 @@ def from_rts_to_regression_table(
                                         f"Confidence analysis for '{test_name}': {confidence_note}"
                                     )
                                     # Use 3rd level confidence if available
-                                    combined_regression_details[
-                                        "high_confidence"
-                                    ] = high_confidence
+                                    combined_regression_details["high_confidence"] = (
+                                        high_confidence
+                                    )
                                 else:
                                     # No 3rd level data available - default to moderate confidence since 2nd level confirmed
                                     logging.info(
                                         f"No 3rd level data available for '{test_name}' - using 2nd level confirmation"
                                     )
-                                    combined_regression_details[
-                                        "high_confidence"
-                                    ] = True  # 2nd level confirmation is reliable
+                                    combined_regression_details["high_confidence"] = (
+                                        True  # 2nd level confirmation is reliable
+                                    )
 
                                 # Always add to confirmed regressions when 2nd level confirms
                                 latency_confirmed_regression_details.append(
