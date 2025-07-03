@@ -1,0 +1,348 @@
+clusterconfig:
+  init_commands:
+  - commands:
+    - search.CLUSTERREFRESH
+exporter:
+  comparison:
+    baseline-branch: master
+    metrics:
+    - Ops/sec
+    - $.Tests.Overall.rps
+    - $.OverallRates.overallOpsRate
+    mode: higher-better
+  redistimeseries:
+    break_by:
+    - version
+    - commit
+    metrics:
+    - $.Tests.Overall.rps
+    - $.Tests.Overall.avg_latency_ms
+    - $.Tests.Overall.p50_latency_ms
+    - $.Tests.Overall.p95_latency_ms
+    - $.Tests.Overall.p99_latency_ms
+    - $.Tests.Overall.max_latency_ms
+    - $.Tests.Overall.min_latency_ms
+    - $.build.build_time
+    - $.build.vector_index_sz_mb
+    - $."ALL STATS".*."Ops/sec"
+    - $."ALL STATS".*."Latency"
+    - $.OverallRates.overallOpsRate
+    - $.OverallQuantiles.allCommands.q50
+    - $.OverallQuantiles.allCommands.q95
+    - $.OverallQuantiles.allCommands.q99
+    - $.OverallQuantiles.allCommands.q999
+    timemetric: $.StartTime
+remote:
+- type: oss-standalone
+- setup: redisearch-m5
+spec:
+  setups:
+  - name: oss-standalone
+    redis_topology:
+      primaries: 1
+      replicas: 0
+    resources:
+      requests:
+        cpus: '1'
+        memory: 10g
+    type: oss-standalone
+  - name: oss-standalone-1replica
+    redis_topology:
+      placement: sparse
+      primaries: 1
+      replicas: 1
+    resources:
+      requests:
+        cpus: '2'
+        memory: 10g
+    type: oss-standalone
+  - name: oss-cluster-01-primaries
+    redis_topology:
+      placement: sparse
+      primaries: 1
+      replicas: 0
+    resources:
+      requests:
+        cpus: '1'
+        memory: 10g
+    type: oss-cluster
+  - name: oss-cluster-02-primaries
+    redis_topology:
+      placement: sparse
+      primaries: 2
+      replicas: 0
+    resources:
+      requests:
+        cpus: '2'
+        memory: 10g
+    type: oss-cluster
+  - name: oss-cluster-03-primaries
+    redis_topology:
+      placement: sparse
+      primaries: 3
+      replicas: 0
+    resources:
+      requests:
+        cpus: '3'
+        memory: 30g
+    type: oss-cluster
+  - name: oss-cluster-04-primaries
+    redis_topology:
+      placement: sparse
+      primaries: 4
+      replicas: 0
+    resources:
+      requests:
+        cpus: '4'
+        memory: 40g
+    type: oss-cluster
+  - name: oss-cluster-05-primaries
+    redis_topology:
+      placement: sparse
+      primaries: 5
+      replicas: 0
+    resources:
+      requests:
+        cpus: '5'
+        memory: 50g
+    type: oss-cluster
+  - name: oss-cluster-08-primaries
+    redis_topology:
+      placement: sparse
+      primaries: 8
+      replicas: 0
+    resources:
+      requests:
+        cpus: '10'
+        memory: 90g
+    type: oss-cluster
+  - name: oss-cluster-09-primaries
+    redis_topology:
+      placement: sparse
+      primaries: 9
+      replicas: 0
+    resources:
+      requests:
+        cpus: '10'
+        memory: 90g
+    type: oss-cluster
+  - name: oss-cluster-15-primaries
+    redis_topology:
+      placement: sparse
+      primaries: 15
+      replicas: 0
+    resources:
+      requests:
+        cpus: '15'
+        memory: 150g
+    type: oss-cluster
+  - name: oss-cluster-16-primaries
+    redis_topology:
+      placement: sparse
+      primaries: 16
+      replicas: 0
+    resources:
+      requests:
+        cpus: '18'
+        memory: 180g
+    type: oss-cluster
+  - name: oss-cluster-20-primaries
+    redis_topology:
+      placement: sparse
+      primaries: 20
+      replicas: 0
+    resources:
+      requests:
+        cpus: '20'
+        memory: 500g
+    type: oss-cluster
+  - name: oss-cluster-21-primaries
+    redis_topology:
+      placement: sparse
+      primaries: 21
+      replicas: 0
+    resources:
+      requests:
+        cpus: '21'
+        memory: 210g
+    type: oss-cluster
+  - name: oss-cluster-24-primaries
+    redis_topology:
+      placement: sparse
+      primaries: 24
+      replicas: 0
+    resources:
+      requests:
+        cpus: '24'
+        memory: 500g
+    type: oss-cluster
+  - name: oss-cluster-30-primaries
+    redis_topology:
+      placement: sparse
+      primaries: 30
+      replicas: 0
+    resources:
+      requests:
+        cpus: '30'
+        memory: 300g
+    type: oss-cluster
+  - name: oss-cluster-32-primaries
+    redis_topology:
+      placement: sparse
+      primaries: 32
+      replicas: 0
+    resources:
+      requests:
+        cpus: '32'
+        memory: 300g
+    type: oss-cluster
+  - name: oss-cluster-16-primaries_master_w10_st10
+    redis_topology:
+      placement: sparse
+      primaries: 16
+      replicas: 0
+    resources:
+      requests:
+        cpus: '18'
+        memory: 180g
+    type: oss-cluster
+  - name: oss-cluster-16-primaries_master_w10_st20
+    redis_topology:
+      placement: sparse
+      primaries: 16
+      replicas: 0
+    resources:
+      requests:
+        cpus: '18'
+        memory: 180g
+    type: oss-cluster
+  - name: oss-cluster-16-primaries_master_w20_st10
+    redis_topology:
+      placement: sparse
+      primaries: 16
+      replicas: 0
+    resources:
+      requests:
+        cpus: '18'
+        memory: 180g
+    type: oss-cluster
+  - name: oss-cluster-16-primaries_master_w20_st20
+    redis_topology:
+      placement: sparse
+      primaries: 16
+      replicas: 0
+    resources:
+      requests:
+        cpus: '18'
+        memory: 180g
+    type: oss-cluster
+  - name: oss-cluster-16-primaries_joan-uv-threads_w10_st10_sio10
+    redis_topology:
+      placement: sparse
+      primaries: 16
+      replicas: 0
+    resources:
+      requests:
+        cpus: '18'
+        memory: 180g
+    type: oss-cluster
+  - name: oss-cluster-16-primaries_joan-uv-threads_w10_st20_sio10
+    redis_topology:
+      placement: sparse
+      primaries: 16
+      replicas: 0
+    resources:
+      requests:
+        cpus: '18'
+        memory: 180g
+    type: oss-cluster
+  - name: oss-cluster-16-primaries_joan-uv-threads_w20_st10_sio10
+    redis_topology:
+      placement: sparse
+      primaries: 16
+      replicas: 0
+    resources:
+      requests:
+        cpus: '18'
+        memory: 180g
+    type: oss-cluster
+  - name: oss-cluster-16-primaries_joan-uv-threads_w20_st20_sio10
+    redis_topology:
+      placement: sparse
+      primaries: 16
+      replicas: 0
+    resources:
+      requests:
+        cpus: '18'
+        memory: 180g
+    type: oss-cluster
+  - name: oss-cluster-16-primaries_joan-uv-threads_w10_st10_sio20
+    redis_topology:
+      placement: sparse
+      primaries: 16
+      replicas: 0
+    resources:
+      requests:
+        cpus: '18'
+        memory: 180g
+    type: oss-cluster
+  - name: oss-cluster-16-primaries_joan-uv-threads_w10_st20_sio20
+    redis_topology:
+      placement: sparse
+      primaries: 16
+      replicas: 0
+    resources:
+      requests:
+        cpus: '18'
+        memory: 180g
+    type: oss-cluster
+  - name: oss-cluster-16-primaries_joan-uv-threads_w20_st10_sio20
+    redis_topology:
+      placement: sparse
+      primaries: 16
+      replicas: 0
+    resources:
+      requests:
+        cpus: '18'
+        memory: 180g
+    type: oss-cluster
+  - name: oss-cluster-16-primaries_joan-uv-threads_w20_st20_sio20
+    type: oss-cluster
+    redis_topology:
+      placement: sparse
+      primaries: 16
+      replicas: 0
+    resources:
+      requests:
+        cpus: '18'
+        memory: 180g
+    dbconfig:
+      module-configuration-parameters:
+        redisearch:
+          WORKERS: 6
+          MIN_OPERATION_WORKERS: 6
+        module-oss:
+          WORKERS: 6
+          MIN_OPERATION_WORKERS: 6
+
+  - name: oss-cluster-02-primaries_joan-uv-threads_w20_st20_sio20
+    type: oss-cluster
+    redis_topology:
+      placement: sparse
+      primaries: 02
+      replicas: 0
+    resources:
+      requests:
+        cpus: '4'
+        memory: 180g
+    dbconfig:
+      module-configuration-parameters:
+        redisearch:
+          WORKERS: 6
+          MIN_OPERATION_WORKERS: 6
+        module-oss:
+          WORKERS: 6
+          MIN_OPERATION_WORKERS: 6
+
+
+version: 0.2
