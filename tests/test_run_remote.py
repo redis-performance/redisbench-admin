@@ -27,8 +27,7 @@ def test_export_redis_metrics():
     setup_type = "oss-standalone"
     artifact_version = None
     try:
-        rts_host = os.getenv("RTS_DATASINK_HOST", None)
-        import os
+        rts_host = os.environ.get("RTS_DATASINK_HOST", None)
         # Ensure we have the test DB to store results
         assert "RTS_PORT" in os.environ
         rts_port = os.environ.get("RTS_PORT",None)
