@@ -33,8 +33,8 @@ def test_extract_results_table():
 
 
 def test_collect_redis_metrics():
-    rts_host = os.getenv("RTS_DATASINK_HOST", None)
     import os
+    rts_host = os.getenv("RTS_DATASINK_HOST", None)
     # Ensure we have the test DB to store results
     assert "RTS_PORT" in os.environ
     rts_port = os.environ.get("RTS_PORT",None)

@@ -24,6 +24,7 @@ class Test(TestCase):
 
 
 def test_export_command_logic():
+    import os
     # Ensure we have the test DB to store results
     assert "RTS_PORT" in os.environ
     rts_port = os.environ.get("RTS_PORT",None)
@@ -76,8 +77,10 @@ def test_export_command_logic():
 
 
 def test_export_command_logic():
+    import os
     # Ensure we have the test DB to store results
     assert "RTS_PORT" in os.environ
+    
     rts_port = os.environ.get("RTS_PORT",None)
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
     rts_pass = ""
@@ -138,6 +141,7 @@ def test_export_opereto_csv_to_timeseries_dict():
 
 
 def test_export_command_logic_google_benchmark():
+    import os
     # Ensure we have the test DB to store results
     assert "RTS_PORT" in os.environ
     rts_port = os.environ.get("RTS_PORT",None)
