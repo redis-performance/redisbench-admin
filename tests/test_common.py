@@ -525,7 +525,7 @@ def test_dbconfig_keyspacelen_check():
     if rts_host is None:
         return
     try:
-        redis = redis.Redis(port=rts_port, host=rts_host)
+        redis = StrictRedis(port=rts_port, host=rts_host)
         redis.ping()
         redis.flushall()
         redis_conns = [redis]
@@ -535,18 +535,19 @@ def test_dbconfig_keyspacelen_check():
         ) as yml_file:
             benchmark_config = yaml.safe_load(yml_file)
             # no keyspace len check
-            result = dbconfig_keyspacelen_check(benchmark_config, redis_conns)
+            result = dbconfig_keyspacelen_check(benchmark_config, redis_conns,False,5)
             assert result == True
 
         with open("./tests/test_data/tsbs-targets.yml", "r") as yml_file:
             benchmark_config = yaml.safe_load(yml_file)
             # check and fail
             try:
-                result = dbconfig_keyspacelen_check(benchmark_config, redis_conns)
+                result = dbconfig_keyspacelen_check(benchmark_config, redis_conns,False,5)
             except Exception as e:
+                err_str = e.__str__()
                 assert (
-                    e.__str__()
-                    == "The total numbers of keys in setup does not match the expected spec: 1000!=0. Aborting..."
+                    "The total number of keys in setup does not match the expected spec: 1000 != 0. Aborting after" in 
+                    err_str
                 )
 
             # check and pass
