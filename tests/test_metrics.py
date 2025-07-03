@@ -34,7 +34,10 @@ def test_extract_results_table():
 
 def test_collect_redis_metrics():
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
-    rts_port = 16379
+    import os
+    # Ensure we have the test DB to store results
+    assert "RTS_PORT" in os.environ
+    rts_port = os.environ.get("RTS_PORT",None)
     if rts_host is None:
         return
     rts = redis.Redis(port=rts_port, host=rts_host)

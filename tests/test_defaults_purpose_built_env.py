@@ -169,7 +169,6 @@ def test_dry_run_with_simple_standalone_env():
             ]
         )
 
-        # No mocks - use real Redis processes
         try:
             run_local_command_logic(args, "tool", "v0")
             success = True
@@ -251,7 +250,6 @@ def test_dry_run_with_purpose_built_env():
             ]
         )
 
-        # No mocks - use real Redis processes
         try:
             run_local_command_logic(args, "tool", "v0")
             success = True

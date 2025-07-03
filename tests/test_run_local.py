@@ -1,5 +1,4 @@
 import os
-import unittest.mock
 
 import argparse
 import redis
@@ -193,11 +192,14 @@ def test_run_local_command_logic():
         assert e.code == 1
 
     ## run while pushing results to redis_conn
+    # Ensure we have the test DB to store results
+    assert "RTS_PORT" in os.environ
+    rts_port = os.environ.get("RTS_PORT",None)
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
-    rts_port = 16379
+    rts_pass = ""
     if rts_host is None:
         return
-    rts = redis.Redis(port=16379, host=rts_host)
+    rts = redis.Redis(port=rts_port, host=rts_host)
     rts.ping()
     rts.flushall()
     parser = argparse.ArgumentParser(
@@ -223,205 +225,3 @@ def test_run_local_command_logic():
     except SystemExit as e:
         assert e.code == 0
 
-
-def test_run_local_dry_run():
-    """Test dry-run mode to ensure only PING commands are executed"""
-    parser = argparse.ArgumentParser(
-        description="test dry-run",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser = create_run_local_arguments(parser)
-
-    # Test basic dry-run
-    args = parser.parse_args(
-        args=[
-            "--test",
-            "./tests/test_data/redis-benchmark-vanilla.yml",
-            "--dry-run",
-            "--redis-7",
-            "{}".format(REDIS_7),
-        ]
-    )
-
-    # Mock the run_local_benchmark function to ensure it's never called
-    with unittest.mock.patch(
-        "redisbench_admin.run_local.local_helpers.run_local_benchmark"
-    ) as mock_benchmark:
-        # Mock Redis connection to track commands
-        with unittest.mock.patch("redis.Redis") as mock_redis_class:
-            mock_redis_instance = unittest.mock.MagicMock()
-            mock_redis_class.return_value = mock_redis_instance
-
-            # Configure ping to return True
-            mock_redis_instance.ping.return_value = True
-
-            # Configure info method to handle different parameters
-            def mock_info(section=None):
-                if section == "keyspace":
-                    return {}  # Empty keyspace for dry-run
-                elif section == "server":
-                    return {
-                        "redis_version": "7.0.0",
-                        "redis_mode": "standalone",
-                        "arch_bits": 64,
-                        "multiplexing_api": "epoll",
-                        "gcc_version": "9.4.0",
-                        "process_id": 12345,
-                        "run_id": "test-run-id",
-                        "tcp_port": 6379,
-                        "uptime_in_seconds": 100,
-                        "uptime_in_days": 0
-                    }
-                else:
-                    return {
-                        "process_id": 12345,
-                        "redis_version": "7.0.0",
-                        "redis_mode": "standalone",
-                        "arch_bits": 64,
-                        "multiplexing_api": "epoll",
-                        "gcc_version": "9.4.0",
-                        "run_id": "test-run-id",
-                        "tcp_port": 6379,
-                        "uptime_in_seconds": 100,
-                        "uptime_in_days": 0
-                    }
-
-            mock_redis_instance.info.side_effect = mock_info
-
-            # Configure other Redis methods that might be called during setup
-            mock_redis_instance.flushall.return_value = True
-            mock_redis_instance.config_set.return_value = True
-            mock_redis_instance.config_get.return_value = []
-
-            try:
-                run_local_command_logic(args, "tool", "v0")
-            except SystemExit as e:
-                assert e.code == 0
-
-            # Verify that run_local_benchmark was never called (no actual benchmark execution)
-            mock_benchmark.assert_not_called()
-
-            # Verify that ping was called (connectivity test)
-            mock_redis_instance.ping.assert_called()
-
-            # Verify no benchmark-related Redis commands were called
-            called_methods = [call[0] for call in mock_redis_instance.method_calls]
-
-            # These are benchmark execution commands that should NOT be called in dry-run
-            forbidden_benchmark_commands = [
-                "set",
-                "get",
-                "mset",
-                "mget",
-                "lpush",
-                "lpop",
-                "sadd",
-                "spop",
-                "zadd",
-                "zrange",
-                "eval",
-                "evalsha",
-            ]
-            for method_name in called_methods:
-                assert (
-                    method_name.lower() not in forbidden_benchmark_commands
-                ), f"Benchmark command {method_name} was executed in dry-run mode"
-
-
-def test_run_local_dry_run_with_preload():
-    """Test dry-run-with-preload mode to ensure only PING commands are executed after preload"""
-    parser = argparse.ArgumentParser(
-        description="test dry-run with preload",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser = create_run_local_arguments(parser)
-
-    # Test dry-run with preload
-    args = parser.parse_args(
-        args=[
-            "--test",
-            "./tests/test_data/redis-benchmark-json.yml",  # This test includes data preloading
-            "--dry-run-with-preload",
-            "--redis-7",
-            "{}".format(REDIS_7),
-        ]
-    )
-
-    # Mock the run_local_benchmark function to ensure it's never called
-    with unittest.mock.patch(
-        "redisbench_admin.run_local.local_helpers.run_local_benchmark"
-    ) as mock_benchmark:
-        # Mock Redis connection to track commands
-        with unittest.mock.patch("redis.Redis") as mock_redis_class:
-            mock_redis_instance = unittest.mock.MagicMock()
-            mock_redis_class.return_value = mock_redis_instance
-
-            # Configure ping to return True
-            mock_redis_instance.ping.return_value = True
-
-            # Configure info method to handle different parameters
-            def mock_info_with_preload(section=None):
-                if section == "keyspace":
-                    return {
-                        "db0": {"keys": 1000, "expires": 0}
-                    }  # Simulated preloaded data
-                elif section == "server":
-                    return {
-                        "redis_version": "7.0.0",
-                        "redis_mode": "standalone",
-                        "arch_bits": 64,
-                        "multiplexing_api": "epoll",
-                        "gcc_version": "9.4.0",
-                        "process_id": 12345,
-                        "run_id": "test-run-id",
-                        "tcp_port": 6379,
-                        "uptime_in_seconds": 100,
-                        "uptime_in_days": 0
-                    }
-                else:
-                    return {
-                        "process_id": 12345,
-                        "redis_version": "7.0.0",
-                        "redis_mode": "standalone",
-                        "arch_bits": 64,
-                        "multiplexing_api": "epoll",
-                        "gcc_version": "9.4.0",
-                        "run_id": "test-run-id",
-                        "tcp_port": 6379,
-                        "uptime_in_seconds": 100,
-                        "uptime_in_days": 0
-                    }
-
-            mock_redis_instance.info.side_effect = mock_info_with_preload
-
-            # Configure other Redis methods that might be called during setup
-            mock_redis_instance.flushall.return_value = True
-            mock_redis_instance.config_set.return_value = True
-            mock_redis_instance.config_get.return_value = []
-
-            try:
-                run_local_command_logic(args, "tool", "v0")
-            except SystemExit as e:
-                assert e.code == 0
-
-            # Verify that run_local_benchmark was never called (no actual benchmark execution)
-            mock_benchmark.assert_not_called()
-
-            # Verify that ping was called multiple times (connectivity tests after setup and after preload)
-            assert (
-                mock_redis_instance.ping.call_count >= 2
-            ), "Expected multiple ping calls for connectivity tests"
-
-            # Verify preload happened but benchmark didn't
-            # In dry-run-with-preload, data loading commands are allowed, but benchmark commands are not
-            called_methods = [call[0] for call in mock_redis_instance.method_calls]
-
-            # Benchmark execution commands should not be present
-            benchmark_execution_commands = [
-                "eval",
-                "evalsha",
-            ]  # Commands typically used by benchmark tools
-            for method_name in called_methods:
-                assert (
-                    method_name.lower() not in benchmark_execution_commands
-                ), f"Benchmark execution command {method_name} was executed in dry-run mode"
