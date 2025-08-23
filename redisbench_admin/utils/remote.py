@@ -1198,3 +1198,31 @@ def check_ec2_env():
         logging.error(error_message)
 
     return status, error_message
+
+
+def perform_connectivity_test(redis_conns, test_description=""):
+    """Perform PING test on all Redis connections"""
+    logging.info(f"🔍 Performing connectivity test: {test_description}")
+
+    success_count = 0
+    total_count = len(redis_conns)
+
+    for i, conn in enumerate(redis_conns):
+        try:
+            result = conn.ping()
+            if result:
+                logging.info(f"✅ Connection {i}: PING successful")
+                success_count += 1
+            else:
+                logging.error(f"❌ Connection {i}: PING returned False")
+        except Exception as e:
+            logging.error(f"❌ Connection {i}: PING failed - {e}")
+
+    if success_count == total_count:
+        logging.info(f"🎉 All {total_count} connectivity tests passed!")
+        return True
+    else:
+        logging.error(
+            f"💥 {total_count - success_count}/{total_count} connectivity tests failed!"
+        )
+        return False

@@ -1,0 +1,6 @@
+name: test-purpose-built-env-cluster
+setups:
+  - oss-cluster-02-primaries_joan-uv-threads_w20_st20_sio20
+clientconfig:
+  tool: redis-benchmark
+  arguments: "-t set -n 100 -c 5"

@@ -24,12 +24,16 @@ class Test(TestCase):
 
 
 def test_export_command_logic():
+    import os
+
+    # Ensure we have the test DB to store results
+    assert "RTS_PORT" in os.environ
+    rts_port = os.environ.get("RTS_PORT", None)
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
-    rts_port = 16379
     rts_pass = ""
     if rts_host is None:
         return
-    rts = redis.Redis(port=16379, host=rts_host)
+    rts = redis.Redis(port=rts_port, host=rts_host)
     rts.ping()
     rts.flushall()
     parser = argparse.ArgumentParser(
@@ -74,12 +78,17 @@ def test_export_command_logic():
 
 
 def test_export_command_logic():
+    import os
+
+    # Ensure we have the test DB to store results
+    assert "RTS_PORT" in os.environ
+
+    rts_port = os.environ.get("RTS_PORT", None)
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
-    rts_port = 16379
     rts_pass = ""
     if rts_host is None:
         return
-    rts = redis.Redis(port=16379, host=rts_host)
+    rts = redis.Redis(port=rts_port, host=rts_host)
     rts.ping()
     rts.flushall()
     parser = argparse.ArgumentParser(
@@ -134,12 +143,16 @@ def test_export_opereto_csv_to_timeseries_dict():
 
 
 def test_export_command_logic_google_benchmark():
+    import os
+
+    # Ensure we have the test DB to store results
+    assert "RTS_PORT" in os.environ
+    rts_port = os.environ.get("RTS_PORT", None)
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
-    rts_port = 16379
     rts_pass = ""
     if rts_host is None:
         return
-    rts = redis.Redis(port=16379, host=rts_host)
+    rts = redis.Redis(port=rts_port, host=rts_host)
     rts.ping()
     rts.flushall()
     parser = argparse.ArgumentParser(

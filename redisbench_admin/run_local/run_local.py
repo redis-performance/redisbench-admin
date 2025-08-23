@@ -16,6 +16,7 @@ from redisbench_admin.run.git import git_vars_crosscheck
 from redisbench_admin.utils.remote import (
     get_project_ts_tags,
     push_data_to_redistimeseries,
+    perform_connectivity_test,
 )
 
 import redisbench_admin.run.metrics
@@ -326,6 +327,7 @@ def run_local_command_logic(args, project_name, project_version):
                                 )
 
                                 # run the benchmark
+
                                 cpu_stats_thread = threading.Thread(
                                     target=collect_cpu_data,
                                     args=(redis_conns, 5.0, 1.0),
@@ -335,9 +337,60 @@ def run_local_command_logic(args, project_name, project_version):
                                 )
                                 cpu_stats_thread.start()
                                 benchmark_start_time = datetime.datetime.now()
-                                stdout, stderr = run_local_benchmark(
-                                    benchmark_tool, command
+                                logging.info(
+                                    "Running benchmark command: {}".format(command)
                                 )
+                                # Handle dry-run modes
+                                if args.dry_run or args.dry_run_with_preload:
+                                    logging.info(
+                                        "🏃 Dry-run mode detected - performing connectivity tests"
+                                    )
+
+                                    # Test basic connectivity after setup
+                                    connectivity_success = perform_connectivity_test(
+                                        redis_conns, "after local environment setup"
+                                    )
+
+                                    if args.dry_run_with_preload:
+                                        logging.info(
+                                            "📦 Dry-run with preload - data loading already completed during setup"
+                                        )
+                                        # Test connectivity after preload (data was loaded during local_db_spin)
+                                        connectivity_success = (
+                                            perform_connectivity_test(
+                                                redis_conns, "after data preloading"
+                                            )
+                                            and connectivity_success
+                                        )
+
+                                    # Print dry-run summary
+                                    logging.info("=" * 50)
+                                    logging.info("🎯 DRY-RUN SUMMARY")
+                                    logging.info("=" * 50)
+                                    logging.info(
+                                        f"✅ Database: {setup_type} ({'cluster' if cluster_api_enabled else 'standalone'}) started locally"
+                                    )
+                                    logging.info(
+                                        f"✅ Client tools: {benchmark_tool} available"
+                                    )
+                                    logging.info(
+                                        f"{'✅' if connectivity_success else '❌'} Connectivity: {len(redis_conns)} connection(s) tested"
+                                    )
+                                    if args.dry_run_with_preload:
+                                        logging.info(
+                                            "✅ Data preload: Completed during setup"
+                                        )
+                                    logging.info("🏁 Dry-run completed successfully")
+                                    logging.info(
+                                        "⏭️  Benchmark execution skipped (dry-run mode)"
+                                    )
+                                    logging.info("=" * 50)
+
+                                    # Skip benchmark execution and continue to next test
+                                else:
+                                    stdout, stderr = run_local_benchmark(
+                                        benchmark_tool, command
+                                    )
                                 benchmark_end_time = datetime.datetime.now()
                                 redisbench_admin.run.metrics.BENCHMARK_RUNNING_GLOBAL = (
                                     False
@@ -364,10 +417,10 @@ def run_local_command_logic(args, project_name, project_version):
                                         benchmark_end_time, benchmark_start_time
                                     )
                                 )
-
-                                logging.info("Extracting the benchmark results")
-                                logging.info("stdout: {}".format(stdout))
-                                logging.info("stderr: {}".format(stderr))
+                                if args.dry_run is False:
+                                    logging.info("Extracting the benchmark results")
+                                    logging.info("stdout: {}".format(stdout))
+                                    logging.info("stderr: {}".format(stderr))
 
                                 (
                                     _,
@@ -420,53 +473,54 @@ def run_local_command_logic(args, project_name, project_version):
                                         test_name,
                                         tf_triggering_env,
                                     )
-
-                                post_process_benchmark_results(
-                                    benchmark_tool,
-                                    local_benchmark_output_filename,
-                                    start_time_ms,
-                                    start_time_str,
-                                    stdout,
-                                )
                                 results_dict = {}
-                                with open(
-                                    local_benchmark_output_filename, "r"
-                                ) as json_file:
-                                    results_dict = json.load(json_file)
-                                    print_results_table_stdout(
-                                        benchmark_config,
-                                        default_metrics,
-                                        results_dict,
-                                        setup_name,
-                                        setup_type,
-                                        test_name,
-                                        total_shards_cpu_usage,
-                                        overall_end_time_metrics,
-                                        [
-                                            "memory_used_memory",
-                                            "memory_used_memory_dataset",
-                                        ],
-                                    )
-                                    export_redis_metrics(
-                                        artifact_version,
-                                        end_time_ms,
-                                        overall_end_time_metrics,
-                                        rts,
-                                        setup_name,
-                                        setup_type,
-                                        test_name,
-                                        tf_github_branch,
-                                        tf_github_org,
-                                        tf_github_repo,
-                                        tf_triggering_env,
-                                        {"metric-type": "redis-metrics"},
-                                        0,
+                                if args.dry_run is False:
+                                    post_process_benchmark_results(
+                                        benchmark_tool,
+                                        local_benchmark_output_filename,
+                                        start_time_ms,
+                                        start_time_str,
+                                        stdout,
                                     )
 
-                                    # check KPIs
-                                    return_code = results_dict_kpi_check(
-                                        benchmark_config, results_dict, return_code
-                                    )
+                                    with open(
+                                        local_benchmark_output_filename, "r"
+                                    ) as json_file:
+                                        results_dict = json.load(json_file)
+                                        print_results_table_stdout(
+                                            benchmark_config,
+                                            default_metrics,
+                                            results_dict,
+                                            setup_name,
+                                            setup_type,
+                                            test_name,
+                                            total_shards_cpu_usage,
+                                            overall_end_time_metrics,
+                                            [
+                                                "memory_used_memory",
+                                                "memory_used_memory_dataset",
+                                            ],
+                                        )
+                                        export_redis_metrics(
+                                            artifact_version,
+                                            end_time_ms,
+                                            overall_end_time_metrics,
+                                            rts,
+                                            setup_name,
+                                            setup_type,
+                                            test_name,
+                                            tf_github_branch,
+                                            tf_github_org,
+                                            tf_github_repo,
+                                            tf_triggering_env,
+                                            {"metric-type": "redis-metrics"},
+                                            0,
+                                        )
+
+                                        # check KPIs
+                                        return_code = results_dict_kpi_check(
+                                            benchmark_config, results_dict, return_code
+                                        )
 
                                 metadata_tags = get_metadata_tags(benchmark_config)
                                 (
@@ -508,7 +562,10 @@ def run_local_command_logic(args, project_name, project_version):
                                     "Some unexpected exception was caught "
                                     "during local work. Failing test...."
                                 )
-                                logging.critical(sys.exc_info()[0])
+                                if len(sys.exc_info()) > 0:
+                                    logging.critical(sys.exc_info()[0])
+                                else:
+                                    logging.critical(sys.exc_info())
                                 print("-" * 60)
                                 traceback.print_exc(file=sys.stdout)
                                 print("-" * 60)

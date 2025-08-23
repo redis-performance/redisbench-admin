@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "redisbench-admin"
-version = "0.11.37"
+version = "0.11.40"
 description = "Redis benchmark run helper. A wrapper around Redis and Redis Modules benchmark tools ( ftsb_redisearch, memtier_benchmark, redis-benchmark, aibench, etc... )."
 authors = ["filipecosta90 <filipecosta.90@gmail.com>","Redis Performance Group <performance@redis.com>"]
 readme = "README.md"
@@ -44,6 +44,9 @@ certifi = ">=2021.10.8,<2025.0.0"
 pygithub = "^1.57"
 
 [tool.poetry.dev-dependencies]
+tox = ">=4.16.0"
+tox-docker = ">=5.0.0"
+docker = ">=7.1.0"
 pytest = "^4.6"
 pytest-cov = "^2.9.0"
 codecov = "2.1.13"

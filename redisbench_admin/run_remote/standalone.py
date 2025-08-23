@@ -15,6 +15,139 @@ from redisbench_admin.utils.ssh import SSHSession
 from redisbench_admin.utils.utils import redis_server_config_module_part
 
 
+def ensure_redis_server_available(server_public_ip, username, private_key, port=22):
+    """Check if redis-server is available, install if not"""
+    logging.info("Checking if redis-server is available on remote server...")
+
+    # Check if redis-server exists
+    check_result = execute_remote_commands(
+        server_public_ip, username, private_key, ["which redis-server"], port
+    )
+
+    # Check the result
+    if len(check_result) > 0:
+        [recv_exit_status, stdout, stderr] = check_result[0]
+        if recv_exit_status != 0:
+            logging.info("redis-server not found, installing Redis...")
+
+            # Install Redis using the provided commands
+            install_commands = [
+                "sudo apt-get install lsb-release curl gpg -y",
+                "curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg",
+                "sudo chmod 644 /usr/share/keyrings/redis-archive-keyring.gpg",
+                'echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/redis.list',
+                "sudo apt-get update",
+                "sudo apt-get install redis -y",
+                "sudo systemctl disable redis-server",
+            ]
+
+            install_result = execute_remote_commands(
+                server_public_ip, username, private_key, install_commands, port
+            )
+
+            # Check if installation was successful
+            for pos, res_pos in enumerate(install_result):
+                [recv_exit_status, stdout, stderr] = res_pos
+                if recv_exit_status != 0:
+                    logging.warning(
+                        "Redis installation command {} returned exit code {}. stdout: {}. stderr: {}".format(
+                            pos, recv_exit_status, stdout, stderr
+                        )
+                    )
+
+            logging.info("Redis installation completed and auto-start disabled")
+        else:
+            logging.info("redis-server is already available")
+    else:
+        logging.error("Failed to check redis-server availability")
+
+
+def ensure_zip_available(server_public_ip, username, private_key, port=22):
+    """Check if zip is available, install if not"""
+    logging.info("Checking if zip is available on remote server...")
+
+    # Check if zip exists
+    check_result = execute_remote_commands(
+        server_public_ip, username, private_key, ["which zip"], port
+    )
+
+    # Check the result
+    if len(check_result) > 0:
+        [recv_exit_status, stdout, stderr] = check_result[0]
+        if recv_exit_status != 0:
+            logging.info("zip not found, installing...")
+
+            # Install zip
+            install_commands = ["sudo apt-get install zip -y"]
+
+            install_result = execute_remote_commands(
+                server_public_ip, username, private_key, install_commands, port
+            )
+
+            # Check if installation was successful
+            for pos, res_pos in enumerate(install_result):
+                [recv_exit_status, stdout, stderr] = res_pos
+                if recv_exit_status != 0:
+                    logging.warning(
+                        "Zip installation command {} returned exit code {}. stdout: {}. stderr: {}".format(
+                            pos, recv_exit_status, stdout, stderr
+                        )
+                    )
+
+            logging.info("Zip installation completed")
+        else:
+            logging.info("zip is already available")
+    else:
+        logging.error("Failed to check zip availability")
+
+
+def ensure_memtier_benchmark_available(
+    client_public_ip, username, private_key, port=22
+):
+    """Check if memtier_benchmark is available, install if not"""
+    logging.info("Checking if memtier_benchmark is available on remote client...")
+
+    # Check if memtier_benchmark exists
+    check_result = execute_remote_commands(
+        client_public_ip, username, private_key, ["which memtier_benchmark"], port
+    )
+
+    # Check the result
+    if len(check_result) > 0:
+        [recv_exit_status, stdout, stderr] = check_result[0]
+        if recv_exit_status != 0:
+            logging.info("memtier_benchmark not found, installing...")
+
+            # Install memtier_benchmark using the provided commands
+            install_commands = [
+                "sudo apt install lsb-release curl gpg -y",
+                "curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg",
+                'echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/redis.list',
+                "sudo apt-get update",
+                "sudo apt-get install memtier-benchmark -y",
+            ]
+
+            install_result = execute_remote_commands(
+                client_public_ip, username, private_key, install_commands, port
+            )
+
+            # Check if installation was successful
+            for pos, res_pos in enumerate(install_result):
+                [recv_exit_status, stdout, stderr] = res_pos
+                if recv_exit_status != 0:
+                    logging.warning(
+                        "memtier_benchmark installation command {} returned exit code {}. stdout: {}. stderr: {}".format(
+                            pos, recv_exit_status, stdout, stderr
+                        )
+                    )
+
+            logging.info("memtier_benchmark installation completed")
+        else:
+            logging.info("memtier_benchmark is already available")
+    else:
+        logging.error("Failed to check memtier_benchmark availability")
+
+
 def spin_up_standalone_remote_redis(
     temporary_dir,
     server_public_ip,
@@ -27,6 +160,9 @@ def spin_up_standalone_remote_redis(
     modules_configuration_parameters_map={},
     redis_7=True,
 ):
+    # Ensure redis-server is available before trying to start it
+    ensure_redis_server_available(server_public_ip, username, private_key, port)
+
     full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
         logfile,
         redis_configuration_parameters,

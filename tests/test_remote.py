@@ -125,7 +125,12 @@ def test_fetch_remote_setup_from_config_aarch64():
 def test_push_data_to_redistimeseries():
     time_series_dict = {}
     try:
-        rts = redis.Redis(port=16379)
+        import os
+
+        # Ensure we have the test DB to store results
+        assert "RTS_PORT" in os.environ
+        rts_port = os.environ.get("RTS_PORT", None)
+        rts = redis.Redis(port=rts_port)
         rts.ping()
     except redis.exceptions.ConnectionError:
         pass
@@ -269,7 +274,12 @@ def test_extract_timeseries_from_results():
 
 def test_exporter_create_ts():
     try:
-        rts = redis.Redis(port=16379)
+        import os
+
+        # Ensure we have the test DB to store results
+        assert "RTS_PORT" in os.environ
+        rts_port = os.environ.get("RTS_PORT", None)
+        rts = redis.Redis(port=rts_port)
         rts.ping()
         rts.flushall()
         with open(
@@ -475,7 +485,12 @@ def test_exporter_create_ts():
     timeseries_name = "ts1"
     time_series = {"labels": {"metric-type": "commandstats"}}
     try:
-        rts = redis.Redis(port=16379)
+        import os
+
+        # Ensure we have the test DB to store results
+        assert "RTS_PORT" in os.environ
+        rts_port = os.environ.get("RTS_PORT", None)
+        rts = redis.Redis(port=rts_port)
         rts.ping()
         rts.flushall()
         assert True == exporter_create_ts(rts, time_series, timeseries_name)

@@ -40,4 +40,16 @@ def create_run_local_arguments(parser):
         default=IGNORE_KEYSPACE_ERRORS,
         help="Ignore keyspace check errors. Will still log them as errors",
     )
+    parser.add_argument(
+        "--dry-run",
+        default=False,
+        action="store_true",
+        help="Setup environment and test connectivity without running benchmarks",
+    )
+    parser.add_argument(
+        "--dry-run-with-preload",
+        default=False,
+        action="store_true",
+        help="Setup environment, preload data, and test connectivity without running benchmarks",
+    )
     return parser

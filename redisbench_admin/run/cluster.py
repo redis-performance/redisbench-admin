@@ -115,6 +115,12 @@ def spin_up_redis_cluster_remote_redis(
     logname,
     redis_7=True,
 ):
+    # Import the function from standalone module
+    from redisbench_admin.run_remote.standalone import ensure_redis_server_available
+
+    # Ensure redis-server is available before trying to start cluster
+    ensure_redis_server_available(server_public_ip, username, private_key, ssh_port)
+
     logging.info("Generating the remote redis-server command arguments")
     redis_process_commands = []
     logfiles = []

@@ -135,7 +135,7 @@ def create_compare_arguments(parser):
     parser.add_argument(
         "--regressions-percent-lower-limit",
         type=float,
-        default=5.0,
+        default=8.0,
         help="Only consider regressions with a percentage over the defined limit. (0-100)",
     )
     parser.add_argument(
@@ -161,6 +161,10 @@ def create_compare_arguments(parser):
         "--grafana_base_dashboard",
         type=str,
         default="https://benchmarksrediscom.grafana.net/d/",
+    )
+    parser.add_argument(
+        "--grafana_uid",
+        default=None,
     )
     parser.add_argument(
         "--auto-approve",
