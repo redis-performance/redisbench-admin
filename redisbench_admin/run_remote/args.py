@@ -130,5 +130,25 @@ def create_run_remote_arguments(parser):
         action="store_true",
         help="Continue running benchmarks even if module check failed",
     )
+    parser.add_argument(
+        "--redis-conf",
+        required=False,
+        default=None,
+        type=str,
+        help="Path to custom redis.conf file to copy to remote host",
+    )
+    parser.add_argument(
+        "--redis-server-binary",
+        required=False,
+        default=None,
+        type=str,
+        help="Path to custom redis-server binary to copy to remote host",
+    )
+    parser.add_argument(
+        "--spin-test",
+        default=False,
+        action="store_true",
+        help="Setup standalone Redis server, run INFO SERVER, print output as markdown and exit",
+    )
 
     return parser
