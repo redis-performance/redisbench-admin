@@ -13,6 +13,7 @@ from redisbench_admin.utils.remote import (
 )
 from redisbench_admin.utils.ssh import SSHSession
 from redisbench_admin.utils.utils import redis_server_config_module_part
+import tempfile
 
 
 def ensure_redis_server_available(server_public_ip, username, private_key, port=22):
@@ -146,6 +147,123 @@ def ensure_memtier_benchmark_available(
             logging.info("memtier_benchmark is already available")
     else:
         logging.error("Failed to check memtier_benchmark availability")
+
+
+def validate_remote_host_compatibility(
+    server_public_ip, username, private_key, custom_redis_server_path=None, port=22
+):
+    """
+    Validate remote host compatibility by checking OS version, stdlib version,
+    and optionally testing a custom redis-server binary.
+
+    Args:
+        server_public_ip: IP address of the remote server
+        username: SSH username
+        private_key: Path to SSH private key
+        custom_redis_server_path: Optional path to custom redis-server binary on remote host
+        port: SSH port (default 22)
+
+    Returns:
+        tuple: (success: bool, validation_info: dict)
+    """
+    logging.info("Validating remote host compatibility...")
+
+    validation_info = {}
+    success = True
+
+    try:
+        # Check OS version
+        os_commands = [
+            "uname -a",  # System information
+            "cat /etc/os-release",  # OS release info
+            "ldd --version",  # glibc version
+        ]
+
+        os_results = execute_remote_commands(
+            server_public_ip, username, private_key, os_commands, port
+        )
+
+        # Process OS information
+        for i, (recv_exit_status, stdout, stderr) in enumerate(os_results):
+            if recv_exit_status == 0:
+                if i == 0:  # uname -a
+                    validation_info["system_info"] = "".join(stdout).strip()
+                    logging.info(f"System info: {validation_info['system_info']}")
+                elif i == 1:  # /etc/os-release
+                    os_release = "".join(stdout).strip()
+                    validation_info["os_release"] = os_release
+                    logging.info(f"OS release info: {os_release}")
+                elif i == 2:  # ldd --version (glibc)
+                    glibc_info = "".join(stdout).strip()
+                    validation_info["glibc_version"] = glibc_info
+                    logging.info(f"glibc version: {glibc_info}")
+            else:
+                logging.warning(
+                    f"Command {os_commands[i]} failed with exit code {recv_exit_status}"
+                )
+                if i == 2:  # glibc check failed, try alternative
+                    alt_result = execute_remote_commands(
+                        server_public_ip,
+                        username,
+                        private_key,
+                        ["getconf GNU_LIBC_VERSION"],
+                        port,
+                    )
+                    if alt_result and alt_result[0][0] == 0:
+                        glibc_alt = "".join(alt_result[0][1]).strip()
+                        validation_info["glibc_version"] = glibc_alt
+                        logging.info(f"glibc version (alternative): {glibc_alt}")
+
+        # Test custom redis-server binary if provided
+        if custom_redis_server_path:
+            logging.info(
+                f"Testing custom redis-server binary: {custom_redis_server_path}"
+            )
+
+            # Check if the binary exists and is executable
+            check_commands = [
+                f"test -f {custom_redis_server_path}",
+                f"test -x {custom_redis_server_path}",
+                f"{custom_redis_server_path} --version",
+            ]
+
+            check_results = execute_remote_commands(
+                server_public_ip, username, private_key, check_commands, port
+            )
+
+            for i, (recv_exit_status, stdout, stderr) in enumerate(check_results):
+                if recv_exit_status != 0:
+                    if i == 0:
+                        logging.error(
+                            f"Custom redis-server binary not found: {custom_redis_server_path}"
+                        )
+                        success = False
+                    elif i == 1:
+                        logging.error(
+                            f"Custom redis-server binary not executable: {custom_redis_server_path}"
+                        )
+                        success = False
+                    elif i == 2:
+                        logging.error(
+                            f"Custom redis-server binary --version failed: {stderr}"
+                        )
+                        success = False
+                    break
+                elif i == 2:  # --version succeeded
+                    version_output = "".join(stdout).strip()
+                    validation_info["custom_redis_version"] = version_output
+                    logging.info(f"Custom redis-server version: {version_output}")
+
+    except Exception as e:
+        logging.error(f"Remote host validation failed with exception: {e}")
+        success = False
+
+    if success:
+        logging.info("✅ Remote host validation passed")
+    else:
+        logging.error("❌ Remote host validation failed")
+
+    return success, validation_info
 
 
 def spin_up_standalone_remote_redis(
@@ -290,10 +408,24 @@ def generate_remote_standalone_redis_cmd(
     modules_configuration_parameters_map,
     enable_redis_7_config_directives=True,
     enable_debug_command="yes",
+    custom_redis_server_path=None,
+    custom_redis_conf_path=None,
 ):
-    initial_redis_cmd = "redis-server --save '' --logfile {} --dir {} --daemonize yes --protected-mode no ".format(
-        logfile, temporary_dir
+    # Use custom redis-server binary if provided, otherwise use default
+    redis_server_binary = (
+        custom_redis_server_path if custom_redis_server_path else "redis-server"
     )
+
+    # If custom config file is provided, use it; otherwise use command line parameters
+    if custom_redis_conf_path:
+        initial_redis_cmd = "{} {} --daemonize yes".format(
+            redis_server_binary, custom_redis_conf_path
+        )
+        logging.info(f"Using custom redis.conf: {custom_redis_conf_path}")
+    else:
+        initial_redis_cmd = "{} --save '' --logfile {} --dir {} --daemonize yes --protected-mode no ".format(
+            redis_server_binary, logfile, temporary_dir
+        )
     if enable_redis_7_config_directives:
         extra_str = " --enable-debug-command {} ".format(enable_debug_command)
         initial_redis_cmd = initial_redis_cmd + extra_str
@@ -323,3 +455,290 @@ def generate_remote_standalone_redis_cmd(
     if remote_module_files is not None:
         initial_redis_cmd += " " + " ".join(command)
     return full_logfile, initial_redis_cmd
+
+
+def spin_test_standalone_redis(
+    server_public_ip,
+    username,
+    private_key,
+    db_ssh_port=22,
+    redis_port=6379,
+    local_module_files=None,
+    redis_configuration_parameters=None,
+    modules_configuration_parameters_map=None,
+    custom_redis_conf_path=None,
+    custom_redis_server_path=None,
+):
+    """
+    Setup standalone Redis server, run INFO SERVER, print output as markdown and exit.
+
+    Args:
+        server_public_ip: IP address of the remote server
+        username: SSH username
+        private_key: Path to SSH private key
+        db_ssh_port: SSH port (default 22)
+        redis_port: Redis port (default 6379)
+        local_module_files: List of local module files to copy
+        redis_configuration_parameters: Dict of Redis configuration parameters
+        modules_configuration_parameters_map: Dict of module configuration parameters
+        custom_redis_conf_path: Path to custom redis.conf file
+        custom_redis_server_path: Path to custom redis-server binary
+    """
+    logging.info("🚀 Starting spin-test mode...")
+
+    try:
+        # Create temporary directory on remote host
+        temporary_dir = "/tmp/redisbench-spin-test"
+        create_dir_commands = [f"mkdir -p {temporary_dir}"]
+        execute_remote_commands(
+            server_public_ip, username, private_key, create_dir_commands, db_ssh_port
+        )
+
+        # Ensure Redis server is available (only if not using custom binary)
+        if custom_redis_server_path is None:
+            ensure_redis_server_available(
+                server_public_ip, username, private_key, db_ssh_port
+            )
+        else:
+            logging.info(
+                "🔧 Using custom Redis binary - skipping system Redis installation"
+            )
+
+        # Copy custom Redis files if provided
+        remote_redis_conf_path = None
+        remote_redis_server_path = None
+
+        if custom_redis_conf_path:
+            if not os.path.exists(custom_redis_conf_path):
+                logging.error(
+                    f"❌ Custom redis.conf file not found: {custom_redis_conf_path}"
+                )
+                return False
+
+            remote_redis_conf_path = f"{temporary_dir}/redis.conf"
+            logging.info(f"📁 Copying custom redis.conf to remote host...")
+
+            copy_result = copy_file_to_remote_setup(
+                server_public_ip,
+                username,
+                private_key,
+                custom_redis_conf_path,
+                remote_redis_conf_path,
+                None,
+                db_ssh_port,
+                False,  # don't continue on error
+            )
+
+            if not copy_result:
+                logging.error("❌ Failed to copy redis.conf to remote host")
+                return False
+
+        if custom_redis_server_path:
+            if not os.path.exists(custom_redis_server_path):
+                logging.error(
+                    f"❌ Custom redis-server binary not found: {custom_redis_server_path}"
+                )
+                return False
+
+            remote_redis_server_path = f"{temporary_dir}/redis-server"
+            logging.info(f"📁 Copying custom redis-server binary to remote host...")
+
+            copy_result = copy_file_to_remote_setup(
+                server_public_ip,
+                username,
+                private_key,
+                custom_redis_server_path,
+                remote_redis_server_path,
+                None,
+                db_ssh_port,
+                False,  # don't continue on error
+            )
+
+            if not copy_result:
+                logging.error("❌ Failed to copy redis-server binary to remote host")
+                return False
+
+            # Make the binary executable
+            chmod_commands = [f"chmod +x {remote_redis_server_path}"]
+            chmod_results = execute_remote_commands(
+                server_public_ip, username, private_key, chmod_commands, db_ssh_port
+            )
+
+            recv_exit_status, stdout, stderr = chmod_results[0]
+            if recv_exit_status != 0:
+                logging.warning(
+                    f"⚠️ Failed to make redis-server binary executable: {stderr}"
+                )
+            else:
+                logging.info("✅ Redis-server binary made executable")
+
+        # Copy modules if provided
+        remote_module_files = None
+        if local_module_files:
+            remote_module_file_dir = f"{temporary_dir}/modules"
+            create_module_dir_commands = [f"mkdir -p {remote_module_file_dir}"]
+            execute_remote_commands(
+                server_public_ip,
+                username,
+                private_key,
+                create_module_dir_commands,
+                db_ssh_port,
+            )
+
+            remote_module_files = remote_module_files_cp(
+                local_module_files,
+                db_ssh_port,
+                private_key,
+                remote_module_file_dir,
+                server_public_ip,
+                username,
+                continue_on_module_check_error=True,
+            )
+
+        # Generate Redis startup command
+        logfile = "redis-spin-test.log"
+        full_logfile, redis_cmd = generate_remote_standalone_redis_cmd(
+            logfile,
+            redis_configuration_parameters,
+            remote_module_files,
+            temporary_dir,
+            modules_configuration_parameters_map or {},
+            enable_redis_7_config_directives=True,
+            enable_debug_command="yes",
+            custom_redis_server_path=remote_redis_server_path,
+            custom_redis_conf_path=remote_redis_conf_path,
+        )
+
+        # Override port if specified
+        if redis_port != 6379:
+            redis_cmd += f" --port {redis_port}"
+
+        logging.info(f"🔧 Starting Redis with command: {redis_cmd}")
+
+        # Start Redis server
+        start_commands = [redis_cmd]
+        start_result = execute_remote_commands(
+            server_public_ip, username, private_key, start_commands, db_ssh_port
+        )
+
+        # Check if Redis started successfully
+        recv_exit_status, stdout, stderr = start_result[0]
+        if recv_exit_status != 0:
+            logging.error(
+                f"❌ Failed to start Redis server. Exit code: {recv_exit_status}"
+            )
+            logging.error(f"STDOUT: {stdout}")
+            logging.error(f"STDERR: {stderr}")
+            return False
+
+        # Wait a moment for Redis to fully start
+        import time
+
+        time.sleep(2)
+
+        # Collect system information
+        logging.info("📊 Collecting system information...")
+        system_commands = [
+            "uname -a",  # System information
+            "cat /etc/os-release",  # OS release info
+            "ldd --version 2>/dev/null || getconf GNU_LIBC_VERSION 2>/dev/null || echo 'glibc version not available'",  # glibc version
+            "cat /proc/version",  # Kernel version
+            "cat /proc/cpuinfo | grep 'model name' | head -1",  # CPU info
+            "free -h",  # Memory info
+            "df -h /",  # Disk space
+        ]
+
+        system_results = execute_remote_commands(
+            server_public_ip, username, private_key, system_commands, db_ssh_port
+        )
+
+        # Run INFO SERVER command
+        info_commands = [f"redis-cli -p {redis_port} INFO SERVER"]
+        info_result = execute_remote_commands(
+            server_public_ip, username, private_key, info_commands, db_ssh_port
+        )
+
+        recv_exit_status, stdout, stderr = info_result[0]
+        if recv_exit_status != 0:
+            logging.error(
+                f"❌ Failed to run INFO SERVER. Exit code: {recv_exit_status}"
+            )
+            logging.error(f"STDOUT: {stdout}")
+            logging.error(f"STDERR: {stderr}")
+            return False
+
+        # Format output as markdown
+        info_output = "".join(stdout).strip()
+
+        print("\n" + "=" * 80)
+        print("🎯 REDIS SPIN-TEST RESULTS")
+        print("=" * 80)
+        print()
+
+        # Display system information
+        print("## 🖥️  System Information")
+        print()
+
+        system_labels = [
+            "System Info",
+            "OS Release",
+            "glibc Version",
+            "Kernel Version",
+            "CPU Model",
+            "Memory",
+            "Disk Space",
+        ]
+
+        for i, (label, (recv_exit_status, stdout, stderr)) in enumerate(
+            zip(system_labels, system_results)
+        ):
+            if recv_exit_status == 0 and stdout:
+                output = "".join(stdout).strip()
+                if output:
+                    print(f"**{label}:**")
+                    print("```")
+                    print(output)
+                    print("```")
+                    print()
+            else:
+                print(f"**{label}:** ⚠️ Not available")
+                print()
+
+        # Display Redis information
+        print("## 🔴 Redis Server Information")
+        print()
+        print("```")
+        print(info_output)
+        print("```")
+        print()
+        print("✅ Spin-test completed successfully!")
+        print("=" * 80)
+
+        # Cleanup: Stop Redis server
+        cleanup_commands = [
+            f"redis-cli -p {redis_port} shutdown nosave",
+            f"rm -rf {temporary_dir}",
+        ]
+        execute_remote_commands(
+            server_public_ip, username, private_key, cleanup_commands, db_ssh_port
+        )
+
+        logging.info("🧹 Cleanup completed")
+        return True
+
+    except Exception as e:
+        logging.error(f"❌ Spin-test failed with error: {e}")
+
+        # Attempt cleanup on error
+        try:
+            cleanup_commands = [
+                f"redis-cli -p {redis_port} shutdown nosave",
+                f"rm -rf {temporary_dir}",
+            ]
+            execute_remote_commands(
+                server_public_ip, username, private_key, cleanup_commands, db_ssh_port
+            )
+        except:
+            pass  # Ignore cleanup errors
+
+        return False

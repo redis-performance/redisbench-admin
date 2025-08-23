@@ -51,6 +51,7 @@ from redisbench_admin.run_remote.remote_db import (
     remote_db_spin,
     db_error_artifacts,
 )
+from redisbench_admin.run_remote.standalone import spin_test_standalone_redis
 from redisbench_admin.run_remote.remote_env import remote_env_setup
 from redisbench_admin.run_remote.remote_failures import failed_remote_run_artifact_store
 from redisbench_admin.run_remote.terraform import (
@@ -122,12 +123,15 @@ def run_remote_command_logic(args, project_name, project_version):
     tf_setup_name_sufix = "{}-{}".format(args.setup_name_sufix, tf_github_sha)
     s3_bucket_name = args.s3_bucket_name
     local_module_files = args.module_path
-    for pos, module_file in enumerate(local_module_files):
-        if " " in module_file:
-            logging.info(
-                "Detected multiple files in single module path {}".format(module_file)
-            )
-            local_module_files[pos] = module_file.split(" ")
+    if local_module_files is not None:
+        for pos, module_file in enumerate(local_module_files):
+            if " " in module_file:
+                logging.info(
+                    "Detected multiple files in single module path {}".format(
+                        module_file
+                    )
+                )
+                local_module_files[pos] = module_file.split(" ")
     dbdir_folder = args.dbdir_folder
     private_key = args.private_key
     grafana_profile_dashboard = args.grafana_profile_dashboard
@@ -237,6 +241,50 @@ def run_remote_command_logic(args, project_name, project_version):
     )
 
     ssh_pem_check(EC2_PRIVATE_PEM, private_key)
+
+    # Handle spin-test mode
+    if args.spin_test:
+        logging.info(
+            "🚀 Spin-test mode detected - setting up standalone Redis and running INFO SERVER"
+        )
+
+        # Parse inventory to get server details
+        if args.inventory is None:
+            logging.error(
+                "❌ --spin-test requires --inventory to specify the remote server"
+            )
+            exit(1)
+
+        # Parse inventory string
+        inventory_parts = args.inventory.split(",")
+        server_public_ip = None
+
+        for part in inventory_parts:
+            if "=" in part:
+                key, value = part.split("=", 1)
+                if key.strip() == "server_public_ip":
+                    server_public_ip = value.strip()
+                    break
+
+        if server_public_ip is None:
+            logging.error("❌ --spin-test requires server_public_ip in --inventory")
+            exit(1)
+
+        # Run spin test
+        success = spin_test_standalone_redis(
+            server_public_ip=server_public_ip,
+            username=args.user,
+            private_key=private_key,
+            db_ssh_port=args.db_ssh_port,
+            redis_port=args.db_port,
+            local_module_files=local_module_files,
+            redis_configuration_parameters=None,
+            modules_configuration_parameters_map=None,
+            custom_redis_conf_path=args.redis_conf,
+            custom_redis_server_path=args.redis_server_binary,
+        )
+
+        exit(0 if success else 1)
 
     (
         benchmark_defs_result,
