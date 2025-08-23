@@ -194,7 +194,7 @@ def test_run_local_command_logic():
     ## run while pushing results to redis_conn
     # Ensure we have the test DB to store results
     assert "RTS_PORT" in os.environ
-    rts_port = os.environ.get("RTS_PORT",None)
+    rts_port = os.environ.get("RTS_PORT", None)
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
     rts_pass = ""
     if rts_host is None:
@@ -224,4 +224,3 @@ def test_run_local_command_logic():
         run_local_command_logic(args, "tool", "v0")
     except SystemExit as e:
         assert e.code == 0
-

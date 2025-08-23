@@ -173,9 +173,10 @@ def test_common_exporter_logic():
     common_exporter_logic(None, None, None, None, None, None, None, None, None, None)
     try:
         import os
+
         # Ensure we have the test DB to store results
         assert "RTS_PORT" in os.environ
-        rts_port = os.environ.get("RTS_PORT",None)
+        rts_port = os.environ.get("RTS_PORT", None)
         rts_host = os.getenv("RTS_DATASINK_HOST", None)
         rts_pass = ""
         if rts_host is None:
@@ -517,9 +518,10 @@ def test_dbconfig_keyspacelen_check():
     from redis.exceptions import ConnectionError
 
     import os
+
     # Ensure we have the test DB to store results
     assert "RTS_PORT" in os.environ
-    rts_port = os.environ.get("RTS_PORT",None)
+    rts_port = os.environ.get("RTS_PORT", None)
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
     rts_pass = ""
     if rts_host is None:
@@ -535,19 +537,21 @@ def test_dbconfig_keyspacelen_check():
         ) as yml_file:
             benchmark_config = yaml.safe_load(yml_file)
             # no keyspace len check
-            result = dbconfig_keyspacelen_check(benchmark_config, redis_conns,False,5)
+            result = dbconfig_keyspacelen_check(benchmark_config, redis_conns, False, 5)
             assert result == True
 
         with open("./tests/test_data/tsbs-targets.yml", "r") as yml_file:
             benchmark_config = yaml.safe_load(yml_file)
             # check and fail
             try:
-                result = dbconfig_keyspacelen_check(benchmark_config, redis_conns,False,5)
+                result = dbconfig_keyspacelen_check(
+                    benchmark_config, redis_conns, False, 5
+                )
             except Exception as e:
                 err_str = e.__str__()
                 assert (
-                    "The total number of keys in setup does not match the expected spec: 1000 != 0. Aborting after" in 
-                    err_str
+                    "The total number of keys in setup does not match the expected spec: 1000 != 0. Aborting after"
+                    in err_str
                 )
 
             # check and pass
@@ -599,10 +603,11 @@ def test_execute_init_commands():
     from redis.exceptions import ConnectionError
 
     import os
+
     # Ensure we have the test DB to store results
     assert "RTS_PORT" in os.environ
-    rts_port = os.environ.get("RTS_PORT",None)
-    
+    rts_port = os.environ.get("RTS_PORT", None)
+
     try:
         redis = StrictRedis(port=rts_port)
         redis.ping()

@@ -254,7 +254,9 @@ def compare_command_logic(args, project_name, project_version):
     uid = args.grafana_uid
     if tf_github_repo.lower() in grafana_dashboards_uids and uid is None:
         uid = grafana_dashboards_uids[tf_github_repo.lower()]
-        logging.info(f"Using uid from grafana_dashboards_uids. {grafana_dashboards_uids}. uid={uid}")
+        logging.info(
+            f"Using uid from grafana_dashboards_uids. {grafana_dashboards_uids}. uid={uid}"
+        )
     else:
         logging.info(f"Using uid from args. uid={uid}")
     grafana_link_base = None
@@ -324,9 +326,7 @@ def compare_command_logic(args, project_name, project_version):
         comparison_summary = "In summary:\n"
         if total_stable > 0:
             comparison_summary += (
-                "- Detected a total of {} stable tests between versions.\n".format(
-                    total_stable,
-                )
+                f"- Detected a total of {total_stable} stable tests between versions.\n"
             )
 
         if total_unstable > 0:
@@ -388,13 +388,10 @@ def compare_command_logic(args, project_name, project_version):
 
                             comparison_summary += f"  - {test_display_name}: {', '.join(commands_info)}{confidence_indicator}\n"
         if total_improvements > 0:
-            comparison_summary += "- Detected a total of {} improvements above the improvement water line.\n".format(
-                total_improvements
-            )
+            comparison_summary += f"- Detected a total of {total_improvements} improvements above the improvement water line.\n"
         if total_regressions > 0:
-            comparison_summary += "- Detected a total of {} regressions bellow the regression water line {}.\n".format(
-                total_regressions, args.regressions_percent_lower_limit
-            )
+            comparison_summary += f"- Detected a total of {total_regressions} regressions bellow the regression water line {args.regressions_percent_lower_limit}%.\n"
+        comparison_summary += "\n"
 
         comment_body += comparison_summary
         comment_body += "\n"

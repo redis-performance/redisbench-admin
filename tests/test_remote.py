@@ -126,9 +126,10 @@ def test_push_data_to_redistimeseries():
     time_series_dict = {}
     try:
         import os
+
         # Ensure we have the test DB to store results
         assert "RTS_PORT" in os.environ
-        rts_port = os.environ.get("RTS_PORT",None)
+        rts_port = os.environ.get("RTS_PORT", None)
         rts = redis.Redis(port=rts_port)
         rts.ping()
     except redis.exceptions.ConnectionError:
@@ -274,9 +275,10 @@ def test_extract_timeseries_from_results():
 def test_exporter_create_ts():
     try:
         import os
+
         # Ensure we have the test DB to store results
         assert "RTS_PORT" in os.environ
-        rts_port = os.environ.get("RTS_PORT",None)
+        rts_port = os.environ.get("RTS_PORT", None)
         rts = redis.Redis(port=rts_port)
         rts.ping()
         rts.flushall()
@@ -484,9 +486,10 @@ def test_exporter_create_ts():
     time_series = {"labels": {"metric-type": "commandstats"}}
     try:
         import os
+
         # Ensure we have the test DB to store results
         assert "RTS_PORT" in os.environ
-        rts_port = os.environ.get("RTS_PORT",None)
+        rts_port = os.environ.get("RTS_PORT", None)
         rts = redis.Redis(port=rts_port)
         rts.ping()
         rts.flushall()
