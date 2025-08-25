@@ -277,9 +277,22 @@ def spin_up_standalone_remote_redis(
     port=22,
     modules_configuration_parameters_map={},
     redis_7=True,
+    custom_redis_server_path=None,
+    custom_redis_conf_path=None,
 ):
-    # Ensure redis-server is available before trying to start it
-    ensure_redis_server_available(server_public_ip, username, private_key, port)
+    # Ensure redis-server is available before trying to start it (only if not using custom binary)
+    if custom_redis_server_path is None:
+        ensure_redis_server_available(server_public_ip, username, private_key, port)
+    else:
+        logging.info(
+            "🔧 Using custom Redis binary - skipping system Redis installation"
+        )
+
+    # Log what paths we're using
+    logging.info(f"🔧 Redis command generation:")
+    logging.info(f"   - Custom server path: {custom_redis_server_path}")
+    logging.info(f"   - Custom config path: {custom_redis_conf_path}")
+    logging.info(f"   - Module files: {remote_module_files}")
 
     full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
         logfile,
@@ -288,6 +301,8 @@ def spin_up_standalone_remote_redis(
         temporary_dir,
         modules_configuration_parameters_map,
         redis_7,
+        custom_redis_server_path=custom_redis_server_path,
+        custom_redis_conf_path=custom_redis_conf_path,
     )
 
     # start redis-server
@@ -457,6 +472,86 @@ def generate_remote_standalone_redis_cmd(
     return full_logfile, initial_redis_cmd
 
 
+def execute_install_steps(
+    benchmark_config, server_public_ip, username, private_key, db_ssh_port
+):
+    """
+    Execute install_steps from dbconfig and clientconfig sections.
+
+    Args:
+        benchmark_config: The benchmark configuration dictionary
+        server_public_ip: IP address of the remote server
+        username: SSH username
+        private_key: Path to SSH private key
+        db_ssh_port: SSH port
+    """
+    install_commands = []
+
+    # Extract install_steps from dbconfig
+    if "dbconfig" in benchmark_config:
+        dbconfig = benchmark_config["dbconfig"]
+        if isinstance(dbconfig, list):
+            for config_item in dbconfig:
+                if "install_steps" in config_item:
+                    steps = config_item["install_steps"]
+                    if isinstance(steps, list):
+                        install_commands.extend(steps)
+                        logging.info(f"📦 Found {len(steps)} install steps in dbconfig")
+        elif isinstance(dbconfig, dict):
+            if "install_steps" in dbconfig:
+                steps = dbconfig["install_steps"]
+                if isinstance(steps, list):
+                    install_commands.extend(steps)
+                    logging.info(f"📦 Found {len(steps)} install steps in dbconfig")
+
+    # Extract install_steps from clientconfig
+    if "clientconfig" in benchmark_config:
+        clientconfig = benchmark_config["clientconfig"]
+        if isinstance(clientconfig, list):
+            for config_item in clientconfig:
+                if "install_steps" in config_item:
+                    steps = config_item["install_steps"]
+                    if isinstance(steps, list):
+                        install_commands.extend(steps)
+                        logging.info(
+                            f"📦 Found {len(steps)} install steps in clientconfig"
+                        )
+        elif isinstance(clientconfig, dict):
+            if "install_steps" in clientconfig:
+                steps = clientconfig["install_steps"]
+                if isinstance(steps, list):
+                    install_commands.extend(steps)
+                    logging.info(f"📦 Found {len(steps)} install steps in clientconfig")
+
+    # Execute all install commands
+    if install_commands:
+        logging.info(f"🔧 Executing {len(install_commands)} installation commands...")
+        for i, command in enumerate(install_commands, 1):
+            logging.info(f"📋 Step {i}/{len(install_commands)}: {command}")
+
+        install_result = execute_remote_commands(
+            server_public_ip, username, private_key, install_commands, db_ssh_port
+        )
+
+        # Check results
+        for i, (recv_exit_status, stdout, stderr) in enumerate(install_result):
+            if recv_exit_status != 0:
+                logging.warning(
+                    f"⚠️ Install step {i+1} returned exit code {recv_exit_status}"
+                )
+                logging.warning(f"Command: {install_commands[i]}")
+                if stderr:
+                    logging.warning(f"STDERR: {''.join(stderr).strip()}")
+                if stdout:
+                    logging.warning(f"STDOUT: {''.join(stdout).strip()}")
+            else:
+                logging.info(f"✅ Install step {i+1} completed successfully")
+
+        logging.info("🎯 All installation steps completed")
+    else:
+        logging.info("📦 No install_steps found in configuration")
+
+
 def spin_test_standalone_redis(
     server_public_ip,
     username,
@@ -468,6 +563,7 @@ def spin_test_standalone_redis(
     modules_configuration_parameters_map=None,
     custom_redis_conf_path=None,
     custom_redis_server_path=None,
+    benchmark_config=None,
 ):
     """
     Setup standalone Redis server, run INFO SERVER, print output as markdown and exit.
@@ -494,6 +590,12 @@ def spin_test_standalone_redis(
             server_public_ip, username, private_key, create_dir_commands, db_ssh_port
         )
 
+        # Execute install_steps from dbconfig and clientconfig if present
+        if benchmark_config is not None:
+            execute_install_steps(
+                benchmark_config, server_public_ip, username, private_key, db_ssh_port
+            )
+
         # Ensure Redis server is available (only if not using custom binary)
         if custom_redis_server_path is None:
             ensure_redis_server_available(
@@ -509,14 +611,21 @@ def spin_test_standalone_redis(
         remote_redis_server_path = None
 
         if custom_redis_conf_path:
+            # Convert relative paths to absolute paths
+            custom_redis_conf_path = os.path.abspath(
+                os.path.expanduser(custom_redis_conf_path)
+            )
+
             if not os.path.exists(custom_redis_conf_path):
                 logging.error(
                     f"❌ Custom redis.conf file not found: {custom_redis_conf_path}"
                 )
                 return False
 
-            remote_redis_conf_path = f"{temporary_dir}/redis.conf"
-            logging.info(f"📁 Copying custom redis.conf to remote host...")
+            remote_redis_conf_path = "/tmp/redis.conf"
+            logging.info(
+                f"📁 Copying custom redis.conf from {custom_redis_conf_path} to {remote_redis_conf_path}"
+            )
 
             copy_result = copy_file_to_remote_setup(
                 server_public_ip,
@@ -532,16 +641,27 @@ def spin_test_standalone_redis(
             if not copy_result:
                 logging.error("❌ Failed to copy redis.conf to remote host")
                 return False
+            else:
+                logging.info(
+                    f"✅ Successfully copied redis.conf to {remote_redis_conf_path}"
+                )
 
         if custom_redis_server_path:
+            # Convert relative paths to absolute paths
+            custom_redis_server_path = os.path.abspath(
+                os.path.expanduser(custom_redis_server_path)
+            )
+
             if not os.path.exists(custom_redis_server_path):
                 logging.error(
                     f"❌ Custom redis-server binary not found: {custom_redis_server_path}"
                 )
                 return False
 
-            remote_redis_server_path = f"{temporary_dir}/redis-server"
-            logging.info(f"📁 Copying custom redis-server binary to remote host...")
+            remote_redis_server_path = "/tmp/redis-server"
+            logging.info(
+                f"📁 Copying custom redis-server binary from {custom_redis_server_path} to {remote_redis_server_path}"
+            )
 
             copy_result = copy_file_to_remote_setup(
                 server_public_ip,
@@ -570,7 +690,9 @@ def spin_test_standalone_redis(
                     f"⚠️ Failed to make redis-server binary executable: {stderr}"
                 )
             else:
-                logging.info("✅ Redis-server binary made executable")
+                logging.info(
+                    f"✅ Successfully copied and made executable: {remote_redis_server_path}"
+                )
 
         # Copy modules if provided
         remote_module_files = None
@@ -597,7 +719,14 @@ def spin_test_standalone_redis(
 
         # Generate Redis startup command
         logfile = "redis-spin-test.log"
-        full_logfile, redis_cmd = generate_remote_standalone_redis_cmd(
+
+        # Log what paths we're using
+        logging.info(f"🔧 Redis command generation:")
+        logging.info(f"   - Custom server path: {remote_redis_server_path}")
+        logging.info(f"   - Custom config path: {remote_redis_conf_path}")
+        logging.info(f"   - Module files: {remote_module_files}")
+
+        _, redis_cmd = generate_remote_standalone_redis_cmd(
             logfile,
             redis_configuration_parameters,
             remote_module_files,
@@ -689,8 +818,8 @@ def spin_test_standalone_redis(
             "Disk Space",
         ]
 
-        for i, (label, (recv_exit_status, stdout, stderr)) in enumerate(
-            zip(system_labels, system_results)
+        for label, (recv_exit_status, stdout, stderr) in zip(
+            system_labels, system_results
         ):
             if recv_exit_status == 0 and stdout:
                 output = "".join(stdout).strip()

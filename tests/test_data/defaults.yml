@@ -19,3 +19,11 @@ exporter:
       - "$.OverallQueryRates.Total"
     mode: higher-better
     baseline-branch: master
+remote:
+ - type: oss-standalone
+ - setup: redisearch-m5
+
+dbconfig:
+  - install_steps:
+    - "sudo apt-get update"
+    - "sudo apt-get install liburing2 -y"

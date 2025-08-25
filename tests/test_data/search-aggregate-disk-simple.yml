@@ -1,0 +1,18 @@
+version: 0.2
+name: "search-aggregate-disk-simple"
+
+metadata:
+  component: "search-disk"
+
+setups:
+  - oss-standalone
+
+dbconfig:
+  init_commands:
+    - '"FT.CREATE" "idx" "SCHEMA" "text_field" "TEXT"'
+    - '"HSET" "doc:1" "text_field" "Bananas are yellow"'
+
+clientconfig:
+  benchmark_type: "read-only"
+  tool: memtier_benchmark
+  arguments: "--test-time 120 -c 32 -t 1 --hide-histogram --command 'FT.AGGREGATE idx '@text_field:Bananas''"

@@ -105,6 +105,8 @@ def remote_db_spin(
     continue_on_module_check_error=False,
     keyspace_check_timeout=60,
     architecture="x86_64",
+    custom_redis_server_path=None,
+    custom_redis_conf_path=None,
 ):
     (
         _,
@@ -113,6 +115,116 @@ def remote_db_spin(
         dataset_load_timeout_secs,
         modules_configuration_parameters_map,
     ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
+
+    # Execute install_steps from dbconfig and clientconfig if present
+    from redisbench_admin.run_remote.standalone import execute_install_steps
+
+    if benchmark_config is not None:
+        execute_install_steps(
+            benchmark_config, server_public_ip, username, private_key, db_ssh_port
+        )
+
+    # Copy custom Redis files to remote host if provided
+    remote_redis_server_path = None
+    remote_redis_conf_path = None
+
+    if custom_redis_server_path or custom_redis_conf_path:
+        from redisbench_admin.utils.remote import copy_file_to_remote_setup
+        import os
+
+        if custom_redis_conf_path:
+            # Convert relative paths to absolute paths
+            custom_redis_conf_path = os.path.abspath(
+                os.path.expanduser(custom_redis_conf_path)
+            )
+
+            if not os.path.exists(custom_redis_conf_path):
+                logging.error(
+                    f"❌ Custom redis.conf file not found: {custom_redis_conf_path}"
+                )
+                return_code = 1
+                return (None, None, None, [], [], return_code, None, None)
+
+            remote_redis_conf_path = "/tmp/redis.conf"
+            logging.info(
+                f"📁 Copying custom redis.conf from {custom_redis_conf_path} to {remote_redis_conf_path}"
+            )
+
+            copy_result = copy_file_to_remote_setup(
+                server_public_ip,
+                username,
+                private_key,
+                custom_redis_conf_path,
+                remote_redis_conf_path,
+                None,
+                db_ssh_port,
+                False,  # don't continue on error
+            )
+
+            if not copy_result:
+                logging.error("❌ Failed to copy redis.conf to remote host")
+                return_code = 1
+                return (None, None, None, [], [], return_code, None, None)
+            else:
+                logging.info(
+                    f"✅ Successfully copied redis.conf to {remote_redis_conf_path}"
+                )
+
+        if custom_redis_server_path:
+            # Convert relative paths to absolute paths
+            custom_redis_server_path = os.path.abspath(
+                os.path.expanduser(custom_redis_server_path)
+            )
+
+            if not os.path.exists(custom_redis_server_path):
+                logging.error(
+                    f"❌ Custom redis-server binary not found: {custom_redis_server_path}"
+                )
+                return_code = 1
+                return (None, None, None, [], [], return_code, None, None)
+
+            remote_redis_server_path = "/tmp/redis-server"
+            logging.info(
+                f"📁 Copying custom redis-server binary from {custom_redis_server_path} to {remote_redis_server_path}"
+            )
+
+            copy_result = copy_file_to_remote_setup(
+                server_public_ip,
+                username,
+                private_key,
+                custom_redis_server_path,
+                remote_redis_server_path,
+                None,
+                db_ssh_port,
+                False,  # don't continue on error
+            )
+
+            if not copy_result:
+                logging.error("❌ Failed to copy redis-server binary to remote host")
+                return_code = 1
+                return (None, None, None, [], [], return_code, None, None)
+
+            # Make the binary executable
+            chmod_commands = [f"chmod +x {remote_redis_server_path}"]
+            chmod_results = execute_remote_commands(
+                server_public_ip, username, private_key, chmod_commands, db_ssh_port
+            )
+
+            recv_exit_status, stdout, stderr = chmod_results[0]
+            if recv_exit_status != 0:
+                logging.warning(
+                    f"⚠️ Failed to make redis-server binary executable: {stderr}"
+                )
+            else:
+                logging.info(
+                    f"✅ Successfully copied and made executable: {remote_redis_server_path}"
+                )
+
+    # Update the custom paths to use the remote paths
+    if remote_redis_server_path:
+        custom_redis_server_path = remote_redis_server_path
+    if remote_redis_conf_path:
+        custom_redis_conf_path = remote_redis_conf_path
 
     full_logfiles = []
     cluster_enabled = False
@@ -207,6 +319,8 @@ def remote_db_spin(
                     db_ssh_port,
                     modules_configuration_parameters_map,
                     redis_7,
+                    custom_redis_server_path,
+                    custom_redis_conf_path,
                 )
                 full_logfiles.append(full_logfile)
             local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(

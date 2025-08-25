@@ -1,0 +1,24 @@
+dbconfig:
+  - install_steps:
+    - "sudo apt-get update"
+    - "sudo apt-get install liburing2 -y"
+    - "sudo apt-get install libnuma1 -y"
+    - "sudo apt-get install libssl3 -y"
+  - configuration-parameters:
+    - io-threads: 4
+    - io-threads-do-reads: "yes"
+
+clientconfig:
+  - install_steps:
+    - "sudo apt-get install htop -y"
+    - "sudo apt-get install iotop -y"
+    - "sudo apt-get install sysstat -y"
+  - tool: redis-benchmark
+  - parameters:
+    - clients: 16
+    - requests: 1000
+
+# Other default configurations can go here
+remote:
+  - type: oss-standalone
+  - setup: default-setup

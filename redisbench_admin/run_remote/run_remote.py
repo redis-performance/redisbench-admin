@@ -4,6 +4,7 @@
 #  All rights reserved.
 #
 import logging
+import os
 import random
 import string
 import sys
@@ -270,6 +271,31 @@ def run_remote_command_logic(args, project_name, project_version):
             logging.error("❌ --spin-test requires server_public_ip in --inventory")
             exit(1)
 
+        # Load benchmark config from defaults.yml
+        benchmark_config = None
+
+        # Try to load defaults.yml
+        defaults_file = (
+            args.defaults_filename
+            if hasattr(args, "defaults_filename")
+            else "defaults.yml"
+        )
+        if os.path.exists(defaults_file):
+            try:
+                import yaml
+
+                with open(defaults_file, "r") as config_file:
+                    defaults_config = yaml.safe_load(config_file)
+                    if defaults_config:
+                        benchmark_config = defaults_config
+                        logging.info(f"📋 Loaded configuration from {defaults_file}")
+            except Exception as e:
+                logging.warning(f"⚠️ Failed to load defaults config: {e}")
+        else:
+            logging.info(
+                f"📋 No {defaults_file} found - proceeding without install_steps"
+            )
+
         # Run spin test
         success = spin_test_standalone_redis(
             server_public_ip=server_public_ip,
@@ -282,6 +308,7 @@ def run_remote_command_logic(args, project_name, project_version):
             modules_configuration_parameters_map=None,
             custom_redis_conf_path=args.redis_conf,
             custom_redis_server_path=args.redis_server_binary,
+            benchmark_config=benchmark_config,
         )
 
         exit(0 if success else 1)
@@ -638,6 +665,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                             continue_on_module_check_error,
                                             60,
                                             architecture,
+                                            args.redis_server_binary,
+                                            args.redis_conf,
                                         )
                                         if benchmark_type == "read-only":
                                             ro_benchmark_set(

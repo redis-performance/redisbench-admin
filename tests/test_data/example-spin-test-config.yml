@@ -1,0 +1,20 @@
+name: "spin-test-example"
+description: "Example configuration for spin-test with install_steps"
+
+dbconfig:
+  - install_steps:
+    - "sudo apt-get update"
+    - "sudo apt-get install liburing2 -y"
+    - "sudo apt-get install libnuma1 -y"
+  - configuration-parameters:
+    - io-threads: 4
+    - io-threads-do-reads: "yes"
+
+clientconfig:
+  - install_steps:
+    - "sudo apt-get install htop -y"
+    - "sudo apt-get install iotop -y"
+  - tool: redis-benchmark
+  - parameters:
+    - clients: 16
+    - requests: 1000

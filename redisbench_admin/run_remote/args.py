@@ -148,7 +148,7 @@ def create_run_remote_arguments(parser):
         "--spin-test",
         default=False,
         action="store_true",
-        help="Setup standalone Redis server, run INFO SERVER, print output as markdown and exit",
+        help="Setup standalone Redis server, run INFO SERVER, print output as markdown and exit (reads install_steps from defaults.yml)",
     )
 
     return parser

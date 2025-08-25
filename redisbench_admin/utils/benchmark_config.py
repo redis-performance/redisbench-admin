@@ -75,11 +75,12 @@ def prepare_benchmark_definitions(args):
         exporter_timemetric_path,
         default_specs,
         clusterconfig,
+        default_dbconfig,
     ) = get_defaults(defaults_filename)
     for usecase_filename in files:
         with open(usecase_filename, "r", encoding="utf8") as stream:
             test_result, benchmark_config, test_name = get_final_benchmark_config(
-                default_kpis, default_remote, stream, usecase_filename
+                default_kpis, default_remote, stream, usecase_filename, default_dbconfig
             )
             result &= test_result
             if test_result:
@@ -116,6 +117,7 @@ def get_defaults(defaults_filename):
     default_remote = None
     default_specs = None
     cluster_config = None
+    default_dbconfig = None
     if os.path.exists(defaults_filename):
         with open(defaults_filename, "r") as stream:
             logging.info(
@@ -128,6 +130,7 @@ def get_defaults(defaults_filename):
                 exporter_timemetric_path,
                 default_specs,
                 cluster_config,
+                default_dbconfig,
             ) = process_default_yaml_properties_file(
                 default_kpis,
                 default_remote,
@@ -143,10 +146,13 @@ def get_defaults(defaults_filename):
         exporter_timemetric_path,
         default_specs,
         cluster_config,
+        default_dbconfig,
     )
 
 
-def get_final_benchmark_config(default_kpis, default_remote, stream, usecase_filename):
+def get_final_benchmark_config(
+    default_kpis, default_remote, stream, usecase_filename, default_dbconfig=None
+):
     result = False
     benchmark_config = None
     test_name = None
@@ -163,6 +169,12 @@ def get_final_benchmark_config(default_kpis, default_remote, stream, usecase_fil
             merge_default_and_specific_properties_dict_type(
                 benchmark_config, default_remote, kpis_keyname, usecase_filename
             )
+        # Merge dbconfig from defaults
+        dbconfig_keyname = "dbconfig"
+        if default_dbconfig is not None:
+            merge_dbconfig_properties(
+                benchmark_config, default_dbconfig, dbconfig_keyname, usecase_filename
+            )
         test_name = benchmark_config["name"]
         result = True
     except Exception as e:
@@ -174,6 +186,56 @@ def get_final_benchmark_config(default_kpis, default_remote, stream, usecase_fil
         pass
 
     return result, benchmark_config, test_name
+
+
+def merge_dbconfig_properties(
+    benchmark_config, default_dbconfig, dbconfig_keyname, usecase_filename
+):
+    """
+    Merge dbconfig properties from defaults with benchmark-specific dbconfig.
+    Handles both list and dict formats for dbconfig sections.
+    """
+    if dbconfig_keyname not in benchmark_config:
+        # No local dbconfig, use defaults entirely
+        benchmark_config[dbconfig_keyname] = default_dbconfig
+        logging.info(
+            f"Using exclusively default '{dbconfig_keyname}' properties from {usecase_filename}"
+        )
+    else:
+        # Merge defaults with local dbconfig
+        local_dbconfig = benchmark_config[dbconfig_keyname]
+
+        # Convert both to list format for consistent merging
+        if isinstance(default_dbconfig, dict):
+            default_list = [default_dbconfig]
+        else:
+            default_list = default_dbconfig
+
+        if isinstance(local_dbconfig, dict):
+            local_list = [local_dbconfig]
+        else:
+            local_list = local_dbconfig
+
+        # Merge: defaults first, then local (local takes precedence for conflicts)
+        merged_list = []
+
+        # Add all default items
+        for item in default_list:
+            merged_list.append(item)
+
+        # Add local items
+        for item in local_list:
+            merged_list.append(item)
+
+        # Convert back to original format if local was dict
+        if isinstance(local_dbconfig, dict) and len(merged_list) == 1:
+            benchmark_config[dbconfig_keyname] = merged_list[0]
+        else:
+            benchmark_config[dbconfig_keyname] = merged_list
+
+        logging.info(
+            f"Merged default and local '{dbconfig_keyname}' properties for {usecase_filename}"
+        )
 
 
 def merge_default_and_specific_properties_dict_type(
@@ -285,6 +347,7 @@ def process_default_yaml_properties_file(
     default_config = yaml.safe_load(stream)
     default_specs = None
     cluster_config = None
+    default_dbconfig = None
     default_metrics, exporter_timemetric_path = extract_exporter_metrics(default_config)
     if "remote" in default_config:
         logging.info(
@@ -300,6 +363,13 @@ def process_default_yaml_properties_file(
             )
         )
         default_kpis = default_config["kpis"]
+    if "dbconfig" in default_config:
+        logging.info(
+            "Loading default DBCONFIG specifications from file: {}".format(
+                defaults_filename
+            )
+        )
+        default_dbconfig = default_config["dbconfig"]
     if "spec" in default_config:
         logging.info(
             "Loading default setup SPECs from file: {}".format(defaults_filename)
@@ -319,6 +389,7 @@ def process_default_yaml_properties_file(
         exporter_timemetric_path,
         default_specs,
         cluster_config,
+        default_dbconfig,
     )
 
 
