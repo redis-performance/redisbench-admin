@@ -64,6 +64,10 @@ def test_spin_up_standalone_remote_redis():
         logname,
         None,
         port,
+        {},
+        True,
+        None,
+        None,
     )
 
 

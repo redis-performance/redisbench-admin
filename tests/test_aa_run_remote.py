@@ -55,6 +55,7 @@ def test_merge_default_and_config_metrics():
             exporter_timemetric_path,
             default_specs,
             cluster_config,
+            _,
         ) = process_default_yaml_properties_file(
             None, None, None, "1.yml", None, yml_file
         )
@@ -75,6 +76,7 @@ def test_merge_default_and_config_metrics():
             exporter_timemetric_path,
             default_specs,
             cluster_config,
+            _,
         ) = process_default_yaml_properties_file(
             None, None, None, "1.yml", None, yml_file
         )

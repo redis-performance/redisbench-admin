@@ -13,7 +13,6 @@ from redisbench_admin.utils.remote import (
 )
 from redisbench_admin.utils.ssh import SSHSession
 from redisbench_admin.utils.utils import redis_server_config_module_part
-import tempfile
 
 
 def ensure_redis_server_available(server_public_ip, username, private_key, port=22):
@@ -289,7 +288,7 @@ def spin_up_standalone_remote_redis(
         )
 
     # Log what paths we're using
-    logging.info(f"🔧 Redis command generation:")
+    logging.info("🔧 Redis command generation:")
     logging.info(f"   - Custom server path: {custom_redis_server_path}")
     logging.info(f"   - Custom config path: {custom_redis_conf_path}")
     logging.info(f"   - Module files: {remote_module_files}")
@@ -721,7 +720,7 @@ def spin_test_standalone_redis(
         logfile = "redis-spin-test.log"
 
         # Log what paths we're using
-        logging.info(f"🔧 Redis command generation:")
+        logging.info("🔧 Redis command generation:")
         logging.info(f"   - Custom server path: {remote_redis_server_path}")
         logging.info(f"   - Custom config path: {remote_redis_conf_path}")
         logging.info(f"   - Module files: {remote_module_files}")

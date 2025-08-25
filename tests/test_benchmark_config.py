@@ -195,6 +195,7 @@ def test_prepare_benchmark_definitions():
         exporter_timemetric_path,
         default_specs,
         clusterconfig,
+        _,
     ) = prepare_benchmark_definitions(args)
     assert result == True
     assert len(benchmark_definitions.keys()) == 6
@@ -223,6 +224,7 @@ def test_process_benchmark_definitions_remote_timeouts():
         exporter_timemetric_path,
         default_specs,
         clusterconfig,
+        _,
     ) = prepare_benchmark_definitions(args)
     assert result == True
     assert len(benchmark_definitions.keys()) == 6

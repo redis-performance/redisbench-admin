@@ -76,6 +76,7 @@ def export_command_logic(args, project_name, project_version):
                 exporter_timemetric_path,
                 _,
                 _,
+                _,
             ) = get_defaults(exporter_spec_file)
     arch = args.architecture
     logging.info("Using the following architecture on the timeseries: {}".format(arch))

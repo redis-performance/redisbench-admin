@@ -149,6 +149,7 @@ def run_local_command_logic(args, project_name, project_version):
         exporter_timemetric_path,
         default_specs,
         clusterconfig,
+        _,
     ) = prepare_benchmark_definitions(args)
 
     return_code = 0

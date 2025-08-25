@@ -57,8 +57,46 @@ def get_git_root(path):
 
 def view_bar_simple(a, b):
     res = a / int(b) * 100
-    sys.stdout.write("\r    Complete percent: %.2f %%" % res)
-    sys.stdout.flush()
+    # Only update progress every 5% to reduce output frequency
+    if not hasattr(view_bar_simple, "last_percent"):
+        view_bar_simple.last_percent = 0
+
+    if res - view_bar_simple.last_percent >= 5.0 or res >= 100.0:
+        sys.stdout.write("\r    Complete percent: %.2f %%" % res)
+        sys.stdout.flush()
+        view_bar_simple.last_percent = res
+
+
+class ProgressCallback:
+    """A more configurable progress callback for file transfers"""
+
+    def __init__(self, update_threshold=5.0, show_bytes=False):
+        """
+        Args:
+            update_threshold: Minimum percentage change before showing update (default: 5.0%)
+            show_bytes: Whether to show bytes transferred (default: False)
+        """
+        self.last_percent = 0
+        self.update_threshold = update_threshold
+        self.show_bytes = show_bytes
+
+    def __call__(self, transferred, total):
+        percent = (transferred / total) * 100
+
+        if (
+            percent - self.last_percent >= self.update_threshold
+            or percent >= 100.0
+            or self.last_percent == 0
+        ):
+
+            if self.show_bytes:
+                sys.stdout.write(
+                    f"\r    Progress: {percent:.1f}% ({transferred}/{total} bytes)"
+                )
+            else:
+                sys.stdout.write(f"\r    Complete percent: {percent:.2f}%%")
+            sys.stdout.flush()
+            self.last_percent = percent
 
 
 def copy_file_to_remote_setup(

@@ -152,6 +152,7 @@ def test_extract_perversion_timeseries_from_results():
             exporter_timemetric_path,
             default_specs,
             cluster_config,
+            _,
         ) = process_default_yaml_properties_file(
             None, None, None, "1.yml", None, yml_file
         )

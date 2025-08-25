@@ -33,6 +33,7 @@ def test_defaults_purpose_built_env_parsing():
         exporter_timemetric_path,
         default_specs,
         cluster_config,
+        _,
     ) = get_defaults(defaults_filename)
 
     # Verify basic structure
@@ -94,6 +95,7 @@ def test_extract_feasible_setups_with_purpose_built_env():
         exporter_timemetric_path,
         default_specs,
         cluster_config,
+        _,
     ) = get_defaults(defaults_filename)
 
     # Test with a benchmark config that specifies our target environment

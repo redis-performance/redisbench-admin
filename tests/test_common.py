@@ -362,6 +362,7 @@ def test_process_default_yaml_properties_file():
             exporter_timemetric_path,
             default_specs,
             cluster_config,
+            _,
         ) = process_default_yaml_properties_file(
             None, None, None, "1.yml", None, yml_file
         )
@@ -380,6 +381,7 @@ def test_extract_test_feasible_setups():
         exporter_timemetric_path,
         default_specs,
         cluster_config,
+        _,
     ) = get_defaults(defaults_filename)
     usecase_filename = "./tests/test_data/tsbs-devops-ingestion-scale100-4days-v2.yml"
     with open(usecase_filename, "r") as stream:

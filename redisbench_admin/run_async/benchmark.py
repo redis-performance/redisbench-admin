@@ -41,6 +41,7 @@ class BenchmarkClass:
             self.exporter_timemetric_path,
             self.default_specs,
             self.clusterconfig,
+            _,
         ) = prepare_benchmark_definitions(args)
 
     def populate_remote_envs_timeout(self):

@@ -92,6 +92,7 @@ def prepare_benchmark_definitions(args):
         exporter_timemetric_path,
         default_specs,
         clusterconfig,
+        default_dbconfig,
     )
 
 
