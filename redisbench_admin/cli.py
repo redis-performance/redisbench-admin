@@ -36,15 +36,22 @@ LOG_FORMAT = "%(asctime)s %(levelname)-4s %(message)s"
 LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
 
 
-def populate_with_poetry_data():
+def populate_with_project_data():
     project_name = "redisbench-admin"
     project_version = __version__
     project_description = None
     try:
-        poetry_data = toml.load("pyproject.toml")["tool"]["poetry"]
-        project_name = poetry_data["name"]
-        project_version = poetry_data["version"]
-        project_description = poetry_data["description"]
+        pyproject_toml = toml.load("pyproject.toml")
+        if 'project' in pyproject_toml:
+            project_data = pyproject_toml["project"]
+            project_name = project_data["name"]
+            project_version = project_data["version"]
+            project_description = project_data.get("description")
+        else:
+            poetry_data = pyproject_toml["tool"]["poetry"]
+            project_name = poetry_data["name"]
+            project_version = poetry_data["version"]
+            project_description = poetry_data["description"]
     except FileNotFoundError:
         pass
 
@@ -59,7 +66,7 @@ def main():
         )
         sys.exit(1)
     requested_tool = sys.argv[1]
-    project_name, project_description, project_version = populate_with_poetry_data()
+    project_name, project_description, project_version = populate_with_project_data()
     parser = argparse.ArgumentParser(
         description=project_description,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
