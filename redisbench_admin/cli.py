@@ -45,7 +45,7 @@ def populate_with_poetry_data():
         project_name = poetry_data["name"]
         project_version = poetry_data["version"]
         project_description = poetry_data["description"]
-    except FileNotFoundError:
+    except (FileNotFoundError, KeyError): # there may be a pyproject without poetry data
         pass
 
     return project_name, project_description, project_version
