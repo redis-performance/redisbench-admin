@@ -16,7 +16,7 @@ import botocore
 import daemonize
 from flask import Flask, request
 
-from redisbench_admin.cli import populate_with_poetry_data
+from redisbench_admin.cli import populate_with_project_data
 from redisbench_admin.profilers.perf import Perf
 from redisbench_admin.profilers.perf_daemon_caller import PERF_DAEMON_LOGNAME
 from redisbench_admin.profilers.profilers_local import local_profilers_platform_checks
@@ -282,7 +282,7 @@ class PerfDaemon:
 
 
 def main():
-    _, project_description, project_version = populate_with_poetry_data()
+    _, project_description, project_version = populate_with_project_data()
     project_name = "perf-daemon"
     parser = argparse.ArgumentParser(
         description=project_description,
