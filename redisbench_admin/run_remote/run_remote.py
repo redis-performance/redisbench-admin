@@ -35,7 +35,7 @@ from redisbench_admin.run.common import (
 )
 from redisbench_admin.run.git import git_vars_crosscheck
 from redisbench_admin.run.grafana import generate_artifacts_table_grafana_redis
-from redisbench_admin.run.modules import redis_modules_check
+from redisbench_admin.run.modules import redis_modules_check, redis_files_check
 from redisbench_admin.run.redistimeseries import (
     timeseries_test_sucess_flow,
     timeseries_test_failure_flow,
@@ -228,6 +228,25 @@ def run_remote_command_logic(args, project_name, project_version):
                     error_message
                 )
             )
+
+    # Validate Redis server binary and config file paths early
+    redis_files_check_status, redis_error_message = redis_files_check(
+        args.redis_server_binary, args.redis_conf
+    )
+    if redis_files_check_status is False:
+        if webhook_notifications_active:
+            failure_reason = redis_error_message
+            generate_failure_notification(
+                webhook_client_slack,
+                ci_job_name,
+                ci_job_link,
+                failure_reason,
+                tf_github_org,
+                tf_github_repo,
+                tf_github_branch,
+                None,
+            )
+        exit(1)
 
     common_properties_log(
         tf_bin_path,

@@ -314,6 +314,10 @@ def compare_command_logic(args, project_name, project_version):
         first_n_baseline,
         first_n_comparison,
         grafana_link_base,
+        args.from_date_baseline,
+        args.to_date_baseline,
+        args.from_date_comparison,
+        args.to_date_comparison,
     )
     comment_body = ""
     if total_comparison_points > 0:
@@ -593,24 +597,99 @@ def compute_regression_table(
     first_n_baseline=-1,
     first_n_comparison=-1,
     grafana_link_base=None,
+    from_date_baseline=None,
+    to_date_baseline=None,
+    from_date_comparison=None,
+    to_date_comparison=None,
 ):
     START_TIME_NOW_UTC, _, _ = get_start_time_vars()
     START_TIME_LAST_MONTH_UTC = START_TIME_NOW_UTC - datetime.timedelta(days=31)
-    if from_date is None:
-        from_date = START_TIME_LAST_MONTH_UTC
-    if to_date is None:
-        to_date = START_TIME_NOW_UTC
-    if from_ts_ms is None:
-        from_ts_ms = int(from_date.timestamp() * 1000)
-    if to_ts_ms is None:
-        to_ts_ms = int(to_date.timestamp() * 1000)
-    from_human_str = humanize.naturaltime(
-        dt.datetime.utcfromtimestamp(from_ts_ms / 1000)
-    )
-    to_human_str = humanize.naturaltime(dt.datetime.utcfromtimestamp(to_ts_ms / 1000))
-    logging.info(
-        "Using a time-delta from {} to {}".format(from_human_str, to_human_str)
-    )
+
+    # Handle separate baseline and comparison date ranges (takes precedence if defined)
+    if (
+        from_date_baseline is not None
+        or to_date_baseline is not None
+        or from_date_comparison is not None
+        or to_date_comparison is not None
+    ):
+        # Use separate date ranges for baseline and comparison
+        from_date_baseline = (
+            from_date_baseline
+            if from_date_baseline is not None
+            else START_TIME_LAST_MONTH_UTC
+        )
+        to_date_baseline = (
+            to_date_baseline if to_date_baseline is not None else START_TIME_NOW_UTC
+        )
+        from_date_comparison = (
+            from_date_comparison
+            if from_date_comparison is not None
+            else START_TIME_LAST_MONTH_UTC
+        )
+        to_date_comparison = (
+            to_date_comparison if to_date_comparison is not None else START_TIME_NOW_UTC
+        )
+
+        from_ts_ms_baseline = int(from_date_baseline.timestamp() * 1000)
+        to_ts_ms_baseline = int(to_date_baseline.timestamp() * 1000)
+        from_ts_ms_comparison = int(from_date_comparison.timestamp() * 1000)
+        to_ts_ms_comparison = int(to_date_comparison.timestamp() * 1000)
+
+        from_human_str_baseline = humanize.naturaltime(
+            dt.datetime.utcfromtimestamp(from_ts_ms_baseline / 1000)
+        )
+        to_human_str_baseline = humanize.naturaltime(
+            dt.datetime.utcfromtimestamp(to_ts_ms_baseline / 1000)
+        )
+        from_human_str_comparison = humanize.naturaltime(
+            dt.datetime.utcfromtimestamp(from_ts_ms_comparison / 1000)
+        )
+        to_human_str_comparison = humanize.naturaltime(
+            dt.datetime.utcfromtimestamp(to_ts_ms_comparison / 1000)
+        )
+
+        logging.info(
+            "Using separate time ranges - Baseline: {} to {}, Comparison: {} to {}".format(
+                from_human_str_baseline,
+                to_human_str_baseline,
+                from_human_str_comparison,
+                to_human_str_comparison,
+            )
+        )
+
+        # Use baseline range for legacy compatibility (will be overridden in data queries)
+        from_ts_ms = from_ts_ms_baseline
+        to_ts_ms = to_ts_ms_baseline
+
+        # Set legacy variables for table headers (show separate ranges info)
+        from_human_str = f"Baseline: {from_human_str_baseline} to {to_human_str_baseline}, Comparison: {from_human_str_comparison} to {to_human_str_comparison}"
+        to_human_str = to_human_str_baseline
+    else:
+        # Use legacy single date range for both baseline and comparison
+        if from_date is None:
+            from_date = START_TIME_LAST_MONTH_UTC
+        if to_date is None:
+            to_date = START_TIME_NOW_UTC
+        if from_ts_ms is None:
+            from_ts_ms = int(from_date.timestamp() * 1000)
+        if to_ts_ms is None:
+            to_ts_ms = int(to_date.timestamp() * 1000)
+
+        # Use same range for both baseline and comparison
+        from_ts_ms_baseline = from_ts_ms
+        to_ts_ms_baseline = to_ts_ms
+        from_ts_ms_comparison = from_ts_ms
+        to_ts_ms_comparison = to_ts_ms
+
+        from_human_str = humanize.naturaltime(
+            dt.datetime.utcfromtimestamp(from_ts_ms / 1000)
+        )
+        to_human_str = humanize.naturaltime(
+            dt.datetime.utcfromtimestamp(to_ts_ms / 1000)
+        )
+        logging.info(
+            "Using a time-delta from {} to {}".format(from_human_str, to_human_str)
+        )
     baseline_str, by_str_baseline, comparison_str, by_str_comparison = get_by_strings(
         baseline_branch,
         comparison_branch,
@@ -694,6 +773,10 @@ def compute_regression_table(
         comparison_tag,
         from_date,
         to_date,
+        from_ts_ms_baseline,
+        to_ts_ms_baseline,
+        from_ts_ms_comparison,
+        to_ts_ms_comparison,
     )
     logging.info(
         "Printing differential analysis between {} and {}".format(
@@ -944,7 +1027,56 @@ def from_rts_to_regression_table(
     comparison_tag=None,
     from_date=None,
     to_date=None,
+    from_ts_ms_baseline=None,
+    to_ts_ms_baseline=None,
+    from_ts_ms_comparison=None,
+    to_ts_ms_comparison=None,
 ):
+    # Use separate timestamp ranges if provided, otherwise use legacy single range
+    if (
+        from_ts_ms_baseline is not None
+        and to_ts_ms_baseline is not None
+        and from_ts_ms_comparison is not None
+        and to_ts_ms_comparison is not None
+    ):
+        # Use separate ranges for baseline and comparison
+        baseline_from_ts = from_ts_ms_baseline
+        baseline_to_ts = to_ts_ms_baseline
+        comparison_from_ts = from_ts_ms_comparison
+        comparison_to_ts = to_ts_ms_comparison
+        baseline_from_human = humanize.naturaltime(
+            dt.datetime.utcfromtimestamp(baseline_from_ts / 1000)
+        )
+        baseline_to_human = humanize.naturaltime(
+            dt.datetime.utcfromtimestamp(baseline_to_ts / 1000)
+        )
+        comparison_from_human = humanize.naturaltime(
+            dt.datetime.utcfromtimestamp(comparison_from_ts / 1000)
+        )
+        comparison_to_human = humanize.naturaltime(
+            dt.datetime.utcfromtimestamp(comparison_to_ts / 1000)
+        )
+        logging.info(
+            "Using separate timestamp ranges - Baseline: {} to {}, Comparison: {} to {}".format(
+                baseline_from_human, baseline_to_human, comparison_from_human, comparison_to_human
+            )
+        )
+    else:
+        # Use legacy single range for both
+        baseline_from_ts = from_ts_ms
+        baseline_to_ts = to_ts_ms
+        comparison_from_ts = from_ts_ms
+        comparison_to_ts = to_ts_ms
+        from_human = humanize.naturaltime(
+            dt.datetime.utcfromtimestamp(from_ts_ms / 1000)
+        )
+        to_human = humanize.naturaltime(dt.datetime.utcfromtimestamp(to_ts_ms / 1000))
+        logging.info(
+            "Using single timestamp range for both baseline and comparison: {} to {}".format(
+                from_human, to_human
+            )
+        )
+
     print_all = print_regressions_only is False and print_improvements_only is False
     table = []
     detected_regressions = []
@@ -1045,7 +1177,7 @@ def from_rts_to_regression_table(
         try:
             for ts_name_baseline in baseline_timeseries:
                 datapoints_inner = rts.ts().revrange(
-                    ts_name_baseline, from_ts_ms, to_ts_ms
+                    ts_name_baseline, baseline_from_ts, baseline_to_ts
                 )
                 baseline_datapoints.extend(datapoints_inner)
             (
@@ -1064,7 +1196,7 @@ def from_rts_to_regression_table(
             )
             for ts_name_comparison in comparison_timeseries:
                 datapoints_inner = rts.ts().revrange(
-                    ts_name_comparison, from_ts_ms, to_ts_ms
+                    ts_name_comparison, comparison_from_ts, comparison_to_ts
                 )
                 comparison_datapoints.extend(datapoints_inner)
 
@@ -1533,9 +1665,11 @@ def check_client_side_latency(
             comparison_ts = comparison_client_ts[0]
 
             # Get client-side latency data
-            baseline_client_data = rts.ts().revrange(baseline_ts, from_ts_ms, to_ts_ms)
+            baseline_client_data = rts.ts().revrange(
+                baseline_ts, baseline_from_ts, baseline_to_ts
+            )
             comparison_client_data = rts.ts().revrange(
-                comparison_ts, from_ts_ms, to_ts_ms
+                comparison_ts, comparison_from_ts, comparison_to_ts
             )
 
             if len(baseline_client_data) == 0 or len(comparison_client_data) == 0:
@@ -1878,11 +2012,15 @@ def perform_variance_and_p99_analysis(
             comparison_p99_data = []
 
             for ts_name in baseline_ts_list:
-                datapoints = rts.ts().revrange(ts_name, from_ts_ms, to_ts_ms)
+                datapoints = rts.ts().revrange(
+                    ts_name, baseline_from_ts, baseline_to_ts
+                )
                 baseline_p99_data.extend(datapoints)
 
             for ts_name in comparison_ts_list:
-                datapoints = rts.ts().revrange(ts_name, from_ts_ms, to_ts_ms)
+                datapoints = rts.ts().revrange(
+                    ts_name, comparison_from_ts, comparison_to_ts
+                )
                 comparison_p99_data.extend(datapoints)
 
             if len(baseline_p99_data) < 3 or len(comparison_p99_data) < 3:
@@ -2230,11 +2368,15 @@ def check_latency_for_unstable_throughput(
             comparison_latency_data = []
 
             for ts_name in baseline_ts_list:
-                datapoints = rts.ts().revrange(ts_name, from_ts_ms, to_ts_ms)
+                datapoints = rts.ts().revrange(
+                    ts_name, baseline_from_ts, baseline_to_ts
+                )
                 baseline_latency_data.extend(datapoints)
 
             for ts_name in comparison_ts_list:
-                datapoints = rts.ts().revrange(ts_name, from_ts_ms, to_ts_ms)
+                datapoints = rts.ts().revrange(
+                    ts_name, comparison_from_ts, comparison_to_ts
+                )
                 comparison_latency_data.extend(datapoints)
 
             if len(baseline_latency_data) == 0 or len(comparison_latency_data) == 0:

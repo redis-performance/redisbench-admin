@@ -115,6 +115,26 @@ def create_compare_arguments(parser):
         default=START_TIME_NOW_UTC,
     )
     parser.add_argument(
+        "--from-date-baseline",
+        type=lambda s: datetime.datetime.strptime(s, "%Y-%m-%d"),
+        default=None,
+    )
+    parser.add_argument(
+        "--to-date-baseline",
+        type=lambda s: datetime.datetime.strptime(s, "%Y-%m-%d"),
+        default=None,
+    )
+    parser.add_argument(
+        "--from-date-comparison",
+        type=lambda s: datetime.datetime.strptime(s, "%Y-%m-%d"),
+        default=None,
+    )
+    parser.add_argument(
+        "--to-date-comparison",
+        type=lambda s: datetime.datetime.strptime(s, "%Y-%m-%d"),
+        default=None,
+    )
+    parser.add_argument(
         "--metric_mode",
         type=str,
         default="higher-better",
