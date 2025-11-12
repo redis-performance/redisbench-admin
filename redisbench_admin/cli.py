@@ -42,7 +42,7 @@ def populate_with_project_data():
     project_description = None
     try:
         pyproject_toml = toml.load("pyproject.toml")
-        if 'project' in pyproject_toml:
+        if "project" in pyproject_toml:
             project_data = pyproject_toml["project"]
             project_name = project_data["name"]
             project_version = project_data["version"]
