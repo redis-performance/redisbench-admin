@@ -117,6 +117,15 @@ def define_benchmark_plan(benchmark_definitions, default_specs):
                         test_benchmark_config["dbconfig"] = {}
                     setup_dbconfig = setup_settings["dbconfig"]
                     benchmark_dbconfig = test_benchmark_config["dbconfig"]
+
+                    # Handle legacy list format - convert to dict by merging all entries
+                    if isinstance(benchmark_dbconfig, list):
+                        converted_dbconfig = {}
+                        for entry in benchmark_dbconfig:
+                            if isinstance(entry, dict):
+                                converted_dbconfig.update(entry)
+                        benchmark_dbconfig = converted_dbconfig
+
                     logging.info(
                         f"Merging setup dbconfig: {setup_dbconfig}, with benchmark dbconfig {test_benchmark_config}"
                     )

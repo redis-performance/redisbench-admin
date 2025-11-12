@@ -307,9 +307,10 @@ def run_local_command_logic(args, project_name, project_version):
                                     None,
                                     args.password,
                                 )
+                                # get the pids
                                 redis_pids = [
-                                    redis_process.pid
-                                    for redis_process in redis_processes
+                                    redis_conn.info("server")["process_id"]
+                                    for redis_conn in redis_conns
                                 ]
                                 # start the profile
                                 (
@@ -556,6 +557,14 @@ def run_local_command_logic(args, project_name, project_version):
                                             "Keeping environment and topology active upon request."
                                         )
 
+                            except KeyboardInterrupt:
+                                logging.critical(
+                                    "Detected Keyboard interrupt...Tearing down and exiting!"
+                                )
+                                teardown_local_setup(
+                                    redis_conns, redis_processes, setup_name
+                                )
+                                exit(1)
                             except:
                                 return_code |= 1
                                 logging.critical(

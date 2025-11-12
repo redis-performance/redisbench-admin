@@ -23,6 +23,7 @@ DEFAULT_TRIGGERING_ENV = socket.gethostname()
 TRIGGERING_ENV = os.getenv("TRIGGERING_ENV", DEFAULT_TRIGGERING_ENV)
 ENV = os.getenv("ENV", "oss-standalone,oss-cluster")
 SETUP = os.getenv("SETUP", "")
+BENCHMARK = os.getenv("BENCHMARK", "")
 BENCHMARK_GLOB = os.getenv("BENCHMARK_GLOB", "*.yml")
 BENCHMARK_REGEX = os.getenv("BENCHMARK_REGEX", ".*")
 BENCHMARK_RUNNER_GROUP_TOTAL = int(os.getenv("BENCHMARK_RUNNER_GROUP_TOTAL", "1"))
@@ -94,7 +95,7 @@ def common_run_args(parser):
     parser.add_argument(
         "--test",
         type=str,
-        default="",
+        default=BENCHMARK,
         help="specify a test to run. By default will run all of them.",
     )
     parser.add_argument(
