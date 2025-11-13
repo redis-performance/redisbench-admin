@@ -70,7 +70,8 @@ def extract_remote_tool_extra_links(
     )
     queries_file_link = None
     for entry in benchmark_config[config_key]:
-        if "parameters" in entry:
+        # Handle both dict and non-dict entries in the list
+        if isinstance(entry, dict) and "parameters" in entry:
             for parameter in entry["parameters"]:
                 if "file" in parameter:
                     queries_file_link = parameter["file"]

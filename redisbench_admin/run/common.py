@@ -404,9 +404,17 @@ def get_start_time_vars(start_time=None):
 def check_dbconfig_tool_requirement(benchmark_config, dbconfig_keyname="dbconfig"):
     required = False
     if dbconfig_keyname in benchmark_config:
-        for k in benchmark_config[dbconfig_keyname]:
-            if "tool" in k:
+        dbconfig = benchmark_config[dbconfig_keyname]
+        # Handle both dict and list formats
+        if isinstance(dbconfig, dict):
+            # New format: dbconfig is a dict
+            if "tool" in dbconfig:
                 required = True
+        elif isinstance(dbconfig, list):
+            # Old format: dbconfig is a list of dicts
+            for k in dbconfig:
+                if isinstance(k, dict) and "tool" in k:
+                    required = True
     return required
 
 
@@ -418,7 +426,8 @@ def check_dbconfig_keyspacelen_requirement(
     if dbconfig_keyname in benchmark_config:
         if type(benchmark_config[dbconfig_keyname]) == list:
             for k in benchmark_config[dbconfig_keyname]:
-                if "check" in k:
+                # Handle both dict and non-dict entries in the list
+                if isinstance(k, dict) and "check" in k:
                     if "keyspacelen" in k["check"]:
                         required = True
                         keyspacelen = int(k["check"]["keyspacelen"])
@@ -436,9 +445,17 @@ def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
     cmds = None
     res = 0
     if dbconfig_keyname in benchmark_config:
-        for k in benchmark_config[dbconfig_keyname]:
-            if "init_commands" in k:
-                cmds = k["init_commands"]
+        dbconfig = benchmark_config[dbconfig_keyname]
+        # Handle both dict and list formats
+        if isinstance(dbconfig, dict):
+            # New format: dbconfig is a dict
+            if "init_commands" in dbconfig:
+                cmds = dbconfig["init_commands"]
+        elif isinstance(dbconfig, list):
+            # Old format: dbconfig is a list of dicts
+            for k in dbconfig:
+                if isinstance(k, dict) and "init_commands" in k:
+                    cmds = k["init_commands"]
     if cmds is not None:
         for cmd in cmds:
             is_array = False
