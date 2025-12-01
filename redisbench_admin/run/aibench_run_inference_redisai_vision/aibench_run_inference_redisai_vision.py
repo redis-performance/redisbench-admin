@@ -46,10 +46,22 @@ def extract_aibench_extra_links(benchmark_config, benchmark_tool):
         + "tools/redisai/aibench/{}_linux_amd64".format(benchmark_tool)
     )
     queries_file_link = None
-    for entry in benchmark_config["clientconfig"]:
-        # Handle both dict and non-dict entries in the list
-        if isinstance(entry, dict) and "parameters" in entry:
-            for parameter in entry["parameters"]:
+
+    # Handle both dict and list formats for clientconfig
+    config_data = benchmark_config["clientconfig"]
+    if isinstance(config_data, dict):
+        # Dict format: check if "parameters" key exists directly
+        if "parameters" in config_data:
+            for parameter in config_data["parameters"]:
                 if "file" in parameter:
                     queries_file_link = parameter["file"]
+    elif isinstance(config_data, list):
+        # List format: iterate over entries
+        for entry in config_data:
+            # Handle both dict and non-dict entries in the list
+            if isinstance(entry, dict) and "parameters" in entry:
+                for parameter in entry["parameters"]:
+                    if "file" in parameter:
+                        queries_file_link = parameter["file"]
+
     return queries_file_link, remote_tool_link, tool_link

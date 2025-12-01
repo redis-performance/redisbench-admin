@@ -46,11 +46,26 @@ def redis_server_config_module_part(
 
     command.append("--loadmodule")
     command.extend(abs_splitted_module_and_plugins)
+    logging.info(
+        "Processing module config parameters. Module file: {}, Config map: {}".format(
+            local_module_file, modules_configuration_parameters_map
+        )
+    )
     for (
         module_config_modulename,
         module_config_dict,
     ) in modules_configuration_parameters_map.items():
+        logging.info(
+            "Checking if module config name '{}' is in module file '{}'".format(
+                module_config_modulename, local_module_file
+            )
+        )
         if module_config_modulename in local_module_file:
+            logging.info(
+                "Match found! Adding module config parameters: {}".format(
+                    module_config_dict
+                )
+            )
             for (
                 module_config_parameter_name,
                 module_config_parameter_value,
@@ -65,6 +80,12 @@ def redis_server_config_module_part(
                         module_config_parameter_value,
                     ]
                 )
+        else:
+            logging.info(
+                "No match - '{}' not found in '{}'".format(
+                    module_config_modulename, local_module_file
+                )
+            )
 
 
 def generate_common_server_args(

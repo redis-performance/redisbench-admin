@@ -67,10 +67,22 @@ def extract_ftsb_extra_links(
         + f"redisearch/tools/ftsb/{benchmark_tool}_linux_{arch_txt}"
     )
     queries_file_link = None
-    for entry in benchmark_config[config_key]:
-        # Handle both dict and non-dict entries in the list
-        if isinstance(entry, dict) and "parameters" in entry:
-            for parameter in entry["parameters"]:
+
+    # Handle both dict and list formats for config_key
+    config_data = benchmark_config[config_key]
+    if isinstance(config_data, dict):
+        # Dict format: check if "parameters" key exists directly
+        if "parameters" in config_data:
+            for parameter in config_data["parameters"]:
                 if "input" in parameter:
                     queries_file_link = parameter["input"]
+    elif isinstance(config_data, list):
+        # List format: iterate over entries
+        for entry in config_data:
+            # Handle both dict and non-dict entries in the list
+            if isinstance(entry, dict) and "parameters" in entry:
+                for parameter in entry["parameters"]:
+                    if "input" in parameter:
+                        queries_file_link = parameter["input"]
+
     return queries_file_link, remote_tool_link, tool_link

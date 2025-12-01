@@ -238,17 +238,19 @@ def extract_redis_dbconfig_parameters(benchmark_config, dbconfig_keyname):
         dbconfig_present = True
         if type(benchmark_config[dbconfig_keyname]) == list:
             for k in benchmark_config[dbconfig_keyname]:
-                if CONFIG_PARAMS_KEY in k:
-                    modules_configuration_parameters_map = k[CONFIG_PARAMS_KEY]
-                if "configuration-parameters" in k:
-                    cp = k["configuration-parameters"]
-                    for item in cp:
-                        for k, v in item.items():
-                            redis_configuration_parameters[k] = v
-                if "dataset_load_timeout_secs" in k:
-                    dataset_load_timeout_secs = k["dataset_load_timeout_secs"]
-                if "dataset_name" in k:
-                    dataset_name = k["dataset_name"]
+                # Handle both dict and non-dict entries in the list
+                if isinstance(k, dict):
+                    if CONFIG_PARAMS_KEY in k:
+                        modules_configuration_parameters_map = k[CONFIG_PARAMS_KEY]
+                    if "configuration-parameters" in k:
+                        cp = k["configuration-parameters"]
+                        for item in cp:
+                            for k, v in item.items():
+                                redis_configuration_parameters[k] = v
+                    if "dataset_load_timeout_secs" in k:
+                        dataset_load_timeout_secs = k["dataset_load_timeout_secs"]
+                    if "dataset_name" in k:
+                        dataset_name = k["dataset_name"]
         if type(benchmark_config[dbconfig_keyname]) == dict:
             if CONFIG_PARAMS_KEY in benchmark_config[dbconfig_keyname]:
                 modules_configuration_parameters_map = benchmark_config[
