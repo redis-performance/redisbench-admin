@@ -10,6 +10,7 @@ import logging
 import os
 import time
 import redis
+
 from pytablewriter import MarkdownTableWriter
 
 from redisbench_admin.run.aibench_run_inference_redisai_vision.aibench_run_inference_redisai_vision import (
@@ -54,6 +55,7 @@ from redisbench_admin.utils.remote import (
     extract_perversion_timeseries_from_results,
     extract_perbranch_timeseries_from_results,
 )
+from redisbench_admin.run.asm import execute_asm_commands
 
 BENCHMARK_REPETITIONS = int(os.getenv("BENCHMARK_REPETITIONS", 1))
 # circleci related info
@@ -439,45 +441,6 @@ def check_dbconfig_keyspacelen_requirement(
                         benchmark_config[dbconfig_keyname]["check"]["keyspacelen"]
                     )
     return required, keyspacelen
-
-
-def execute_asm_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
-    asm_cmds = None
-    res = 0
-    if dbconfig_keyname in benchmark_config:
-        dbconfig = benchmark_config[dbconfig_keyname]
-        # Handle both dict and list formats
-        if isinstance(dbconfig, dict):
-            # New format: dbconfig is a dict
-            if "asm_commands" in dbconfig:
-                asm_cmds = dbconfig["asm_commands"]
-        elif isinstance(dbconfig, list):
-            # Old format: dbconfig is a list of dicts
-            for k in dbconfig:
-                if isinstance(k, dict) and "asm_commands" in k:
-                    asm_cmds = k["asm_commands"]
-    # ASM_COMMANDS should be executed as
-    if asm_cmds is not None:
-        for cmd in asm_cmds:
-            if isinstance(cmd, str) and cmd == "SPARSE":
-                # TODO ASM: Make sure the hashslots are distributed in a balanced way
-                # Assert that only 2 shards in the cluster
-                pass
-            elif isinstance(cmd, dict):
-                # We should parse regular MIGRATE COMMANDS parsed as shard_id
-                slot_range_start = cmd["slot_range_start"]
-                slot_range_end = cmd["slot_range_end"]
-                target_node = cmd["target_node"]
-                destination_node = cmd["destination_node"]
-                # Translate this information to CLUSTER MIGRATE command that is sent to the dest node (or source node)
-                # CLUSTER MIGRATE <ip> <port> <slot> <command> <timeout>
-
-                logging.info(
-                    "Migrating slot range {}-{} to node {}".format(
-                        slot_range_start, slot_range_end, target_node
-                    )
-                )
-    return res
 
 
 def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
