@@ -144,6 +144,7 @@ class ASMCommand:
         assert self.task_id is not None, "Task ID is not set"
         while True:
             status = r.execute_command("CLUSTER", "IMPORT", "STATUS", self.task_id)
+            logging.info(f"ASM Command status of Import taskID {self.task_id}: {status}")
             if status == "DONE":
                 break
             time.sleep(0.1)
@@ -156,36 +157,57 @@ class ASMCommand:
 
 
 def execute_asm_sparse_command(r: redis.Redis, shards_info: ShardSlotInfo) -> int:
+    """
+    Redistributes hashslots across shards so that:
+    - Even hashslots (0, 2, 4, ...) go to the first shard (index 0)
+    - Odd hashslots (1, 3, 5, ...) go to the second shard (index 1)
+    - All other shards (if any) give up their slots to shards 0 and 1
+
+    Works with any number of shards >= 2.
+    """
+    num_shards = len(shards_info.shards)
+    if num_shards < 2:
+        raise ValueError(f"SPARSE command requires at least 2 shards, but found {num_shards}")
+
     # Get current slot distribution for each shard
-    shard_0_slots = set()
-    shard_1_slots = set()
+    shard_slots = [set() for _ in range(num_shards)]
 
     for shard_idx, shard in enumerate(shards_info.shards):
         slot_ranges = shard.get("slots", [])
         for slot_range in slot_ranges:
             start, end = slot_range
             for slot in range(start, end + 1):
-                if shard_idx == 0:
-                    shard_0_slots.add(slot)
-                else:
-                    shard_1_slots.add(slot)
+                shard_slots[shard_idx].add(slot)
 
     # Define target distribution: shard 0 gets even slots, shard 1 gets odd slots
     target_even_slots = set(range(0, 16384, 2))  # 0, 2, 4, 6, ...
     target_odd_slots = set(range(1, 16384, 2))   # 1, 3, 5, 7, ...
 
     # Find slots that need to be migrated
-    # Shard 0 should give up odd slots to shard 1
-    odd_slots_to_migrate_from_0 = shard_0_slots & target_odd_slots
-    # Shard 1 should give up even slots to shard 0
-    even_slots_to_migrate_from_1 = shard_1_slots & target_even_slots
+    # Collect all even slots that should go to shard 0
+    even_slots_to_migrate_to_0 = set()
+    # Collect all odd slots that should go to shard 1
+    odd_slots_to_migrate_to_1 = set()
+
+    for shard_idx in range(num_shards):
+        if shard_idx == 0:
+            # Shard 0 should give up odd slots to shard 1
+            odd_slots_to_migrate_to_1.update(shard_slots[shard_idx] & target_odd_slots)
+        elif shard_idx == 1:
+            # Shard 1 should give up even slots to shard 0
+            even_slots_to_migrate_to_0.update(shard_slots[shard_idx] & target_even_slots)
+        else:
+            # All other shards should give up all their slots
+            # Even slots go to shard 0, odd slots go to shard 1
+            even_slots_to_migrate_to_0.update(shard_slots[shard_idx] & target_even_slots)
+            odd_slots_to_migrate_to_1.update(shard_slots[shard_idx] & target_odd_slots)
 
     # Create ASM commands for migrations
     asm_commands = []
 
-    # Migrate odd slots from shard 0 to shard 1
-    if odd_slots_to_migrate_from_0:
-        sorted_slots = sorted(odd_slots_to_migrate_from_0)
+    # Migrate odd slots to shard 1
+    if odd_slots_to_migrate_to_1:
+        sorted_slots = sorted(odd_slots_to_migrate_to_1)
         ranges = []
         start = sorted_slots[0]
         end = start
@@ -202,13 +224,13 @@ def execute_asm_sparse_command(r: redis.Redis, shards_info: ShardSlotInfo) -> in
             ranges=ranges,
             import_node=1,
         )
-        logging.info("SPARSE ASM Command: {}".format(asm_command))
+        logging.info("SPARSE ASM Command to migrate odd slots to shard 1: {}".format(asm_command))
 
         asm_commands.append(asm_command)
 
-    # Migrate even slots from shard 1 to shard 0
-    if even_slots_to_migrate_from_1:
-        sorted_slots = sorted(even_slots_to_migrate_from_1)
+    # Migrate even slots to shard 0
+    if even_slots_to_migrate_to_0:
+        sorted_slots = sorted(even_slots_to_migrate_to_0)
         ranges = []
         start = sorted_slots[0]
         end = start
@@ -225,7 +247,7 @@ def execute_asm_sparse_command(r: redis.Redis, shards_info: ShardSlotInfo) -> in
             ranges=ranges,
             import_node=0,
         )
-        logging.info("SPARSE ASM Command: {}".format(asm_command))
+        logging.info("SPARSE ASM Command to migrate even slots to shard 0: {}".format(asm_command))
 
         asm_commands.append(asm_command)
 
@@ -254,7 +276,6 @@ def execute_asm_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
     if cmds is not None:
         for cmd in cmds:
             if isinstance(cmd, str) and cmd == "SPARSE":
-                assert get_num_shards(r) == 2, "Only 2 shards are supported when using the SPARSE ASM command"
                 execute_asm_sparse_command(r, shards_info)
             elif isinstance(cmd, dict):
                 asm_command = ASMCommand(**cmd)
@@ -270,3 +291,31 @@ def execute_asm_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
     for asm_command in asm_commands:
         asm_command.wait_for_completion(r)
     return res
+
+
+if __name__ == "__main__":
+    r = redis.Redis(host="localhost", port=6379, db=0)
+    # benchmark_config = {
+    #     "dbconfig": {
+    #         "asm_commands": [
+    #             {
+    #                 "ranges": [{"start": 0, "end": 5460}],
+    #                 "import_node": 1,
+    #             },
+    #             {
+    #                 "ranges": [{"start": 5461, "end": 10922}],
+    #                 "import_node": 0,
+    #             },
+    #         ]
+    #     }
+    # }
+    # execute_asm_commands({}, r)
+
+    benchmark_config = {
+        "dbconfig": {
+            "asm_commands": [
+                "SPARSE",
+            ]
+        }
+    }
+    execute_asm_commands({}, r)
