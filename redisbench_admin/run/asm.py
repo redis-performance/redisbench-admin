@@ -2,7 +2,7 @@ import logging
 import time
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
-
+import random
 import redis
 
 
@@ -16,16 +16,36 @@ class ASMCommandExecute:
     ranges: List[SlotRange]
     import_addr: str # "ip:port"
     task_id: Optional[int] = None
+    shard_conn: Optional[redis.Redis] = None
 
-    def execute(self, r: redis.Redis) -> int:
+    def execute(self) -> int:
         flat_slots = [item for slot_range in self.ranges for item in [slot_range.start, slot_range.end]]
         cmd = ["CLUSTER", "MIGRATION", "IMPORT", *flat_slots]
         logging.info(
             "Executing ASM Command: {}".format(cmd)
         )
-        shard_conn = redis.Redis(host=self.import_addr.split(":")[0], port=int(self.import_addr.split(":")[1]))
-        self.task_id = shard_conn.execute_command(*cmd)
+        self.shard_conn = redis.Redis(host=self.import_addr.split(":")[0], port=int(self.import_addr.split(":")[1]))
+        task_id_raw = self.shard_conn.execute_command(*cmd)
+        self.task_id = task_id_raw.decode('utf-8') if isinstance(task_id_raw, bytes) else str(task_id_raw)
+        print(f"Task ID: {self.task_id}")
         return self.task_id
+
+    def wait_for_completion(self) -> None:
+        assert self.task_id is not None, "Task ID is not set"
+        assert self.shard_conn is not None, "Shard connection is not set"
+        while True:
+            status_response = self.shard_conn.execute_command("CLUSTER", "MIGRATION", "STATUS", "ID", self.task_id)
+            status_response = status_response[0]
+            for i in range(0, len(status_response)):
+                if status_response[i].decode('utf-8') == 'state':
+                    if status_response[i + 1].decode('utf-8') in ['completed', 'done', 'finished']:
+                        logging.info(f"Task {self.task_id} completed")
+                        print(f"Task {self.task_id} completed")
+                        return
+                    else:
+                        break
+            time.sleep(0.1)
+
 
 
 class ShardSlotInfo:
@@ -162,6 +182,7 @@ class ASMCommand:
     ranges: List[SlotRange]
     import_node: int
     task_id: Optional[int] = None # index into ShardSlotInfo.shards
+    asm_command_executes: Optional[ASMCommandExecute] = None
 
     def to_execute(self, shard_slot_info: ShardSlotInfo) -> List[ASMCommandExecute]:
         """
@@ -179,23 +200,18 @@ class ASMCommand:
             import_addr=import_addr,
         )
 
-    def wait_for_completion(self, r: redis.Redis) -> None:
-        assert self.task_id is not None, "Task ID is not set"
-        while True:
-            status = r.execute_command("CLUSTER", "MIGRATION", "IMPORT", "STATUS", self.task_id)
-            logging.info(f"ASM Command status of Import taskID {self.task_id}: {status}")
-            if status == "DONE":
-                break
-            time.sleep(0.1)
+    def wait_for_completion(self) -> None:
+        assert self.asm_command_execute is not None, "ASMCommandExecute is not set"
+        self.asm_command_execute.wait_for_completion()
 
-    def execute(self, r: redis.Redis, shard_slot_info: ShardSlotInfo, wait_for_completion: bool = True) -> None:
-        asm_command_execute: ASMCommandExecute = self.to_execute(shard_slot_info)
-        self.task_id = asm_command_execute.execute(r)
+    def execute(self, shard_slot_info: ShardSlotInfo, wait_for_completion: bool = True) -> None:
+        self.asm_command_execute: ASMCommandExecute = self.to_execute(shard_slot_info)
+        self.task_id = self.asm_command_execute.execute()
         if wait_for_completion:
-            self.wait_for_completion(r)
+            self.wait_for_completion()
 
 
-def execute_asm_sparse_command(r: redis.Redis, shards_info: ShardSlotInfo) -> int:
+def execute_asm_sparse_migration(shards_info: ShardSlotInfo) -> int:
     """
     Redistributes hashslots across shards so that:
     - Even hashslots (0, 2, 4, ...) go to the first shard (index 0)
@@ -224,75 +240,84 @@ def execute_asm_sparse_command(r: redis.Redis, shards_info: ShardSlotInfo) -> in
     target_even_slots = set(range(0, 16384, 2))  # 0, 2, 4, 6, ...
     target_odd_slots = set(range(1, 16384, 2))   # 1, 3, 5, 7, ...
 
-    # Find slots that need to be migrated
-    # Collect all even slots that should go to shard 0
-    even_slots_to_migrate_to_0 = set()
-    # Collect all odd slots that should go to shard 1
-    odd_slots_to_migrate_to_1 = set()
+    # Group migrations by destination shard -> origin shard
+    migrations_by_destination = {}  # dest_shard -> {origin_shard: set_of_slots}
 
-    for shard_idx in range(num_shards):
-        if shard_idx == 0:
+    for origin_shard in range(num_shards):
+        current_slots = shard_slots[origin_shard]
+        # Keep 2 random slots to ensure shard remains alive (with at least 1 hashslot)
+        slots_to_keep = set(random.sample(list(current_slots), 2))
+        current_slots = current_slots - slots_to_keep
+
+        if origin_shard == 0:
             # Shard 0 should give up odd slots to shard 1
-            odd_slots_to_migrate_to_1.update(shard_slots[shard_idx] & target_odd_slots)
-        elif shard_idx == 1:
+            odd_slots_to_give = current_slots & target_odd_slots
+            if odd_slots_to_give:
+                if 1 not in migrations_by_destination:
+                    migrations_by_destination[1] = {}
+                migrations_by_destination[1][origin_shard] = odd_slots_to_give
+
+        elif origin_shard == 1:
             # Shard 1 should give up even slots to shard 0
-            even_slots_to_migrate_to_0.update(shard_slots[shard_idx] & target_even_slots)
+            even_slots_to_give = current_slots & target_even_slots
+            if even_slots_to_give:
+                if 0 not in migrations_by_destination:
+                    migrations_by_destination[0] = {}
+                migrations_by_destination[0][origin_shard] = even_slots_to_give
+
         else:
-            # All other shards should give up all their slots
-            # Even slots go to shard 0, odd slots go to shard 1
-            even_slots_to_migrate_to_0.update(shard_slots[shard_idx] & target_even_slots)
-            odd_slots_to_migrate_to_1.update(shard_slots[shard_idx] & target_odd_slots)
+            # All other shards give up all their slots
+            even_slots_to_give = current_slots & target_even_slots
+            odd_slots_to_give = current_slots & target_odd_slots
 
-    # Create ASM commands for migrations
-    asm_commands: List[ASMCommand] = []
+            if even_slots_to_give:
+                if 0 not in migrations_by_destination:
+                    migrations_by_destination[0] = {}
+                migrations_by_destination[0][origin_shard] = even_slots_to_give
+            if odd_slots_to_give:
+                if 1 not in migrations_by_destination:
+                    migrations_by_destination[1] = {}
+                migrations_by_destination[1][origin_shard] = odd_slots_to_give
 
-    # Migrate odd slots to shard 1
-    if odd_slots_to_migrate_to_1:
-        sorted_slots = sorted(odd_slots_to_migrate_to_1)
-        ranges = []
-        start = sorted_slots[0]
-        end = start
+    # Create ASM commands grouped by destination, then by origin
+    asm_commands: Dict[int, Dict[int, ASMCommand]] = {}
+    asm_commands[0] = {}
+    asm_commands[1] = {}
+    num_commands = 0
+    for dest_shard, origin_slots_map in migrations_by_destination.items():
+        for origin_shard, slots_to_migrate in origin_slots_map.items():
+            if slots_to_migrate:
+                sorted_slots = sorted(slots_to_migrate)
+                ranges = []
+                start = sorted_slots[0]
+                end = start
 
-        for slot in sorted_slots[1:]:
-            if slot == end + 1:
-                end = slot
-            else:
+                for slot in sorted_slots[1:]:
+                    if slot == end + 1:
+                        end = slot
+                    else:
+                        ranges.append(SlotRange(start, end))
+                        start = end = slot
                 ranges.append(SlotRange(start, end))
-                start = end = slot
-        ranges.append(SlotRange(start, end))
 
-        asm_command = ASMCommand(
-            ranges=ranges,
-            import_node=1,
-        )
-        logging.info("SPARSE ASM Command to migrate odd slots to shard 1: {}".format(asm_command))
-        asm_commands.append(asm_command)
+                asm_command = ASMCommand(
+                    ranges=ranges,
+                    import_node=dest_shard,
+                )
+                slot_type = "even" if dest_shard == 0 else "odd"
 
-    # Migrate even slots to shard 0
-    if even_slots_to_migrate_to_0:
-        sorted_slots = sorted(even_slots_to_migrate_to_0)
-        ranges = []
-        start = sorted_slots[0]
-        end = start
-
-        for slot in sorted_slots[1:]:
-            if slot == end + 1:
-                end = slot
-            else:
-                ranges.append(SlotRange(start, end))
-                start = end = slot
-        ranges.append(SlotRange(start, end))
-
-        asm_command = ASMCommand(
-            ranges=ranges,
-            import_node=0,
-        )
-        logging.info("SPARSE ASM Command to migrate even slots to shard 0: {}".format(asm_command))
-        asm_commands.append(asm_command)
+                logging.info(f"SPARSE ASM Command to migrate {slot_type} slots from shard {origin_shard} to shard {dest_shard}: {asm_command}")
+                asm_commands[dest_shard][origin_shard] = asm_command
+                num_commands += 1
 
     # Execute the migration commands
-    for asm_command in asm_commands:
-        asm_command.execute(r, shards_info, wait_for_completion=True)
+    logging.info(f"Executing {num_commands} ASM commands to complete SPARSE migration")
+    print(f"Executing {num_commands} ASM commands to complete SPARSE migration")
+    for dest_shard, origin_command_map in asm_commands.items():
+        for origin_shard, asm_command in origin_command_map.items():
+            logging.info(f"Executing ASM Command to migrate from shard {origin_shard} to shard {dest_shard}")
+            print(f"Executing ASM Command to migrate from shard {origin_shard} to shard {dest_shard} with min slot {asm_command.ranges[0].start} and max slot {asm_command.ranges[-1].end}")
+            asm_command.execute(shards_info, wait_for_completion=True)
 
 def execute_asm_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
     cmds = None
@@ -315,20 +340,20 @@ def execute_asm_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
     if cmds is not None:
         for cmd in cmds:
             if isinstance(cmd, str) and cmd == "SPARSE":
-                execute_asm_sparse_command(r, shards_info)
+                execute_asm_sparse_migration(shards_info)
             elif isinstance(cmd, dict):
                 asm_command = ASMCommand(**cmd)
                 logging.info(
                     "ASM Command: {}".format(asm_command)
                 )
                 asm_commands.append(asm_command)
-                asm_command.execute(r, shards_info)
+                asm_command.execute(shards_info)
 
     logging.info("ASM commands executed")
 
     logging.info("Waiting for ASM commands to complete")
     for asm_command in asm_commands:
-        asm_command.wait_for_completion(r)
+        asm_command.wait_for_completion()
     return res
 
 
