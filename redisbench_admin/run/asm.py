@@ -11,7 +11,6 @@ class SlotRange:
     start: int
     end: int
 
-
 @dataclass
 class ASMCommandExecute:
     ranges: List[SlotRange]
@@ -19,11 +18,13 @@ class ASMCommandExecute:
     task_id: Optional[int] = None
 
     def execute(self, r: redis.Redis) -> int:
-        cmd = ["CLUSTER", "IMPORT", self.import_addr, *self.ranges]
+        flat_slots = [item for slot_range in self.ranges for item in [slot_range.start, slot_range.end]]
+        cmd = ["CLUSTER", "MIGRATION", "IMPORT", *flat_slots]
         logging.info(
             "Executing ASM Command: {}".format(cmd)
         )
-        self.task_id = r.execute_command(" ".join(cmd))
+        shard_conn = redis.Redis(host=self.import_addr.split(":")[0], port=int(self.import_addr.split(":")[1]))
+        self.task_id = shard_conn.execute_command(*cmd)
         return self.task_id
 
 
@@ -58,8 +59,6 @@ class ShardSlotInfo:
         #   ...
         # ]
         shards = self.conn.execute_command("CLUSTER", "SHARDS")
-
-        # Redis might return bytes for keys/values; normalize to str where convenient
         self.shards = [self._normalize_shard(shard) for shard in shards]
 
     @staticmethod
@@ -69,23 +68,63 @@ class ShardSlotInfo:
     def _normalize_shard(self, shard) -> Dict[str, Any]:
         # shard is usually a dict-like object
         # Normalize keys and string values
-        norm = {}
-        for k, v in shard.items():
-            key = self._b2s(k)
-            if key == "nodes":
-                norm[key] = [
-                    {
-                        self._b2s(nk): self._b2s(nv) if isinstance(nv, (bytes, str)) else nv
-                        for nk, nv in node.items()
-                    }
-                    for node in v
-                ]
-            elif key == "slots":
-                # slots is normally a list of [start, end] pairs; leave as-is
-                norm[key] = v
-            else:
-                norm[key] = self._b2s(v) if isinstance(v, (bytes, str)) else v
-        return norm
+        if isinstance(shard, dict):
+          norm = {}
+          for k, v in shard.items():
+              key = self._b2s(k)
+              if key == "nodes":
+                  norm[key] = [
+                      {
+                          self._b2s(nk): self._b2s(nv) if isinstance(nv, (bytes, str)) else nv
+                          for nk, nv in node.items()
+                      }
+                      for node in v
+                  ]
+              elif key == "slots":
+                  # slots is normally a list of [start, end] pairs; leave as-is
+                  norm[key] = v
+              else:
+                  norm[key] = self._b2s(v) if isinstance(v, (bytes, str)) else v
+          return norm
+        elif isinstance(shard, list):
+            # Handle list-based format from Redis:
+            # [b'slots', [5461, 10922], b'nodes', [[b'id', b'...', b'port', 6380, ...]], ...]
+            # Convert to dict format
+            norm = {}
+            i = 0
+            while i < len(shard):
+                key = self._b2s(shard[i])
+                if i + 1 < len(shard):
+                    value = shard[i + 1]
+
+                    if key == "nodes":
+                        # nodes is a list of lists: [[b'id', b'...', b'port', 6380, ...], ...]
+                        norm[key] = []
+                        for node_list in value:
+                            # Each node is a flat list: [b'key1', value1, b'key2', value2, ...]
+                            node_dict = {}
+                            j = 0
+                            while j < len(node_list):
+                                node_key = self._b2s(node_list[j])
+                                if j + 1 < len(node_list):
+                                    node_value = node_list[j + 1]
+                                    node_dict[node_key] = self._b2s(node_value) if isinstance(node_value, (bytes, str)) else node_value
+                                j += 2
+                            norm[key].append(node_dict)
+                    elif key == "slots":
+                        # slots is a list like [start, end] or [[start1, end1], [start2, end2]]
+                        # Normalize to list of [start, end] pairs
+                        if value and isinstance(value[0], int):
+                            # Single range: [start, end]
+                            norm[key] = [value]
+                        else:
+                            # Multiple ranges: [[start1, end1], [start2, end2]]
+                            norm[key] = value
+                    else:
+                        # Other keys: just decode if bytes
+                        norm[key] = self._b2s(value) if isinstance(value, (bytes, str)) else value
+                i += 2
+            return norm
 
     def master_address_by_shard_index(self, shard_index: int) -> str:
         """
@@ -143,7 +182,7 @@ class ASMCommand:
     def wait_for_completion(self, r: redis.Redis) -> None:
         assert self.task_id is not None, "Task ID is not set"
         while True:
-            status = r.execute_command("CLUSTER", "IMPORT", "STATUS", self.task_id)
+            status = r.execute_command("CLUSTER", "MIGRATION", "IMPORT", "STATUS", self.task_id)
             logging.info(f"ASM Command status of Import taskID {self.task_id}: {status}")
             if status == "DONE":
                 break
@@ -174,8 +213,10 @@ def execute_asm_sparse_command(r: redis.Redis, shards_info: ShardSlotInfo) -> in
 
     for shard_idx, shard in enumerate(shards_info.shards):
         slot_ranges = shard.get("slots", [])
-        for slot_range in slot_ranges:
-            start, end = slot_range
+        slots_lists = slot_ranges[0]
+        for i in range(0, len(slots_lists), 2):
+            start = slots_lists[i]
+            end = slots_lists[i + 1]
             for slot in range(start, end + 1):
                 shard_slots[shard_idx].add(slot)
 
@@ -203,7 +244,7 @@ def execute_asm_sparse_command(r: redis.Redis, shards_info: ShardSlotInfo) -> in
             odd_slots_to_migrate_to_1.update(shard_slots[shard_idx] & target_odd_slots)
 
     # Create ASM commands for migrations
-    asm_commands = []
+    asm_commands: List[ASMCommand] = []
 
     # Migrate odd slots to shard 1
     if odd_slots_to_migrate_to_1:
@@ -225,7 +266,6 @@ def execute_asm_sparse_command(r: redis.Redis, shards_info: ShardSlotInfo) -> in
             import_node=1,
         )
         logging.info("SPARSE ASM Command to migrate odd slots to shard 1: {}".format(asm_command))
-
         asm_commands.append(asm_command)
 
     # Migrate even slots to shard 0
@@ -248,7 +288,6 @@ def execute_asm_sparse_command(r: redis.Redis, shards_info: ShardSlotInfo) -> in
             import_node=0,
         )
         logging.info("SPARSE ASM Command to migrate even slots to shard 0: {}".format(asm_command))
-
         asm_commands.append(asm_command)
 
     # Execute the migration commands
@@ -318,4 +357,4 @@ if __name__ == "__main__":
             ]
         }
     }
-    execute_asm_commands({}, r)
+    execute_asm_commands(benchmark_config, r)
