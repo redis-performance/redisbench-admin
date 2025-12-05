@@ -58,8 +58,10 @@ class ShardSlotInfo:
         #   },
         #   ...
         # ]
+        logging.info("Loading cluster topology information")
         shards = self.conn.execute_command("CLUSTER", "SHARDS")
         self.shards = [self._normalize_shard(shard) for shard in shards]
+        logging.info("Cluster topology information loaded")
 
     @staticmethod
     def _b2s(x):
@@ -324,8 +326,9 @@ def execute_asm_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
                     cluster_state = k["asm_cluster_state"]
 
     asm_commands = {}
-    shards_info = ShardSlotInfo(r)
     if cluster_state is not None:
+        logging.info("ASM Cluster State detected. Preparing ASM commands")
+        shards_info = ShardSlotInfo(r)
         if isinstance(cluster_state, str) and cluster_state == "SPARSE":
             c_state = ClusterState(shards=[
                 [SlotRange(start=i, end=i) for i in range(0, 16384, 2)],  # Shard 0: all even slots
@@ -348,9 +351,7 @@ def execute_asm_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
         for origin_shard, asm_command in origin_command_map.items():
             logging.info(f"Executing ASM Command to migrate from shard {origin_shard} to shard {dest_shard}")
             asm_command.execute(shards_info, wait_for_completion=True)
-
-    logging.info("Waiting for ASM commands to complete")
-
+    logging.info("ASM commands completed. The Cluster should be in the desired state.")
     return res
 
 
