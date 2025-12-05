@@ -71,23 +71,25 @@ class ShardSlotInfo:
         # shard is usually a dict-like object
         # Normalize keys and string values
         if isinstance(shard, dict):
-          norm = {}
-          for k, v in shard.items():
-              key = self._b2s(k)
-              if key == "nodes":
-                  norm[key] = [
-                      {
-                          self._b2s(nk): self._b2s(nv) if isinstance(nv, (bytes, str)) else nv
-                          for nk, nv in node.items()
-                      }
-                      for node in v
-                  ]
-              elif key == "slots":
-                  # slots is normally a list of [start, end] pairs; leave as-is
-                  norm[key] = v
-              else:
-                  norm[key] = self._b2s(v) if isinstance(v, (bytes, str)) else v
-          return norm
+            norm = {}
+            for k, v in shard.items():
+                key = self._b2s(k)
+                if key == "nodes":
+                    norm[key] = [
+                        {
+                            self._b2s(nk): (
+                                self._b2s(nv) if isinstance(nv, (bytes, str)) else nv
+                            )
+                            for nk, nv in node.items()
+                        }
+                        for node in v
+                    ]
+                elif key == "slots":
+                    # slots is normally a list of [start, end] pairs; leave as-is
+                    norm[key] = v
+                else:
+                    norm[key] = self._b2s(v) if isinstance(v, (bytes, str)) else v
+            return norm
         elif isinstance(shard, list):
             # Handle list-based format from Redis:
             # [b'slots', [5461, 10922], b'nodes', [[b'id', b'...', b'port', 6380, ...]], ...]
@@ -110,7 +112,11 @@ class ShardSlotInfo:
                                 node_key = self._b2s(node_list[j])
                                 if j + 1 < len(node_list):
                                     node_value = node_list[j + 1]
-                                    node_dict[node_key] = self._b2s(node_value) if isinstance(node_value, (bytes, str)) else node_value
+                                    node_dict[node_key] = (
+                                        self._b2s(node_value)
+                                        if isinstance(node_value, (bytes, str))
+                                        else node_value
+                                    )
                                 j += 2
                             norm[key].append(node_dict)
                     elif key == "slots":
@@ -124,7 +130,11 @@ class ShardSlotInfo:
                             norm[key] = value
                     else:
                         # Other keys: just decode if bytes
-                        norm[key] = self._b2s(value) if isinstance(value, (bytes, str)) else value
+                        norm[key] = (
+                            self._b2s(value)
+                            if isinstance(value, (bytes, str))
+                            else value
+                        )
                 i += 2
             return norm
 
@@ -134,7 +144,9 @@ class ShardSlotInfo:
         The index is the position in the CLUSTER SHARDS response.
         """
         if shard_index < 0 or shard_index >= len(self.shards):
-            raise IndexError(f"Shard index {shard_index} out of range (0..{len(self.shards)-1})")
+            raise IndexError(
+                f"Shard index {shard_index} out of range (0..{len(self.shards)-1})"
+            )
 
         shard = self.shards[shard_index]
         nodes = shard.get("nodes", [])
@@ -152,27 +164,38 @@ class ShardSlotInfo:
         port = master.get("port")
         return f"{ip}:{port}"
 
+
 @dataclass
 class SlotRange:
     start: int
     end: int
 
+
 @dataclass
 class ASMCommandExecute:
     ranges: List[SlotRange]
-    import_addr: str # "ip:port"
+    import_addr: str  # "ip:port"
     task_id: Optional[int] = None
     shard_conn: Optional[redis.Redis] = None
 
     def execute(self) -> int:
-        flat_slots = [item for slot_range in self.ranges for item in [slot_range.start, slot_range.end]]
+        flat_slots = [
+            item
+            for slot_range in self.ranges
+            for item in [slot_range.start, slot_range.end]
+        ]
         cmd = ["CLUSTER", "MIGRATION", "IMPORT", *flat_slots]
-        logging.info(
-            "Executing ASM Command: {}".format(cmd)
+        logging.info("Executing ASM Command: {}".format(cmd))
+        self.shard_conn = redis.Redis(
+            host=self.import_addr.split(":")[0],
+            port=int(self.import_addr.split(":")[1]),
         )
-        self.shard_conn = redis.Redis(host=self.import_addr.split(":")[0], port=int(self.import_addr.split(":")[1]))
         task_id_raw = self.shard_conn.execute_command(*cmd)
-        self.task_id = task_id_raw.decode('utf-8') if isinstance(task_id_raw, bytes) else str(task_id_raw)
+        self.task_id = (
+            task_id_raw.decode("utf-8")
+            if isinstance(task_id_raw, bytes)
+            else str(task_id_raw)
+        )
         logging.info(f"Task ID: {self.task_id}")
         return self.task_id
 
@@ -182,11 +205,17 @@ class ASMCommandExecute:
         logging.info(f"Waiting for task {self.task_id} to complete")
         it = 0
         while True:
-            status_response = self.shard_conn.execute_command("CLUSTER", "MIGRATION", "STATUS", "ID", self.task_id)
+            status_response = self.shard_conn.execute_command(
+                "CLUSTER", "MIGRATION", "STATUS", "ID", self.task_id
+            )
             status_response = status_response[0]
             for i in range(0, len(status_response)):
-                if status_response[i].decode('utf-8') == 'state':
-                    if status_response[i + 1].decode('utf-8') in ['completed', 'done', 'finished']:
+                if status_response[i].decode("utf-8") == "state":
+                    if status_response[i + 1].decode("utf-8") in [
+                        "completed",
+                        "done",
+                        "finished",
+                    ]:
                         logging.info(f"Task {self.task_id} completed")
                         logging.info(f"Task {self.task_id} completed")
                         return
@@ -202,7 +231,7 @@ class ASMCommandExecute:
 class ASMCommand:
     ranges: List[SlotRange]
     import_node: int
-    task_id: Optional[int] = None # index into ShardSlotInfo.shards
+    task_id: Optional[int] = None  # index into ShardSlotInfo.shards
     asm_command_executes: Optional[ASMCommandExecute] = None
 
     def to_execute(self, shard_slot_info: ShardSlotInfo) -> List[ASMCommandExecute]:
@@ -225,17 +254,22 @@ class ASMCommand:
         assert self.asm_command_execute is not None, "ASMCommandExecute is not set"
         self.asm_command_execute.wait_for_completion()
 
-    def execute(self, shard_slot_info: ShardSlotInfo, wait_for_completion: bool = True) -> None:
+    def execute(
+        self, shard_slot_info: ShardSlotInfo, wait_for_completion: bool = True
+    ) -> None:
         self.asm_command_execute: ASMCommandExecute = self.to_execute(shard_slot_info)
         self.task_id = self.asm_command_execute.execute()
         if wait_for_completion:
             self.wait_for_completion()
 
+
 @dataclass
 class ClusterState:
     shards: List[List[SlotRange]]
 
-    def to_asm_commands(self, current_shards_info: ShardSlotInfo) -> Dict[int, Dict[int, ASMCommand]]:
+    def to_asm_commands(
+        self, current_shards_info: ShardSlotInfo
+    ) -> Dict[int, Dict[int, ASMCommand]]:
         """
         Compare current cluster state with desired state and generate ASM commands
         to migrate slots to reach the target configuration.
@@ -266,20 +300,28 @@ class ClusterState:
             if shard_idx >= current_num_shards:
                 continue
             for slot_range in slot_ranges:
-                slot_range = SlotRange(**slot_range) if isinstance(slot_range, dict) else slot_range
+                slot_range = (
+                    SlotRange(**slot_range)
+                    if isinstance(slot_range, dict)
+                    else slot_range
+                )
                 for slot in range(slot_range.start, slot_range.end + 1):
                     desired_shard_slots[shard_idx].add(slot)
 
         # Find slots that need to be migrated
         for dest_shard in range(max_shards):
-            slots_needed = desired_shard_slots[dest_shard] - current_shard_slots[dest_shard]
+            slots_needed = (
+                desired_shard_slots[dest_shard] - current_shard_slots[dest_shard]
+            )
 
             if slots_needed:
                 # Group slots by their current owner
                 slots_by_origin = {}
                 for origin_shard in range(current_num_shards):
                     if origin_shard != dest_shard:
-                        slots_from_origin = slots_needed & current_shard_slots[origin_shard]
+                        slots_from_origin = (
+                            slots_needed & current_shard_slots[origin_shard]
+                        )
                         if slots_from_origin:
                             slots_by_origin[origin_shard] = slots_from_origin
 
@@ -309,6 +351,7 @@ class ClusterState:
 
         return asm_commands
 
+
 def execute_asm_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
     cluster_state = None
     res = 0
@@ -330,26 +373,32 @@ def execute_asm_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
         logging.info("ASM Cluster State detected. Preparing ASM commands")
         shards_info = ShardSlotInfo(r)
         if isinstance(cluster_state, str) and cluster_state == "SPARSE":
-            c_state = ClusterState(shards=[
-                [SlotRange(start=i, end=i) for i in range(0, 16384, 2)],  # Shard 0: all even slots
-                [SlotRange(start=i, end=i) for i in range(1, 16384, 2) if i != 1]  # Shard 1: all odd slots except 1
-            ])
-            logging.info(
-                "Cluster State: {}".format(c_state)
+            c_state = ClusterState(
+                shards=[
+                    [
+                        SlotRange(start=i, end=i) for i in range(0, 16384, 2)
+                    ],  # Shard 0: all even slots
+                    [
+                        SlotRange(start=i, end=i) for i in range(1, 16384, 2) if i != 1
+                    ],  # Shard 1: all odd slots except 1
+                ]
             )
+            logging.info("Cluster State: {}".format(c_state))
             asm_commands = c_state.to_asm_commands(shards_info)
         elif isinstance(cluster_state, dict):
             c_state = ClusterState(**cluster_state)
-            logging.info(
-                "Cluster State: {}".format(c_state)
-            )
+            logging.info("Cluster State: {}".format(c_state))
             asm_commands = c_state.to_asm_commands(shards_info)
 
-    num_commands = sum(len(origin_command_map) for origin_command_map in asm_commands.values())
+    num_commands = sum(
+        len(origin_command_map) for origin_command_map in asm_commands.values()
+    )
     logging.info(f"Executing {num_commands} ASM commands")
     for dest_shard, origin_command_map in asm_commands.items():
         for origin_shard, asm_command in origin_command_map.items():
-            logging.info(f"Executing ASM Command to migrate from shard {origin_shard} to shard {dest_shard}")
+            logging.info(
+                f"Executing ASM Command to migrate from shard {origin_shard} to shard {dest_shard}"
+            )
             asm_command.execute(shards_info, wait_for_completion=True)
     logging.info("ASM commands completed. The Cluster should be in the desired state.")
     return res
@@ -364,10 +413,7 @@ if __name__ == "__main__":
                     [
                         {"start": 0, "end": 100},
                     ],
-                    [
-                        {"start": 14000, "end": 15000},
-                        {"start": 5461, "end": 10922}
-                    ]
+                    [{"start": 14000, "end": 15000}, {"start": 5461, "end": 10922}],
                 ]
             }
         }
