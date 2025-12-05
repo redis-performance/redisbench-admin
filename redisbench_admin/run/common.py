@@ -10,6 +10,7 @@ import logging
 import os
 import time
 import redis
+
 from pytablewriter import MarkdownTableWriter
 
 from redisbench_admin.run.aibench_run_inference_redisai_vision.aibench_run_inference_redisai_vision import (
@@ -54,6 +55,7 @@ from redisbench_admin.utils.remote import (
     extract_perversion_timeseries_from_results,
     extract_perbranch_timeseries_from_results,
 )
+from redisbench_admin.run.asm import execute_asm_commands
 
 BENCHMARK_REPETITIONS = int(os.getenv("BENCHMARK_REPETITIONS", 1))
 # circleci related info
@@ -630,6 +632,7 @@ def run_redis_pre_steps(benchmark_config, r, required_modules):
     logging.info("Running initialization commands before benchmark starts.")
     execute_init_commands_start_time = datetime.datetime.now()
     execute_init_commands(benchmark_config, r)
+    execute_asm_commands(benchmark_config, r)
     execute_init_commands_duration_seconds = (
         datetime.datetime.now() - execute_init_commands_start_time
     ).seconds
