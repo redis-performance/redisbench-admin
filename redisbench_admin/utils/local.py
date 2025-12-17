@@ -117,6 +117,6 @@ def get_local_run_full_filename(
             start_time_str=start_time_str,
             github_branch=github_branch,
             test_name=test_name,
-        )
+        ).replace("/", "-") # e.g., if branch name contains / we replace it by - (would be an invalid filename)
     )
     return benchmark_output_filename

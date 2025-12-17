@@ -420,8 +420,8 @@ def run_local_command_logic(args, project_name, project_version):
                                 )
                                 if args.dry_run is False:
                                     logging.info("Extracting the benchmark results")
-                                    logging.info("stdout: {}".format(stdout))
-                                    logging.info("stderr: {}".format(stderr))
+                                    logging.info("stdout: {}".format(sys.stdout))
+                                    logging.info("stderr: {}".format(sys.stderr))
 
                                 (
                                     _,
@@ -481,7 +481,7 @@ def run_local_command_logic(args, project_name, project_version):
                                         local_benchmark_output_filename,
                                         start_time_ms,
                                         start_time_str,
-                                        stdout,
+                                        sys.stdout,
                                     )
 
                                     with open(
