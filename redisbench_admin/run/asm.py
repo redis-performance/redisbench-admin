@@ -145,7 +145,7 @@ class ShardSlotInfo:
         """
         if shard_index < 0 or shard_index >= len(self.shards):
             raise IndexError(
-                f"Shard index {shard_index} out of range (0..{len(self.shards)-1})"
+                f"Shard index {shard_index} out of range (0..{len(self.shards) - 1})"
             )
 
         shard = self.shards[shard_index]

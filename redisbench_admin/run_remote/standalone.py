@@ -13,7 +13,6 @@ from redisbench_admin.utils.remote import (
 )
 from redisbench_admin.utils.ssh import SSHSession
 from redisbench_admin.utils.utils import redis_server_config_module_part
-import tempfile
 
 
 def ensure_redis_server_available(server_public_ip, username, private_key, port=22):
@@ -516,7 +515,7 @@ def spin_test_standalone_redis(
                 return False
 
             remote_redis_conf_path = f"{temporary_dir}/redis.conf"
-            logging.info(f"📁 Copying custom redis.conf to remote host...")
+            logging.info("📁 Copying custom redis.conf to remote host...")
 
             copy_result = copy_file_to_remote_setup(
                 server_public_ip,
@@ -541,7 +540,7 @@ def spin_test_standalone_redis(
                 return False
 
             remote_redis_server_path = f"{temporary_dir}/redis-server"
-            logging.info(f"📁 Copying custom redis-server binary to remote host...")
+            logging.info("📁 Copying custom redis-server binary to remote host...")
 
             copy_result = copy_file_to_remote_setup(
                 server_public_ip,

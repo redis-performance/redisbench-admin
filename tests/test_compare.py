@@ -124,6 +124,9 @@ def test_compare_command_logic():
             total_stable,
             total_unstable,
             total_comparison_points,
+            total_unstable_baseline,
+            total_unstable_comparison,
+            total_latency_confirmed_regressions,
         ) = compare_command_logic(args, "tool", "v0")
         total_tests = rts.scard(
             "ci.benchmarks.redislabs/circleci/redis-org/redis-repo:testcases"
