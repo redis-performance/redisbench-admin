@@ -26,8 +26,7 @@ def spin_up_local_redis_cluster(
     configuration_parameters=None,
     dataset_load_timeout_secs=60,
     modules_configuration_parameters_map={},
-    redis_version_7_or_later=True,
-    enable_debug_command="local",
+    enable_debug_command=None,
 ):
     redis_processes = []
     redis_conns = []
@@ -49,7 +48,6 @@ def spin_up_local_redis_cluster(
             modules_configuration_parameters_map,
             None,
             enable_debug_command,
-            redis_version_7_or_later,
         )
 
         logging.info(
@@ -193,8 +191,7 @@ def generate_cluster_redis_server_args(
     daemonize="yes",
     modules_configuration_parameters_map={},
     logname_prefix=None,
-    enable_debug_command="local",
-    redis_version_7_or_later=False,
+    enable_debug_command=None,
 ):
     if logname_prefix is None:
         logname_prefix = ""
@@ -206,11 +203,10 @@ def generate_cluster_redis_server_args(
         daemonize,
         dbdir,
         dbfilename,
-        enable_debug_command,
         ip,
         logfile,
         port,
-        redis_version_7_or_later,
+        enable_debug_command,
     )
     command.extend(
         [

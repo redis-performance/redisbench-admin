@@ -139,7 +139,6 @@ def run_remote_command_logic(args, project_name, project_version):
     keep_env_and_topo = args.keep_env_and_topo
     skip_remote_db_setup = args.skip_db_setup
     flushall_on_every_test_start = args.flushall_on_every_test_start
-    redis_version_7_or_later = args.redis_7
     enable_debug_command = args.enable_debug_command
     cluster_start_port = 20000
     redis_password = args.db_pass
@@ -630,7 +629,6 @@ def run_remote_command_logic(args, project_name, project_version):
                                             private_key,
                                             s3_bucket_name,
                                             s3_bucket_path,
-                                            redis_version_7_or_later,
                                             skip_remote_db_setup,
                                             cluster_start_port,
                                             redis_password,

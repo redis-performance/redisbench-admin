@@ -113,7 +113,7 @@ def spin_up_redis_cluster_remote_redis(
     ssh_port,
     modules_configuration_parameters_map,
     logname,
-    redis_version_7_or_later=True,
+    enable_debug_command=None,
 ):
     # Import the function from standalone module
     from redisbench_admin.run_remote.standalone import ensure_redis_server_available
@@ -138,8 +138,7 @@ def spin_up_redis_cluster_remote_redis(
             "yes",
             modules_configuration_parameters_map,
             logname_prefix,
-            "yes",
-            redis_version_7_or_later,
+            enable_debug_command,
         )
         logging.error(
             "Remote primary shard {} command: {}".format(

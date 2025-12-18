@@ -73,7 +73,7 @@ def test_generate_standalone_redis_server_args():
     ]
 
     cmd = generate_standalone_redis_server_args(
-        "redis-server", ".", None, "9999", None, {}, "local", "yes", True
+        "redis-server", ".", None, "9999", None, {}, "local", "yes"
     )
     assert cmd == [
         "redis-server",

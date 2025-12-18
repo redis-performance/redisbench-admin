@@ -72,11 +72,10 @@ def generate_common_server_args(
     daemonize,
     dbdir,
     dbfilename,
-    enable_debug_command,
     ip,
     logfile,
     port,
-    redis_version_7_or_later=False,
+    enable_debug_command=None,
 ):
     if type(binary) == list:
         command = binary
@@ -104,7 +103,7 @@ def generate_common_server_args(
             dbdir,
         ]
     )
-    if redis_version_7_or_later:
+    if enable_debug_command is not None:
         command.extend(
             [
                 "--enable-debug-command",

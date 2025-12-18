@@ -275,8 +275,7 @@ def spin_up_standalone_remote_redis(
     redis_configuration_parameters=None,
     port=22,
     modules_configuration_parameters_map={},
-    redis_version_7_or_later=True,
-    enable_debug_command="local",
+    enable_debug_command=None,
 ):
     # Ensure redis-server is available before trying to start it
     ensure_redis_server_available(server_public_ip, username, private_key, port)
@@ -287,7 +286,6 @@ def spin_up_standalone_remote_redis(
         remote_module_files,
         temporary_dir,
         modules_configuration_parameters_map,
-        redis_version_7_or_later,
         enable_debug_command,
     )
 
@@ -407,8 +405,7 @@ def generate_remote_standalone_redis_cmd(
     remote_module_files,
     temporary_dir,
     modules_configuration_parameters_map,
-    redis_version_7_or_later=True,
-    enable_debug_command="local",
+    enable_debug_command=None,
     custom_redis_server_path=None,
     custom_redis_conf_path=None,
 ):
@@ -427,7 +424,7 @@ def generate_remote_standalone_redis_cmd(
         initial_redis_cmd = "{} --save '' --logfile {} --dir {} --daemonize yes --protected-mode no ".format(
             redis_server_binary, logfile, temporary_dir
         )
-    if redis_version_7_or_later:
+    if enable_debug_command is not None:
         extra_str = " --enable-debug-command {} ".format(enable_debug_command)
         initial_redis_cmd = initial_redis_cmd + extra_str
     full_logfile = "{}/{}".format(temporary_dir, logfile)
@@ -604,7 +601,6 @@ def spin_test_standalone_redis(
             remote_module_files,
             temporary_dir,
             modules_configuration_parameters_map or {},
-            redis_version_7_or_later=True,
             enable_debug_command="local",
             custom_redis_server_path=remote_redis_server_path,
             custom_redis_conf_path=remote_redis_conf_path,
