@@ -69,12 +69,44 @@ def test_spin_up_standalone_remote_redis():
 
 def test_generate_remote_standalone_redis_cmd():
     modules_configuration_parameters_map = {"m1": {"CHUNK_SIZE_BYTES": 128}}
+
+    # Test 1: Default behavior - no enable_debug_command parameter
+    # Should NOT include --enable-debug-command directive
     full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
-        "log1", None, ["m1.so"], ".", modules_configuration_parameters_map, False
+        "log1", None, ["m1.so"], ".", modules_configuration_parameters_map
     )
     assert initial_redis_cmd.endswith("m1.so CHUNK_SIZE_BYTES 128")
+    assert "--enable-debug-command" not in initial_redis_cmd
 
-    # 2 modules
+    # Test 2: Explicitly pass None for enable_debug_command
+    # Should NOT include --enable-debug-command directive
+    full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
+        "log1", None, ["m1.so"], ".", modules_configuration_parameters_map, None
+    )
+    assert "--enable-debug-command" not in initial_redis_cmd
+
+    # Test 3: Pass "local" for enable_debug_command
+    # Should include --enable-debug-command local
+    full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
+        "log1", None, ["m1.so"], ".", modules_configuration_parameters_map, "local"
+    )
+    assert "--enable-debug-command local" in initial_redis_cmd
+
+    # Test 4: Pass "yes" for enable_debug_command
+    # Should include --enable-debug-command yes
+    full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
+        "log1", None, ["m1.so"], ".", modules_configuration_parameters_map, "yes"
+    )
+    assert "--enable-debug-command yes" in initial_redis_cmd
+
+    # Test 5: Pass "no" for enable_debug_command
+    # Should include --enable-debug-command no
+    full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
+        "log1", None, ["m1.so"], ".", modules_configuration_parameters_map, "no"
+    )
+    assert "--enable-debug-command no" in initial_redis_cmd
+
+    # Test 6: 2 modules without enable_debug_command
     modules_configuration_parameters_map = {"m1": {"CHUNK_SIZE_BYTES": 128}}
     full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
         "log1",
@@ -82,6 +114,6 @@ def test_generate_remote_standalone_redis_cmd():
         ["m1.so", "m2.so"],
         ".",
         modules_configuration_parameters_map,
-        False,
     )
     assert initial_redis_cmd.endswith("m2.so")
+    assert "--enable-debug-command" not in initial_redis_cmd

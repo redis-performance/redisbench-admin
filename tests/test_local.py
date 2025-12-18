@@ -47,9 +47,11 @@ from redisbench_admin.environments.oss_standalone import (
 
 
 def test_generate_standalone_redis_server_args():
-    cmd = generate_standalone_redis_server_args("redis-server", ".", None, "9999")
     logfile = "redis.log"
 
+    # Test 1: Default behavior - no enable_debug_command parameter
+    # Should NOT include --enable-debug-command directive
+    cmd = generate_standalone_redis_server_args("redis-server", ".", None, "9999")
     assert cmd == [
         "redis-server",
         "--appendonly",
@@ -71,7 +73,38 @@ def test_generate_standalone_redis_server_args():
         "--dir",
         ".",
     ]
+    assert "--enable-debug-command" not in cmd
 
+    # Test 2: Explicitly pass None for enable_debug_command
+    # Should NOT include --enable-debug-command directive
+    cmd = generate_standalone_redis_server_args(
+        "redis-server", ".", None, "9999", None, {}, None, "yes"
+    )
+    assert cmd == [
+        "redis-server",
+        "--appendonly",
+        "no",
+        "--logfile",
+        logfile,
+        "--daemonize",
+        "yes",
+        "--dbfilename",
+        "dump.rdb",
+        "--protected-mode",
+        "no",
+        "--bind",
+        "127.0.0.1",
+        "--save",
+        "''",
+        "--port",
+        "9999",
+        "--dir",
+        ".",
+    ]
+    assert "--enable-debug-command" not in cmd
+
+    # Test 3: Pass "local" for enable_debug_command
+    # Should include --enable-debug-command local
     cmd = generate_standalone_redis_server_args(
         "redis-server", ".", None, "9999", None, {}, "local", "yes"
     )
@@ -98,6 +131,25 @@ def test_generate_standalone_redis_server_args():
         "--enable-debug-command",
         "local",
     ]
+
+    # Test 4: Pass "yes" for enable_debug_command
+    # Should include --enable-debug-command yes
+    cmd = generate_standalone_redis_server_args(
+        "redis-server", ".", None, "9999", None, {}, "yes", "yes"
+    )
+    assert "--enable-debug-command" in cmd
+    assert "yes" in cmd
+    idx = cmd.index("--enable-debug-command")
+    assert cmd[idx + 1] == "yes"
+
+    # Test 5: Pass "no" for enable_debug_command
+    # Should include --enable-debug-command no
+    cmd = generate_standalone_redis_server_args(
+        "redis-server", ".", None, "9999", None, {}, "no", "yes"
+    )
+    assert "--enable-debug-command" in cmd
+    idx = cmd.index("--enable-debug-command")
+    assert cmd[idx + 1] == "no"
 
     local_module_file = "m1.so"
     cmd = generate_standalone_redis_server_args(
