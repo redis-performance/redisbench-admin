@@ -76,7 +76,7 @@ def generate_common_server_args(
     ip,
     logfile,
     port,
-    enable_redis_7_config_directives=False,
+    redis_version_7_or_later=False,
 ):
     if type(binary) == list:
         command = binary
@@ -104,7 +104,7 @@ def generate_common_server_args(
             dbdir,
         ]
     )
-    if enable_redis_7_config_directives:
+    if redis_version_7_or_later:
         command.extend(
             [
                 "--enable-debug-command",

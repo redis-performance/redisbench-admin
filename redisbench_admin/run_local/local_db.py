@@ -82,7 +82,7 @@ def local_db_spin(
         if args.skip_redis_spin is False:
             # setup Redis
             # copy the rdb to DB machine
-            redis_7 = args.redis_7
+            redis_version_7_or_later = args.redis_7
             logging.info(
                 "Using local temporary dir to spin up Redis Instance. Path: {}".format(
                     temporary_dir
@@ -123,8 +123,8 @@ def local_db_spin(
                     redis_configuration_parameters,
                     dataset_load_timeout_secs,
                     modules_configuration_parameters_map,
-                    redis_7,
-                    args.enable_debug_command,
+                    redis_version_7_or_later=redis_version_7_or_later,
+                    enable_debug_command=args.enable_debug_command,
                 )
 
                 status = setup_redis_cluster_from_conns(
@@ -143,8 +143,8 @@ def local_db_spin(
                     dbdir_folder,
                     dataset_load_timeout_secs,
                     modules_configuration_parameters_map,
-                    redis_7,
-                    args.enable_debug_command,
+                    redis_version_7_or_later=redis_version_7_or_later,
+                    enable_debug_command=args.enable_debug_command,
                 )
             if setup_type == "oss-cluster":
                 for shardn, redis_process in enumerate(redis_processes):

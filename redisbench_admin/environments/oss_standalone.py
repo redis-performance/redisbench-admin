@@ -24,7 +24,7 @@ def spin_up_local_redis(
     dbdir_folder=None,
     dataset_load_timeout_secs=120,
     modules_configuration_parameters_map={},
-    redis_7=True,
+    redis_version_7_or_later=True,
     enable_debug_command="local",
 ):
     command = generate_standalone_redis_server_args(
@@ -36,7 +36,7 @@ def spin_up_local_redis(
         modules_configuration_parameters_map,
         enable_debug_command,
         "yes",
-        redis_7,
+        redis_version_7_or_later,
     )
 
     logging.info(
@@ -60,7 +60,7 @@ def generate_standalone_redis_server_args(
     modules_configuration_parameters_map={},
     enable_debug_command="local",
     daemonize="yes",
-    enable_redis_7_config_directives=False,
+    redis_version_7_or_later=False,
 ):
     logfile = "redis.log"
     dbfilename = "dump.rdb"
@@ -74,7 +74,7 @@ def generate_standalone_redis_server_args(
         ip,
         logfile,
         port,
-        enable_redis_7_config_directives,
+        redis_version_7_or_later,
     )
 
     if configuration_parameters is not None:
