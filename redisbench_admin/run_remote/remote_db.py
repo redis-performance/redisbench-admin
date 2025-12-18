@@ -105,6 +105,7 @@ def remote_db_spin(
     continue_on_module_check_error=False,
     keyspace_check_timeout=60,
     architecture="x86_64",
+    enable_debug_command="local",
 ):
     (
         _,
@@ -207,6 +208,7 @@ def remote_db_spin(
                     db_ssh_port,
                     modules_configuration_parameters_map,
                     redis_7,
+                    enable_debug_command,
                 )
                 full_logfiles.append(full_logfile)
             local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(

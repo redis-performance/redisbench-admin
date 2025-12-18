@@ -140,6 +140,7 @@ def run_remote_command_logic(args, project_name, project_version):
     skip_remote_db_setup = args.skip_db_setup
     flushall_on_every_test_start = args.flushall_on_every_test_start
     redis_7 = True
+    enable_debug_command = args.enable_debug_command
     cluster_start_port = 20000
     redis_password = args.db_pass
     ignore_keyspace_errors = args.ignore_keyspace_errors
@@ -638,6 +639,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             continue_on_module_check_error,
                                             60,
                                             architecture,
+                                            enable_debug_command,
                                         )
                                         if benchmark_type == "read-only":
                                             ro_benchmark_set(

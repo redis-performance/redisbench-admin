@@ -276,6 +276,7 @@ def spin_up_standalone_remote_redis(
     port=22,
     modules_configuration_parameters_map={},
     redis_7=True,
+    enable_debug_command="local",
 ):
     # Ensure redis-server is available before trying to start it
     ensure_redis_server_available(server_public_ip, username, private_key, port)
@@ -287,6 +288,7 @@ def spin_up_standalone_remote_redis(
         temporary_dir,
         modules_configuration_parameters_map,
         redis_7,
+        enable_debug_command,
     )
 
     # start redis-server
@@ -406,7 +408,7 @@ def generate_remote_standalone_redis_cmd(
     temporary_dir,
     modules_configuration_parameters_map,
     enable_redis_7_config_directives=True,
-    enable_debug_command="yes",
+    enable_debug_command="local",
     custom_redis_server_path=None,
     custom_redis_conf_path=None,
 ):
@@ -603,7 +605,7 @@ def spin_test_standalone_redis(
             temporary_dir,
             modules_configuration_parameters_map or {},
             enable_redis_7_config_directives=True,
-            enable_debug_command="yes",
+            enable_debug_command="local",
             custom_redis_server_path=remote_redis_server_path,
             custom_redis_conf_path=remote_redis_conf_path,
         )

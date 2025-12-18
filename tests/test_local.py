@@ -73,7 +73,7 @@ def test_generate_standalone_redis_server_args():
     ]
 
     cmd = generate_standalone_redis_server_args(
-        "redis-server", ".", None, "9999", None, {}, "no", "yes", True
+        "redis-server", ".", None, "9999", None, {}, "local", "yes", True
     )
     assert cmd == [
         "redis-server",
@@ -96,7 +96,7 @@ def test_generate_standalone_redis_server_args():
         "--dir",
         ".",
         "--enable-debug-command",
-        "no",
+        "local",
     ]
 
     local_module_file = "m1.so"

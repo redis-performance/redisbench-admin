@@ -25,6 +25,7 @@ def spin_up_local_redis(
     dataset_load_timeout_secs=120,
     modules_configuration_parameters_map={},
     redis_7=True,
+    enable_debug_command="local",
 ):
     command = generate_standalone_redis_server_args(
         binary,
@@ -33,7 +34,7 @@ def spin_up_local_redis(
         port,
         configuration_parameters,
         modules_configuration_parameters_map,
-        "yes",
+        enable_debug_command,
         "yes",
         redis_7,
     )
@@ -57,7 +58,7 @@ def generate_standalone_redis_server_args(
     port,
     configuration_parameters=None,
     modules_configuration_parameters_map={},
-    enable_debug_command="yes",
+    enable_debug_command="local",
     daemonize="yes",
     enable_redis_7_config_directives=False,
 ):

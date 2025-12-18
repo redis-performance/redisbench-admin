@@ -124,6 +124,7 @@ def local_db_spin(
                     dataset_load_timeout_secs,
                     modules_configuration_parameters_map,
                     redis_7,
+                    args.enable_debug_command,
                 )
 
                 status = setup_redis_cluster_from_conns(
@@ -143,6 +144,7 @@ def local_db_spin(
                     dataset_load_timeout_secs,
                     modules_configuration_parameters_map,
                     redis_7,
+                    args.enable_debug_command,
                 )
             if setup_type == "oss-cluster":
                 for shardn, redis_process in enumerate(redis_processes):

@@ -31,6 +31,7 @@ BENCHMARK_RUNNER_GROUP_M_ID = int(os.getenv("BENCHMARK_RUNNER_GROUP_M_ID", "1"))
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "ci.benchmarks.redislabs")
 PUSH_S3 = bool(os.getenv("PUSH_S3", False))
 REDIS_7 = bool(os.getenv("REDIS_7", True))
+ENABLE_DEBUG_COMMAND = os.getenv("ENABLE_DEBUG_COMMAND", "local")
 FAIL_FAST = bool(int(os.getenv("FAIL_FAST", 0)))
 PROFILERS_DSO = os.getenv("PROFILERS_DSO", None)
 GIT_ORG = os.getenv("GIT_ORG", None)
@@ -165,6 +166,14 @@ def common_run_args(parser):
         type=bool,
         default=REDIS_7,
         help="Include Redis 7 configuration directives.",
+    )
+    parser.add_argument(
+        "--enable-debug-command",
+        type=str,
+        default=ENABLE_DEBUG_COMMAND,
+        help="Control the enable-debug-command Redis configuration. "
+        "Valid values: 'yes', 'no', 'local' (default). "
+        "'local' enables debug commands only for local connections.",
     )
 
     parser.add_argument("--dso", type=str, required=False, default=PROFILERS_DSO)
