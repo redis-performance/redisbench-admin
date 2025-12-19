@@ -201,7 +201,15 @@ def generate_cluster_redis_server_args(
     dbfilename = get_cluster_dbfilename(port)
 
     command = generate_common_server_args(
-        binary, daemonize, dbdir, dbfilename, enable_debug_command, ip, logfile, port
+        binary,
+        daemonize,
+        dbdir,
+        dbfilename,
+        enable_debug_command,
+        ip,
+        logfile,
+        port,
+        enable_redis_7_config_directives,
     )
     command.extend(
         [
