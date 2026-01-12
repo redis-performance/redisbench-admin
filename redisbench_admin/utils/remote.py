@@ -178,6 +178,8 @@ def connect_remote_ssh(port, private_key, server_public_ip, username):
     c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     logging.info("Connecting to remote server {}".format(server_public_ip))
     c.connect(hostname=server_public_ip, port=port, username=username, pkey=k)
+    transport = c.get_transport()
+    transport.set_keepalive(10)  # Send keepalive every 10 seconds
     logging.info("Connected to remote server {}".format(server_public_ip))
     return c
 
