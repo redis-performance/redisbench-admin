@@ -269,7 +269,7 @@ def _setup_remote_benchmark_tool_requirements(
       if queries_file_link.startswith("s3://"):
           ensure_aws_cli_available(client_public_ip, username, private_key, client_ssh_port)
           commands.append(
-              "aws s3 cp {} {} --no-sign-request".format(queries_file_link, remote_input_file)
+              "timeout 600 aws s3 cp {} {} --no-sign-request --cli-read-timeout 300".format(queries_file_link, remote_input_file)
           )
       else:
           commands.append("wget {} -q -O {}".format(queries_file_link, remote_input_file))
