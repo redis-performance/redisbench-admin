@@ -221,12 +221,15 @@ def _setup_remote_benchmark_tool_requirements(
     ]
 
     # detect if queries_file_link is a s3 URI or http one and act accordingly (use aws cli or wget)
-    if queries_file_link.startswith("s3://"):
-        commands.append(
-            "aws s3 cp {} {} --no-sign-request".format(queries_file_link, remote_input_file)
-        )
+    if queries_file_link is not None:
+      if queries_file_link.startswith("s3://"):
+          commands.append(
+              "aws s3 cp {} {} --no-sign-request".format(queries_file_link, remote_input_file)
+          )
+      else:
+          commands.append("wget {} -q -O {}".format(queries_file_link, remote_input_file))
     else:
-        commands.append("wget {} -q -O {}".format(queries_file_link, remote_input_file))
+        logging.info("No queries file link provided. Skipping download.")
     execute_remote_commands(
         client_public_ip, username, private_key, commands, client_ssh_port
     )
