@@ -205,8 +205,7 @@ def remote_tool_pre_bench_step(
         )
     logging.info("Finished up remote tool {} requirements".format(benchmark_tool))
 
-
-def setup_remote_benchmark_tool_requirements_ftsb(
+def _setup_remote_benchmark_tool_requirements(
     client_public_ip,
     username,
     private_key,
@@ -218,11 +217,40 @@ def setup_remote_benchmark_tool_requirements_ftsb(
 ):
     commands = [
         "wget {} -q -O {}".format(tool_link, remote_tool_link),
-        "wget {} -q -O {}".format(queries_file_link, remote_input_file),
-        "chmod 755 {}".format(remote_tool_link),
+        "chmod 755 {}".format(remote_tool_link)
     ]
+
+    # detect if queries_file_link is a s3 URI or http one and act accordingly (use aws cli or wget)
+    if queries_file_link.startswith("s3://"):
+        commands.append(
+            "aws s3 cp {} {} --no-sign-request".format(queries_file_link, remote_input_file)
+        )
+    else:
+        commands.append("wget {} -q -O {}".format(queries_file_link, remote_input_file))
     execute_remote_commands(
         client_public_ip, username, private_key, commands, client_ssh_port
+    )
+
+
+def setup_remote_benchmark_tool_requirements_ftsb(
+    client_public_ip,
+    username,
+    private_key,
+    tool_link,
+    queries_file_link,
+    remote_tool_link,
+    remote_input_file,
+    client_ssh_port,
+):
+    _setup_remote_benchmark_tool_requirements(
+        client_public_ip,
+        username,
+        private_key,
+        tool_link,
+        queries_file_link,
+        remote_tool_link,
+        remote_input_file,
+        client_ssh_port,
     )
 
 
@@ -236,13 +264,15 @@ def setup_remote_benchmark_tool_requirements_tsbs(
     remote_input_file,
     client_ssh_port,
 ):
-    commands = [
-        "wget {} -q -O {}".format(tool_link, remote_tool_link),
-        "wget {} -q -O {}".format(queries_file_link, remote_input_file),
-        "chmod 755 {}".format(remote_tool_link),
-    ]
-    execute_remote_commands(
-        client_public_ip, username, private_key, commands, client_ssh_port
+    _setup_remote_benchmark_tool_requirements(
+        client_public_ip,
+        username,
+        private_key,
+        tool_link,
+        queries_file_link,
+        remote_tool_link,
+        remote_input_file,
+        client_ssh_port,
     )
 
 
