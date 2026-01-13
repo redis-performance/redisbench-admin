@@ -35,6 +35,9 @@ def ssh_tunnel_redisconn(
         ssh_address_or_host=(server_public_ip, ssh_port),
         ssh_username=username,
         ssh_pkey=ssh_pkey,
+        ssh_config_file=None,
+        allow_agent=False,
+        host_pkey_directories=[],
         logger=logging.getLogger(),
         remote_bind_address=(
             server_private_ip,
