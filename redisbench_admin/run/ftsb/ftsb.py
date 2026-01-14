@@ -44,6 +44,8 @@ def prepare_ftsb_benchmark_command(
                     input_file, "/tmp", None, remote_queries_file, is_remote
                 )
                 command_arr.extend(["--input", input_file])
+            elif "max-token-size-mb" in k:
+                command_arr.extend(["--max-token-size-mb", str(k["max-token-size-mb"])])
             else:
                 for kk in k.keys():
                     command_arr.extend(["--{}".format(kk), str(k[kk])])
