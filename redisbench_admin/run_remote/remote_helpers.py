@@ -51,6 +51,50 @@ def benchmark_tools_sanity_check(allowed_tools, benchmark_tool):
         )
 
 
+def ensure_aws_cli_available(client_public_ip, username, private_key, client_ssh_port):
+    """Check if AWS CLI is available, install if not"""
+    logging.info("Checking if AWS CLI is available on remote client...")
+
+    # Check if aws command exists
+    check_result = execute_remote_commands(
+        client_public_ip, username, private_key, ["which aws"], client_ssh_port
+    )
+
+    # Check the result
+    if len(check_result) > 0:
+        [recv_exit_status, stdout, stderr] = check_result[0]
+        if recv_exit_status != 0:
+            logging.info("AWS CLI not found, installing...")
+
+            # Install AWS CLI v2
+            install_commands = [
+                "curl 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o 'awscliv2.zip'",
+                "unzip -q awscliv2.zip",
+                "sudo ./aws/install",
+                "rm -rf awscliv2.zip aws/"
+            ]
+
+            install_result = execute_remote_commands(
+                client_public_ip, username, private_key, install_commands, client_ssh_port
+            )
+
+            # Check if installation was successful
+            for pos, res_pos in enumerate(install_result):
+                [recv_exit_status, stdout, stderr] = res_pos
+                if recv_exit_status != 0:
+                    logging.warning(
+                        "AWS CLI installation command {} returned exit code {}. stdout: {}. stderr: {}".format(
+                            pos, recv_exit_status, stdout, stderr
+                        )
+                    )
+
+            logging.info("AWS CLI installation completed")
+        else:
+            logging.info("AWS CLI is already available")
+    else:
+        logging.error("Failed to check AWS CLI availability")
+
+
 def remote_tool_pre_bench_step(
     benchmark_config,
     benchmark_min_tool_version,
@@ -221,12 +265,16 @@ def _setup_remote_benchmark_tool_requirements(
     ]
 
     # detect if queries_file_link is a s3 URI or http one and act accordingly (use aws cli or wget)
-    if queries_file_link.startswith("s3://"):
-        commands.append(
-            "aws s3 cp {} {} --no-sign-request".format(queries_file_link, remote_input_file)
-        )
+    if queries_file_link is not None:
+      if queries_file_link.startswith("s3://"):
+          ensure_aws_cli_available(client_public_ip, username, private_key, client_ssh_port)
+          commands.append(
+              "timeout 600 aws s3 cp {} {} --no-sign-request --cli-read-timeout 300".format(queries_file_link, remote_input_file)
+          )
+      else:
+          commands.append("wget {} -q -O {}".format(queries_file_link, remote_input_file))
     else:
-        commands.append("wget {} -q -O {}".format(queries_file_link, remote_input_file))
+        logging.info("No queries file link provided. Skipping download.")
     execute_remote_commands(
         client_public_ip, username, private_key, commands, client_ssh_port
     )

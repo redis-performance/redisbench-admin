@@ -70,7 +70,7 @@ def check_dataset_local_requirements(
 def check_if_needs_remote_fetch(
     property, localtemp_dir, dirname, full_path=None, is_remote=False
 ):
-    if property.startswith("http"):
+    if property.startswith("http") or property.startswith("s3"):
         if not os.path.isdir(localtemp_dir):
             os.mkdir(localtemp_dir)
         if full_path is None:
@@ -82,7 +82,10 @@ def check_if_needs_remote_fetch(
                     property, full_path, localtemp_dir
                 )
             )
-            wget.download(property, full_path)
+            if property.startswith("s3://"):
+              logging.error("Unexpected s3 URL. It should have already been downloaded. Skipping...")
+            else:
+              wget.download(property, full_path)
         else:
             logging.info(
                 "Reusing cached remote file (located at {} ).".format(full_path)
