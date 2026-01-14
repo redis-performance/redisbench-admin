@@ -195,36 +195,59 @@ def merge_default_and_specific_properties_dict_type(
             )
         )
     else:
-        usecase_kpi = None
-        use_case_specific_properties = benchmark_config[propertygroup_keyname]
-        for default_property in default_properties:
-            default_rule, default_details = list(default_property.items())[0]
-            default_condition = list(default_details.values())[0]
-            comparison_key = "{}{}".format(default_rule, default_condition)
-            found = False
-            for usecase_kpi in use_case_specific_properties:
-                usecase_rule, usecase_details = list(usecase_kpi.items())[0]
-                usecase_condition = list(usecase_details.values())[0]
-                usecase_comparison_key = "{}{}".format(usecase_rule, usecase_condition)
-                if comparison_key == usecase_comparison_key:
-                    found = True
-            if found:
-                logging.info(
-                    "Skipping to add default '{}' property ({}) given the file {}"
-                    " had the same specific property ({})".format(
-                        propertygroup_keyname,
-                        default_property,
-                        usecase_filename,
-                        usecase_kpi,
+        # Special handling for remote configs
+        if propertygroup_keyname == "remote":
+            # For remote, merge by adding missing keys from defaults
+            use_case_specific_properties = benchmark_config[propertygroup_keyname]
+            existing_keys = set()
+            for item in use_case_specific_properties:
+                existing_keys.update(item.keys())
+
+            for default_property in default_properties:
+                for key in default_property.keys():
+                    if key not in existing_keys:
+                        use_case_specific_properties.append(default_property)
+                        logging.info(
+                            "Adding a default '{}' property ({}) given the file {} did not have the specific property".format(
+                                propertygroup_keyname, default_property, usecase_filename
+                            )
+                        )
+                        break
+        else:
+            # Original logic for kpis and other properties
+            usecase_kpi = None
+            use_case_specific_properties = benchmark_config[propertygroup_keyname]
+            for default_property in default_properties:
+                default_rule, default_details = list(default_property.items())[0]
+                if isinstance(default_details, dict):
+                    default_condition = list(default_details.values())[0]
+                else:
+                    default_condition = default_details
+                comparison_key = "{}{}".format(default_rule, default_condition)
+                found = False
+                for usecase_kpi in use_case_specific_properties:
+                    usecase_rule, usecase_details = list(usecase_kpi.items())[0]
+                    usecase_condition = list(usecase_details.values())[0]
+                    usecase_comparison_key = "{}{}".format(usecase_rule, usecase_condition)
+                    if comparison_key == usecase_comparison_key:
+                        found = True
+                if found:
+                    logging.info(
+                        "Skipping to add default '{}' property ({}) given the file {}"
+                        " had the same specific property ({})".format(
+                            propertygroup_keyname,
+                            default_property,
+                            usecase_filename,
+                            usecase_kpi,
+                        )
                     )
-                )
-            else:
-                use_case_specific_properties.append(default_property)
-                logging.info(
-                    "Adding a default '{}' property ({}) given the file {} did not had the specific property".format(
-                        propertygroup_keyname, default_property, usecase_filename
+                else:
+                    use_case_specific_properties.append(default_property)
+                    logging.info(
+                        "Adding a default '{}' property ({}) given the file {} did not have the specific property".format(
+                            propertygroup_keyname, default_property, usecase_filename
+                        )
                     )
-                )
 
 
 def extract_redis_dbconfig_parameters(benchmark_config, dbconfig_keyname):
