@@ -108,6 +108,7 @@ def run_remote_command_logic(args, project_name, project_version):
     tf_github_branch = args.github_branch
     required_modules = args.required_module
     collect_commandstats = args.collect_commandstats
+    collect_search_memory = args.collect_search_memory
 
     (
         tf_github_actor,
@@ -987,6 +988,32 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     },
                                                     expire_ms,
                                                 )
+                                                if collect_search_memory:
+                                                    (
+                                                        end_time_ms,
+                                                        _,
+                                                        overall_search_memory_metrics,
+                                                    ) = collect_redis_metrics(
+                                                        redis_conns, ["search_memory"]
+                                                    )
+                                                    export_redis_metrics(
+                                                        artifact_version,
+                                                        end_time_ms,
+                                                        overall_search_memory_metrics,
+                                                        rts,
+                                                        setup_name,
+                                                        setup_type,
+                                                        test_name,
+                                                        tf_github_branch,
+                                                        tf_github_org,
+                                                        tf_github_repo,
+                                                        tf_triggering_env,
+                                                        {
+                                                            "metric-type": "search-memory",
+                                                            "arch": architecture,
+                                                        },
+                                                        expire_ms,
+                                                    )
                                                 if collect_commandstats:
                                                     (
                                                         end_time_ms,
