@@ -498,13 +498,24 @@ def validate_result_expectations(
 
 
 def check_and_fix_pem_str(ec2_private_pem: str):
-    pem_str = ec2_private_pem.replace("-----BEGIN RSA PRIVATE KEY-----", "")
-    pem_str = pem_str.replace("-----END RSA PRIVATE KEY-----", "")
-    pem_str = pem_str.replace(" ", "\n")
-    pem_str = "-----BEGIN RSA PRIVATE KEY-----\n" + pem_str
-    pem_str = pem_str + "-----END RSA PRIVATE KEY-----\n"
-    # remove any dangling whitespace
+    if "RSA" in ec2_private_pem:
+        print("Detected RSA private key")
+        pem_str = ec2_private_pem.replace("-----BEGIN RSA PRIVATE KEY-----", "")
+        pem_str = pem_str.replace("-----END RSA PRIVATE KEY-----", "")
+        pem_str = pem_str.replace(" ", "\n")
+        pem_str = "-----BEGIN RSA PRIVATE KEY-----\n" + pem_str
+        pem_str = pem_str + "-----END RSA PRIVATE KEY-----\n"
+    if "OPENSSH" in ec2_private_pem:
+        print("Detected OPENSSH private key")
+        pem_str = ec2_private_pem.replace("-----BEGIN OPENSSH PRIVATE KEY-----", "")
+        pem_str = pem_str.replace("-----END OPENSSH PRIVATE KEY-----", "")
+        pem_str = pem_str.replace(" ", "\n")
+        pem_str = "-----BEGIN OPENSSH PRIVATE KEY-----\n" + pem_str
+        pem_str = pem_str + "-----END OPENSSH PRIVATE KEY-----\n"
+        # remove any dangling whitespace
     pem_str = os.linesep.join([s for s in pem_str.splitlines() if s])
+    # add a final newline
+    pem_str = pem_str + "\n"
     return pem_str
 
 
