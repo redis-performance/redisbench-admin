@@ -38,6 +38,7 @@ GIT_BRANCH = os.getenv("GIT_BRANCH", None)
 GIT_REPO = os.getenv("GIT_REPO", None)
 PROFILERS_ENABLED = bool(int(os.getenv("PROFILE", 0)))
 COMMANDSTATS_ENABLED = bool(int(os.getenv("COMMANDSTATS_ENABLED", 1)))
+SEARCH_MEMORY_ENABLED = bool(int(os.getenv("SEARCH_MEMORY_ENABLED", 0)))
 PROFILERS = os.getenv("PROFILERS", PROFILERS_DEFAULT)
 MAX_PROFILERS_PER_TYPE = int(os.getenv("MAX_PROFILERS", 1))
 PROFILE_FREQ = os.getenv("PROFILE_FREQ", PROFILE_FREQ_DEFAULT)
@@ -201,6 +202,12 @@ def common_run_args(parser):
         type=bool,
         default=COMMANDSTATS_ENABLED,
         help="Enables commandstats collection.",
+    )
+    parser.add_argument(
+        "--collect_search_memory",
+        type=bool,
+        default=SEARCH_MEMORY_ENABLED,
+        help="Enables search memory collection.",
     )
     parser.add_argument(
         "--allowed-envs",
