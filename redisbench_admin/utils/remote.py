@@ -151,7 +151,7 @@ def fetch_file_from_remote_setup(
 
 
 def execute_remote_commands(
-    server_public_ip, username, private_key, commands, port, get_pty=False
+    server_public_ip, username, private_key, commands, port, get_pty=False, limit_output_print=False,
 ):
     res = []
     c = connect_remote_ssh(port, private_key, server_public_ip, username)
@@ -162,11 +162,18 @@ def execute_remote_commands(
         stdout = stdout.readlines()
         stderr = stderr.readlines()
         if recv_exit_status != 0:
-            logging.warning(
-                "Exit status: {} for command {}.\n\tSTDERR: {}\n\tSTDOUT: {}".format(
-                    recv_exit_status, command, stdout, stderr
-                )
-            )
+            if not limit_output_print:
+              logging.warning(
+                  "Exit status: {} for command {}.\n\tSTDERR: {}\n\tSTDOUT: {}".format(
+                      recv_exit_status, command, stdout, stderr
+                  )
+              )
+            else:
+              logging.info(
+                  "Exit status: {} for command {}.\n\tSTDERR: {}\n\tSTDOUT: {}".format(
+                      recv_exit_status, command, stdout[0:100], stderr[0:100]
+                  )
+              )
         res.append([recv_exit_status, stdout, stderr])
     c.close()
     return res

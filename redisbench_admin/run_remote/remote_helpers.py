@@ -276,7 +276,7 @@ def _setup_remote_benchmark_tool_requirements(
     else:
         logging.info("No queries file link provided. Skipping download.")
     execute_remote_commands(
-        client_public_ip, username, private_key, commands, client_ssh_port
+        client_public_ip, username, private_key, commands, client_ssh_port, limit_output_print=True,
     )
 
 
