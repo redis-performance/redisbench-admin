@@ -89,6 +89,15 @@ STALL_INFO_DAYS = 7
 EXPIRE_TIME_SECS_PROFILE_KEYS = 60 * 60 * 24 * STALL_INFO_DAYS
 EXPIRE_TIME_MSECS_PROFILE_KEYS = EXPIRE_TIME_SECS_PROFILE_KEYS * 1000
 
+def ensure_mixed_types_first(benchmark_runs_plan):
+    """
+    Returns an iterator over (benchmark_type, bench_by_dataset_map) tuples,
+    ensuring that 'mixed' benchmark types are processed before others.
+    """
+    return sorted(
+        benchmark_runs_plan.items(),
+        key=lambda x: (x[0] != "mixed", x[0])
+    )
 
 def is_important_data(tf_github_branch, artifact_version):
     return True
@@ -396,7 +405,7 @@ def run_remote_command_logic(args, project_name, project_version):
     ts_key_full_price = f"ts:{tf_triggering_env}:tests:full_price"
     ts_key_architecture = f"ts:{tf_triggering_env}:tests:arch:{architecture}"
 
-    for benchmark_type, bench_by_dataset_map in benchmark_runs_plan.items():
+    for benchmark_type, bench_by_dataset_map in ensure_mixed_types_first(benchmark_runs_plan):
         if return_code != 0 and args.fail_fast:
             logging.warning(
                 "Given you've selected fail fast skipping benchmark_type {}".format(
