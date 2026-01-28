@@ -15,6 +15,78 @@ from redisbench_admin.utils.ssh import SSHSession
 from redisbench_admin.utils.utils import redis_server_config_module_part
 
 
+def setup_remote_symlinks(
+    server_public_ip, username, private_key, remote_symlinks, port=22
+):
+    """
+    Create symlinks on the remote server.
+
+    Args:
+        server_public_ip: IP address of the remote server
+        username: SSH username
+        private_key: Path to SSH private key
+        remote_symlinks: List of symlink specifications in format "source:target"
+        port: SSH port (default 22)
+
+    Returns:
+        bool: True if all symlinks were created successfully, False otherwise
+    """
+    if remote_symlinks is None or len(remote_symlinks) == 0:
+        return True
+
+    logging.info(f"Setting up {len(remote_symlinks)} symlink(s) on remote server...")
+    commands = []
+
+    for symlink_spec in remote_symlinks:
+        if ":" not in symlink_spec:
+            logging.error(
+                f"Invalid symlink specification '{symlink_spec}'. "
+                "Expected format: 'source:target'"
+            )
+            return False
+
+        source, target = symlink_spec.split(":", 1)
+        logging.info(f"Will create symlink: {target} -> {source}")
+        # Use ln -sf to force creation (overwrite if exists)
+        commands.append(f"ln -sf {source} {target}")
+
+    results = execute_remote_commands(
+        server_public_ip, username, private_key, commands, port
+    )
+
+    success = True
+    for pos, res_pos in enumerate(results):
+        [recv_exit_status, stdout, stderr] = res_pos
+        if recv_exit_status != 0:
+            logging.error(
+                f"Failed to create symlink '{remote_symlinks[pos]}'. "
+                f"Exit code: {recv_exit_status}, stderr: {stderr}"
+            )
+            success = False
+        else:
+            logging.info(f"Successfully created symlink: {remote_symlinks[pos]}")
+
+    return success
+
+
+def build_ld_library_path_prefix(ld_library_paths):
+    """
+    Build the LD_LIBRARY_PATH prefix for a command.
+
+    Args:
+        ld_library_paths: List of paths to add to LD_LIBRARY_PATH, or None
+
+    Returns:
+        str: The LD_LIBRARY_PATH prefix string (e.g., "LD_LIBRARY_PATH=/tmp:/usr/lib:$LD_LIBRARY_PATH ")
+             or empty string if no paths specified
+    """
+    if ld_library_paths is None or len(ld_library_paths) == 0:
+        return ""
+
+    paths_str = ":".join(ld_library_paths)
+    return f"LD_LIBRARY_PATH={paths_str}:$LD_LIBRARY_PATH "
+
+
 def ensure_redis_server_available(server_public_ip, username, private_key, port=22):
     """Check if redis-server is available, install if not"""
     logging.info("Checking if redis-server is available on remote server...")
@@ -276,9 +348,19 @@ def spin_up_standalone_remote_redis(
     port=22,
     modules_configuration_parameters_map={},
     redis_7=True,
+    remote_symlinks=None,
+    ld_library_paths=None,
 ):
     # Ensure redis-server is available before trying to start it
     ensure_redis_server_available(server_public_ip, username, private_key, port)
+
+    # Setup symlinks on remote server if specified
+    if remote_symlinks:
+        symlink_success = setup_remote_symlinks(
+            server_public_ip, username, private_key, remote_symlinks, port
+        )
+        if not symlink_success:
+            logging.warning("Some symlinks failed to create, continuing anyway...")
 
     full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
         logfile,
@@ -288,6 +370,12 @@ def spin_up_standalone_remote_redis(
         modules_configuration_parameters_map,
         redis_7,
     )
+
+    # Prepend LD_LIBRARY_PATH if specified
+    ld_prefix = build_ld_library_path_prefix(ld_library_paths)
+    if ld_prefix:
+        logging.info(f"Using LD_LIBRARY_PATH prefix: {ld_prefix}")
+        initial_redis_cmd = ld_prefix + initial_redis_cmd
 
     # start redis-server
     commands = [initial_redis_cmd]
@@ -467,6 +555,9 @@ def spin_test_standalone_redis(
     modules_configuration_parameters_map=None,
     custom_redis_conf_path=None,
     custom_redis_server_path=None,
+    remote_symlinks=None,
+    ld_library_paths=None,
+    extra_libs=None,
 ):
     """
     Setup standalone Redis server, run INFO SERVER, print output as markdown and exit.
@@ -482,6 +573,9 @@ def spin_test_standalone_redis(
         modules_configuration_parameters_map: Dict of module configuration parameters
         custom_redis_conf_path: Path to custom redis.conf file
         custom_redis_server_path: Path to custom redis-server binary
+        remote_symlinks: List of symlink specifications in format "source:target"
+        ld_library_paths: List of paths to add to LD_LIBRARY_PATH
+        extra_libs: List of extra library files to copy (not passed to redis-server)
     """
     logging.info("🚀 Starting spin-test mode...")
 
@@ -594,6 +688,40 @@ def spin_test_standalone_redis(
                 continue_on_module_check_error=True,
             )
 
+        # Copy extra library files (NOT passed to redis-server)
+        if extra_libs:
+            # Ensure module dir exists for extra libs too
+            if not local_module_files:
+                remote_module_file_dir = f"{temporary_dir}/modules"
+                create_module_dir_commands = [f"mkdir -p {remote_module_file_dir}"]
+                execute_remote_commands(
+                    server_public_ip,
+                    username,
+                    private_key,
+                    create_module_dir_commands,
+                    db_ssh_port,
+                )
+            logging.info(f"📁 Copying {len(extra_libs)} extra library files to remote...")
+            # Copy extra libs but discard result (not passed to redis-server)
+            remote_module_files_cp(
+                extra_libs,
+                db_ssh_port,
+                private_key,
+                remote_module_file_dir,
+                server_public_ip,
+                username,
+                continue_on_module_check_error=True,
+            )
+            logging.info("✅ Extra library files copied (not passed to redis-server)")
+
+        # Setup symlinks on remote server if specified
+        if remote_symlinks:
+            symlink_success = setup_remote_symlinks(
+                server_public_ip, username, private_key, remote_symlinks, db_ssh_port
+            )
+            if not symlink_success:
+                logging.warning("⚠️ Some symlinks failed to create, continuing anyway...")
+
         # Generate Redis startup command
         logfile = "redis-spin-test.log"
         full_logfile, redis_cmd = generate_remote_standalone_redis_cmd(
@@ -611,6 +739,12 @@ def spin_test_standalone_redis(
         # Override port if specified
         if redis_port != 6379:
             redis_cmd += f" --port {redis_port}"
+
+        # Prepend LD_LIBRARY_PATH if specified
+        ld_prefix = build_ld_library_path_prefix(ld_library_paths)
+        if ld_prefix:
+            logging.info(f"🔧 Using LD_LIBRARY_PATH prefix: {ld_prefix}")
+            redis_cmd = ld_prefix + redis_cmd
 
         logging.info(f"🔧 Starting Redis with command: {redis_cmd}")
 

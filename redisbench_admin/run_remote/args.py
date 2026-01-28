@@ -150,5 +150,33 @@ def create_run_remote_arguments(parser):
         action="store_true",
         help="Setup standalone Redis server, run INFO SERVER, print output as markdown and exit",
     )
+    parser.add_argument(
+        "--remote_symlink",
+        required=False,
+        default=None,
+        action="append",
+        help="Create a symlink on the remote server. Format: 'source:target'. "
+        "Example: --remote_symlink '/tmp/libfoo.so:/usr/lib/libfoo.so'. "
+        "You can use --remote_symlink more than once.",
+    )
+    parser.add_argument(
+        "--ld_library_path",
+        required=False,
+        default=None,
+        action="append",
+        help="Add a path to LD_LIBRARY_PATH on the remote server when starting Redis. "
+        "Example: --ld_library_path '/tmp'. "
+        "You can use --ld_library_path more than once.",
+    )
+    parser.add_argument(
+        "--extra_lib",
+        required=False,
+        default=None,
+        action="append",
+        help="Path to extra library files to copy to the remote server. "
+        "These are NOT passed as modules to redis-server, but are available for LD_LIBRARY_PATH. "
+        "Example: --extra_lib '/path/to/libfoo.so'. "
+        "You can use --extra_lib more than once.",
+    )
 
     return parser

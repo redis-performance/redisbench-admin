@@ -105,6 +105,9 @@ def remote_db_spin(
     continue_on_module_check_error=False,
     keyspace_check_timeout=60,
     architecture="x86_64",
+    remote_symlinks=None,
+    ld_library_paths=None,
+    extra_libs=None,
 ):
     (
         _,
@@ -137,6 +140,22 @@ def remote_db_spin(
             continue_on_module_check_error,
         )
         logging.info(f"final remote module files {remote_module_files}...")
+        # Copy extra library files to remote (these are NOT passed to redis-server)
+        if extra_libs:
+            logging.info(
+                f"Copying {len(extra_libs)} extra library files to remote host..."
+            )
+            # Reuse remote_module_files_cp but discard the result (we don't pass these to redis)
+            remote_module_files_cp(
+                extra_libs,
+                db_ssh_port,
+                private_key,
+                remote_module_file_dir,
+                server_public_ip,
+                username,
+                continue_on_module_check_error,
+            )
+            logging.info("Extra library files copied successfully (not passed to redis-server)")
     # setup Redis
     redis_setup_result = True
     redis_conns = []
@@ -157,6 +176,8 @@ def remote_db_spin(
                 modules_configuration_parameters_map,
                 logname,
                 redis_7,
+                remote_symlinks,
+                ld_library_paths,
             )
         try:
             for p in range(cluster_start_port, cluster_start_port + shard_count):
@@ -207,6 +228,8 @@ def remote_db_spin(
                     db_ssh_port,
                     modules_configuration_parameters_map,
                     redis_7,
+                    remote_symlinks,
+                    ld_library_paths,
                 )
                 full_logfiles.append(full_logfile)
             local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(
