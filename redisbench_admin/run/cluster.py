@@ -114,12 +114,31 @@ def spin_up_redis_cluster_remote_redis(
     modules_configuration_parameters_map,
     logname,
     redis_7=True,
+    remote_symlinks=None,
+    ld_library_paths=None,
 ):
-    # Import the function from standalone module
-    from redisbench_admin.run_remote.standalone import ensure_redis_server_available
+    # Import the functions from standalone module
+    from redisbench_admin.run_remote.standalone import (
+        ensure_redis_server_available,
+        setup_remote_symlinks,
+        build_ld_library_path_prefix,
+    )
 
     # Ensure redis-server is available before trying to start cluster
     ensure_redis_server_available(server_public_ip, username, private_key, ssh_port)
+
+    # Setup symlinks on remote server if specified
+    if remote_symlinks:
+        symlink_success = setup_remote_symlinks(
+            server_public_ip, username, private_key, remote_symlinks, ssh_port
+        )
+        if not symlink_success:
+            logging.warning("Some symlinks failed to create, continuing anyway...")
+
+    # Build LD_LIBRARY_PATH prefix if specified
+    ld_prefix = build_ld_library_path_prefix(ld_library_paths)
+    if ld_prefix:
+        logging.info(f"Using LD_LIBRARY_PATH prefix: {ld_prefix}")
 
     logging.info("Generating the remote redis-server command arguments")
     redis_process_commands = []
@@ -141,13 +160,19 @@ def spin_up_redis_cluster_remote_redis(
             "yes",
             redis_7,
         )
+        # Prepend LD_LIBRARY_PATH if specified
+        if ld_prefix:
+            full_command = ld_prefix + " ".join(command)
+        else:
+            full_command = " ".join(command)
         logging.error(
             "Remote primary shard {} command: {}".format(
-                master_shard_id, " ".join(command)
+                master_shard_id, full_command
             )
         )
         logfiles.append(logfile)
-        redis_process_commands.append(" ".join(command))
+        redis_process_commands.append(full_command)
+
     res = execute_remote_commands(
         server_public_ip, username, private_key, redis_process_commands, ssh_port
     )

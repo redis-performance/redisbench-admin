@@ -144,6 +144,9 @@ def run_remote_command_logic(args, project_name, project_version):
     cluster_start_port = 20000
     redis_password = args.db_pass
     ignore_keyspace_errors = args.ignore_keyspace_errors
+    remote_symlinks = args.remote_symlink
+    ld_library_paths = args.ld_library_path
+    extra_libs = args.extra_lib
     if WH_TOKEN is not None:
         webhook_notifications_active = True
 
@@ -283,6 +286,9 @@ def run_remote_command_logic(args, project_name, project_version):
             modules_configuration_parameters_map=None,
             custom_redis_conf_path=args.redis_conf,
             custom_redis_server_path=args.redis_server_binary,
+            remote_symlinks=args.remote_symlink,
+            ld_library_paths=args.ld_library_path,
+            extra_libs=args.extra_lib,
         )
 
         exit(0 if success else 1)
@@ -639,6 +645,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                             continue_on_module_check_error,
                                             60,
                                             architecture,
+                                            remote_symlinks,
+                                            ld_library_paths,
+                                            extra_libs,
                                         )
                                         if benchmark_type == "read-only":
                                             ro_benchmark_set(
