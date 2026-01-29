@@ -404,7 +404,7 @@ def run_remote_command_logic(args, project_name, project_version):
     ts_key_spot_price = f"ts:{tf_triggering_env}:tests:spot_price"
     ts_key_full_price = f"ts:{tf_triggering_env}:tests:full_price"
     ts_key_architecture = f"ts:{tf_triggering_env}:tests:arch:{architecture}"
-    reused_mixed = False
+    reuse_mixed = False
     for benchmark_type, bench_by_dataset_map in ensure_mixed_types_first(benchmark_runs_plan):
         if benchmark_type == "mixed" and "read-only" in benchmark_runs_plan:
             reuse_mixed = True
