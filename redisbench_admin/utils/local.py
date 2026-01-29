@@ -83,9 +83,11 @@ def check_if_needs_remote_fetch(
                 )
             )
             if property.startswith("s3://"):
-              logging.error("Unexpected s3 URL. It should have already been downloaded. Skipping...")
+                logging.error(
+                    "Unexpected s3 URL. It should have already been downloaded. Skipping..."
+                )
             else:
-              wget.download(property, full_path)
+                wget.download(property, full_path)
         else:
             logging.info(
                 "Reusing cached remote file (located at {} ).".format(full_path)

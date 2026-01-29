@@ -50,6 +50,8 @@ ARCH_X86 = "x86_64"
 ARCH_ARM = "aarch64"
 VALID_ARCHS = [ARCH_X86, ARCH_ARM]
 ARCH = os.getenv("ARCH", ARCH_X86)
+if "x64" in ARCH:
+    ARCH = ARCH_X86
 
 
 def common_run_args(parser):

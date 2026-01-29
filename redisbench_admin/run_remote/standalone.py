@@ -701,7 +701,9 @@ def spin_test_standalone_redis(
                     create_module_dir_commands,
                     db_ssh_port,
                 )
-            logging.info(f"📁 Copying {len(extra_libs)} extra library files to remote...")
+            logging.info(
+                f"📁 Copying {len(extra_libs)} extra library files to remote..."
+            )
             # Copy extra libs but discard result (not passed to redis-server)
             remote_module_files_cp(
                 extra_libs,
@@ -720,7 +722,9 @@ def spin_test_standalone_redis(
                 server_public_ip, username, private_key, remote_symlinks, db_ssh_port
             )
             if not symlink_success:
-                logging.warning("⚠️ Some symlinks failed to create, continuing anyway...")
+                logging.warning(
+                    "⚠️ Some symlinks failed to create, continuing anyway..."
+                )
 
         # Generate Redis startup command
         logfile = "redis-spin-test.log"

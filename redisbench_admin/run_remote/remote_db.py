@@ -155,7 +155,9 @@ def remote_db_spin(
                 username,
                 continue_on_module_check_error,
             )
-            logging.info("Extra library files copied successfully (not passed to redis-server)")
+            logging.info(
+                "Extra library files copied successfully (not passed to redis-server)"
+            )
     # setup Redis
     redis_setup_result = True
     redis_conns = []

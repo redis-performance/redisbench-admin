@@ -89,15 +89,14 @@ STALL_INFO_DAYS = 7
 EXPIRE_TIME_SECS_PROFILE_KEYS = 60 * 60 * 24 * STALL_INFO_DAYS
 EXPIRE_TIME_MSECS_PROFILE_KEYS = EXPIRE_TIME_SECS_PROFILE_KEYS * 1000
 
+
 def ensure_mixed_types_first(benchmark_runs_plan):
     """
     Returns an iterator over (benchmark_type, bench_by_dataset_map) tuples,
     ensuring that 'mixed' benchmark types are processed before others.
     """
-    return sorted(
-        benchmark_runs_plan.items(),
-        key=lambda x: (x[0] != "mixed", x[0])
-    )
+    return sorted(benchmark_runs_plan.items(), key=lambda x: (x[0] != "mixed", x[0]))
+
 
 def is_important_data(tf_github_branch, artifact_version):
     return True
@@ -405,7 +404,9 @@ def run_remote_command_logic(args, project_name, project_version):
     ts_key_full_price = f"ts:{tf_triggering_env}:tests:full_price"
     ts_key_architecture = f"ts:{tf_triggering_env}:tests:arch:{architecture}"
     reuse_mixed = False
-    for benchmark_type, bench_by_dataset_map in ensure_mixed_types_first(benchmark_runs_plan):
+    for benchmark_type, bench_by_dataset_map in ensure_mixed_types_first(
+        benchmark_runs_plan
+    ):
         if benchmark_type == "mixed" and "read-only" in benchmark_runs_plan:
             reuse_mixed = True
         if return_code != 0 and args.fail_fast:
@@ -440,7 +441,7 @@ def run_remote_command_logic(args, project_name, project_version):
                 setup_settings = setup_details["setup_settings"]
                 benchmarks_map = setup_details["benchmarks"]
                 # we start with an empty per bench-type/setup-name
-                if not reuse_mixed or 'env' not in setup_details:
+                if not reuse_mixed or "env" not in setup_details:
                     logging.info(
                         "Given we are not reusing a mixed setup we will reset the setup details."
                     )

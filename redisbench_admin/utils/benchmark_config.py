@@ -209,7 +209,9 @@ def merge_default_and_specific_properties_dict_type(
                         use_case_specific_properties.append(default_property)
                         logging.info(
                             "Adding a default '{}' property ({}) given the file {} did not have the specific property".format(
-                                propertygroup_keyname, default_property, usecase_filename
+                                propertygroup_keyname,
+                                default_property,
+                                usecase_filename,
                             )
                         )
                         break
@@ -228,7 +230,9 @@ def merge_default_and_specific_properties_dict_type(
                 for usecase_kpi in use_case_specific_properties:
                     usecase_rule, usecase_details = list(usecase_kpi.items())[0]
                     usecase_condition = list(usecase_details.values())[0]
-                    usecase_comparison_key = "{}{}".format(usecase_rule, usecase_condition)
+                    usecase_comparison_key = "{}{}".format(
+                        usecase_rule, usecase_condition
+                    )
                     if comparison_key == usecase_comparison_key:
                         found = True
                 if found:

@@ -151,7 +151,13 @@ def fetch_file_from_remote_setup(
 
 
 def execute_remote_commands(
-    server_public_ip, username, private_key, commands, port, get_pty=False, limit_output_print=False,
+    server_public_ip,
+    username,
+    private_key,
+    commands,
+    port,
+    get_pty=False,
+    limit_output_print=False,
 ):
     res = []
     c = connect_remote_ssh(port, private_key, server_public_ip, username)
@@ -163,20 +169,20 @@ def execute_remote_commands(
         stderr = stderr.readlines()
         if recv_exit_status != 0:
             if not limit_output_print:
-              logging.warning(
-                  "Exit status: {} for command {}.\n\tSTDERR: {}\n\tSTDOUT: {}".format(
-                      recv_exit_status, command, stdout, stderr
-                  )
-              )
+                logging.warning(
+                    "Exit status: {} for command {}.\n\tSTDERR: {}\n\tSTDOUT: {}".format(
+                        recv_exit_status, command, stdout, stderr
+                    )
+                )
             else:
-              # Take first 10 lines, truncate each to 200 chars to avoid huge logs
-              stdout_limited = [line[:100] for line in stdout[:10]]
-              stderr_limited = [line[:100] for line in stderr[:10]]
-              logging.info(
-                  "Exit status: {} for command {}.\n\tSTDERR: {}\n\tSTDOUT: {}".format(
-                      recv_exit_status, command, stderr_limited, stdout_limited
-                  )
-              )
+                # Take first 10 lines, truncate each to 200 chars to avoid huge logs
+                stdout_limited = [line[:100] for line in stdout[:10]]
+                stderr_limited = [line[:100] for line in stderr[:10]]
+                logging.info(
+                    "Exit status: {} for command {}.\n\tSTDERR: {}\n\tSTDOUT: {}".format(
+                        recv_exit_status, command, stderr_limited, stdout_limited
+                    )
+                )
         res.append([recv_exit_status, stdout, stderr])
     c.close()
     return res
@@ -316,25 +322,67 @@ def setup_remote_environment(
     ):
         logging.warning("Destroying previous setup")
         tf.destroy()
-    return_code, stdout, stderr = tf.apply(
-        skip_plan=True,
-        capture_output=False,
-        refresh=True,
-        var={
-            "github_sha": tf_github_sha,
-            "github_actor": tf_github_actor,
-            "setup_name": tf_setup_name,
-            "github_org": tf_github_org,
-            "Project": tf_github_org,
-            "project": tf_github_org,
-            "Environment": tf_github_org,
-            "environment": tf_github_org,
-            "github_repo": tf_github_repo,
-            "triggering_env": tf_triggering_env,
-            "timeout_secs": tf_timeout_secs,
-        },
-        raise_on_error=True,
-    )
+
+    # Capture output to provide better error messages
+    try:
+        return_code, stdout, stderr = tf.apply(
+            skip_plan=True,
+            capture_output=True,  # Changed to True to capture error details
+            refresh=True,
+            var={
+                "github_sha": tf_github_sha,
+                "github_actor": tf_github_actor,
+                "setup_name": tf_setup_name,
+                "github_org": tf_github_org,
+                "Project": tf_github_org,
+                "project": tf_github_org,
+                "Environment": tf_github_org,
+                "environment": tf_github_org,
+                "github_repo": tf_github_repo,
+                "triggering_env": tf_triggering_env,
+                "timeout_secs": tf_timeout_secs,
+            },
+            raise_on_error=True,
+        )
+        # Log successful output for debugging
+        if stdout:
+            logging.info(f"Terraform apply stdout:\n{stdout}")
+        if stderr:
+            logging.warning(f"Terraform apply stderr:\n{stderr}")
+    except Exception as e:
+        # Provide detailed error information
+        logging.error("=" * 80)
+        logging.error("TERRAFORM APPLY FAILED")
+        logging.error("=" * 80)
+        logging.error(f"Error type: {type(e).__name__}")
+        logging.error(f"Error message: {str(e)}")
+
+        # Try to get the terraform command details
+        try:
+            if hasattr(e, "cmd"):
+                logging.error(f"Failed command: {e.cmd}")
+            if hasattr(e, "returncode"):
+                logging.error(f"Return code: {e.returncode}")
+            if hasattr(e, "stdout") and e.stdout:
+                logging.error(f"STDOUT:\n{e.stdout}")
+            if hasattr(e, "stderr") and e.stderr:
+                logging.error(f"STDERR:\n{e.stderr}")
+        except:
+            pass
+
+        logging.error("=" * 80)
+        logging.error(f"Terraform setup details:")
+        logging.error(f"  - Setup name: {tf_setup_name}")
+        logging.error(f"  - GitHub org: {tf_github_org}")
+        logging.error(f"  - GitHub repo: {tf_github_repo}")
+        logging.error(f"  - GitHub SHA: {tf_github_sha}")
+        logging.error(f"  - Triggering env: {tf_triggering_env}")
+        logging.error(f"  - Timeout: {tf_timeout_secs}s")
+        logging.error("=" * 80)
+
+        # Re-raise the exception with more context
+        raise
+
     infra_wait_secs = 60
     logging.warning(f"Infra ready wait... for {infra_wait_secs} secs")
     time.sleep(infra_wait_secs)
