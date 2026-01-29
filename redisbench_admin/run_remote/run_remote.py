@@ -440,7 +440,11 @@ def run_remote_command_logic(args, project_name, project_version):
                 setup_settings = setup_details["setup_settings"]
                 benchmarks_map = setup_details["benchmarks"]
                 # we start with an empty per bench-type/setup-name
-                setup_details["env"] = None
+                if not reuse_mixed:
+                    logging.info(
+                        "Given we are not reusing a mixed setup we will reset the setup details."
+                    )
+                    setup_details["env"] = None
 
                 # map from setup name to overall target-tables ( if any target is defined )
                 overall_tables[setup_name] = {}
@@ -660,7 +664,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             ld_library_paths,
                                             extra_libs,
                                         )
-                                        if benchmark_type == "read-only" or reused_mixed:
+                                        if benchmark_type == "read-only" or reuse_mixed:
                                             ro_benchmark_set(
                                                 artifact_version,
                                                 cluster_enabled,
@@ -1398,7 +1402,7 @@ def ro_benchmark_reuse(
 ):
     assert benchmark_type == "read-only"
     logging.info(
-        "Given the benchmark for this setup is ready-only, and this setup was already spinned we will reuse the previous, conns and process info."
+        "Given the benchmark for this setup is read-only, and this setup was already spinned we will reuse the previous, conns and process info."
     )
     artifact_version = setup_details["env"]["artifact_version"]
     cluster_enabled = setup_details["env"]["cluster_enabled"]
@@ -1434,7 +1438,7 @@ def ro_benchmark_set(
     full_logfiles,
 ):
     logging.info(
-        "Given the benchmark for this setup is ready-only we will prepare to reuse it on the next read-only benchmarks (if any )."
+        "Given the benchmark for this setup is read-only we will prepare to reuse it on the next read-only benchmarks (if any )."
     )
     setup_details["env"] = {}
     setup_details["env"]["full_logfiles"] = full_logfiles

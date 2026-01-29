@@ -237,7 +237,7 @@ def run_local_command_logic(args, project_name, project_version):
                                         continue
                                     if benchmark_type == "read-only":
                                         logging.info(
-                                            "Given the benchmark for this setup is ready-only we will prepare to reuse it on the next read-only benchmarks (if any )."
+                                            "Given the benchmark for this setup is read-only we will prepare to reuse it on the next read-only benchmarks (if any )."
                                         )
                                         setup_details["env"] = {}
                                         setup_details["env"][
@@ -252,7 +252,7 @@ def run_local_command_logic(args, project_name, project_version):
                                 else:
                                     assert benchmark_type == "read-only"
                                     logging.info(
-                                        "Given the benchmark for this setup is ready-only, and this setup was already spinned we will reuse the previous, conns and process info."
+                                        "Given the benchmark for this setup is read-only, and this setup was already spinned we will reuse the previous, conns and process info."
                                     )
                                     cluster_api_enabled = setup_details["env"][
                                         "cluster_api_enabled"
