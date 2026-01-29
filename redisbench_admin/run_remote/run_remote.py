@@ -440,6 +440,8 @@ def run_remote_command_logic(args, project_name, project_version):
 
                 setup_settings = setup_details["setup_settings"]
                 benchmarks_map = setup_details["benchmarks"]
+                if 'env' not in setup_details:
+                    setup_details["env"] = None
                 # we start with an empty per bench-type/setup-name
                 if not reuse_mixed or "env" not in setup_details:
                     logging.info(
@@ -598,7 +600,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                         "Starting common steps to cluster and standalone..."
                                     )
                                     full_logfiles = []
-                                    if setup_details["env"] is None:
+                                    if setup_details.get("env", None) is None:
                                         if skip_remote_db_setup is False:
                                             # ensure /tmp folder is free of benchmark data from previous runs
                                             remote_tmpdir_prune(
@@ -1113,7 +1115,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     )
                                                 )
 
-                                        if setup_details["env"] is None:
+                                        if setup_details.get("env", None) is None:
                                             if (
                                                 keep_env_and_topo is False
                                                 and skip_remote_db_setup is False
