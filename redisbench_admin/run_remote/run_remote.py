@@ -404,8 +404,10 @@ def run_remote_command_logic(args, project_name, project_version):
     ts_key_spot_price = f"ts:{tf_triggering_env}:tests:spot_price"
     ts_key_full_price = f"ts:{tf_triggering_env}:tests:full_price"
     ts_key_architecture = f"ts:{tf_triggering_env}:tests:arch:{architecture}"
-
+    reused_mixed = False
     for benchmark_type, bench_by_dataset_map in ensure_mixed_types_first(benchmark_runs_plan):
+        if benchmark_type == "mixed" and "read-only" in benchmark_runs_plan:
+            reuse_mixed = True
         if return_code != 0 and args.fail_fast:
             logging.warning(
                 "Given you've selected fail fast skipping benchmark_type {}".format(
@@ -658,7 +660,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             ld_library_paths,
                                             extra_libs,
                                         )
-                                        if benchmark_type == "read-only":
+                                        if benchmark_type == "read-only" or reused_mixed:
                                             ro_benchmark_set(
                                                 artifact_version,
                                                 cluster_enabled,
