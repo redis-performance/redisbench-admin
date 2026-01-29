@@ -169,9 +169,12 @@ def execute_remote_commands(
                   )
               )
             else:
+              # Take first 10 lines, truncate each to 200 chars to avoid huge logs
+              stdout_limited = [line[:100] for line in stdout[:10]]
+              stderr_limited = [line[:100] for line in stderr[:10]]
               logging.info(
                   "Exit status: {} for command {}.\n\tSTDERR: {}\n\tSTDOUT: {}".format(
-                      recv_exit_status, command, stdout[0:100], stderr[0:100]
+                      recv_exit_status, command, stderr_limited, stdout_limited
                   )
               )
         res.append([recv_exit_status, stdout, stderr])
