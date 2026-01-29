@@ -313,7 +313,7 @@ def ro_benchmark_reuse(
 ):
     assert benchmark_type == "read-only"
     logging.info(
-        "Given the benchmark for this setup is ready-only, and this setup was already spinned we will reuse the previous, conns and process info."
+        "Given the benchmark for this setup is read-only, and this setup was already spinned we will reuse the previous, conns and process info."
     )
     artifact_version = setup_details["env"]["artifact_version"]
     cluster_enabled = setup_details["env"]["cluster_enabled"]
@@ -349,7 +349,7 @@ def ro_benchmark_set(
     full_logfiles,
 ):
     logging.info(
-        "Given the benchmark for this setup is ready-only we will prepare to reuse it on the next read-only benchmarks (if any )."
+        "Given the benchmark for this setup is read-only we will prepare to reuse it on the next read-only benchmarks (if any )."
     )
     setup_details["env"] = {}
     setup_details["env"]["full_logfiles"] = full_logfiles
