@@ -440,7 +440,7 @@ def run_remote_command_logic(args, project_name, project_version):
                 setup_settings = setup_details["setup_settings"]
                 benchmarks_map = setup_details["benchmarks"]
                 # we start with an empty per bench-type/setup-name
-                if not reuse_mixed:
+                if not reuse_mixed or 'env' not in setup_details:
                     logging.info(
                         "Given we are not reusing a mixed setup we will reset the setup details."
                     )
