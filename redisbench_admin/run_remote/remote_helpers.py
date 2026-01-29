@@ -71,11 +71,15 @@ def ensure_aws_cli_available(client_public_ip, username, private_key, client_ssh
                 "curl 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o 'awscliv2.zip'",
                 "unzip -q awscliv2.zip",
                 "sudo ./aws/install",
-                "rm -rf awscliv2.zip aws/"
+                "rm -rf awscliv2.zip aws/",
             ]
 
             install_result = execute_remote_commands(
-                client_public_ip, username, private_key, install_commands, client_ssh_port
+                client_public_ip,
+                username,
+                private_key,
+                install_commands,
+                client_ssh_port,
             )
 
             # Check if installation was successful
@@ -249,6 +253,7 @@ def remote_tool_pre_bench_step(
         )
     logging.info("Finished up remote tool {} requirements".format(benchmark_tool))
 
+
 def _setup_remote_benchmark_tool_requirements(
     client_public_ip,
     username,
@@ -261,22 +266,33 @@ def _setup_remote_benchmark_tool_requirements(
 ):
     commands = [
         "wget {} -q -O {}".format(tool_link, remote_tool_link),
-        "chmod 755 {}".format(remote_tool_link)
+        "chmod 755 {}".format(remote_tool_link),
     ]
 
     # detect if queries_file_link is a s3 URI or http one and act accordingly (use aws cli or wget)
     if queries_file_link is not None:
-      if queries_file_link.startswith("s3://"):
-          ensure_aws_cli_available(client_public_ip, username, private_key, client_ssh_port)
-          commands.append(
-              "timeout 600 aws s3 cp {} {} --no-sign-request --cli-read-timeout 300".format(queries_file_link, remote_input_file)
-          )
-      else:
-          commands.append("wget {} -q -O {}".format(queries_file_link, remote_input_file))
+        if queries_file_link.startswith("s3://"):
+            ensure_aws_cli_available(
+                client_public_ip, username, private_key, client_ssh_port
+            )
+            commands.append(
+                "timeout 600 aws s3 cp {} {} --no-sign-request --cli-read-timeout 300".format(
+                    queries_file_link, remote_input_file
+                )
+            )
+        else:
+            commands.append(
+                "wget {} -q -O {}".format(queries_file_link, remote_input_file)
+            )
     else:
         logging.info("No queries file link provided. Skipping download.")
     execute_remote_commands(
-        client_public_ip, username, private_key, commands, client_ssh_port, limit_output_print=True,
+        client_public_ip,
+        username,
+        private_key,
+        commands,
+        client_ssh_port,
+        limit_output_print=True,
     )
 
 
