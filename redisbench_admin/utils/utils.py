@@ -112,6 +112,22 @@ def generate_common_server_args(
             ]
         )
 
+    # Add BigRedis configuration if enabled via environment variable
+    if os.getenv("BIGREDIS_ENABLED") is not None:
+        bigredis_path = os.getenv("BIGREDIS_PATH", "/tmp/bigredis")
+        bigredis_use_async = os.getenv("BIGREDIS_USE_ASYNC", "no")
+        logging.info(f"BigRedis enabled. Using bigredis-path: {bigredis_path}")
+        command.extend(
+            [
+                "--bigredis-enabled",
+                "yes",
+                "--bigredis-driver",
+                "speedb",
+                "--bigredis-use-async",
+                bigredis_use_async,  # Temporary default no, until async API is added to Speedb Rust crate.
+            ]
+        )
+
     return command
 
 
