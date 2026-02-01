@@ -4,8 +4,10 @@
 #  All rights reserved.
 #
 import logging
+import os
 
-from redisbench_admin.utils.remote import execute_remote_commands
+from redisbench_admin.run_remote.consts import remote_module_file_dir
+from redisbench_admin.utils.remote import copy_file_to_remote_setup, execute_remote_commands
 
 from redisbench_admin.environments.oss_cluster import generate_cluster_redis_server_args
 from redisbench_admin.utils.utils import wait_for_conn
@@ -116,6 +118,7 @@ def spin_up_redis_cluster_remote_redis(
     redis_7=True,
     remote_symlinks=None,
     ld_library_paths=None,
+    custom_redis_server_path=None,
 ):
     # Import the functions from standalone module
     from redisbench_admin.run_remote.standalone import (
@@ -124,8 +127,46 @@ def spin_up_redis_cluster_remote_redis(
         build_ld_library_path_prefix,
     )
 
-    # Ensure redis-server is available before trying to start cluster
-    ensure_redis_server_available(server_public_ip, username, private_key, ssh_port)
+    # Handle custom redis-server binary
+    remote_redis_server_path = None
+    if custom_redis_server_path:
+        if not os.path.exists(custom_redis_server_path):
+            logging.error(
+                f"Custom redis-server binary not found: {custom_redis_server_path}"
+            )
+            raise Exception(
+                f"Custom redis-server binary not found: {custom_redis_server_path}"
+            )
+
+        remote_redis_server_path = f"{remote_module_file_dir}/redis-server"
+        logging.info(
+            f"Copying custom redis-server binary to remote host: {custom_redis_server_path} -> {remote_redis_server_path}"
+        )
+
+        copy_result = copy_file_to_remote_setup(
+            server_public_ip,
+            username,
+            private_key,
+            custom_redis_server_path,
+            remote_redis_server_path,
+            None,
+            ssh_port,
+            False,  # don't continue on error
+        )
+
+        if not copy_result:
+            logging.error("Failed to copy redis-server binary to remote host")
+            raise Exception("Failed to copy redis-server binary to remote host")
+
+        # Make the binary executable
+        chmod_commands = [f"chmod +x {remote_redis_server_path}"]
+        execute_remote_commands(
+            server_public_ip, username, private_key, chmod_commands, ssh_port
+        )
+        logging.info("Custom redis-server binary copied and made executable")
+    else:
+        # Ensure redis-server is available before trying to start cluster (only if not using custom binary)
+        ensure_redis_server_available(server_public_ip, username, private_key, ssh_port)
 
     # Setup symlinks on remote server if specified
     if remote_symlinks:
@@ -140,6 +181,9 @@ def spin_up_redis_cluster_remote_redis(
     if ld_prefix:
         logging.info(f"Using LD_LIBRARY_PATH prefix: {ld_prefix}")
 
+    # Determine which redis-server binary to use
+    redis_server_binary = remote_redis_server_path if remote_redis_server_path else "redis-server"
+
     logging.info("Generating the remote redis-server command arguments")
     redis_process_commands = []
     logfiles = []
@@ -148,7 +192,7 @@ def spin_up_redis_cluster_remote_redis(
         shard_port = master_shard_id + start_port - 1
 
         command, logfile = generate_cluster_redis_server_args(
-            "redis-server",
+            redis_server_binary,
             dbdir_folder,
             remote_module_files,
             server_private_ip,
