@@ -108,6 +108,7 @@ def remote_db_spin(
     remote_symlinks=None,
     ld_library_paths=None,
     extra_libs=None,
+    custom_redis_server_path=None,
 ):
     (
         _,
@@ -180,6 +181,7 @@ def remote_db_spin(
                 redis_7,
                 remote_symlinks,
                 ld_library_paths,
+                custom_redis_server_path,
             )
         try:
             for p in range(cluster_start_port, cluster_start_port + shard_count):
@@ -232,6 +234,7 @@ def remote_db_spin(
                     redis_7,
                     remote_symlinks,
                     ld_library_paths,
+                    custom_redis_server_path,
                 )
                 full_logfiles.append(full_logfile)
             local_redis_conn, ssh_tunnel = ssh_tunnel_redisconn(

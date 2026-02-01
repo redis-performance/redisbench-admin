@@ -7,6 +7,7 @@
 import logging
 import os
 
+from redisbench_admin.run_remote.consts import remote_module_file_dir
 from redisbench_admin.utils.remote import (
     copy_file_to_remote_setup,
     execute_remote_commands,
@@ -350,9 +351,48 @@ def spin_up_standalone_remote_redis(
     redis_7=True,
     remote_symlinks=None,
     ld_library_paths=None,
+    custom_redis_server_path=None,
 ):
-    # Ensure redis-server is available before trying to start it
-    ensure_redis_server_available(server_public_ip, username, private_key, port)
+    # Handle custom redis-server binary
+    remote_redis_server_path = None
+    if custom_redis_server_path:
+        if not os.path.exists(custom_redis_server_path):
+            logging.error(
+                f"Custom redis-server binary not found: {custom_redis_server_path}"
+            )
+            raise Exception(
+                f"Custom redis-server binary not found: {custom_redis_server_path}"
+            )
+
+        remote_redis_server_path = f"{remote_module_file_dir}/redis-server"
+        logging.info(
+            f"Copying custom redis-server binary to remote host: {custom_redis_server_path} -> {remote_redis_server_path}"
+        )
+
+        copy_result = copy_file_to_remote_setup(
+            server_public_ip,
+            username,
+            private_key,
+            custom_redis_server_path,
+            remote_redis_server_path,
+            None,
+            port,
+            False,  # don't continue on error
+        )
+
+        if not copy_result:
+            logging.error("Failed to copy redis-server binary to remote host")
+            raise Exception("Failed to copy redis-server binary to remote host")
+
+        # Make the binary executable
+        chmod_commands = [f"chmod +x {remote_redis_server_path}"]
+        execute_remote_commands(
+            server_public_ip, username, private_key, chmod_commands, port
+        )
+        logging.info("Custom redis-server binary copied and made executable")
+    else:
+        # Ensure redis-server is available before trying to start it (only if not using custom binary)
+        ensure_redis_server_available(server_public_ip, username, private_key, port)
 
     # Setup symlinks on remote server if specified
     if remote_symlinks:
@@ -362,6 +402,7 @@ def spin_up_standalone_remote_redis(
         if not symlink_success:
             logging.warning("Some symlinks failed to create, continuing anyway...")
 
+    logging.info("Generating Redis startup comman with custom redis-server path: {remote_redis_server_path}")
     full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
         logfile,
         redis_configuration_parameters,
@@ -369,6 +410,7 @@ def spin_up_standalone_remote_redis(
         temporary_dir,
         modules_configuration_parameters_map,
         redis_7,
+        custom_redis_server_path=remote_redis_server_path,
     )
 
     # Prepend LD_LIBRARY_PATH if specified

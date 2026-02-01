@@ -155,6 +155,7 @@ def run_remote_command_logic(args, project_name, project_version):
     remote_symlinks = args.remote_symlink
     ld_library_paths = args.ld_library_path
     extra_libs = args.extra_lib
+    custom_redis_server_path = args.redis_server_binary
     if WH_TOKEN is not None:
         webhook_notifications_active = True
 
@@ -666,6 +667,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             remote_symlinks,
                                             ld_library_paths,
                                             extra_libs,
+                                            custom_redis_server_path,
                                         )
                                         if benchmark_type == "read-only" or reuse_mixed:
                                             ro_benchmark_set(
