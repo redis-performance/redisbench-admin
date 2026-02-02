@@ -38,6 +38,7 @@ from redisbench_admin.run.ycsb.ycsb import (
     prepare_ycsb_benchmark_command,
     prepare_go_ycsb_benchmark_command,
 )
+from redisbench_admin.utils.utils import get_remote_input_file_from_url
 from redisbench_admin.run_remote.args import OVERRIDE_MODULES
 from redisbench_admin.run_remote.remote_helpers import (
     extract_module_semver_from_info_modules_cmd,
@@ -66,6 +67,38 @@ PERFORMANCE_GH_TOKEN = os.getenv("PERFORMANCE_GH_TOKEN", None)
 REDIS_BINARY = os.getenv("REDIS_BINARY", "redis-server")
 
 
+def extract_input_file_url_from_parameters(entry, benchmark_tool):
+    """
+    Extract the input file URL from the parameters entry.
+    Different tools use different parameter names:
+    - ftsb_*: uses "input" parameter
+    - tsbs_*, aibench_*: uses "file" parameter
+
+    Args:
+        entry: The benchmark config entry containing "parameters"
+        benchmark_tool: The benchmark tool name
+
+    Returns:
+        The file URL if found, None otherwise
+    """
+    if "parameters" not in entry:
+        return None
+
+    # Determine which parameter name to look for based on the tool
+    if "ftsb_" in benchmark_tool:
+        param_name = "input"
+    elif "tsbs_" in benchmark_tool or "aibench_" in benchmark_tool:
+        param_name = "file"
+    else:
+        return None
+
+    for param in entry["parameters"]:
+        if param_name in param:
+            return param[param_name]
+
+    return None
+
+
 def prepare_benchmark_parameters(
     benchmark_config,
     benchmark_tool,
@@ -88,6 +121,10 @@ def prepare_benchmark_parameters(
     if type(benchmark_config[config_key]) == list:
         for entry in benchmark_config[config_key]:
             if "parameters" in entry:
+                # Extract input file URL from parameters
+                input_file_url = extract_input_file_url_from_parameters(
+                    entry, benchmark_tool
+                )
                 command_arr, command_str = prepare_benchmark_parameters_specif_tooling(
                     benchmark_tool,
                     cluster_api_enabled,
@@ -104,10 +141,13 @@ def prepare_benchmark_parameters(
                     private_key,
                     client_ssh_port,
                     redis_password,
+                    input_file_url,
                 )
     # v0.4 spec
     elif type(benchmark_config[config_key]) == dict:
         entry = benchmark_config[config_key]
+        # Extract input file URL from parameters
+        input_file_url = extract_input_file_url_from_parameters(entry, benchmark_tool)
         command_arr, command_str = prepare_benchmark_parameters_specif_tooling(
             benchmark_tool,
             cluster_api_enabled,
@@ -124,6 +164,7 @@ def prepare_benchmark_parameters(
             private_key,
             client_ssh_port,
             redis_password,
+            input_file_url,
         )
     printed_command_str = command_str
     printed_command_arr = command_arr
@@ -154,6 +195,7 @@ def prepare_benchmark_parameters_specif_tooling(
     private_key,
     client_ssh_port,
     redis_password=None,
+    input_file_url=None,
 ):
     if "redis-benchmark" in benchmark_tool:
         command_arr, command_str = prepare_redis_benchmark_command(
@@ -207,7 +249,7 @@ def prepare_benchmark_parameters_specif_tooling(
         input_data_file = None
         if isremote is True:
             benchmark_tool = "/tmp/{}".format(benchmark_tool)
-            input_data_file = "/tmp/input.data"
+            input_data_file = get_remote_input_file_from_url(input_file_url)
         (
             command_arr,
             command_str,
@@ -260,7 +302,7 @@ def prepare_benchmark_parameters_specif_tooling(
         input_data_file = None
         if isremote is True:
             benchmark_tool = "/tmp/{}".format(benchmark_tool)
-            input_data_file = "/tmp/input.data"
+            input_data_file = get_remote_input_file_from_url(input_file_url)
         (
             command_arr,
             command_str,
@@ -280,7 +322,7 @@ def prepare_benchmark_parameters_specif_tooling(
         input_data_file = None
         if isremote is True:
             benchmark_tool = "/tmp/{}".format(benchmark_tool)
-            input_data_file = "/tmp/input.data"
+            input_data_file = get_remote_input_file_from_url(input_file_url)
         (
             command_arr,
             command_str,

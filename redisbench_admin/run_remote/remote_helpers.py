@@ -28,6 +28,7 @@ from redisbench_admin.utils.remote import (
     extract_redisgraph_version_from_resultdict,
 )
 from redisbench_admin.utils.results import post_process_benchmark_results
+from redisbench_admin.utils.utils import get_remote_input_file_from_url
 
 
 def absoluteFilePaths(directory):
@@ -166,7 +167,7 @@ def remote_tool_pre_bench_step(
                 queries_file_link, remote_tool_link, tool_link
             )
         )
-        remote_input_file = "/tmp/input.data"
+        remote_input_file = get_remote_input_file_from_url(queries_file_link)
         setup_remote_benchmark_tool_requirements_ftsb(
             client_public_ip,
             username,
@@ -191,7 +192,7 @@ def remote_tool_pre_bench_step(
             "redisearch",
             "go-ycsb",
         )
-        remote_input_file = "/tmp/input.data"
+        remote_input_file = get_remote_input_file_from_url(queries_file_link)
         setup_remote_benchmark_tool_requirements_tsbs(
             client_public_ip,
             username,
@@ -211,7 +212,7 @@ def remote_tool_pre_bench_step(
         ) = extract_remote_tool_extra_links(
             benchmark_config, benchmark_tool, config_key, os_str, arch_str
         )
-        remote_input_file = "/tmp/input.data"
+        remote_input_file = get_remote_input_file_from_url(queries_file_link)
         setup_remote_benchmark_tool_requirements_tsbs(
             client_public_ip,
             username,
@@ -228,7 +229,7 @@ def remote_tool_pre_bench_step(
             remote_tool_link,
             tool_link,
         ) = extract_aibench_extra_links(benchmark_config, benchmark_tool)
-        remote_input_file = "/tmp/input.data"
+        remote_input_file = get_remote_input_file_from_url(queries_file_link)
         setup_remote_benchmark_tool_requirements_tsbs(
             client_public_ip,
             username,

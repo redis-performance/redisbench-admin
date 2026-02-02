@@ -11,10 +11,12 @@ import logging
 import operator
 import os
 import os.path
+import re
 import tarfile
 import time
 from functools import reduce
-from urllib.parse import quote_plus
+from pathlib import PurePosixPath
+from urllib.parse import quote_plus, urlparse, unquote
 from zipfile import ZipFile
 
 import boto3
@@ -482,6 +484,60 @@ def make_dashboard_callback(
             request.status_code, request.text.replace("\n", " ")
         )
     )
+
+
+def get_remote_input_file_from_url(url):
+    """
+    Generate a unique remote input file path based on the file name from the URL.
+    This ensures each input file has its own path and avoids reuse issues between benchmark runs.
+
+    Example:
+        url = "https://s3.amazonaws.com/.../AND_QUERY.CSV"
+        returns "/tmp/input-AND_QUERY.data"
+
+    Args:
+        url: The URL or path to the input file
+
+    Returns:
+        A unique remote file path like /tmp/input-{file_name}.data,
+        or "/tmp/input.data" as fallback if url is None or empty
+    """
+    default_path = PurePosixPath("/tmp/input.data")
+
+    if url is None or url == "":
+        return str(default_path)
+
+    # Parse the URL to extract the path component
+    # This handles both http(s):// URLs and s3:// URIs
+    parsed = urlparse(url)
+    url_path = parsed.path if parsed.path else url
+
+    # Use PurePosixPath to extract the file name (works for both URLs and paths)
+    path = PurePosixPath(url_path)
+    file_name = path.name
+
+    # If no file name could be extracted, return default
+    if not file_name:
+        return str(default_path)
+
+    # Decode URL-encoded characters (e.g., %3A -> :)
+    file_name = unquote(file_name)
+
+    # Remove extension using pathlib's stem property
+    base_name = PurePosixPath(file_name).stem
+
+    # If stem is empty (e.g., hidden file like ".data"), use the full name
+    if not base_name:
+        base_name = file_name
+
+    # Sanitize the base name: replace characters that might cause issues in file paths
+    # Keep only alphanumeric, underscore, hyphen, and dot
+    base_name = re.sub(r"[^a-zA-Z0-9_\-.]", "_", base_name)
+
+    # Construct the final path using PurePosixPath for proper path joining
+    result_path = PurePosixPath("/tmp") / f"input-{base_name}.data"
+
+    return str(result_path)
 
 
 EC2_REGION = os.getenv("AWS_DEFAULT_REGION", None)
