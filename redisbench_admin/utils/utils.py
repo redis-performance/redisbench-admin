@@ -116,7 +116,7 @@ def generate_common_server_args(
     if os.getenv("BIGREDIS_ENABLED") is not None:
         bigredis_path = os.getenv("BIGREDIS_PATH", f"{dbdir}/redis.big")
         # Append port so that each shard has its own BigRedis folder
-        bigredis_path = bigresdis_path + f"-{port}"
+        bigredis_path = bigredis_path + f"-{port}"
         bigredis_use_async = os.getenv("BIGREDIS_USE_ASYNC", "no")
         logging.info(f"BigRedis enabled. Using bigredis-path: {bigredis_path}")
         command.extend(
