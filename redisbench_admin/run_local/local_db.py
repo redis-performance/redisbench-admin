@@ -217,8 +217,13 @@ def local_db_spin(
         )
     dbconfig_keyspacelen_check(benchmark_config, redis_conns, ignore_keyspace_errors)
 
-    artifact_version = run_redis_pre_steps(
-        benchmark_config, redis_conns[0], required_modules
-    )
+    if 'SEARCH_CLUSTERSET' in os.environ:
+        logging.info("SEARCH_CLUSTERSET is set. Running run_redis_pre_steps for each shard")
+        for conn in redis_conns:
+            artifact_version = run_redis_pre_steps(benchmark_config, conn, required_modules)
+    else:
+        artifact_version = run_redis_pre_steps(
+            benchmark_config, redis_conns[0], required_modules
+        )
 
     return result, artifact_version, cluster_api_enabled, redis_conns, redis_processes
