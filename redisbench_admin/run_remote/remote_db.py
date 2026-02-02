@@ -5,7 +5,7 @@
 #
 import datetime
 import logging
-
+import os
 import redis
 
 from redisbench_admin.environments.oss_cluster import setup_redis_cluster_from_conns
@@ -37,6 +37,7 @@ from redisbench_admin.utils.remote import (
     check_dataset_remote_requirements,
     get_run_full_filename,
 )
+from redisbench_admin.utils.utils import setup_search_clusterset
 
 
 def remote_tmpdir_prune(
@@ -277,6 +278,14 @@ def remote_db_spin(
         )
         server_plaintext_port = cluster_start_port
 
+    # Setup BigRedis CLUSTERSET if enabled (after all servers are started and cluster is set up)
+    setup_search_clusterset(
+        redis_conns,
+        server_private_ip,
+        cluster_start_port if cluster_enabled else server_plaintext_port,
+        redis_password,
+    )
+
     topology_setup_end_time = datetime.datetime.now()
     topology_setup_duration_seconds = (
         topology_setup_end_time - topology_setup_start_time
@@ -406,9 +415,12 @@ def remote_db_spin(
         ignore_keyspace_errors,
         keyspace_check_timeout,
     )
-    artifact_version = run_redis_pre_steps(
-        benchmark_config, redis_conns[0], required_modules
-    )
+    if 'SEARCH_CLUSTERSET' in os.environ:
+        logging.info("SEARCH_CLUSTERSET is set. Running run_redis_pre_steps for each shard")
+        for conn in redis_conns:
+            artifact_version = run_redis_pre_steps(benchmark_config, conn, required_modules)
+    else:
+        artifact_version = run_redis_pre_steps(benchmark_config, redis_conns[0], required_modules)
     return (
         artifact_version,
         cluster_enabled,

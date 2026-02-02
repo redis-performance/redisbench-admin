@@ -137,6 +137,75 @@ def generate_common_server_args(
     return command
 
 
+def setup_search_clusterset(redis_conns, host="127.0.0.1", start_port=6379, password=None):
+    """
+    Configure  SEARCH.CLUSTERSET for Redis instances.
+    This is required when SEARCH_CLUSTERSET is set to configure the search module
+    to work with BigRedis. Supports both standalone (single conn) and cluster (multiple conns).
+
+    Args:
+        redis_conns: List of Redis connection objects (or single connection)
+        host: Redis host address (default: 127.0.0.1)
+        start_port: Starting port number (default: 6379)
+        password: Redis password (optional)
+    """
+    if os.getenv("SEARCH_CLUSTERSET") is None:
+        return
+
+    # Handle single connection case
+    if not isinstance(redis_conns, list):
+        redis_conns = [redis_conns]
+
+    shard_count = len(redis_conns)
+    logging.info(f"Search Clusterset enabled - configuring SEARCH.CLUSTERSET for {shard_count} shard(s)")
+
+    # Calculate slots per shard
+    total_slots = 16384
+    slots_per_shard = total_slots // shard_count
+
+    for shard_id, conn in enumerate(redis_conns, start=1):
+        port = start_port + shard_id - 1
+
+        # Calculate slot range for this shard
+        slot_start = (shard_id - 1) * slots_per_shard
+        if shard_id == shard_count:
+            # Last shard gets remaining slots
+            slot_end = total_slots - 1
+        else:
+            slot_end = shard_id * slots_per_shard - 1
+
+        # Build the address string with optional password
+        if password:
+            addr = f"{password}@{host}:{port}"
+        else:
+            addr = f"{host}:{port}"
+
+        logging.info(
+            f"Sending SEARCH.CLUSTERSET to shard {shard_id}: "
+            f"slots {slot_start}-{slot_end}, addr {host}:{port}"
+        )
+
+        try:
+            conn.execute_command(
+                "SEARCH.CLUSTERSET",
+                "MYID",
+                str(shard_id),
+                "RANGES",
+                "1",
+                "SHARD",
+                str(shard_id),
+                "SLOTRANGE",
+                str(slot_start),
+                str(slot_end),
+                "ADDR",
+                addr,
+                "MASTER",
+            )
+            logging.info(f"SEARCH.CLUSTERSET command executed successfully for shard {shard_id}")
+        except Exception as e:
+            logging.warning(f"Failed to execute SEARCH.CLUSTERSET for shard {shard_id}: {e}")
+
+
 def upload_artifacts_to_s3(
     artifacts,
     s3_bucket_name,
