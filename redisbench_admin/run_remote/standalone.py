@@ -583,6 +583,17 @@ def generate_remote_standalone_redis_cmd(
                 )
     if remote_module_files is not None:
         initial_redis_cmd += " " + " ".join(command)
+
+    # Add BigRedis configuration if enabled via environment variable
+    if os.getenv("BIGREDIS_ENABLED") is not None:
+        bigredis_path = os.getenv("BIGREDIS_PATH", f"{temporary_dir}/redis.big")
+        bigredis_use_async = os.getenv("BIGREDIS_USE_ASYNC", "no")
+        logging.info(f"BigRedis enabled. Using bigredis-path: {bigredis_path}")
+        initial_redis_cmd += " --bigredis-enabled yes"
+        initial_redis_cmd += " --bigredis-driver speedb"
+        initial_redis_cmd += f" --bigredis-use-async {bigredis_use_async}"
+        initial_redis_cmd += f" --bigredis-path {bigredis_path}"
+
     return full_logfile, initial_redis_cmd
 
 

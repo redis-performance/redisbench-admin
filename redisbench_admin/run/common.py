@@ -711,6 +711,9 @@ def search_specific_init(r, module_names):
             "Given redisearch was detected, checking for any index that is still indexing."
         )
         loading_indices = r.execute_command("ft._list")
+        if len(loading_indices) == 0:
+            logging.info("No indices detected.")
+            raise Exception("No indices detected.")
         logging.info("Detected {} indices.".format(len(loading_indices)))
         while len(loading_indices) > 0:
             logging.info(

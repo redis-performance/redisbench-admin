@@ -32,6 +32,7 @@ from redisbench_admin.utils.local import (
     check_dataset_local_requirements,
     is_process_alive,
 )
+from redisbench_admin.utils.utils import setup_search_clusterset
 
 
 def local_db_spin(
@@ -162,6 +163,9 @@ def local_db_spin(
         r.ping()
         r.client_setname("redisbench-admin-standalone")
         redis_conns.append(r)
+
+    # Setup search CLUSTERSET if enabled (after all servers are started and cluster is set up)
+    setup_search_clusterset(redis_conns, args.host, args.port, args.password)
 
     if dataset is None:
         if flushall_on_every_test_start:
