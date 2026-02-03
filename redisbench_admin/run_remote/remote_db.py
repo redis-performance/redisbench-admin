@@ -300,10 +300,14 @@ def remote_db_spin(
         for redis_conn in redis_conns:
             redis_conn.flushall()
     # Run pre-steps before data loading when SEARCH_CLUSTERSET is set
-    if 'SEARCH_CLUSTERSET' in os.environ:
-        logging.info("SEARCH_CLUSTERSET is set. Running run_redis_pre_steps for each shard before data loading")
+    if "SEARCH_CLUSTERSET" in os.environ:
+        logging.info(
+            "SEARCH_CLUSTERSET is set. Running run_redis_pre_steps for each shard before data loading"
+        )
         for conn in redis_conns:
-            artifact_version = run_redis_pre_steps(benchmark_config, conn, required_modules)
+            artifact_version = run_redis_pre_steps(
+                benchmark_config, conn, required_modules
+            )
     logging.info("Starting dataset loading...")
     dataset_load_start_time = datetime.datetime.now()
     # common steps to cluster and standalone
@@ -421,8 +425,10 @@ def remote_db_spin(
         keyspace_check_timeout,
     )
     # Only run pre_steps here if SEARCH_CLUSTERSET is not set (otherwise it was already run before data loading)
-    if 'SEARCH_CLUSTERSET' not in os.environ:
-        artifact_version = run_redis_pre_steps(benchmark_config, redis_conns[0], required_modules)
+    if "SEARCH_CLUSTERSET" not in os.environ:
+        artifact_version = run_redis_pre_steps(
+            benchmark_config, redis_conns[0], required_modules
+        )
     return (
         artifact_version,
         cluster_enabled,

@@ -169,10 +169,14 @@ def local_db_spin(
     setup_search_clusterset(redis_conns, args.host, args.port, args.password)
 
     # Run pre-steps before data loading when SEARCH_CLUSTERSET is set
-    if 'SEARCH_CLUSTERSET' in os.environ:
-        logging.info("SEARCH_CLUSTERSET is set. Running run_redis_pre_steps for each shard before data loading")
+    if "SEARCH_CLUSTERSET" in os.environ:
+        logging.info(
+            "SEARCH_CLUSTERSET is set. Running run_redis_pre_steps for each shard before data loading"
+        )
         for conn in redis_conns:
-            artifact_version = run_redis_pre_steps(benchmark_config, conn, required_modules)
+            artifact_version = run_redis_pre_steps(
+                benchmark_config, conn, required_modules
+            )
 
     if dataset is None:
         if flushall_on_every_test_start:
@@ -225,7 +229,7 @@ def local_db_spin(
     dbconfig_keyspacelen_check(benchmark_config, redis_conns, ignore_keyspace_errors)
 
     # Only run pre_steps here if SEARCH_CLUSTERSET is not set (otherwise it was already run before data loading)
-    if 'SEARCH_CLUSTERSET' not in os.environ:
+    if "SEARCH_CLUSTERSET" not in os.environ:
         artifact_version = run_redis_pre_steps(
             benchmark_config, redis_conns[0], required_modules
         )

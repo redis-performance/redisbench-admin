@@ -372,9 +372,7 @@ def run_remote_command_logic(args, project_name, project_version):
 
     for remote_id, termination_timeout_secs in remote_envs_timeout.items():
         logging.info(
-            "Using a timeout of {} seconds for remote setup: {}".format(
-                termination_timeout_secs, remote_id
-            )
+            f"Using a timeout of {termination_timeout_secs} seconds for remote setup: {remote_id}"
         )
 
     # we have a map of test-type, dataset-name, topology, test-name
@@ -441,7 +439,7 @@ def run_remote_command_logic(args, project_name, project_version):
 
                 setup_settings = setup_details["setup_settings"]
                 benchmarks_map = setup_details["benchmarks"]
-                if 'env' not in setup_details:
+                if "env" not in setup_details:
                     setup_details["env"] = None
                 # we start with an empty per bench-type/setup-name
                 if not reuse_mixed or "env" not in setup_details:

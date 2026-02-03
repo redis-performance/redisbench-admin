@@ -371,7 +371,7 @@ def setup_remote_environment(
             pass
 
         logging.error("=" * 80)
-        logging.error(f"Terraform setup details:")
+        logging.error("Terraform setup details:")
         logging.error(f"  - Setup name: {tf_setup_name}")
         logging.error(f"  - GitHub org: {tf_github_org}")
         logging.error(f"  - GitHub repo: {tf_github_repo}")

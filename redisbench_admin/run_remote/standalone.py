@@ -402,7 +402,9 @@ def spin_up_standalone_remote_redis(
         if not symlink_success:
             logging.warning("Some symlinks failed to create, continuing anyway...")
 
-    logging.info("Generating Redis startup comman with custom redis-server path: {remote_redis_server_path}")
+    logging.info(
+        "Generating Redis startup comman with custom redis-server path: {remote_redis_server_path}"
+    )
     full_logfile, initial_redis_cmd = generate_remote_standalone_redis_cmd(
         logfile,
         redis_configuration_parameters,

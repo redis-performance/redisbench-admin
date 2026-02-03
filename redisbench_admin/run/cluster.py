@@ -7,7 +7,10 @@ import logging
 import os
 
 from redisbench_admin.run_remote.consts import remote_module_file_dir
-from redisbench_admin.utils.remote import copy_file_to_remote_setup, execute_remote_commands
+from redisbench_admin.utils.remote import (
+    copy_file_to_remote_setup,
+    execute_remote_commands,
+)
 
 from redisbench_admin.environments.oss_cluster import generate_cluster_redis_server_args
 from redisbench_admin.utils.utils import wait_for_conn
@@ -182,7 +185,9 @@ def spin_up_redis_cluster_remote_redis(
         logging.info(f"Using LD_LIBRARY_PATH prefix: {ld_prefix}")
 
     # Determine which redis-server binary to use
-    redis_server_binary = remote_redis_server_path if remote_redis_server_path else "redis-server"
+    redis_server_binary = (
+        remote_redis_server_path if remote_redis_server_path else "redis-server"
+    )
 
     logging.info("Generating the remote redis-server command arguments")
     redis_process_commands = []
