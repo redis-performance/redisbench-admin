@@ -57,9 +57,7 @@ class EnvironmentTracker:
 
         # Summary statistics
         total_envs = len(self.environments)
-        total_reuses = sum(
-            len(env["reused_by"]) for env in self.environments.values()
-        )
+        total_reuses = sum(len(env["reused_by"]) for env in self.environments.values())
         total_benchmarks = len(self.benchmark_actions)
 
         logging.info(f"Total environments created: {total_envs}")
@@ -79,14 +77,18 @@ class EnvironmentTracker:
             table_rows = []
 
             for (dataset_name, setup_name), env_info in self.environments.items():
-                reused_by_str = ", ".join(env_info["reused_by"]) if env_info["reused_by"] else "-"
-                table_rows.append([
-                    dataset_name,
-                    setup_name,
-                    env_info["created_by"],
-                    reused_by_str,
-                    len(env_info["reused_by"]),
-                ])
+                reused_by_str = (
+                    ", ".join(env_info["reused_by"]) if env_info["reused_by"] else "-"
+                )
+                table_rows.append(
+                    [
+                        dataset_name,
+                        setup_name,
+                        env_info["created_by"],
+                        reused_by_str,
+                        len(env_info["reused_by"]),
+                    ]
+                )
 
             writer = MarkdownTableWriter(
                 table_name="Environment Details",

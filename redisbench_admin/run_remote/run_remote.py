@@ -684,7 +684,13 @@ def run_remote_command_logic(args, project_name, project_version):
                                             dataset_name,
                                             setup_name,
                                             test_name,
-                                            redis_pids=setup_details.get("env", {}).get("redis_pids", []) if setup_details.get("env") else [],
+                                            redis_pids=(
+                                                setup_details.get("env", {}).get(
+                                                    "redis_pids", []
+                                                )
+                                                if setup_details.get("env")
+                                                else []
+                                            ),
                                         )
                                         if benchmark_type == "read-only" or reuse_mixed:
                                             ro_benchmark_set(
@@ -699,8 +705,16 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 full_logfiles,
                                             )
                                             # Update tracker with PIDs after ro_benchmark_set stores them
-                                            if setup_details.get("env") and setup_details["env"].get("redis_pids"):
-                                                env_tracker.environments[(dataset_name, setup_name)]["redis_pids"] = setup_details["env"]["redis_pids"]
+                                            if setup_details.get(
+                                                "env"
+                                            ) and setup_details["env"].get(
+                                                "redis_pids"
+                                            ):
+                                                env_tracker.environments[
+                                                    (dataset_name, setup_name)
+                                                ]["redis_pids"] = setup_details["env"][
+                                                    "redis_pids"
+                                                ]
                                             # If this is a mixed benchmark and we're reusing,
                                             # save to shared_env for cross-benchmark-type reuse
                                             if (
@@ -1489,16 +1503,24 @@ def ro_benchmark_reuse(
             current_pids.append(None)
     pids_match = current_pids == expected_pids
     if pids_match:
-        logging.info(f"🟢 Redis PID check PASSED: expected={expected_pids}, got={current_pids} (same Redis instance reused)")
+        logging.info(
+            f"🟢 Redis PID check PASSED: expected={expected_pids}, got={current_pids} (same Redis instance reused)"
+        )
     else:
-        logging.error(f"🔴 Redis PID check FAILED: expected={expected_pids}, got={current_pids}")
-        assert False, f"Redis PIDs mismatch! Expected {expected_pids}, got {current_pids}. Environment was not properly reused."
+        logging.error(
+            f"🔴 Redis PID check FAILED: expected={expected_pids}, got={current_pids}"
+        )
+        assert (
+            False
+        ), f"Redis PIDs mismatch! Expected {expected_pids}, got {current_pids}. Environment was not properly reused."
 
     # Confirm keyspace checks when reusing dataset
     if benchmark_config is not None:
         from redisbench_admin.run.common import dbconfig_keyspacelen_check
 
-        dbconfig_keyspacelen_check(benchmark_config, redis_conns, ignore_keyspace_errors)
+        dbconfig_keyspacelen_check(
+            benchmark_config, redis_conns, ignore_keyspace_errors
+        )
 
     return (
         artifact_version,

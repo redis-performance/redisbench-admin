@@ -304,7 +304,9 @@ def run_local_command_logic(args, project_name, project_version):
                                             dataset_name,
                                             setup_name,
                                             test_name,
-                                            redis_pids=setup_details["env"]["redis_pids"],
+                                            redis_pids=setup_details["env"][
+                                                "redis_pids"
+                                            ],
                                         )
                                         # Save to shared storage for cross-benchmark-type reuse
                                         if reuse_mixed:
@@ -334,7 +336,9 @@ def run_local_command_logic(args, project_name, project_version):
                                         logging.error(
                                             f"🔴 Redis PID check FAILED: expected={expected_pids}, got={current_pids}"
                                         )
-                                        assert False, f"Redis PIDs mismatch! Expected {expected_pids}, got {current_pids}. Environment was not properly reused."
+                                        assert (
+                                            False
+                                        ), f"Redis PIDs mismatch! Expected {expected_pids}, got {current_pids}. Environment was not properly reused."
                                     # Track environment reuse
                                     env_tracker.record_env_reused(
                                         dataset_name,
