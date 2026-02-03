@@ -18,6 +18,7 @@ from redisbench_admin.run.common import (
     check_dbconfig_tool_requirement,
     get_start_time_vars,
     dbconfig_keyspacelen_check,
+    print_keyspace_count,
     run_redis_pre_steps,
 )
 from redisbench_admin.run.ssh import ssh_tunnel_redisconn
@@ -293,6 +294,8 @@ def remote_db_spin(
     logging.info(
         "Topology setup duration {} secs.".format(topology_setup_duration_seconds)
     )
+    # Print keyspace count before dataset loading
+    print_keyspace_count(redis_conns)
     if flushall_on_every_test_start:
         logging.info(
             "FLUSHING ALL given you've specified to do it on every write test start"
