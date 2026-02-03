@@ -417,6 +417,34 @@ def extract_benchmark_type_from_config(
     return benchmark_config_present, benchmark_type
 
 
+def extract_client_dataset_name(
+    benchmark_config,
+    config_key="clientconfig",
+):
+    """
+    Extract dataset_name from clientconfig.
+    This allows benchmarks to specify which dataset they want to use
+    without needing a full dbconfig section.
+
+    Args:
+        benchmark_config: The benchmark configuration dictionary
+        config_key: The key to look for (default: "clientconfig")
+
+    Returns:
+        dataset_name: The dataset name if found, None otherwise
+    """
+    dataset_name = None
+    if config_key in benchmark_config:
+        if type(benchmark_config[config_key]) == list:
+            for entry in benchmark_config[config_key]:
+                if isinstance(entry, dict) and "dataset_name" in entry:
+                    dataset_name = entry["dataset_name"]
+        elif type(benchmark_config[config_key]) == dict:
+            if "dataset_name" in benchmark_config[config_key]:
+                dataset_name = benchmark_config[config_key]["dataset_name"]
+    return dataset_name
+
+
 def extract_benchmark_tool_settings(benchmark_config, config_key="clientconfig"):
     benchmark_tool = None
     benchmark_tool_source = None

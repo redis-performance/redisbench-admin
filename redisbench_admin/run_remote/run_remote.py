@@ -39,7 +39,11 @@ from redisbench_admin.run.redistimeseries import (
     timeseries_test_sucess_flow,
     timeseries_test_failure_flow,
 )
-from redisbench_admin.run.run import define_benchmark_plan
+from redisbench_admin.run.run import (
+    define_benchmark_plan,
+    ensure_mixed_types_first,
+    log_benchmark_plan_table,
+)
 from redisbench_admin.run.s3 import get_test_s3_bucket_path
 from redisbench_admin.run.ssh import ssh_pem_check
 from redisbench_admin.run_remote.args import TF_OVERRIDE_NAME, TF_OVERRIDE_REMOTE
@@ -88,14 +92,6 @@ from slack_sdk.webhook import WebhookClient
 STALL_INFO_DAYS = 7
 EXPIRE_TIME_SECS_PROFILE_KEYS = 60 * 60 * 24 * STALL_INFO_DAYS
 EXPIRE_TIME_MSECS_PROFILE_KEYS = EXPIRE_TIME_SECS_PROFILE_KEYS * 1000
-
-
-def ensure_mixed_types_first(benchmark_runs_plan):
-    """
-    Returns an iterator over (benchmark_type, bench_by_dataset_map) tuples,
-    ensuring that 'mixed' benchmark types are processed before others.
-    """
-    return sorted(benchmark_runs_plan.items(), key=lambda x: (x[0] != "mixed", x[0]))
 
 
 def is_important_data(tf_github_branch, artifact_version):
@@ -377,6 +373,9 @@ def run_remote_command_logic(args, project_name, project_version):
 
     # we have a map of test-type, dataset-name, topology, test-name
     benchmark_runs_plan = define_benchmark_plan(benchmark_definitions, default_specs)
+
+    # Log the benchmark execution plan as a table
+    log_benchmark_plan_table(benchmark_runs_plan)
 
     profiler_dashboard_table_name = "Profiler dashboard links"
     profiler_dashboard_table_headers = ["Setup", "Test-case", "Grafana Dashboard"]

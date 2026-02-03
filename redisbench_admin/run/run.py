@@ -6,12 +6,62 @@
 import logging
 import copy
 
+from pytablewriter import MarkdownTableWriter
+
 from redisbench_admin.run.common import extract_test_feasible_setups
 from redisbench_admin.run_remote.consts import min_recommended_benchmark_duration
 from redisbench_admin.utils.benchmark_config import (
     extract_benchmark_type_from_config,
     extract_redis_dbconfig_parameters,
+    extract_client_dataset_name,
 )
+
+
+def ensure_mixed_types_first(benchmark_runs_plan):
+    """
+    Returns an iterator over (benchmark_type, bench_by_dataset_map) tuples,
+    ensuring that 'mixed' benchmark types are processed before others.
+
+    This ensures that load benchmarks (which produce datasets) run before
+    query benchmarks (which consume datasets).
+    """
+    return sorted(benchmark_runs_plan.items(), key=lambda x: (x[0] != "mixed", x[0]))
+
+
+def log_benchmark_plan_table(benchmark_runs_plan):
+    """
+    Log the benchmark execution plan as a formatted table.
+    Shows the order in which benchmarks will be executed.
+    """
+    table_headers = ["Order", "Benchmark Type", "Dataset Name", "Setup", "Test Name"]
+    table_rows = []
+    order = 1
+
+    for benchmark_type, bench_by_dataset_map in ensure_mixed_types_first(
+        benchmark_runs_plan
+    ):
+        for (
+            dataset_name,
+            bench_by_dataset_and_setup_map,
+        ) in bench_by_dataset_map.items():
+            for setup_name, setup_details in bench_by_dataset_and_setup_map.items():
+                benchmarks_map = setup_details["benchmarks"]
+                for test_name in benchmarks_map.keys():
+                    table_rows.append(
+                        [order, benchmark_type, dataset_name, setup_name, test_name]
+                    )
+                    order += 1
+
+    writer = MarkdownTableWriter(
+        table_name="Benchmark Execution Plan",
+        headers=table_headers,
+        value_matrix=table_rows,
+    )
+    # Use logging to ensure the table appears in log output
+    table_str = writer.dumps()
+    for line in table_str.split("\n"):
+        if line.strip():
+            logging.info(line)
 
 
 def calculate_client_tool_duration_and_check(
@@ -56,7 +106,7 @@ def define_benchmark_plan(benchmark_definitions, default_specs):
         if benchmark_type not in benchmark_runs_plan:
             benchmark_runs_plan[benchmark_type] = {}
 
-        # extract dataset-name
+        # extract dataset-name from dbconfig first
         (
             benchmark_contains_dbconfig,
             dataset_name,
@@ -67,10 +117,20 @@ def define_benchmark_plan(benchmark_definitions, default_specs):
         logging.info(
             f"Benchmark contains specific dbconfig on test {test_name}: {benchmark_contains_dbconfig}"
         )
+
+        # If no dataset_name in dbconfig, check clientconfig
+        # This allows benchmarks to reuse datasets from other benchmarks
+        if dataset_name is None:
+            dataset_name = extract_client_dataset_name(benchmark_config, "clientconfig")
+            if dataset_name is not None:
+                logging.info(
+                    f"Found dataset_name '{dataset_name}' in clientconfig for test {test_name}"
+                )
+
         if dataset_name is None:
             dataset_name = test_name
             logging.info(
-                "Given no dataset name was found on the db config, using test name as key for unique dataset reference: {}".format(
+                "Given no dataset name was found on the db config or client config, using test name as key for unique dataset reference: {}".format(
                     test_name
                 )
             )
