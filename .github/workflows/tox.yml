@@ -9,11 +9,11 @@ jobs:
   pytest:
     strategy:
       matrix:
-        python-version: [ '3.10', '3.11', '3.12' ]
+        python-version: [ '3.11', '3.11', '3.3' ]
       fail-fast: false
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-      USING_COVERAGE: "3.10"
+      USING_COVERAGE: "3.11"
       USING_COVERAGE_OS: "ubuntu-latest"
 
     runs-on: "ubuntu-latest"
@@ -39,11 +39,13 @@ jobs:
       run: |
         git submodule update --init --recursive
 
-    - name: Install Redis
+    - name: Install Redis and memtier_benchmark
       run: |
-        sudo add-apt-repository ppa:redislabs/redis
+        sudo apt install lsb-release curl gpg -y
+        curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/redis.list
         sudo apt-get update
-        sudo apt-get install redis -y
+        sudo apt-get install redis memtier-benchmark -y
         sudo systemctl stop redis-server
 
     - name: Run tox
