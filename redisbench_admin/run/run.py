@@ -5,6 +5,7 @@
 #
 import logging
 import copy
+from collections import defaultdict
 
 from pytablewriter import MarkdownTableWriter
 
@@ -15,6 +16,116 @@ from redisbench_admin.utils.benchmark_config import (
     extract_redis_dbconfig_parameters,
     extract_client_dataset_name,
 )
+
+
+class EnvironmentTracker:
+    """
+    Tracks environment creation and reuse across benchmark runs.
+    Used to generate a summary table at the end of all runs.
+    """
+
+    def __init__(self):
+        # Key: (dataset_name, setup_name) -> dict with env info
+        self.environments = {}
+        # List of (test_name, dataset_name, setup_name, action) tuples
+        self.benchmark_actions = []
+
+    def record_env_created(self, dataset_name, setup_name, test_name, redis_pids=None):
+        """Record that a new environment was created for this benchmark."""
+        env_key = (dataset_name, setup_name)
+        self.environments[env_key] = {
+            "created_by": test_name,
+            "reused_by": [],
+            "redis_pids": redis_pids or [],
+        }
+        self.benchmark_actions.append((test_name, dataset_name, setup_name, "created"))
+
+    def record_env_reused(self, dataset_name, setup_name, test_name, pids_match=True):
+        """Record that an existing environment was reused for this benchmark."""
+        env_key = (dataset_name, setup_name)
+        if env_key in self.environments:
+            self.environments[env_key]["reused_by"].append(test_name)
+        action = "reused" if pids_match else "reused (PID mismatch!)"
+        self.benchmark_actions.append((test_name, dataset_name, setup_name, action))
+
+    def log_summary_table(self):
+        """Log a summary table of all environments and their reuse."""
+        logging.info("")
+        logging.info("=" * 80)
+        logging.info("ENVIRONMENT REUSE SUMMARY")
+        logging.info("=" * 80)
+
+        # Summary statistics
+        total_envs = len(self.environments)
+        total_reuses = sum(
+            len(env["reused_by"]) for env in self.environments.values()
+        )
+        total_benchmarks = len(self.benchmark_actions)
+
+        logging.info(f"Total environments created: {total_envs}")
+        logging.info(f"Total environment reuses: {total_reuses}")
+        logging.info(f"Total benchmarks executed: {total_benchmarks}")
+        logging.info("")
+
+        # Environment details table
+        if self.environments:
+            table_headers = [
+                "Dataset",
+                "Setup",
+                "Created By",
+                "Reused By",
+                "Reuse Count",
+            ]
+            table_rows = []
+
+            for (dataset_name, setup_name), env_info in self.environments.items():
+                reused_by_str = ", ".join(env_info["reused_by"]) if env_info["reused_by"] else "-"
+                table_rows.append([
+                    dataset_name,
+                    setup_name,
+                    env_info["created_by"],
+                    reused_by_str,
+                    len(env_info["reused_by"]),
+                ])
+
+            writer = MarkdownTableWriter(
+                table_name="Environment Details",
+                headers=table_headers,
+                value_matrix=table_rows,
+            )
+            table_str = writer.dumps()
+            for line in table_str.split("\n"):
+                if line.strip():
+                    logging.info(line)
+
+        logging.info("")
+
+        # Benchmark execution log table
+        if self.benchmark_actions:
+            table_headers = ["Test Name", "Dataset", "Setup", "Action"]
+            table_rows = []
+
+            for test_name, dataset_name, setup_name, action in self.benchmark_actions:
+                # Add visual indicator
+                if action == "created":
+                    action_str = "🆕 Created new environment"
+                elif action == "reused":
+                    action_str = "🟢 Reused environment"
+                else:
+                    action_str = f"🔴 {action}"
+                table_rows.append([test_name, dataset_name, setup_name, action_str])
+
+            writer = MarkdownTableWriter(
+                table_name="Benchmark Execution Log",
+                headers=table_headers,
+                value_matrix=table_rows,
+            )
+            table_str = writer.dumps()
+            for line in table_str.split("\n"):
+                if line.strip():
+                    logging.info(line)
+
+        logging.info("=" * 80)
 
 
 def ensure_mixed_types_first(benchmark_runs_plan):

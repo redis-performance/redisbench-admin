@@ -43,6 +43,7 @@ from redisbench_admin.run.run import (
     define_benchmark_plan,
     ensure_mixed_types_first,
     log_benchmark_plan_table,
+    EnvironmentTracker,
 )
 from redisbench_admin.run.s3 import get_test_s3_bucket_path
 from redisbench_admin.run.ssh import ssh_pem_check
@@ -402,11 +403,19 @@ def run_remote_command_logic(args, project_name, project_version):
     ts_key_full_price = f"ts:{tf_triggering_env}:tests:full_price"
     ts_key_architecture = f"ts:{tf_triggering_env}:tests:arch:{architecture}"
     reuse_mixed = False
+    # Shared environment storage across benchmark types, keyed by (dataset_name, setup_name)
+    shared_env = {}
+    # Track environment creation and reuse for summary
+    env_tracker = EnvironmentTracker()
+
     for benchmark_type, bench_by_dataset_map in ensure_mixed_types_first(
         benchmark_runs_plan
     ):
         if benchmark_type == "mixed" and "read-only" in benchmark_runs_plan:
             reuse_mixed = True
+            logging.info(
+                "Detected mixed and read-only benchmarks. Will reuse environment for dataset optimization."
+            )
         if return_code != 0 and args.fail_fast:
             logging.warning(
                 "Given you've selected fail fast skipping benchmark_type {}".format(
@@ -438,13 +447,17 @@ def run_remote_command_logic(args, project_name, project_version):
 
                 setup_settings = setup_details["setup_settings"]
                 benchmarks_map = setup_details["benchmarks"]
-                if "env" not in setup_details:
-                    setup_details["env"] = None
-                # we start with an empty per bench-type/setup-name
-                if not reuse_mixed or "env" not in setup_details:
+
+                # Check if we have a shared environment from a previous benchmark type
+                env_key = (dataset_name, setup_name)
+                if reuse_mixed and env_key in shared_env:
+                    setup_details["env"] = shared_env[env_key]
+                    # Remove from shared_env so it gets torn down after we're done
+                    del shared_env[env_key]
                     logging.info(
-                        "Given we are not reusing a mixed setup we will reset the setup details."
+                        f"Reusing shared environment for dataset '{dataset_name}' and setup '{setup_name}'"
                     )
+                elif "env" not in setup_details:
                     setup_details["env"] = None
 
                 # map from setup name to overall target-tables ( if any target is defined )
@@ -666,6 +679,13 @@ def run_remote_command_logic(args, project_name, project_version):
                                             extra_libs,
                                             custom_redis_server_path,
                                         )
+                                        # Track environment creation
+                                        env_tracker.record_env_created(
+                                            dataset_name,
+                                            setup_name,
+                                            test_name,
+                                            redis_pids=setup_details.get("env", {}).get("redis_pids", []) if setup_details.get("env") else [],
+                                        )
                                         if benchmark_type == "read-only" or reuse_mixed:
                                             ro_benchmark_set(
                                                 artifact_version,
@@ -678,6 +698,22 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 ssh_tunnel,
                                                 full_logfiles,
                                             )
+                                            # Update tracker with PIDs after ro_benchmark_set stores them
+                                            if setup_details.get("env") and setup_details["env"].get("redis_pids"):
+                                                env_tracker.environments[(dataset_name, setup_name)]["redis_pids"] = setup_details["env"]["redis_pids"]
+                                            # If this is a mixed benchmark and we're reusing,
+                                            # save to shared_env for cross-benchmark-type reuse
+                                            if (
+                                                benchmark_type == "mixed"
+                                                and reuse_mixed
+                                            ):
+                                                env_key = (dataset_name, setup_name)
+                                                shared_env[env_key] = setup_details[
+                                                    "env"
+                                                ]
+                                                logging.info(
+                                                    f"Saved environment to shared_env for dataset '{dataset_name}' and setup '{setup_name}'"
+                                                )
                                     else:
                                         (
                                             artifact_version,
@@ -688,6 +724,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             return_code,
                                             server_plaintext_port,
                                             ssh_tunnel,
+                                            pids_match,
                                         ) = ro_benchmark_reuse(
                                             artifact_version,
                                             benchmark_type,
@@ -699,6 +736,15 @@ def run_remote_command_logic(args, project_name, project_version):
                                             server_plaintext_port,
                                             setup_details,
                                             ssh_tunnel,
+                                            benchmark_config,
+                                            ignore_keyspace_errors,
+                                        )
+                                        # Track environment reuse
+                                        env_tracker.record_env_reused(
+                                            dataset_name,
+                                            setup_name,
+                                            test_name,
+                                            pids_match=pids_match,
                                         )
 
                                     if profilers_enabled:
@@ -1114,7 +1160,13 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     )
                                                 )
 
-                                        if setup_details.get("env", None) is None:
+                                        # Check if environment is saved in shared_env for reuse
+                                        env_key = (dataset_name, setup_name)
+                                        is_shared = env_key in shared_env
+                                        if (
+                                            setup_details.get("env", None) is None
+                                            and not is_shared
+                                        ):
                                             if (
                                                 keep_env_and_topo is False
                                                 and skip_remote_db_setup is False
@@ -1141,6 +1193,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                                         server_public_ip
                                                     )
                                                 )
+                                        elif is_shared:
+                                            logging.info(
+                                                f"Keeping environment active for dataset reuse (dataset: '{dataset_name}', setup: '{setup_name}')"
+                                            )
 
                                         (
                                             _,
@@ -1380,6 +1436,8 @@ def run_remote_command_logic(args, project_name, project_version):
             tf_github_branch,
             tf_github_sha,
         )
+    # Log environment reuse summary
+    env_tracker.log_summary_table()
     exit(return_code)
 
 
@@ -1401,6 +1459,8 @@ def ro_benchmark_reuse(
     server_plaintext_port,
     setup_details,
     ssh_tunnel,
+    benchmark_config=None,
+    ignore_keyspace_errors=False,
 ):
     assert benchmark_type == "read-only"
     logging.info(
@@ -1416,6 +1476,30 @@ def ro_benchmark_reuse(
     return_code = setup_details["env"]["return_code"]
     server_plaintext_port = setup_details["env"]["server_plaintext_port"]
     ssh_tunnel = setup_details["env"]["ssh_tunnel"]
+
+    # Verify Redis PIDs are the same (same Redis instance is being reused)
+    expected_pids = setup_details["env"].get("redis_pids", [])
+    current_pids = []
+    for conn in redis_conns:
+        try:
+            info = conn.info("server")
+            current_pids.append(info.get("process_id", None))
+        except Exception as e:
+            logging.warning(f"Failed to get PID from Redis connection: {e}")
+            current_pids.append(None)
+    pids_match = current_pids == expected_pids
+    if pids_match:
+        logging.info(f"🟢 Redis PID check PASSED: expected={expected_pids}, got={current_pids} (same Redis instance reused)")
+    else:
+        logging.error(f"🔴 Redis PID check FAILED: expected={expected_pids}, got={current_pids}")
+        assert False, f"Redis PIDs mismatch! Expected {expected_pids}, got {current_pids}. Environment was not properly reused."
+
+    # Confirm keyspace checks when reusing dataset
+    if benchmark_config is not None:
+        from redisbench_admin.run.common import dbconfig_keyspacelen_check
+
+        dbconfig_keyspacelen_check(benchmark_config, redis_conns, ignore_keyspace_errors)
+
     return (
         artifact_version,
         cluster_enabled,
@@ -1425,6 +1509,7 @@ def ro_benchmark_reuse(
         return_code,
         server_plaintext_port,
         ssh_tunnel,
+        pids_match,
     )
 
 
@@ -1454,6 +1539,18 @@ def ro_benchmark_set(
     setup_details["env"]["return_code"] = return_code
     setup_details["env"]["server_plaintext_port"] = server_plaintext_port
     setup_details["env"]["ssh_tunnel"] = ssh_tunnel
+
+    # Store Redis PIDs for verification when reusing
+    redis_pids = []
+    for conn in redis_conns:
+        try:
+            info = conn.info("server")
+            redis_pids.append(info.get("process_id", None))
+        except Exception as e:
+            logging.warning(f"Failed to get PID from Redis connection: {e}")
+            redis_pids.append(None)
+    setup_details["env"]["redis_pids"] = redis_pids
+    logging.info(f"Stored Redis PIDs for reuse verification: {redis_pids}")
 
 
 def export_redis_metrics(

@@ -2,7 +2,9 @@
 name: "vanilla-memtier-load"
 setups:
   - oss-standalone
-
+remote:
+ - type: oss-standalone
+ - setup: redisearch-m5
 clientconfig:
   benchmark_type: "mixed"
   dataset_name: "vanilla-memtier"

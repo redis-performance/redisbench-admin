@@ -788,9 +788,7 @@ def dbconfig_keyspacelen_check(
 
         if total_keys == keyspacelen:
             logging.info(
-                "The total number of keys in setup matches the expected spec: {} == {}".format(
-                    keyspacelen, total_keys
-                )
+                f"🟢 Keyspace check PASSED: expected={keyspacelen}, got={total_keys}"
             )
             return True
 
@@ -803,7 +801,7 @@ def dbconfig_keyspacelen_check(
         attempt += 1
 
     logging.error(
-        f"The total number of keys in setup does not match the expected spec: {keyspacelen} != {total_keys}. Aborting after {attempt + 1} tries..."
+        f"🔴 Keyspace check FAILED: expected={keyspacelen}, got={total_keys} (after {attempt + 1} tries)"
     )
 
     if not ignore_keyspace_errors:

@@ -617,7 +617,7 @@ def get_remote_input_file_from_url(url):
     return str(result_path)
 
 
-EC2_REGION = os.getenv("AWS_DEFAULT_REGION", None)
+EC2_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-2")
 EC2_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", None)
 EC2_PRIVATE_PEM = os.getenv("EC2_PRIVATE_PEM", None)
 EC2_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID", None)

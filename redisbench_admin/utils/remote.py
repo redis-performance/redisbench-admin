@@ -383,7 +383,7 @@ def setup_remote_environment(
         # Re-raise the exception with more context
         raise
 
-    infra_wait_secs = 60
+    infra_wait_secs = 3
     logging.warning(f"Infra ready wait... for {infra_wait_secs} secs")
     time.sleep(infra_wait_secs)
     return retrieve_tf_connection_vars(return_code, tf)

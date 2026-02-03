@@ -3,6 +3,10 @@ name: "vanilla-memtier-query"
 setups:
   - oss-standalone
 
+remote:
+ - type: oss-standalone
+ - setup: redisearch-m5
+ 
 # This benchmark uses the dataset produced by vanilla-memtier-load.yml
 # The dataset_name in dbconfig indicates which dataset this benchmark needs.
 dbconfig:

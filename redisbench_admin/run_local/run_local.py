@@ -48,6 +48,7 @@ from redisbench_admin.run.run import (
     define_benchmark_plan,
     ensure_mixed_types_first,
     log_benchmark_plan_table,
+    EnvironmentTracker,
 )
 from redisbench_admin.run_local.local_db import local_db_spin
 from redisbench_admin.run_local.local_helpers import (
@@ -170,6 +171,8 @@ def run_local_command_logic(args, project_name, project_version):
 
     # Shared environment storage across benchmark types, keyed by (dataset_name, setup_name)
     shared_env = {}
+    # Track environment creation and reuse for summary
+    env_tracker = EnvironmentTracker()
 
     # Ensure mixed (load) benchmarks run before read-only (query) benchmarks
     for benchmark_type, bench_by_dataset_map in ensure_mixed_types_first(
@@ -296,6 +299,13 @@ def run_local_command_logic(args, project_name, project_version):
                                         logging.info(
                                             f"Stored Redis PIDs for reuse verification: {setup_details['env']['redis_pids']}"
                                         )
+                                        # Track environment creation
+                                        env_tracker.record_env_created(
+                                            dataset_name,
+                                            setup_name,
+                                            test_name,
+                                            redis_pids=setup_details["env"]["redis_pids"],
+                                        )
                                         # Save to shared storage for cross-benchmark-type reuse
                                         if reuse_mixed:
                                             shared_env[env_key] = setup_details["env"]
@@ -315,11 +325,22 @@ def run_local_command_logic(args, project_name, project_version):
                                     current_pids = [
                                         p.pid for p in redis_processes if p is not None
                                     ]
-                                    assert (
-                                        current_pids == expected_pids
-                                    ), f"Redis PIDs mismatch! Expected {expected_pids}, got {current_pids}. Environment was not properly reused."
-                                    logging.info(
-                                        f"Verified Redis PIDs match: {current_pids} (same Redis instance reused)"
+                                    pids_match = current_pids == expected_pids
+                                    if pids_match:
+                                        logging.info(
+                                            f"🟢 Redis PID check PASSED: expected={expected_pids}, got={current_pids} (same Redis instance reused)"
+                                        )
+                                    else:
+                                        logging.error(
+                                            f"🔴 Redis PID check FAILED: expected={expected_pids}, got={current_pids}"
+                                        )
+                                        assert False, f"Redis PIDs mismatch! Expected {expected_pids}, got {current_pids}. Environment was not properly reused."
+                                    # Track environment reuse
+                                    env_tracker.record_env_reused(
+                                        dataset_name,
+                                        setup_name,
+                                        test_name,
+                                        pids_match=pids_match,
                                     )
 
                                 # setup the benchmark
@@ -679,6 +700,8 @@ def run_local_command_logic(args, project_name, project_version):
 
     if profilers_enabled:
         local_profilers_print_artifacts_table(profilers_artifacts_matrix)
+    # Log environment reuse summary
+    env_tracker.log_summary_table()
     exit(return_code)
 
 
