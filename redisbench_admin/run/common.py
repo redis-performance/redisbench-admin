@@ -762,18 +762,6 @@ def dso_check(dso, local_module_file):
                 )
     return dso
 
-
-def print_keyspace_count(redis_conns):
-    """Print the current number of keys in the keyspace without checking against a requirement."""
-    total_keys = 0
-    for shard_conn in redis_conns:
-        keyspace_dict = shard_conn.info("keyspace")
-        for _, dbdict in keyspace_dict.items():
-            total_keys += dbdict.get("keys", 0)
-    logging.info(f"Current keyspace size: {total_keys} keys")
-    return total_keys
-
-
 def dbconfig_keyspacelen_check(
     benchmark_config, redis_conns, ignore_keyspace_errors=False, timeout=60
 ):
