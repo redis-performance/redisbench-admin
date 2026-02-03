@@ -34,13 +34,15 @@ def test_extract_results_table():
 
 def test_collect_redis_metrics():
     import os
+    import pytest
 
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
     # Ensure we have the test DB to store results
-    assert "RTS_PORT" in os.environ
+    if "RTS_PORT" not in os.environ:
+        pytest.skip("RTS_PORT environment variable not set")
     rts_port = os.environ.get("RTS_PORT", None)
     if rts_host is None:
-        return
+        pytest.skip("RTS_DATASINK_HOST environment variable not set")
     rts = redis.Redis(port=rts_port, host=rts_host)
     rts.ping()
     time_ms, metrics_arr, overall_metrics = collect_redis_metrics([rts])

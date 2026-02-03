@@ -123,23 +123,25 @@ def test_fetch_remote_setup_from_config_aarch64():
 
 
 def test_push_data_to_redistimeseries():
-    time_series_dict = {}
-    try:
-        import os
+    import os
+    import pytest
 
-        # Ensure we have the test DB to store results
-        assert "RTS_PORT" in os.environ
-        rts_port = os.environ.get("RTS_PORT", None)
+    # Ensure we have the test DB to store results
+    if "RTS_PORT" not in os.environ:
+        pytest.skip("RTS_PORT environment variable not set")
+
+    time_series_dict = {}
+    rts_port = os.environ.get("RTS_PORT", None)
+    try:
         rts = redis.Redis(port=rts_port)
         rts.ping()
-    except redis.exceptions.ConnectionError:
-        pass
-    finally:
         datapoint_errors, datapoint_inserts = push_data_to_redistimeseries(
             rts, time_series_dict
         )
         assert datapoint_errors == 0
         assert datapoint_inserts == 0
+    except redis.exceptions.ConnectionError:
+        pytest.skip("Could not connect to Redis")
 
 
 def test_extract_perversion_timeseries_from_results():
@@ -273,12 +275,15 @@ def test_extract_timeseries_from_results():
 
 
 def test_exporter_create_ts():
-    try:
-        import os
+    import os
+    import pytest
 
-        # Ensure we have the test DB to store results
-        assert "RTS_PORT" in os.environ
-        rts_port = os.environ.get("RTS_PORT", None)
+    # Ensure we have the test DB to store results
+    if "RTS_PORT" not in os.environ:
+        pytest.skip("RTS_PORT environment variable not set")
+
+    rts_port = os.environ.get("RTS_PORT", None)
+    try:
         rts = redis.Redis(port=rts_port)
         rts.ping()
         rts.flushall()
@@ -372,18 +377,20 @@ def test_exporter_create_ts():
                 tf_github_org,
                 tf_github_repo,
                 tf_triggering_env,
-                {"arch": "arm64", "os": "ubuntu:16.04", "compiler": "icc"},
+                {"arch": "x86_64", "os": "ubuntu:16.04", "compiler": "icc"},
             )
             initial_plus_update = {
                 **initial_labels,
-                "arch": "arm64",
+                "arch": "x86_64",
                 "os": "ubuntu:16.04",
                 "compiler": "icc",
             }
             assert initial_plus_update == rts.ts().info(ts_key).labels
 
     except redis.exceptions.ConnectionError:
-        pass
+        import pytest
+
+        pytest.skip("Could not connect to Redis")
 
 
 def test_common_timeseries_extraction():
@@ -481,15 +488,18 @@ def test_common_timeseries_extraction():
     )
 
 
-def test_exporter_create_ts():
+def test_exporter_create_ts_labels():
+    import os
+    import pytest
+
+    # Ensure we have the test DB to store results
+    if "RTS_PORT" not in os.environ:
+        pytest.skip("RTS_PORT environment variable not set")
+
     timeseries_name = "ts1"
     time_series = {"labels": {"metric-type": "commandstats"}}
+    rts_port = os.environ.get("RTS_PORT", None)
     try:
-        import os
-
-        # Ensure we have the test DB to store results
-        assert "RTS_PORT" in os.environ
-        rts_port = os.environ.get("RTS_PORT", None)
         rts = redis.Redis(port=rts_port)
         rts.ping()
         rts.flushall()
@@ -507,4 +517,4 @@ def test_exporter_create_ts():
         assert False == exporter_create_ts(rts, time_series, timeseries_name)
 
     except redis.exceptions.ConnectionError:
-        pass
+        pytest.skip("Could not connect to Redis")

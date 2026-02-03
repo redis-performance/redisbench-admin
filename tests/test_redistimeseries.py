@@ -18,11 +18,14 @@ from redisbench_admin.run.redistimeseries import timeseries_test_sucess_flow
 
 
 def test_timeseries_test_sucess_flow():
-    try:
-        import os
+    import os
+    import pytest
 
-        # Ensure we have the test DB to store results
-        assert "RTS_PORT" in os.environ
+    # Ensure we have the test DB to store results
+    if "RTS_PORT" not in os.environ:
+        pytest.skip("RTS_PORT environment variable not set")
+
+    try:
         rts_port = os.environ.get("RTS_PORT", None)
         rts = redis.Redis(port=rts_port)
         rts.ping()

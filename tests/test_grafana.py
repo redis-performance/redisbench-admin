@@ -17,13 +17,15 @@ from redisbench_admin.run.grafana import (
 
 def test_generate_artifacts_table_grafana_redis():
     import os
+    import pytest
 
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
     # Ensure we have the test DB to store results
-    assert "RTS_PORT" in os.environ
+    if "RTS_PORT" not in os.environ:
+        pytest.skip("RTS_PORT environment variable not set")
     rts_port = os.environ.get("RTS_PORT", None)
     if rts_host is None:
-        return
+        pytest.skip("RTS_DATASINK_HOST environment variable not set")
     redis_conn = redis.Redis(port=rts_port, host=rts_host, decode_responses=True)
     redis_conn.ping()
     redis_conn.flushall()

@@ -5,7 +5,6 @@
 #
 import logging
 import copy
-from collections import defaultdict
 
 from pytablewriter import MarkdownTableWriter
 
