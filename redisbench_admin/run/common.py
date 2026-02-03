@@ -762,7 +762,6 @@ def dso_check(dso, local_module_file):
                 )
     return dso
 
-
 def dbconfig_keyspacelen_check(
     benchmark_config, redis_conns, ignore_keyspace_errors=False, timeout=60
 ):
