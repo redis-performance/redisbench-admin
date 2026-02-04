@@ -326,6 +326,31 @@ def get_ann_remote_pkg_path(client_public_ip, client_ssh_port, private_key, user
     return pkg_path
 
 
+def extract_duration_from_command(command_str):
+    """
+    Extract duration value from command string if --duration is present.
+    Returns duration in seconds or None if not found.
+    Supports formats like: 60s, 5m, 1h, or just seconds as integer.
+    """
+    import re
+
+    match = re.search(r"--duration\s+(\S+)", command_str)
+    if match:
+        duration_str = match.group(1)
+        # Parse duration string (e.g., "60s", "5m", "1h", or just "60")
+        time_match = re.match(r"^(\d+)(s|m|h)?$", duration_str)
+        if time_match:
+            value = int(time_match.group(1))
+            unit = time_match.group(2)
+            if unit == "m":
+                return value * 60
+            elif unit == "h":
+                return value * 3600
+            else:  # seconds or no unit
+                return value
+    return None
+
+
 def run_remote_benchmark(
     client_public_ip,
     username,
@@ -335,10 +360,31 @@ def run_remote_benchmark(
     commands,
     ssh_port=22,
     do_post_process=True,
+    timeout=None,
 ):
     remote_run_result = False
+    # If no explicit timeout, try to extract from ftsb --duration parameter
+    effective_timeout = timeout
+    if effective_timeout is None and len(commands) > 0:
+        for cmd in commands:
+            if "ftsb_" in cmd:
+                duration = extract_duration_from_command(cmd)
+                if duration is not None:
+                    # Add 60 seconds buffer to the duration for SSH timeout
+                    effective_timeout = duration * 3
+                    logging.info(
+                        "Detected ftsb --duration parameter. Setting SSH timeout to {} seconds (duration*3 buffer)".format(
+                            effective_timeout
+                        )
+                    )
+                break
     res = execute_remote_commands(
-        client_public_ip, username, private_key, commands, ssh_port
+        client_public_ip,
+        username,
+        private_key,
+        commands,
+        ssh_port,
+        timeout=effective_timeout,
     )
     recv_exit_status, _, _ = res[0]
 

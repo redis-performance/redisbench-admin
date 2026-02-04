@@ -158,12 +158,17 @@ def execute_remote_commands(
     port,
     get_pty=False,
     limit_output_print=False,
+    timeout=None,
 ):
     res = []
     c = connect_remote_ssh(port, private_key, server_public_ip, username)
     for command in commands:
         logging.info('Executing remote command "{}"'.format(command))
-        stdin, stdout, stderr = c.exec_command(command, get_pty=get_pty)
+        if timeout is not None:
+            logging.info("Using SSH command timeout of {} seconds".format(timeout))
+        stdin, stdout, stderr = c.exec_command(
+            command, get_pty=get_pty, timeout=timeout
+        )
         recv_exit_status = stdout.channel.recv_exit_status()  # status is 0
         stdout = stdout.readlines()
         stderr = stderr.readlines()
