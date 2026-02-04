@@ -166,7 +166,9 @@ def execute_remote_commands(
         logging.info('Executing remote command "{}"'.format(command))
         if timeout is not None:
             logging.info("Using SSH command timeout of {} seconds".format(timeout))
-        stdin, stdout, stderr = c.exec_command(command, get_pty=get_pty, timeout=timeout)
+        stdin, stdout, stderr = c.exec_command(
+            command, get_pty=get_pty, timeout=timeout
+        )
         recv_exit_status = stdout.channel.recv_exit_status()  # status is 0
         stdout = stdout.readlines()
         stderr = stderr.readlines()

@@ -333,17 +333,18 @@ def extract_duration_from_command(command_str):
     Supports formats like: 60s, 5m, 1h, or just seconds as integer.
     """
     import re
-    match = re.search(r'--duration\s+(\S+)', command_str)
+
+    match = re.search(r"--duration\s+(\S+)", command_str)
     if match:
         duration_str = match.group(1)
         # Parse duration string (e.g., "60s", "5m", "1h", or just "60")
-        time_match = re.match(r'^(\d+)(s|m|h)?$', duration_str)
+        time_match = re.match(r"^(\d+)(s|m|h)?$", duration_str)
         if time_match:
             value = int(time_match.group(1))
             unit = time_match.group(2)
-            if unit == 'm':
+            if unit == "m":
                 return value * 60
-            elif unit == 'h':
+            elif unit == "h":
                 return value * 3600
             else:  # seconds or no unit
                 return value
@@ -378,7 +379,12 @@ def run_remote_benchmark(
                     )
                 break
     res = execute_remote_commands(
-        client_public_ip, username, private_key, commands, ssh_port, timeout=effective_timeout
+        client_public_ip,
+        username,
+        private_key,
+        commands,
+        ssh_port,
+        timeout=effective_timeout,
     )
     recv_exit_status, _, _ = res[0]
 
