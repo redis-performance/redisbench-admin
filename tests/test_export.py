@@ -118,6 +118,8 @@ def test_export_command_logic_enterprise():
             "redis",
             "--github_org",
             "redis",
+            "--github_branch",
+            "master",
         ]
     )
     try:
