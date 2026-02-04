@@ -46,6 +46,9 @@ from redisbench_admin.run.redistimeseries import (
 from redisbench_admin.run.run import (
     calculate_client_tool_duration_and_check,
     define_benchmark_plan,
+    ensure_mixed_types_first,
+    log_benchmark_plan_table,
+    EnvironmentTracker,
 )
 from redisbench_admin.run_local.local_db import local_db_spin
 from redisbench_admin.run_local.local_helpers import (
@@ -155,7 +158,27 @@ def run_local_command_logic(args, project_name, project_version):
     profilers_artifacts_matrix = []
     # we have a map of test-type, dataset-name, topology, test-name
     benchmark_runs_plan = define_benchmark_plan(benchmark_definitions, default_specs)
-    for benchmark_type, bench_by_dataset_map in benchmark_runs_plan.items():
+
+    # Log the benchmark execution plan as a table
+    log_benchmark_plan_table(benchmark_runs_plan)
+
+    # Track if we should reuse the environment from mixed benchmarks for read-only ones
+    reuse_mixed = "mixed" in benchmark_runs_plan and "read-only" in benchmark_runs_plan
+    if reuse_mixed:
+        logging.info(
+            "Detected mixed and read-only benchmarks. Will reuse environment for dataset optimization."
+        )
+
+    # Shared environment storage across benchmark types, keyed by (dataset_name, setup_name)
+    shared_env = {}
+    # Track environment creation and reuse for summary
+    env_tracker = EnvironmentTracker()
+
+    # Ensure mixed (load) benchmarks run before read-only (query) benchmarks
+    for benchmark_type, bench_by_dataset_map in ensure_mixed_types_first(
+        benchmark_runs_plan
+    ):
+
         for (
             dataset_name,
             bench_by_dataset_and_setup_map,
@@ -163,8 +186,18 @@ def run_local_command_logic(args, project_name, project_version):
             for setup_name, setup_details in bench_by_dataset_and_setup_map.items():
                 setup_settings = setup_details["setup_settings"]
                 benchmarks_map = setup_details["benchmarks"]
-                # we start with an empty per bench-type/setup-name
-                setup_details["env"] = None
+
+                # Check if we have a shared environment from a previous benchmark type
+                env_key = (dataset_name, setup_name)
+                if reuse_mixed and env_key in shared_env:
+                    setup_details["env"] = shared_env[env_key]
+                    # Remove from shared_env so it gets torn down after we're done
+                    del shared_env[env_key]
+                    logging.info(
+                        f"Reusing shared environment for dataset '{dataset_name}' and setup '{setup_name}'"
+                    )
+                else:
+                    setup_details["env"] = None
                 for test_name, benchmark_config in benchmarks_map.items():
                     for repetition in range(1, BENCHMARK_REPETITIONS + 1):
                         logging.info(
@@ -235,10 +268,18 @@ def run_local_command_logic(args, project_name, project_version):
                                             "Skipping this test given DB spin stage failed..."
                                         )
                                         continue
-                                    if benchmark_type == "read-only":
-                                        logging.info(
-                                            "Given the benchmark for this setup is read-only we will prepare to reuse it on the next read-only benchmarks (if any )."
-                                        )
+                                    # Save environment for reuse if:
+                                    # - benchmark is read-only (for next read-only benchmarks)
+                                    # - benchmark is mixed AND we have read-only benchmarks to reuse the dataset
+                                    if benchmark_type == "read-only" or reuse_mixed:
+                                        if benchmark_type == "mixed":
+                                            logging.info(
+                                                f"Saving environment from mixed benchmark for dataset reuse (dataset: {dataset_name}, setup: {setup_name})."
+                                            )
+                                        else:
+                                            logging.info(
+                                                "Given the benchmark for this setup is read-only we will prepare to reuse it on the next read-only benchmarks (if any)."
+                                            )
                                         setup_details["env"] = {}
                                         setup_details["env"][
                                             "cluster_api_enabled"
@@ -249,10 +290,30 @@ def run_local_command_logic(args, project_name, project_version):
                                         setup_details["env"][
                                             "redis_processes"
                                         ] = redis_processes
+                                        # Store Redis PIDs for verification when reusing
+                                        setup_details["env"]["redis_pids"] = [
+                                            p.pid
+                                            for p in redis_processes
+                                            if p is not None
+                                        ]
+                                        logging.info(
+                                            f"Stored Redis PIDs for reuse verification: {setup_details['env']['redis_pids']}"
+                                        )
+                                        # Track environment creation
+                                        env_tracker.record_env_created(
+                                            dataset_name,
+                                            setup_name,
+                                            test_name,
+                                            redis_pids=setup_details["env"][
+                                                "redis_pids"
+                                            ],
+                                        )
+                                        # Save to shared storage for cross-benchmark-type reuse
+                                        if reuse_mixed:
+                                            shared_env[env_key] = setup_details["env"]
                                 else:
-                                    assert benchmark_type == "read-only"
                                     logging.info(
-                                        "Given the benchmark for this setup is read-only, and this setup was already spinned we will reuse the previous, conns and process info."
+                                        f"Reusing environment from previous benchmark for dataset reuse (dataset: {dataset_name}, setup: {setup_name})."
                                     )
                                     cluster_api_enabled = setup_details["env"][
                                         "cluster_api_enabled"
@@ -261,6 +322,30 @@ def run_local_command_logic(args, project_name, project_version):
                                     redis_processes = setup_details["env"][
                                         "redis_processes"
                                     ]
+                                    # Verify Redis PIDs are the same (same Redis instance is being reused)
+                                    expected_pids = setup_details["env"]["redis_pids"]
+                                    current_pids = [
+                                        p.pid for p in redis_processes if p is not None
+                                    ]
+                                    pids_match = current_pids == expected_pids
+                                    if pids_match:
+                                        logging.info(
+                                            f"🟢 Redis PID check PASSED: expected={expected_pids}, got={current_pids} (same Redis instance reused)"
+                                        )
+                                    else:
+                                        logging.error(
+                                            f"🔴 Redis PID check FAILED: expected={expected_pids}, got={current_pids}"
+                                        )
+                                        assert (
+                                            False
+                                        ), f"Redis PIDs mismatch! Expected {expected_pids}, got {current_pids}. Environment was not properly reused."
+                                    # Track environment reuse
+                                    env_tracker.record_env_reused(
+                                        dataset_name,
+                                        setup_name,
+                                        test_name,
+                                        pids_match=pids_match,
+                                    )
 
                                 # setup the benchmark
                                 (
@@ -554,8 +639,12 @@ def run_local_command_logic(args, project_name, project_version):
                                             conn.shutdown(save=False)
                                     else:
                                         logging.info(
-                                            "Keeping environment and topology active upon request."
+                                            "Keeping environment and topology active upon user request (--keep_env_and_topo)."
                                         )
+                                else:
+                                    logging.info(
+                                        "Keeping environment and topology active for dataset reuse on next benchmark."
+                                    )
 
                             except KeyboardInterrupt:
                                 logging.critical(
@@ -588,7 +677,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     )
                                 else:
                                     logging.info(
-                                        "Keeping environment and topology active upon request."
+                                        "Keeping environment and topology active upon user request (--keep_env_and_topo)."
                                     )
 
                         else:
@@ -598,16 +687,25 @@ def run_local_command_logic(args, project_name, project_version):
                                 )
                             )
                 if setup_details["env"] is not None:
-                    if args.keep_env_and_topo is False:
+                    # Check if this environment is shared for dataset reuse across benchmark types
+                    env_key = (dataset_name, setup_name)
+                    is_shared = reuse_mixed and env_key in shared_env
+                    if args.keep_env_and_topo is False and not is_shared:
                         teardown_local_setup(redis_conns, redis_processes, setup_name)
                         setup_details["env"] = None
+                    elif is_shared:
+                        logging.info(
+                            f"Keeping environment active for dataset reuse across benchmark types (dataset: {dataset_name}, setup: {setup_name})."
+                        )
                     else:
                         logging.info(
-                            "Keeping environment and topology active upon request."
+                            "Keeping environment and topology active upon user request (--keep_env_and_topo)."
                         )
 
     if profilers_enabled:
         local_profilers_print_artifacts_table(profilers_artifacts_matrix)
+    # Log environment reuse summary
+    env_tracker.log_summary_table()
     exit(return_code)
 
 

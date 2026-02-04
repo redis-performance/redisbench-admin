@@ -29,9 +29,19 @@ def prepare_memtier_benchmark_command(
     if cluster_api_enabled:
         command_arr.extend(["--cluster-mode"])
     if "parameters" in benchmark_config:
-        for k in benchmark_config["parameters"]:
-            for kk in k.keys():
-                command_arr.extend(["--{}".format(kk), str(k[kk])])
+        parameters = benchmark_config["parameters"]
+
+        # Handle v0.4 spec where parameters is a dict
+        if isinstance(parameters, dict):
+            for key, value in parameters.items():
+                command_arr.extend(["--{}".format(key), str(value)])
+
+        # Handle v0.1-0.3 spec where parameters is a list of dicts
+        elif isinstance(parameters, list):
+            for k in parameters:
+                if isinstance(k, dict):
+                    for kk in k.keys():
+                        command_arr.extend(["--{}".format(kk), str(k[kk])])
 
     command_arr.extend(["--json-out-file", result_file])
     command_str = " ".join(command_arr)

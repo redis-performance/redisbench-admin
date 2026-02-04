@@ -25,14 +25,16 @@ class Test(TestCase):
 
 def test_export_command_logic():
     import os
+    import pytest
 
     # Ensure we have the test DB to store results
-    assert "RTS_PORT" in os.environ
+    if "RTS_PORT" not in os.environ:
+        pytest.skip("RTS_PORT environment variable not set")
     rts_port = os.environ.get("RTS_PORT", None)
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
     rts_pass = ""
     if rts_host is None:
-        return
+        pytest.skip("RTS_DATASINK_HOST environment variable not set")
     rts = redis.Redis(port=rts_port, host=rts_host)
     rts.ping()
     rts.flushall()
@@ -77,17 +79,25 @@ def test_export_command_logic():
         assert e.code == 0
 
 
-def test_export_command_logic():
+def test_export_command_logic_enterprise():
     import os
+    import pytest
+
+    benchmark_file = "./tests/test_data/results/result_report_1690282709.835491.json"
+
+    # Skip if test file doesn't exist (not tracked in git)
+    if not os.path.exists(benchmark_file):
+        pytest.skip(f"Test file {benchmark_file} does not exist")
 
     # Ensure we have the test DB to store results
-    assert "RTS_PORT" in os.environ
+    if "RTS_PORT" not in os.environ:
+        pytest.skip("RTS_PORT environment variable not set")
 
     rts_port = os.environ.get("RTS_PORT", None)
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
     rts_pass = ""
     if rts_host is None:
-        return
+        pytest.skip("RTS_DATASINK_HOST environment variable not set")
     rts = redis.Redis(port=rts_port, host=rts_host)
     rts.ping()
     rts.flushall()
@@ -99,7 +109,7 @@ def test_export_command_logic():
     args = parser.parse_args(
         args=[
             "--benchmark-result-file",
-            "./tests/test_data/results/result_report_1690282709.835491.json",
+            benchmark_file,
             "--exporter-spec-file",
             "./tests/test_data/common-properties-enterprise.yml",
             "--redistimeseries_host",
@@ -114,6 +124,8 @@ def test_export_command_logic():
             "redis",
             "--github_org",
             "redis",
+            "--github_branch",
+            "master",
         ]
     )
     try:
@@ -144,14 +156,16 @@ def test_export_opereto_csv_to_timeseries_dict():
 
 def test_export_command_logic_google_benchmark():
     import os
+    import pytest
 
     # Ensure we have the test DB to store results
-    assert "RTS_PORT" in os.environ
+    if "RTS_PORT" not in os.environ:
+        pytest.skip("RTS_PORT environment variable not set")
     rts_port = os.environ.get("RTS_PORT", None)
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
     rts_pass = ""
     if rts_host is None:
-        return
+        pytest.skip("RTS_DATASINK_HOST environment variable not set")
     rts = redis.Redis(port=rts_port, host=rts_host)
     rts.ping()
     rts.flushall()

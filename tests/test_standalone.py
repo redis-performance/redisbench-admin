@@ -46,13 +46,14 @@ def get_test_data_module():
 
 
 def test_spin_up_standalone_remote_redis():
-    port = 2222
     username = "ubuntu"
     private_key = "./tests/test_data/test-ssh/tox_rsa"
     db_server_ip = os.getenv("DB_SERVER_HOST", None)
-    if db_server_ip is None:
+    db_server_port = os.getenv("DB_SERVER_PORT", None)
+    if db_server_ip is None or db_server_port is None:
         return
 
+    port = int(db_server_port)
     logname = "test_spin_up_standalone_remote_redis.log"
     temporary_dir = "/tmp"
     spin_up_standalone_remote_redis(

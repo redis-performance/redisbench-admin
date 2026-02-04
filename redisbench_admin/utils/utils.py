@@ -137,7 +137,9 @@ def generate_common_server_args(
     return command
 
 
-def setup_search_clusterset(redis_conns, host="127.0.0.1", start_port=6379, password=None):
+def setup_search_clusterset(
+    redis_conns, host="127.0.0.1", start_port=6379, password=None
+):
     """
     Configure  SEARCH.CLUSTERSET for Redis instances.
     This is required when SEARCH_CLUSTERSET is set to configure the search module
@@ -157,7 +159,9 @@ def setup_search_clusterset(redis_conns, host="127.0.0.1", start_port=6379, pass
         redis_conns = [redis_conns]
 
     shard_count = len(redis_conns)
-    logging.info(f"Search Clusterset enabled - configuring SEARCH.CLUSTERSET for {shard_count} shard(s)")
+    logging.info(
+        f"Search Clusterset enabled - configuring SEARCH.CLUSTERSET for {shard_count} shard(s)"
+    )
 
     # Calculate slots per shard
     total_slots = 16384
@@ -201,9 +205,13 @@ def setup_search_clusterset(redis_conns, host="127.0.0.1", start_port=6379, pass
                 addr,
                 "MASTER",
             )
-            logging.info(f"SEARCH.CLUSTERSET command executed successfully for shard {shard_id}")
+            logging.info(
+                f"SEARCH.CLUSTERSET command executed successfully for shard {shard_id}"
+            )
         except Exception as e:
-            logging.warning(f"Failed to execute SEARCH.CLUSTERSET for shard {shard_id}: {e}")
+            logging.warning(
+                f"Failed to execute SEARCH.CLUSTERSET for shard {shard_id}: {e}"
+            )
 
 
 def upload_artifacts_to_s3(
@@ -609,7 +617,7 @@ def get_remote_input_file_from_url(url):
     return str(result_path)
 
 
-EC2_REGION = os.getenv("AWS_DEFAULT_REGION", None)
+EC2_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-2")
 EC2_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", None)
 EC2_PRIVATE_PEM = os.getenv("EC2_PRIVATE_PEM", None)
 EC2_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID", None)

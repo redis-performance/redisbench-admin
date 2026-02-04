@@ -9,12 +9,14 @@ from redisbench_admin.utils.benchmark_config import (
     check_required_modules,
     extract_redis_dbconfig_parameters,
     extract_benchmark_type_from_config,
+    extract_client_dataset_name,
     get_metadata_tags,
     get_termination_timeout_secs,
     prepare_benchmark_definitions,
     process_benchmark_definitions_remote_timeouts,
     get_testfiles_to_process,
 )
+from redisbench_admin.run.run import define_benchmark_plan
 
 
 def test_results_dict_kpi_check():
@@ -318,4 +320,83 @@ def test_get_testfiles_to_process():
     assert 2 == len(test_files_to_process_all_glob_group_member_5)
     assert (
         test_files_to_process_all[4:6] == test_files_to_process_all_glob_group_member_5
+    )
+
+
+def test_extract_client_dataset_name():
+    """Test extracting dataset_name from clientconfig.
+
+    dataset_name in clientconfig indicates that the benchmark PRODUCES a dataset.
+    This is used by load benchmarks that create data for other benchmarks to use.
+    """
+    # Test with dict format clientconfig containing dataset_name (load benchmark produces dataset)
+    with open("./tests/test_data/vanilla-memtier-load.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        dataset_name = extract_client_dataset_name(benchmark_config)
+        assert dataset_name == "vanilla-memtier"
+
+    # Test with clientconfig that doesn't have dataset_name (query benchmark uses dataset via dbconfig)
+    with open("./tests/test_data/vanilla-memtier-query.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        # Query benchmark has dataset_name in dbconfig, not clientconfig
+        dataset_name = extract_client_dataset_name(benchmark_config)
+        assert dataset_name is None
+
+    # Test with clientconfig that doesn't have dataset_name
+    with open("./tests/test_data/redis-benchmark.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        dataset_name = extract_client_dataset_name(benchmark_config)
+        assert dataset_name is None
+
+    # Test with list format clientconfig (no dataset_name)
+    with open("./tests/test_data/ycsb-config.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        dataset_name = extract_client_dataset_name(benchmark_config)
+        assert dataset_name is None
+
+
+def test_define_benchmark_plan_with_clientconfig_dataset_name():
+    """Test that define_benchmark_plan correctly groups benchmarks by dataset_name.
+
+    - Load benchmark: has dataset_name in clientconfig (produces the dataset)
+    - Query benchmark: has dataset_name in dbconfig (uses the dataset)
+
+    Both should be grouped under the same dataset_name "vanilla-memtier".
+    """
+    benchmark_definitions = {}
+
+    # Load benchmark with dataset_name in clientconfig (produces dataset)
+    with open("./tests/test_data/vanilla-memtier-load.yml", "r") as yml_file:
+        load_config = yaml.safe_load(yml_file)
+        benchmark_definitions[load_config["name"]] = load_config
+
+    # Query benchmark with dataset_name in dbconfig (uses dataset)
+    with open("./tests/test_data/vanilla-memtier-query.yml", "r") as yml_file:
+        query_config = yaml.safe_load(yml_file)
+        benchmark_definitions[query_config["name"]] = query_config
+
+    # Define the benchmark plan
+    benchmark_runs_plan = define_benchmark_plan(benchmark_definitions, None)
+
+    # Both benchmarks should be grouped under the same dataset_name "vanilla-memtier"
+    # The load benchmark is "mixed" type and query is "read-only" type
+    assert "mixed" in benchmark_runs_plan
+    assert "read-only" in benchmark_runs_plan
+
+    # Both should have the same dataset_name
+    assert "vanilla-memtier" in benchmark_runs_plan["mixed"]
+    assert "vanilla-memtier" in benchmark_runs_plan["read-only"]
+
+    # Verify the benchmarks are correctly placed
+    assert (
+        "vanilla-memtier-load"
+        in benchmark_runs_plan["mixed"]["vanilla-memtier"]["oss-standalone"][
+            "benchmarks"
+        ]
+    )
+    assert (
+        "vanilla-memtier-query"
+        in benchmark_runs_plan["read-only"]["vanilla-memtier"]["oss-standalone"][
+            "benchmarks"
+        ]
     )

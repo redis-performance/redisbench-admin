@@ -186,18 +186,24 @@ def test_run_local_command_logic():
             "{}".format(REDIS_7),
         ]
     )
+    exit_raised = False
     try:
         run_local_command_logic(args, "tool", "v0")
     except SystemExit as e:
+        exit_raised = True
         assert e.code == 1
 
+    # If SystemExit was not raised, the test should fail
+    assert (
+        exit_raised
+    ), "Expected SystemExit to be raised when tool is not in allowed list"
+
     ## run while pushing results to redis_conn
-    # Ensure we have the test DB to store results
-    assert "RTS_PORT" in os.environ
+    # Check if we have the test DB to store results - if not, skip this test section
     rts_port = os.environ.get("RTS_PORT", None)
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
     rts_pass = ""
-    if rts_host is None:
+    if rts_host is None or rts_port is None:
         return
     rts = redis.Redis(port=rts_port, host=rts_host)
     rts.ping()
@@ -218,6 +224,116 @@ def test_run_local_command_logic():
             "--push_results_redistimeseries",
             "--redis-7",
             "{}".format(REDIS_7),
+        ]
+    )
+    try:
+        run_local_command_logic(args, "tool", "v0")
+    except SystemExit as e:
+        assert e.code == 0
+
+
+def test_run_local_dataset_reuse_memtier():
+    """
+    Test that benchmarks with the same dataset_name are grouped together
+    for dataset reuse optimization.
+
+    - vanilla-memtier-load.yml: has dataset_name in clientconfig (produces dataset)
+    - vanilla-memtier-query.yml: has dataset_name in dbconfig (uses dataset)
+
+    When run together, both are grouped under the same dataset_name "vanilla-memtier",
+    enabling the query benchmark to reuse the dataset loaded by the load benchmark.
+    """
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_local_arguments(parser)
+    args = parser.parse_args(
+        args=[
+            "--test-glob",
+            "./tests/test_data/vanilla-memtier-*.yml",
+        ]
+    )
+    try:
+        run_local_command_logic(args, "tool", "v0")
+    except SystemExit as e:
+        assert e.code == 0
+
+
+def test_run_local_dataset_reuse_not_possible_memtier():
+    """
+    Test that benchmarks with the same dataset_name are grouped together
+    for dataset reuse optimization.
+
+    - vanilla-memtier-load.yml: has dataset_name in clientconfig (produces dataset)
+    - vanilla-memtier-query.yml: has dataset_name in dbconfig (uses dataset)
+
+    When run together, both are grouped under the same dataset_name "vanilla-memtier",
+    enabling the query benchmark to reuse the dataset loaded by the load benchmark.
+    """
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_local_arguments(parser)
+    args = parser.parse_args(
+        args=[
+            "--test-glob",
+            "./tests/test_data/vanilla-memtier-query*.yml",
+            "--keep_env_and_topo",
+        ]
+    )
+    try:
+        run_local_command_logic(args, "tool", "v0")
+    except SystemExit as e:
+        assert e.code == 0
+    finally:
+        r = redis.Redis()
+        r.ping()
+        # After both benchmarks run, we should have 10000 keys loaded by the load benchmark
+        # The query benchmark reuses this dataset
+        total_keys = r.info("keyspace")["db0"]["keys"]
+        r.shutdown(nosave=True)
+        assert total_keys == 10000
+
+
+def test_run_local_dataset_reuse_not_possible_ftsb():
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_local_arguments(parser)
+    args = parser.parse_args(
+        args=[
+            "--test-glob",
+            "./tests/test_data/vanilla-ftsb-query*.yml",
+            "--keep_env_and_topo",
+        ]
+    )
+    try:
+        run_local_command_logic(args, "tool", "v0")
+    except SystemExit as e:
+        assert e.code == 0
+    finally:
+        r = redis.Redis()
+        r.ping()
+        # After both benchmarks run, we should have 10000 keys loaded by the load benchmark
+        # The query benchmark reuses this dataset
+        total_keys = r.info("keyspace")["db0"]["keys"]
+        r.shutdown(nosave=True)
+        assert total_keys == 100
+
+
+def test_run_local_dataset_reuse_ftsb():
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_local_arguments(parser)
+    args = parser.parse_args(
+        args=[
+            "--test-glob",
+            "./tests/test_data/vanilla-ftsb-*.yml",
         ]
     )
     try:

@@ -75,7 +75,12 @@ def prepare_redis_benchmark_command(
     if cluster_api_enabled:
         command_arr.extend(["--cluster"])
     minus_x = None
-    for k in benchmark_config["parameters"]:
+
+    parameters = benchmark_config["parameters"]
+
+    # Helper function to process a single parameter dict
+    def process_param(k):
+        nonlocal minus_x, last_str, last_append
         if "clients" in k:
             command_arr.extend(["-c", "{}".format(k["clients"])])
         if "requests" in k:
@@ -95,10 +100,20 @@ def prepare_redis_benchmark_command(
                 "{}/{}".format(current_workdir, k["x"]), "r", encoding="utf-8"
             ) as fd:
                 minus_x = fd.read()
-        # if we have the command keywork then it needs to be at the end of args
+        # if we have the command keyword then it needs to be at the end of args
         if "command" in k:
             last_str = k["command"]
             last_append = shlex.split(k["command"])
+
+    # Handle v0.4 spec where parameters is a dict
+    if isinstance(parameters, dict):
+        process_param(parameters)
+
+    # Handle v0.1-0.3 spec where parameters is a list of dicts
+    elif isinstance(parameters, list):
+        for k in parameters:
+            if isinstance(k, dict):
+                process_param(k)
 
     if minus_x is not None:
         last_str += " '{}'".format(minus_x)

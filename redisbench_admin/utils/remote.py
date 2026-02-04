@@ -371,7 +371,7 @@ def setup_remote_environment(
             pass
 
         logging.error("=" * 80)
-        logging.error(f"Terraform setup details:")
+        logging.error("Terraform setup details:")
         logging.error(f"  - Setup name: {tf_setup_name}")
         logging.error(f"  - GitHub org: {tf_github_org}")
         logging.error(f"  - GitHub repo: {tf_github_repo}")
@@ -383,7 +383,7 @@ def setup_remote_environment(
         # Re-raise the exception with more context
         raise
 
-    infra_wait_secs = 60
+    infra_wait_secs = 30
     logging.warning(f"Infra ready wait... for {infra_wait_secs} secs")
     time.sleep(infra_wait_secs)
     return retrieve_tf_connection_vars(return_code, tf)

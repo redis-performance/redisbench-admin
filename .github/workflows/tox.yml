@@ -9,11 +9,11 @@ jobs:
   pytest:
     strategy:
       matrix:
-        python-version: [ '3.10', '3.11', '3.12' ]
+        python-version: [ '3.11', '3.12', '3.13', '3.14' ]
       fail-fast: false
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-      USING_COVERAGE: "3.10"
+      USING_COVERAGE: "3.11"
       USING_COVERAGE_OS: "ubuntu-latest"
 
     runs-on: "ubuntu-latest"
@@ -39,12 +39,19 @@ jobs:
       run: |
         git submodule update --init --recursive
 
-    - name: Install Redis
+    - name: Install Redis and memtier_benchmark
       run: |
-        sudo add-apt-repository ppa:redislabs/redis
+        sudo apt install lsb-release curl gpg -y
+        curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/redis.list
         sudo apt-get update
-        sudo apt-get install redis -y
+        sudo apt-get install redis memtier-benchmark -y
         sudo systemctl stop redis-server
+  
+    - name: Install ftsb
+      run: |
+        wget -c https://github.com/RediSearch/ftsb/releases/latest/download/ftsb_redisearch_$(uname -mrs | awk '{ print tolower($1) }')_$(dpkg --print-architecture).tar.gz -O - | tar -xz
+        sudo mv ftsb_redisearch /usr/local/bin/
 
     - name: Run tox
       run: |

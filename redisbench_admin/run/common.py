@@ -92,9 +92,17 @@ def extract_input_file_url_from_parameters(entry, benchmark_tool):
     else:
         return None
 
-    for param in entry["parameters"]:
-        if param_name in param:
-            return param[param_name]
+    parameters = entry["parameters"]
+
+    # Handle v0.4 spec where parameters is a dict
+    if isinstance(parameters, dict):
+        return parameters.get(param_name)
+
+    # Handle v0.1-0.3 spec where parameters is a list of dicts
+    if isinstance(parameters, list):
+        for param in parameters:
+            if isinstance(param, dict) and param_name in param:
+                return param[param_name]
 
     return None
 
@@ -762,6 +770,7 @@ def dso_check(dso, local_module_file):
                 )
     return dso
 
+
 def dbconfig_keyspacelen_check(
     benchmark_config, redis_conns, ignore_keyspace_errors=False, timeout=60
 ):
@@ -787,9 +796,7 @@ def dbconfig_keyspacelen_check(
 
         if total_keys == keyspacelen:
             logging.info(
-                "The total number of keys in setup matches the expected spec: {} == {}".format(
-                    keyspacelen, total_keys
-                )
+                f"🟢 Keyspace check PASSED: expected={keyspacelen}, got={total_keys}"
             )
             return True
 
@@ -802,7 +809,7 @@ def dbconfig_keyspacelen_check(
         attempt += 1
 
     logging.error(
-        f"The total number of keys in setup does not match the expected spec: {keyspacelen} != {total_keys}. Aborting after {attempt + 1} tries..."
+        f"🔴 Keyspace check FAILED: expected={keyspacelen}, got={total_keys} (after {attempt + 1} tries)"
     )
 
     if not ignore_keyspace_errors:

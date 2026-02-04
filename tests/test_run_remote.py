@@ -3,16 +3,20 @@
 #  Copyright (c) 2021., Redis Labs Modules
 #  All rights reserved.
 #
+import argparse
 import os
 
+import pytest
 import redis
 import yaml
 
 from redisbench_admin.run.metrics import collect_redis_metrics
-
+from redisbench_admin.run_remote.args import create_run_remote_arguments
 from redisbench_admin.run_remote.run_remote import (
     export_redis_metrics,
+    run_remote_command_logic,
 )
+from redisbench_admin.utils.remote import check_ec2_env
 
 
 def test_export_redis_metrics():
@@ -28,11 +32,12 @@ def test_export_redis_metrics():
     artifact_version = None
     try:
         rts_host = os.environ.get("RTS_DATASINK_HOST", None)
-        # Ensure we have the test DB to store results
-        assert "RTS_PORT" in os.environ
         rts_port = os.environ.get("RTS_PORT", None)
-        if rts_host is None:
-            return
+        # Skip test if required environment variables are not set
+        if rts_port is None or rts_host is None:
+            pytest.skip(
+                "RTS_PORT and RTS_DATASINK_HOST environment variables are required for this test"
+            )
         rts = redis.Redis(port=rts_port, host=rts_host)
         rts.ping()
         datapoint_errors, datapoint_inserts = export_redis_metrics(
@@ -196,3 +201,78 @@ def test_export_redis_metrics():
 
     except redis.exceptions.ConnectionError:
         pass
+
+
+def test_run_remote_dataset_reuse_memtier():
+    """
+    Test that benchmarks with the same dataset_name are grouped together
+    for dataset reuse optimization when running remotely.
+
+    - vanilla-memtier-load.yml: has dataset_name in clientconfig (produces dataset)
+    - vanilla-memtier-query.yml: has dataset_name in dbconfig (uses dataset)
+
+    When run together, both are grouped under the same dataset_name "vanilla-memtier",
+    enabling the query benchmark to reuse the dataset loaded by the load benchmark.
+
+    This test also verifies:
+    - Redis PIDs are the same when reusing the environment (ensuring same Redis instance)
+    - Keyspace checks are confirmed when reusing the dataset
+
+    This test requires:
+    1. RUN_REMOTE_TESTS=1 environment variable to be set
+    2. Either AWS credentials for terraform deployment OR pre-deployed inventory
+       (DB_SERVER_HOST, CLIENT_SERVER_HOST)
+    """
+    # Only run when explicitly enabled
+    if os.getenv("RUN_REMOTE_TESTS", "0") != "1":
+        pytest.skip("Remote tests disabled. Set RUN_REMOTE_TESTS=1 to enable.")
+
+    # Check for pre-deployed inventory first (faster if available)
+    db_server_ip = os.getenv("DB_SERVER_HOST", None)
+    client_server_ip = os.getenv("CLIENT_SERVER_HOST", None)
+    private_key_path = os.getenv(
+        "EC2_PRIVATE_PEM", "./tests/test_data/test-ssh/tox_rsa"
+    )
+
+    has_inventory = db_server_ip is not None and client_server_ip is not None
+
+    # Check for AWS credentials for terraform deployment
+    has_aws_credentials, _ = check_ec2_env()
+
+    if not has_inventory and not has_aws_credentials:
+        pytest.skip(
+            "This test requires either pre-deployed inventory "
+            "(DB_SERVER_HOST, CLIENT_SERVER_HOST) or AWS credentials "
+            "(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION)"
+        )
+
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_remote_arguments(parser)
+
+    # Build args list
+    args_list = [
+        "--test-glob",
+        "./tests/test_data/vanilla-memtier-*.yml",
+        "--skip-env-vars-verify",
+    ]
+
+    # Add inventory if we have pre-deployed servers
+    if has_inventory:
+        args_list.extend(
+            [
+                "--inventory",
+                f"server_private_ip={db_server_ip},server_public_ip={db_server_ip},client_public_ip={client_server_ip}",
+                "--private_key",
+                private_key_path,
+            ]
+        )
+
+    args = parser.parse_args(args=args_list)
+
+    try:
+        run_remote_command_logic(args, "tool", "v0")
+    except SystemExit as e:
+        assert e.code == 0, f"run_remote_command_logic exited with code {e.code}"

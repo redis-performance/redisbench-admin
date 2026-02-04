@@ -37,18 +37,38 @@ def prepare_ftsb_benchmark_command(
     if cluster_api_enabled is True:
         command_arr.extend(["--cluster-mode"])
     if "parameters" in benchmark_config:
-        for k in benchmark_config["parameters"]:
-            if "input" in k:
-                input_file = k["input"]
-                input_file = check_if_needs_remote_fetch(
-                    input_file, "/tmp", None, remote_queries_file, is_remote
-                )
-                command_arr.extend(["--input", input_file])
-            elif "max-token-size-mb" in k:
-                command_arr.extend(["--max-token-size-mb", str(k["max-token-size-mb"])])
-            else:
-                for kk in k.keys():
-                    command_arr.extend(["--{}".format(kk), str(k[kk])])
+        parameters = benchmark_config["parameters"]
+
+        # Handle v0.4 spec where parameters is a dict
+        if isinstance(parameters, dict):
+            for key, value in parameters.items():
+                if key == "input":
+                    input_file = check_if_needs_remote_fetch(
+                        value, "/tmp", None, remote_queries_file, is_remote
+                    )
+                    command_arr.extend(["--input", input_file])
+                elif key == "max-token-size-mb":
+                    command_arr.extend(["--max-token-size-mb", str(value)])
+                else:
+                    command_arr.extend(["--{}".format(key), str(value)])
+
+        # Handle v0.1-0.3 spec where parameters is a list of dicts
+        elif isinstance(parameters, list):
+            for k in parameters:
+                if isinstance(k, dict):
+                    if "input" in k:
+                        input_file = k["input"]
+                        input_file = check_if_needs_remote_fetch(
+                            input_file, "/tmp", None, remote_queries_file, is_remote
+                        )
+                        command_arr.extend(["--input", input_file])
+                    elif "max-token-size-mb" in k:
+                        command_arr.extend(
+                            ["--max-token-size-mb", str(k["max-token-size-mb"])]
+                        )
+                    else:
+                        for kk in k.keys():
+                            command_arr.extend(["--{}".format(kk), str(k[kk])])
 
     command_arr.extend(["--json-out-file", result_file])
 
