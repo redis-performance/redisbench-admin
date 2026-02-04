@@ -83,6 +83,12 @@ def test_export_command_logic_enterprise():
     import os
     import pytest
 
+    benchmark_file = "./tests/test_data/results/result_report_1690282709.835491.json"
+
+    # Skip if test file doesn't exist (not tracked in git)
+    if not os.path.exists(benchmark_file):
+        pytest.skip(f"Test file {benchmark_file} does not exist")
+
     # Ensure we have the test DB to store results
     if "RTS_PORT" not in os.environ:
         pytest.skip("RTS_PORT environment variable not set")
@@ -103,7 +109,7 @@ def test_export_command_logic_enterprise():
     args = parser.parse_args(
         args=[
             "--benchmark-result-file",
-            "./tests/test_data/results/result_report_1690282709.835491.json",
+            benchmark_file,
             "--exporter-spec-file",
             "./tests/test_data/common-properties-enterprise.yml",
             "--redistimeseries_host",

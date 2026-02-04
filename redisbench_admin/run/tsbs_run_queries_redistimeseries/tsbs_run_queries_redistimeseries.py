@@ -35,16 +35,32 @@ def prepare_tsbs_benchmark_command(
     if cluster_api_enabled is True:
         command_arr.extend(["--cluster"])
     if "parameters" in benchmark_config:
-        for k in benchmark_config["parameters"]:
-            if "file" in k:
-                input_file = k["file"]
-                input_file = check_if_needs_remote_fetch(
-                    input_file, "/tmp", None, remote_queries_file, is_remote
-                )
-                command_arr.extend(["--file", input_file])
-            else:
-                for kk in k.keys():
-                    command_arr.extend(["--{}".format(kk), str(k[kk])])
+        parameters = benchmark_config["parameters"]
+
+        # Handle v0.4 spec where parameters is a dict
+        if isinstance(parameters, dict):
+            for key, value in parameters.items():
+                if key == "file":
+                    input_file = check_if_needs_remote_fetch(
+                        value, "/tmp", None, remote_queries_file, is_remote
+                    )
+                    command_arr.extend(["--file", input_file])
+                else:
+                    command_arr.extend(["--{}".format(key), str(value)])
+
+        # Handle v0.1-0.3 spec where parameters is a list of dicts
+        elif isinstance(parameters, list):
+            for k in parameters:
+                if isinstance(k, dict):
+                    if "file" in k:
+                        input_file = k["file"]
+                        input_file = check_if_needs_remote_fetch(
+                            input_file, "/tmp", None, remote_queries_file, is_remote
+                        )
+                        command_arr.extend(["--file", input_file])
+                    else:
+                        for kk in k.keys():
+                            command_arr.extend(["--{}".format(kk), str(k[kk])])
 
     command_arr.extend(["--results-file", result_file])
 

@@ -295,3 +295,48 @@ def test_run_local_dataset_reuse_not_possible_memtier():
         total_keys = r.info("keyspace")["db0"]["keys"]
         r.shutdown(nosave=True)
         assert total_keys == 10000
+
+
+def test_run_local_dataset_reuse_not_possible_ftsb():
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_local_arguments(parser)
+    args = parser.parse_args(
+        args=[
+            "--test-glob",
+            "./tests/test_data/vanilla-ftsb-query*.yml",
+            "--keep_env_and_topo",
+        ]
+    )
+    try:
+        run_local_command_logic(args, "tool", "v0")
+    except SystemExit as e:
+        assert e.code == 0
+    finally:
+        r = redis.Redis()
+        r.ping()
+        # After both benchmarks run, we should have 10000 keys loaded by the load benchmark
+        # The query benchmark reuses this dataset
+        total_keys = r.info("keyspace")["db0"]["keys"]
+        r.shutdown(nosave=True)
+        assert total_keys == 100
+
+
+def test_run_local_dataset_reuse_ftsb():
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_local_arguments(parser)
+    args = parser.parse_args(
+        args=[
+            "--test-glob",
+            "./tests/test_data/vanilla-ftsb-*.yml",
+        ]
+    )
+    try:
+        run_local_command_logic(args, "tool", "v0")
+    except SystemExit as e:
+        assert e.code == 0

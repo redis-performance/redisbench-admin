@@ -25,6 +25,7 @@ from redisbench_admin.run.common import (
     dbconfig_keyspacelen_check,
     common_properties_log,
     execute_init_commands,
+    extract_input_file_url_from_parameters,
 )
 from redisbench_admin.run_remote.args import create_run_remote_arguments
 
@@ -624,3 +625,100 @@ def test_execute_init_commands():
         assert b"key2" in redis.keys()
     except ConnectionError:
         pass
+
+
+def test_extract_input_file_url_from_parameters():
+    """Test extract_input_file_url_from_parameters with both v0.1-0.3 (list) and v0.4 (dict) formats"""
+
+    # Test v0.4 spec - parameters as dict (ftsb tool with "input")
+    entry_dict_ftsb = {
+        "parameters": {
+            "workers": 64,
+            "reporting-period": "1s",
+            "input": "https://example.com/data.csv",
+        }
+    }
+    result = extract_input_file_url_from_parameters(entry_dict_ftsb, "ftsb_redisearch")
+    assert result == "https://example.com/data.csv"
+
+    # Test v0.4 spec - parameters as dict (tsbs tool with "file")
+    entry_dict_tsbs = {
+        "parameters": {
+            "workers": 32,
+            "file": "https://example.com/tsbs_data.dat",
+        }
+    }
+    result = extract_input_file_url_from_parameters(
+        entry_dict_tsbs, "tsbs_load_redistimeseries"
+    )
+    assert result == "https://example.com/tsbs_data.dat"
+
+    # Test v0.1-0.3 spec - parameters as list of dicts (ftsb tool)
+    entry_list_ftsb = {
+        "parameters": [
+            {"workers": 64},
+            {"reporting-period": "1s"},
+            {"input": "https://example.com/list_data.csv"},
+        ]
+    }
+    result = extract_input_file_url_from_parameters(entry_list_ftsb, "ftsb_redisearch")
+    assert result == "https://example.com/list_data.csv"
+
+    # Test v0.1-0.3 spec - parameters as list of dicts (tsbs tool)
+    entry_list_tsbs = {
+        "parameters": [
+            {"workers": 32},
+            {"file": "https://example.com/tsbs_list_data.dat"},
+        ]
+    }
+    result = extract_input_file_url_from_parameters(
+        entry_list_tsbs, "tsbs_run_queries_redistimeseries"
+    )
+    assert result == "https://example.com/tsbs_list_data.dat"
+
+    # Test aibench tool with "file" parameter
+    entry_aibench = {
+        "parameters": {
+            "file": "https://example.com/aibench_data.dat",
+        }
+    }
+    result = extract_input_file_url_from_parameters(
+        entry_aibench, "aibench_run_inference_redisai"
+    )
+    assert result == "https://example.com/aibench_data.dat"
+
+    # Test with no parameters key
+    entry_no_params = {"tool": "ftsb_redisearch"}
+    result = extract_input_file_url_from_parameters(entry_no_params, "ftsb_redisearch")
+    assert result is None
+
+    # Test with unsupported tool (should return None)
+    entry_other_tool = {
+        "parameters": {
+            "input": "https://example.com/data.csv",
+        }
+    }
+    result = extract_input_file_url_from_parameters(entry_other_tool, "redis-benchmark")
+    assert result is None
+
+    # Test with missing parameter name in dict
+    entry_missing_param = {
+        "parameters": {
+            "workers": 64,
+        }
+    }
+    result = extract_input_file_url_from_parameters(
+        entry_missing_param, "ftsb_redisearch"
+    )
+    assert result is None
+
+    # Test with missing parameter name in list
+    entry_missing_param_list = {
+        "parameters": [
+            {"workers": 64},
+        ]
+    }
+    result = extract_input_file_url_from_parameters(
+        entry_missing_param_list, "ftsb_redisearch"
+    )
+    assert result is None

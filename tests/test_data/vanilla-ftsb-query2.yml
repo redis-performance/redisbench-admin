@@ -1,0 +1,24 @@
+
+name: "vanilla-ftsb-query2"
+setups:
+  - oss-standalone
+remote:
+ - type: oss-standalone
+ - setup: redisearch-m5
+
+# This benchmark uses the dataset produced by vanilla-ftsb-load.yml
+# The dataset_name in dbconfig indicates which dataset this benchmark needs.
+dbconfig:
+  tool: ftsb_redisearch
+  dataset_name: "vanilla-ftsb"
+  parameters:
+    workers: 64
+    reporting-period: 1s
+    input: "https://s3.amazonaws.com/benchmarks.redislabs/redisearch/datasets/1700K-docs-union-iterators/100-docs-union-iterators.idx133.commands.SETUP.csv"
+  check:
+   keyspacelen: 100
+
+clientconfig:
+  benchmark_type: "read-only"
+  tool: memtier_benchmark
+  arguments: "-d 1000 --ratio 0:1 --test-time 5 --pipeline 15 --key-pattern=P:P -t 2 --hide-histogram --key-maximum=10000 --key-minimum 1"

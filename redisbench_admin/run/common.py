@@ -92,9 +92,17 @@ def extract_input_file_url_from_parameters(entry, benchmark_tool):
     else:
         return None
 
-    for param in entry["parameters"]:
-        if param_name in param:
-            return param[param_name]
+    parameters = entry["parameters"]
+
+    # Handle v0.4 spec where parameters is a dict
+    if isinstance(parameters, dict):
+        return parameters.get(param_name)
+
+    # Handle v0.1-0.3 spec where parameters is a list of dicts
+    if isinstance(parameters, list):
+        for param in parameters:
+            if isinstance(param, dict) and param_name in param:
+                return param[param_name]
 
     return None
 
