@@ -160,8 +160,13 @@ def run_local_command_logic(args, project_name, project_version):
     # we have a map of test-type, dataset-name, topology, test-name
     benchmark_runs_plan = define_benchmark_plan(benchmark_definitions, default_specs)
 
-    # Log the benchmark execution plan as a table
-    log_benchmark_plan_table(benchmark_runs_plan)
+    # Parse allowed_setups for filtering the plan display
+    allowed_setups_list = None
+    if args.allowed_setups != "":
+        allowed_setups_list = args.allowed_setups.split(",")
+
+    # Log the benchmark execution plan as a table (filtered by allowed_setups if specified)
+    log_benchmark_plan_table(benchmark_runs_plan, allowed_setups_list)
 
     # Track if we should reuse the environment from mixed benchmarks for read-only ones
     reuse_mixed = "mixed" in benchmark_runs_plan and "read-only" in benchmark_runs_plan

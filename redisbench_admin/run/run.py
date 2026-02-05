@@ -163,11 +163,15 @@ def reorganize_benchmark_plan(benchmark_runs_plan):
     return reorganized
 
 
-def log_benchmark_plan_table(benchmark_runs_plan):
+def log_benchmark_plan_table(benchmark_runs_plan, allowed_setups=None):
     """
     Log the benchmark execution plan as a formatted table.
     Shows the order in which benchmarks will be executed.
     Order: setup -> dataset -> benchmark_type (with mixed first)
+
+    Args:
+        benchmark_runs_plan: The benchmark plan dictionary
+        allowed_setups: Optional list of setup names to filter by. If None or empty, all setups are shown.
     """
     table_headers = ["Order", "Setup", "Dataset Name", "Benchmark Type", "Test Name"]
     table_rows = []
@@ -176,6 +180,10 @@ def log_benchmark_plan_table(benchmark_runs_plan):
     reorganized = reorganize_benchmark_plan(benchmark_runs_plan)
 
     for setup_name in sorted(reorganized.keys()):
+        # Filter by allowed_setups if specified
+        if allowed_setups and len(allowed_setups) > 0:
+            if setup_name not in allowed_setups:
+                continue
         bench_by_dataset_map = reorganized[setup_name]
         for dataset_name in sorted(bench_by_dataset_map.keys()):
             bench_by_type_map = bench_by_dataset_map[dataset_name]
