@@ -122,6 +122,7 @@ def prepare_benchmark_parameters(
     private_key=None,
     client_ssh_port=None,
     redis_password=None,
+    log_out_file=None,
 ):
     command_arr = None
     command_str = None
@@ -150,6 +151,7 @@ def prepare_benchmark_parameters(
                     client_ssh_port,
                     redis_password,
                     input_file_url,
+                    log_out_file,
                 )
     # v0.4 spec
     elif type(benchmark_config[config_key]) == dict:
@@ -173,6 +175,7 @@ def prepare_benchmark_parameters(
             client_ssh_port,
             redis_password,
             input_file_url,
+            log_out_file,
         )
     printed_command_str = command_str
     printed_command_arr = command_arr
@@ -204,6 +207,7 @@ def prepare_benchmark_parameters_specif_tooling(
     client_ssh_port,
     redis_password=None,
     input_file_url=None,
+    log_out_file=None,
 ):
     if "redis-benchmark" in benchmark_tool:
         command_arr, command_str = prepare_redis_benchmark_command(
@@ -325,6 +329,7 @@ def prepare_benchmark_parameters_specif_tooling(
             isremote,
             cluster_api_enabled,
             redis_password,
+            log_out_file,
         )
     if "aibench_" in benchmark_tool:
         input_data_file = None

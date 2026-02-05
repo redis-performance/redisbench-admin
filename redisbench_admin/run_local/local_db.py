@@ -196,6 +196,16 @@ def local_db_spin(
             benchmark_config, args.allowed_tools, "./binaries", "dbconfig"
         )
 
+        # For ftsb tools, set up log file path
+        local_log_out_file = None
+        if "ftsb_" in benchmark_tool:
+            local_log_out_file = "{}/load-data.log".format(temporary_dir)
+            logging.info(
+                "Will store benchmark log output to local file {}".format(
+                    local_log_out_file
+                )
+            )
+
         # prepare the benchmark command
         command, command_str = prepare_benchmark_parameters(
             benchmark_config,
@@ -212,6 +222,7 @@ def local_db_spin(
             None,
             None,
             args.password,
+            local_log_out_file,
         )
 
         # run the benchmark

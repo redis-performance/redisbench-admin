@@ -1024,6 +1024,30 @@ def run_remote_command_logic(args, project_name, project_version):
                                             args.upload_results_s3,
                                             username,
                                         )
+                                        # Upload client artifacts (including log files) on error
+                                        if args.upload_results_s3:
+                                            client_artifacts.append(local_bench_fname)
+                                            client_artifacts.extend(
+                                                client_output_artifacts
+                                            )
+                                            if len(client_artifacts) > 0:
+                                                logging.info(
+                                                    "Uploading CLIENT artifacts on error to s3. s3 bucket name: {}. s3 bucket path: {}".format(
+                                                        s3_bucket_name, s3_bucket_path
+                                                    )
+                                                )
+                                                try:
+                                                    upload_artifacts_to_s3(
+                                                        client_artifacts,
+                                                        s3_bucket_name,
+                                                        s3_bucket_path,
+                                                    )
+                                                except Exception as e:
+                                                    logging.warning(
+                                                        "Failed to upload client artifacts to S3: {}. Continuing.".format(
+                                                            e
+                                                        )
+                                                    )
                                         return_code |= 1
                                         raise Exception(
                                             "Failed to run remote benchmark."

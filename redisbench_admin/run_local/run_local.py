@@ -375,6 +375,20 @@ def run_local_command_logic(args, project_name, project_version):
                                     benchmark_config, args.allowed_tools
                                 )
 
+                                # For ftsb tools, set up log file path
+                                local_log_out_file = None
+                                if "ftsb_" in benchmark_tool:
+                                    local_log_out_file = (
+                                        local_benchmark_output_filename.replace(
+                                            ".json", ".log"
+                                        )
+                                    )
+                                    logging.info(
+                                        "Will store benchmark log output to local file {}".format(
+                                            local_log_out_file
+                                        )
+                                    )
+
                                 # prepare the benchmark command
                                 command, command_str = prepare_benchmark_parameters(
                                     benchmark_config,
@@ -391,6 +405,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     None,
                                     None,
                                     args.password,
+                                    local_log_out_file,
                                 )
                                 # get the pids
                                 redis_pids = [
