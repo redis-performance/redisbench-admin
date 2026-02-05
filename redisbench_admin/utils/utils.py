@@ -121,7 +121,9 @@ def generate_common_server_args(
         bigredis_path = bigredis_path + f"-{port}"
         bigredis_use_async = os.getenv("BIGREDIS_USE_ASYNC", "no")
         bigredis_max_ram = os.getenv("BIGREDIS_MAX_RAM", "1GB")
-        logging.info(f"BigRedis enabled. Using bigredis-path: {bigredis_path}, bigredis-max-ram: {bigredis_max_ram}, bigredis-use-async: {bigredis_use_async}")
+        logging.info(
+            f"BigRedis enabled. Using bigredis-path: {bigredis_path}, bigredis-max-ram: {bigredis_max_ram}, bigredis-use-async: {bigredis_use_async}"
+        )
         command.extend(
             [
                 "--bigredis-enabled",
