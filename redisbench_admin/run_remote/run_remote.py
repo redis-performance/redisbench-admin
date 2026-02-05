@@ -1415,11 +1415,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                             # (for reused environments), otherwise use the current temporary_dir
                                             _temporary_dir = temporary_dir
                                             try:
-                                                if (
-                                                    setup_details.get("env")
-                                                    and setup_details["env"].get(
-                                                        "temporary_dir"
-                                                    )
+                                                if setup_details.get(
+                                                    "env"
+                                                ) and setup_details["env"].get(
+                                                    "temporary_dir"
                                                 ):
                                                     _temporary_dir = setup_details[
                                                         "env"
