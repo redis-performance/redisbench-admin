@@ -47,6 +47,7 @@ from redisbench_admin.run.run import (
     calculate_client_tool_duration_and_check,
     define_benchmark_plan,
     ensure_mixed_types_first,
+    reorganize_benchmark_plan,
     log_benchmark_plan_table,
     EnvironmentTracker,
 )
@@ -159,8 +160,13 @@ def run_local_command_logic(args, project_name, project_version):
     # we have a map of test-type, dataset-name, topology, test-name
     benchmark_runs_plan = define_benchmark_plan(benchmark_definitions, default_specs)
 
-    # Log the benchmark execution plan as a table
-    log_benchmark_plan_table(benchmark_runs_plan)
+    # Parse allowed_setups for filtering the plan display
+    allowed_setups_list = None
+    if args.allowed_setups != "":
+        allowed_setups_list = args.allowed_setups.split(",")
+
+    # Log the benchmark execution plan as a table (filtered by allowed_setups if specified)
+    log_benchmark_plan_table(benchmark_runs_plan, allowed_setups_list)
 
     # Track if we should reuse the environment from mixed benchmarks for read-only ones
     reuse_mixed = "mixed" in benchmark_runs_plan and "read-only" in benchmark_runs_plan
@@ -174,16 +180,21 @@ def run_local_command_logic(args, project_name, project_version):
     # Track environment creation and reuse for summary
     env_tracker = EnvironmentTracker()
 
-    # Ensure mixed (load) benchmarks run before read-only (query) benchmarks
-    for benchmark_type, bench_by_dataset_map in ensure_mixed_types_first(
-        benchmark_runs_plan
-    ):
+    # Reorganize plan: setup -> dataset -> benchmark_type (with mixed first)
+    reorganized_plan = reorganize_benchmark_plan(benchmark_runs_plan)
 
-        for (
-            dataset_name,
-            bench_by_dataset_and_setup_map,
-        ) in bench_by_dataset_map.items():
-            for setup_name, setup_details in bench_by_dataset_and_setup_map.items():
+    for setup_name in sorted(reorganized_plan.keys()):
+        logging.info("Running benchmarks for setup {}.".format(setup_name))
+
+        bench_by_dataset_map = reorganized_plan[setup_name]
+        for dataset_name in sorted(bench_by_dataset_map.keys()):
+            logging.info("Running benchmarks for dataset {}.".format(dataset_name))
+
+            bench_by_type_map = bench_by_dataset_map[dataset_name]
+            for benchmark_type in ensure_mixed_types_first(bench_by_type_map.keys()):
+                logging.info("Running benchmarks of type {}.".format(benchmark_type))
+
+                setup_details = bench_by_type_map[benchmark_type]
                 setup_settings = setup_details["setup_settings"]
                 benchmarks_map = setup_details["benchmarks"]
 
@@ -198,6 +209,7 @@ def run_local_command_logic(args, project_name, project_version):
                     )
                 else:
                     setup_details["env"] = None
+
                 for test_name, benchmark_config in benchmarks_map.items():
                     for repetition in range(1, BENCHMARK_REPETITIONS + 1):
                         logging.info(
@@ -375,6 +387,20 @@ def run_local_command_logic(args, project_name, project_version):
                                     benchmark_config, args.allowed_tools
                                 )
 
+                                # For ftsb tools, set up log file path
+                                local_log_out_file = None
+                                if "ftsb_" in benchmark_tool:
+                                    local_log_out_file = (
+                                        local_benchmark_output_filename.replace(
+                                            ".json", ".log"
+                                        )
+                                    )
+                                    logging.info(
+                                        "Will store benchmark log output to local file {}".format(
+                                            local_log_out_file
+                                        )
+                                    )
+
                                 # prepare the benchmark command
                                 command, command_str = prepare_benchmark_parameters(
                                     benchmark_config,
@@ -391,6 +417,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     None,
                                     None,
                                     args.password,
+                                    local_log_out_file,
                                 )
                                 # get the pids
                                 redis_pids = [

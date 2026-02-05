@@ -298,6 +298,9 @@ def test_run_local_dataset_reuse_not_possible_memtier():
 
 
 def test_run_local_dataset_reuse_not_possible_ftsb():
+    import glob
+    import tempfile
+
     parser = argparse.ArgumentParser(
         description="test",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -322,6 +325,14 @@ def test_run_local_dataset_reuse_not_possible_ftsb():
         total_keys = r.info("keyspace")["db0"]["keys"]
         r.shutdown(nosave=True)
         assert total_keys == 100
+
+    # Verify that ftsb log files were created in temp directory
+    temp_dir = tempfile.gettempdir()
+    log_files = glob.glob(os.path.join(temp_dir, "**/load-data.log"), recursive=True)
+    assert len(log_files) > 0, "Expected ftsb log files to be created"
+    # Verify log file is not empty
+    for log_file in log_files:
+        assert os.path.getsize(log_file) > 0, f"Log file {log_file} should not be empty"
 
 
 def test_run_local_dataset_reuse_ftsb():

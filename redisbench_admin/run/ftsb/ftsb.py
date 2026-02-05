@@ -18,6 +18,7 @@ def prepare_ftsb_benchmark_command(
     is_remote: bool,
     cluster_api_enabled: bool = False,
     redis_password=None,
+    log_out_file=None,
 ):
     """
     Prepares prepare_ftsb_benchmark_command command parameters
@@ -32,6 +33,8 @@ def prepare_ftsb_benchmark_command(
     command_arr.extend(
         ["--host", "{}:{}".format(server_private_ip, server_plaintext_port)]
     )
+    if log_out_file is not None:
+        command_arr.extend(["--log-file", log_out_file])
     if redis_password is not None:
         command_arr.extend(["--a", redis_password])
     if cluster_api_enabled is True:

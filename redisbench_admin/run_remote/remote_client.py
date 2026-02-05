@@ -94,6 +94,20 @@ def run_remote_client_tool(
             client_public_ip, username, private_key, client_ssh_port
         )
 
+    # For ftsb tools, set up log file paths for collection
+    remote_log_out_file = None
+    if "ftsb_" in benchmark_tool:
+        # Create log file path using same pattern as json output file
+        remote_log_out_file = remote_results_file.replace(".out", ".log")
+        local_log_out_file = local_bench_fname.replace(".json", ".log")
+        remote_output_artifacts.append(remote_log_out_file)
+        local_output_artifacts.append(local_log_out_file)
+        logging.info(
+            "FTSB log file will be stored remotely at {} and fetched to {}".format(
+                remote_log_out_file, local_log_out_file
+            )
+        )
+
     command, command_str = prepare_benchmark_parameters(
         benchmark_config,
         benchmark_tool,
@@ -109,6 +123,7 @@ def run_remote_client_tool(
         private_key,
         client_ssh_port,
         redis_password,
+        remote_log_out_file,
     )
     tmp = None
     if benchmark_tool == "redis-benchmark":

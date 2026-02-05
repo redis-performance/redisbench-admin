@@ -42,6 +42,7 @@ from redisbench_admin.run.redistimeseries import (
 from redisbench_admin.run.run import (
     define_benchmark_plan,
     ensure_mixed_types_first,
+    reorganize_benchmark_plan,
     log_benchmark_plan_table,
     EnvironmentTracker,
 )
@@ -375,8 +376,13 @@ def run_remote_command_logic(args, project_name, project_version):
     # we have a map of test-type, dataset-name, topology, test-name
     benchmark_runs_plan = define_benchmark_plan(benchmark_definitions, default_specs)
 
-    # Log the benchmark execution plan as a table
-    log_benchmark_plan_table(benchmark_runs_plan)
+    # Parse allowed_setups for filtering the plan display
+    allowed_setups_list = None
+    if args.allowed_setups != "":
+        allowed_setups_list = args.allowed_setups.split(",")
+
+    # Log the benchmark execution plan as a table (filtered by allowed_setups if specified)
+    log_benchmark_plan_table(benchmark_runs_plan, allowed_setups_list)
 
     profiler_dashboard_table_name = "Profiler dashboard links"
     profiler_dashboard_table_headers = ["Setup", "Test-case", "Grafana Dashboard"]
@@ -403,31 +409,32 @@ def run_remote_command_logic(args, project_name, project_version):
     ts_key_full_price = f"ts:{tf_triggering_env}:tests:full_price"
     ts_key_architecture = f"ts:{tf_triggering_env}:tests:arch:{architecture}"
     reuse_mixed = False
+    # Check if we have both mixed and read-only benchmarks for environment reuse
+    if "mixed" in benchmark_runs_plan and "read-only" in benchmark_runs_plan:
+        reuse_mixed = True
+        logging.info(
+            "Detected mixed and read-only benchmarks. Will reuse environment for dataset optimization."
+        )
     # Shared environment storage across benchmark types, keyed by (dataset_name, setup_name)
     shared_env = {}
     # Track environment creation and reuse for summary
     env_tracker = EnvironmentTracker()
 
-    for benchmark_type, bench_by_dataset_map in ensure_mixed_types_first(
-        benchmark_runs_plan
-    ):
-        if benchmark_type == "mixed" and "read-only" in benchmark_runs_plan:
-            reuse_mixed = True
-            logging.info(
-                "Detected mixed and read-only benchmarks. Will reuse environment for dataset optimization."
-            )
+    # Reorganize plan: setup -> dataset -> benchmark_type (with mixed first)
+    reorganized_plan = reorganize_benchmark_plan(benchmark_runs_plan)
+
+    for setup_name in sorted(reorganized_plan.keys()):
         if return_code != 0 and args.fail_fast:
             logging.warning(
-                "Given you've selected fail fast skipping benchmark_type {}".format(
-                    benchmark_type
-                )
+                "Given you've selected fail fast skipping setup {}".format(setup_name)
             )
             continue
-        logging.info("Running benchmarks of type {}.".format(benchmark_type))
-        for (
-            dataset_name,
-            bench_by_dataset_and_setup_map,
-        ) in bench_by_dataset_map.items():
+        logging.info("Running benchmarks for setup {}.".format(setup_name))
+        # map from setup name to overall target-tables ( if any target is defined )
+        overall_tables[setup_name] = {}
+
+        bench_by_dataset_map = reorganized_plan[setup_name]
+        for dataset_name in sorted(bench_by_dataset_map.keys()):
             if return_code != 0 and args.fail_fast:
                 logging.warning(
                     "Given you've selected fail fast skipping dataset {}".format(
@@ -436,15 +443,19 @@ def run_remote_command_logic(args, project_name, project_version):
                 )
                 continue
             logging.info("Running benchmarks for dataset {}.".format(dataset_name))
-            for setup_name, setup_details in bench_by_dataset_and_setup_map.items():
+
+            bench_by_type_map = bench_by_dataset_map[dataset_name]
+            for benchmark_type in ensure_mixed_types_first(bench_by_type_map.keys()):
                 if return_code != 0 and args.fail_fast:
                     logging.warning(
-                        "Given you've selected fail fast skipping setup {}".format(
-                            setup_name
+                        "Given you've selected fail fast skipping benchmark_type {}".format(
+                            benchmark_type
                         )
                     )
                     continue
+                logging.info("Running benchmarks of type {}.".format(benchmark_type))
 
+                setup_details = bench_by_type_map[benchmark_type]
                 setup_settings = setup_details["setup_settings"]
                 benchmarks_map = setup_details["benchmarks"]
 
@@ -459,9 +470,6 @@ def run_remote_command_logic(args, project_name, project_version):
                     )
                 elif "env" not in setup_details:
                     setup_details["env"] = None
-
-                # map from setup name to overall target-tables ( if any target is defined )
-                overall_tables[setup_name] = {}
 
                 for test_name, benchmark_config in benchmarks_map.items():
                     if return_code != 0 and args.fail_fast:
@@ -703,6 +711,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 setup_details,
                                                 ssh_tunnel,
                                                 full_logfiles,
+                                                temporary_dir,
                                             )
                                             # Update tracker with PIDs after ro_benchmark_set stores them
                                             if setup_details.get(
@@ -739,6 +748,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             server_plaintext_port,
                                             ssh_tunnel,
                                             pids_match,
+                                            temporary_dir,
                                         ) = ro_benchmark_reuse(
                                             artifact_version,
                                             benchmark_type,
@@ -750,6 +760,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             server_plaintext_port,
                                             setup_details,
                                             ssh_tunnel,
+                                            temporary_dir,
                                             benchmark_config,
                                             ignore_keyspace_errors,
                                         )
@@ -1024,6 +1035,30 @@ def run_remote_command_logic(args, project_name, project_version):
                                             args.upload_results_s3,
                                             username,
                                         )
+                                        # Upload client artifacts (including log files) on error
+                                        if args.upload_results_s3:
+                                            client_artifacts.append(local_bench_fname)
+                                            client_artifacts.extend(
+                                                client_output_artifacts
+                                            )
+                                            if len(client_artifacts) > 0:
+                                                logging.info(
+                                                    "Uploading CLIENT artifacts on error to s3. s3 bucket name: {}. s3 bucket path: {}".format(
+                                                        s3_bucket_name, s3_bucket_path
+                                                    )
+                                                )
+                                                try:
+                                                    upload_artifacts_to_s3(
+                                                        client_artifacts,
+                                                        s3_bucket_name,
+                                                        s3_bucket_path,
+                                                    )
+                                                except Exception as e:
+                                                    logging.warning(
+                                                        "Failed to upload client artifacts to S3: {}. Continuing.".format(
+                                                            e
+                                                        )
+                                                    )
                                         return_code |= 1
                                         raise Exception(
                                             "Failed to run remote benchmark."
@@ -1370,6 +1405,83 @@ def run_remote_command_logic(args, project_name, project_version):
                                     traceback.print_exc(file=sys.stdout)
                                     print("-" * 60)
 
+                                    # Upload server and client logs to S3 on exception
+                                    try:
+                                        # Upload server logs if variables are available
+                                        try:
+                                            _logname = logname
+                                            _full_logfiles = full_logfiles
+                                            # Use the original temporary_dir from setup_details["env"] if available
+                                            # (for reused environments), otherwise use the current temporary_dir
+                                            _temporary_dir = temporary_dir
+                                            try:
+                                                if setup_details.get(
+                                                    "env"
+                                                ) and setup_details["env"].get(
+                                                    "temporary_dir"
+                                                ):
+                                                    _temporary_dir = setup_details[
+                                                        "env"
+                                                    ]["temporary_dir"]
+                                                    logging.info(
+                                                        f"Using original temporary_dir from reused environment: {_temporary_dir}"
+                                                    )
+                                            except NameError:
+                                                pass  # setup_details not available
+                                            logging.info(
+                                                "Uploading SERVER artifacts on exception to S3..."
+                                            )
+                                            db_error_artifacts(
+                                                db_ssh_port,
+                                                dirname,
+                                                _full_logfiles,
+                                                _logname,
+                                                private_key,
+                                                s3_bucket_name,
+                                                s3_bucket_path,
+                                                server_public_ip,
+                                                _temporary_dir,
+                                                args.upload_results_s3,
+                                                username,
+                                            )
+                                        except NameError:
+                                            logging.warning(
+                                                "Server log variables not yet initialized, skipping server artifact upload"
+                                            )
+
+                                        # Upload client artifacts if available
+                                        if args.upload_results_s3:
+                                            exception_client_artifacts = []
+                                            try:
+                                                exception_client_artifacts.append(
+                                                    local_bench_fname
+                                                )
+                                            except NameError:
+                                                pass
+                                            try:
+                                                exception_client_artifacts.extend(
+                                                    client_output_artifacts
+                                                )
+                                            except NameError:
+                                                pass
+                                            if len(exception_client_artifacts) > 0:
+                                                logging.info(
+                                                    "Uploading CLIENT artifacts on exception to S3. s3 bucket name: {}. s3 bucket path: {}".format(
+                                                        s3_bucket_name, s3_bucket_path
+                                                    )
+                                                )
+                                                upload_artifacts_to_s3(
+                                                    exception_client_artifacts,
+                                                    s3_bucket_name,
+                                                    s3_bucket_path,
+                                                )
+                                    except Exception as upload_error:
+                                        logging.warning(
+                                            "Failed to upload artifacts on exception: {}. Continuing.".format(
+                                                upload_error
+                                            )
+                                        )
+
                             else:
                                 logging.info(
                                     f"Test {test_name} does not have remote config. Skipping test."
@@ -1473,6 +1585,7 @@ def ro_benchmark_reuse(
     server_plaintext_port,
     setup_details,
     ssh_tunnel,
+    temporary_dir,
     benchmark_config=None,
     ignore_keyspace_errors=False,
 ):
@@ -1490,6 +1603,8 @@ def ro_benchmark_reuse(
     return_code = setup_details["env"]["return_code"]
     server_plaintext_port = setup_details["env"]["server_plaintext_port"]
     ssh_tunnel = setup_details["env"]["ssh_tunnel"]
+    temporary_dir = setup_details["env"]["temporary_dir"]
+    logging.info(f"Reusing temporary_dir from original environment: {temporary_dir}")
 
     # Verify Redis PIDs are the same (same Redis instance is being reused)
     expected_pids = setup_details["env"].get("redis_pids", [])
@@ -1532,6 +1647,7 @@ def ro_benchmark_reuse(
         server_plaintext_port,
         ssh_tunnel,
         pids_match,
+        temporary_dir,
     )
 
 
@@ -1545,12 +1661,14 @@ def ro_benchmark_set(
     setup_details,
     ssh_tunnel,
     full_logfiles,
+    temporary_dir,
 ):
     logging.info(
         "Given the benchmark for this setup is read-only we will prepare to reuse it on the next read-only benchmarks (if any )."
     )
     setup_details["env"] = {}
     setup_details["env"]["full_logfiles"] = full_logfiles
+    setup_details["env"]["temporary_dir"] = temporary_dir
 
     setup_details["env"]["artifact_version"] = artifact_version
     setup_details["env"]["cluster_enabled"] = cluster_enabled
@@ -1573,6 +1691,7 @@ def ro_benchmark_set(
             redis_pids.append(None)
     setup_details["env"]["redis_pids"] = redis_pids
     logging.info(f"Stored Redis PIDs for reuse verification: {redis_pids}")
+    logging.info(f"Stored temporary_dir for reuse: {temporary_dir}")
 
 
 def export_redis_metrics(

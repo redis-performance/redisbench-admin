@@ -129,38 +129,70 @@ class EnvironmentTracker:
         logging.info("=" * 80)
 
 
-def ensure_mixed_types_first(benchmark_runs_plan):
+def ensure_mixed_types_first(benchmark_types):
     """
-    Returns an iterator over (benchmark_type, bench_by_dataset_map) tuples,
-    ensuring that 'mixed' benchmark types are processed before others.
+    Returns a sorted list of benchmark types, ensuring that 'mixed' types
+    are processed before others.
 
     This ensures that load benchmarks (which produce datasets) run before
     query benchmarks (which consume datasets).
     """
-    return sorted(benchmark_runs_plan.items(), key=lambda x: (x[0] != "mixed", x[0]))
+    return sorted(benchmark_types, key=lambda x: (x != "mixed", x))
 
 
-def log_benchmark_plan_table(benchmark_runs_plan):
+def reorganize_benchmark_plan(benchmark_runs_plan):
+    """
+    Reorganizes the benchmark plan from:
+        benchmark_type -> dataset_name -> setup_name -> {setup_settings, benchmarks}
+    to:
+        setup_name -> dataset_name -> benchmark_type -> {setup_settings, benchmarks}
+
+    This ensures the execution order is: setup -> dataset -> benchmark_type
+    """
+    reorganized = {}
+
+    for benchmark_type, bench_by_dataset_map in benchmark_runs_plan.items():
+        for dataset_name, bench_by_setup_map in bench_by_dataset_map.items():
+            for setup_name, setup_details in bench_by_setup_map.items():
+                if setup_name not in reorganized:
+                    reorganized[setup_name] = {}
+                if dataset_name not in reorganized[setup_name]:
+                    reorganized[setup_name][dataset_name] = {}
+                reorganized[setup_name][dataset_name][benchmark_type] = setup_details
+
+    return reorganized
+
+
+def log_benchmark_plan_table(benchmark_runs_plan, allowed_setups=None):
     """
     Log the benchmark execution plan as a formatted table.
     Shows the order in which benchmarks will be executed.
+    Order: setup -> dataset -> benchmark_type (with mixed first)
+
+    Args:
+        benchmark_runs_plan: The benchmark plan dictionary
+        allowed_setups: Optional list of setup names to filter by. If None or empty, all setups are shown.
     """
-    table_headers = ["Order", "Benchmark Type", "Dataset Name", "Setup", "Test Name"]
+    table_headers = ["Order", "Setup", "Dataset Name", "Benchmark Type", "Test Name"]
     table_rows = []
     order = 1
 
-    for benchmark_type, bench_by_dataset_map in ensure_mixed_types_first(
-        benchmark_runs_plan
-    ):
-        for (
-            dataset_name,
-            bench_by_dataset_and_setup_map,
-        ) in bench_by_dataset_map.items():
-            for setup_name, setup_details in bench_by_dataset_and_setup_map.items():
+    reorganized = reorganize_benchmark_plan(benchmark_runs_plan)
+
+    for setup_name in sorted(reorganized.keys()):
+        # Filter by allowed_setups if specified
+        if allowed_setups and len(allowed_setups) > 0:
+            if setup_name not in allowed_setups:
+                continue
+        bench_by_dataset_map = reorganized[setup_name]
+        for dataset_name in sorted(bench_by_dataset_map.keys()):
+            bench_by_type_map = bench_by_dataset_map[dataset_name]
+            for benchmark_type in ensure_mixed_types_first(bench_by_type_map.keys()):
+                setup_details = bench_by_type_map[benchmark_type]
                 benchmarks_map = setup_details["benchmarks"]
                 for test_name in benchmarks_map.keys():
                     table_rows.append(
-                        [order, benchmark_type, dataset_name, setup_name, test_name]
+                        [order, setup_name, dataset_name, benchmark_type, test_name]
                     )
                     order += 1
 
