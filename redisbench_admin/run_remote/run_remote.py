@@ -42,6 +42,7 @@ from redisbench_admin.run.redistimeseries import (
 from redisbench_admin.run.run import (
     define_benchmark_plan,
     ensure_mixed_types_first,
+    reorganize_benchmark_plan,
     log_benchmark_plan_table,
     EnvironmentTracker,
 )
@@ -403,31 +404,32 @@ def run_remote_command_logic(args, project_name, project_version):
     ts_key_full_price = f"ts:{tf_triggering_env}:tests:full_price"
     ts_key_architecture = f"ts:{tf_triggering_env}:tests:arch:{architecture}"
     reuse_mixed = False
+    # Check if we have both mixed and read-only benchmarks for environment reuse
+    if "mixed" in benchmark_runs_plan and "read-only" in benchmark_runs_plan:
+        reuse_mixed = True
+        logging.info(
+            "Detected mixed and read-only benchmarks. Will reuse environment for dataset optimization."
+        )
     # Shared environment storage across benchmark types, keyed by (dataset_name, setup_name)
     shared_env = {}
     # Track environment creation and reuse for summary
     env_tracker = EnvironmentTracker()
 
-    for benchmark_type, bench_by_dataset_map in ensure_mixed_types_first(
-        benchmark_runs_plan
-    ):
-        if benchmark_type == "mixed" and "read-only" in benchmark_runs_plan:
-            reuse_mixed = True
-            logging.info(
-                "Detected mixed and read-only benchmarks. Will reuse environment for dataset optimization."
-            )
+    # Reorganize plan: setup -> dataset -> benchmark_type (with mixed first)
+    reorganized_plan = reorganize_benchmark_plan(benchmark_runs_plan)
+
+    for setup_name in sorted(reorganized_plan.keys()):
         if return_code != 0 and args.fail_fast:
             logging.warning(
-                "Given you've selected fail fast skipping benchmark_type {}".format(
-                    benchmark_type
-                )
+                "Given you've selected fail fast skipping setup {}".format(setup_name)
             )
             continue
-        logging.info("Running benchmarks of type {}.".format(benchmark_type))
-        for (
-            dataset_name,
-            bench_by_dataset_and_setup_map,
-        ) in bench_by_dataset_map.items():
+        logging.info("Running benchmarks for setup {}.".format(setup_name))
+        # map from setup name to overall target-tables ( if any target is defined )
+        overall_tables[setup_name] = {}
+
+        bench_by_dataset_map = reorganized_plan[setup_name]
+        for dataset_name in sorted(bench_by_dataset_map.keys()):
             if return_code != 0 and args.fail_fast:
                 logging.warning(
                     "Given you've selected fail fast skipping dataset {}".format(
@@ -436,15 +438,19 @@ def run_remote_command_logic(args, project_name, project_version):
                 )
                 continue
             logging.info("Running benchmarks for dataset {}.".format(dataset_name))
-            for setup_name, setup_details in bench_by_dataset_and_setup_map.items():
+
+            bench_by_type_map = bench_by_dataset_map[dataset_name]
+            for benchmark_type in ensure_mixed_types_first(bench_by_type_map.keys()):
                 if return_code != 0 and args.fail_fast:
                     logging.warning(
-                        "Given you've selected fail fast skipping setup {}".format(
-                            setup_name
+                        "Given you've selected fail fast skipping benchmark_type {}".format(
+                            benchmark_type
                         )
                     )
                     continue
+                logging.info("Running benchmarks of type {}.".format(benchmark_type))
 
+                setup_details = bench_by_type_map[benchmark_type]
                 setup_settings = setup_details["setup_settings"]
                 benchmarks_map = setup_details["benchmarks"]
 
@@ -459,9 +465,6 @@ def run_remote_command_logic(args, project_name, project_version):
                     )
                 elif "env" not in setup_details:
                     setup_details["env"] = None
-
-                # map from setup name to overall target-tables ( if any target is defined )
-                overall_tables[setup_name] = {}
 
                 for test_name, benchmark_config in benchmarks_map.items():
                     if return_code != 0 and args.fail_fast:

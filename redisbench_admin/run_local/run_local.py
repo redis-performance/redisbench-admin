@@ -47,6 +47,7 @@ from redisbench_admin.run.run import (
     calculate_client_tool_duration_and_check,
     define_benchmark_plan,
     ensure_mixed_types_first,
+    reorganize_benchmark_plan,
     log_benchmark_plan_table,
     EnvironmentTracker,
 )
@@ -174,16 +175,21 @@ def run_local_command_logic(args, project_name, project_version):
     # Track environment creation and reuse for summary
     env_tracker = EnvironmentTracker()
 
-    # Ensure mixed (load) benchmarks run before read-only (query) benchmarks
-    for benchmark_type, bench_by_dataset_map in ensure_mixed_types_first(
-        benchmark_runs_plan
-    ):
+    # Reorganize plan: setup -> dataset -> benchmark_type (with mixed first)
+    reorganized_plan = reorganize_benchmark_plan(benchmark_runs_plan)
 
-        for (
-            dataset_name,
-            bench_by_dataset_and_setup_map,
-        ) in bench_by_dataset_map.items():
-            for setup_name, setup_details in bench_by_dataset_and_setup_map.items():
+    for setup_name in sorted(reorganized_plan.keys()):
+        logging.info("Running benchmarks for setup {}.".format(setup_name))
+
+        bench_by_dataset_map = reorganized_plan[setup_name]
+        for dataset_name in sorted(bench_by_dataset_map.keys()):
+            logging.info("Running benchmarks for dataset {}.".format(dataset_name))
+
+            bench_by_type_map = bench_by_dataset_map[dataset_name]
+            for benchmark_type in ensure_mixed_types_first(bench_by_type_map.keys()):
+                logging.info("Running benchmarks of type {}.".format(benchmark_type))
+
+                setup_details = bench_by_type_map[benchmark_type]
                 setup_settings = setup_details["setup_settings"]
                 benchmarks_map = setup_details["benchmarks"]
 
@@ -198,6 +204,7 @@ def run_local_command_logic(args, project_name, project_version):
                     )
                 else:
                     setup_details["env"] = None
+
                 for test_name, benchmark_config in benchmarks_map.items():
                     for repetition in range(1, BENCHMARK_REPETITIONS + 1):
                         logging.info(

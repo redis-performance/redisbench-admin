@@ -1,21 +1,76 @@
-version: 0.1
-kpis:
-  - eq: { $.Totals.Total.Errors: 0 }
+version: 0.2
 exporter:
   redistimeseries:
+    break_by:
+      - version
+      - commit
     timemetric: "$.StartTime"
     metrics:
-      - "$.OverallClientLatencies.Total.q50"
-      - "$.OverallClientLatencies.Total.q95"
-      - "$.OverallClientLatencies.Total.q99"
-      - "$.OverallClientLatencies.Total.avg"
-      - "$.OverallGraphInternalLatencies.Total.q50"
-      - "$.OverallGraphInternalLatencies.Total.q95"
-      - "$.OverallGraphInternalLatencies.Total.q99"
-      - "$.OverallGraphInternalLatencies.Total.avg"
-      - "$.OverallQueryRates.Total"
+      - "$.Tests.Overall.rps"
+      - "$.Tests.Overall.avg_latency_ms"
+      - "$.Tests.Overall.p50_latency_ms"
+      - "$.Tests.Overall.p95_latency_ms"
+      - "$.Tests.Overall.p99_latency_ms"
+      - "$.Tests.Overall.max_latency_ms"
+      - "$.Tests.Overall.min_latency_ms"
+      - "$.build.build_time"
+      - "$.build.vector_index_sz_mb"
+      - '$."ALL STATS".*."Ops/sec"'
+      - '$."ALL STATS".*."Latency"'
+      - "$.OverallRates.overallOpsRate"
+      - "$.OverallQuantiles.allCommands.q50"
+      - "$.OverallQuantiles.allCommands.q95"
+      - "$.OverallQuantiles.allCommands.q99"
+      - "$.OverallQuantiles.allCommands.q999"
   comparison:
     metrics:
-      - "$.OverallQueryRates.Total"
+      - "Ops/sec"
+      - "$.Tests.Overall.rps"
+      - "$.OverallRates.overallOpsRate"
     mode: higher-better
     baseline-branch: master
+
+spec:
+  setups:
+  - name: oss-standalone
+    type: oss-standalone
+    redis_topology:
+      primaries: 1
+      replicas: 0
+    resources:
+      requests:
+        cpus: "1"
+        memory: "10g"
+
+  - name: oss-standalone-1replica
+    type: oss-standalone
+    redis_topology:
+      primaries: 1
+      replicas: 1
+      placement: "sparse"
+    resources:
+      requests:
+        cpus: "2"
+        memory: "10g"
+
+  - name: oss-cluster-01-primaries
+    type: oss-cluster
+    redis_topology:
+      primaries: 1
+      replicas: 0
+      placement: "sparse"
+    resources:
+      requests:
+        cpus: "1"
+        memory: "10g"
+
+  - name: oss-cluster-02-primaries
+    type: oss-cluster
+    redis_topology:
+      primaries: 2
+      replicas: 0
+      placement: "sparse"
+    resources:
+      requests:
+        cpus: "2"
+        memory: "10g"

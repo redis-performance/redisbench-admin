@@ -2,6 +2,7 @@
 name: "vanilla-memtier-query2"
 setups:
   - oss-standalone
+  - oss-cluster-02-primaries
 
 remote:
  - type: oss-standalone
