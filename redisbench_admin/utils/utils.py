@@ -120,7 +120,10 @@ def generate_common_server_args(
         # Append port so that each shard has its own BigRedis folder
         bigredis_path = bigredis_path + f"-{port}"
         bigredis_use_async = os.getenv("BIGREDIS_USE_ASYNC", "no")
-        logging.info(f"BigRedis enabled. Using bigredis-path: {bigredis_path}")
+        bigredis_max_ram = os.getenv("BIGREDIS_MAX_RAM", "1GB")
+        logging.info(
+            f"BigRedis enabled. Using bigredis-path: {bigredis_path}, bigredis-max-ram: {bigredis_max_ram}, bigredis-use-async: {bigredis_use_async}"
+        )
         command.extend(
             [
                 "--bigredis-enabled",
@@ -131,6 +134,8 @@ def generate_common_server_args(
                 bigredis_use_async,  # Temporary default no, until async API is added to Speedb Rust crate.
                 "--bigredis-path",
                 bigredis_path,
+                "--bigredis-max-ram",
+                bigredis_max_ram,
             ]
         )
 
