@@ -455,18 +455,52 @@ def test_check_dbconfig_keyspacelen_requirement():
         (
             requires_keyspacelen_check,
             keyspacelen,
+            keyspacelen_min,
         ) = check_dbconfig_keyspacelen_requirement(benchmark_config)
         assert requires_keyspacelen_check == False
         assert keyspacelen == None
+        assert keyspacelen_min == None
 
     with open("./tests/test_data/tsbs-targets.yml", "r") as yml_file:
         benchmark_config = yaml.safe_load(yml_file)
         (
             requires_keyspacelen_check,
             keyspacelen,
+            keyspacelen_min,
         ) = check_dbconfig_keyspacelen_requirement(benchmark_config)
         assert requires_keyspacelen_check == True
         assert keyspacelen == 1000
+        assert keyspacelen_min == None
+
+    # Test keyspacelen_min with list format
+    benchmark_config_min = {
+        "dbconfig": [
+            {"check": {"keyspacelen_min": 500}}
+        ]
+    }
+    (
+        requires_keyspacelen_check,
+        keyspacelen,
+        keyspacelen_min,
+    ) = check_dbconfig_keyspacelen_requirement(benchmark_config_min)
+    assert requires_keyspacelen_check == True
+    assert keyspacelen == None
+    assert keyspacelen_min == 500
+
+    # Test keyspacelen_min with dict format
+    benchmark_config_min_dict = {
+        "dbconfig": {
+            "check": {"keyspacelen_min": 750}
+        }
+    }
+    (
+        requires_keyspacelen_check,
+        keyspacelen,
+        keyspacelen_min,
+    ) = check_dbconfig_keyspacelen_requirement(benchmark_config_min_dict)
+    assert requires_keyspacelen_check == True
+    assert keyspacelen == None
+    assert keyspacelen_min == 750
 
 
 def test_prepare_benchmark_parameters_specif_tooling():
