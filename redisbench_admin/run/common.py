@@ -480,6 +480,7 @@ def check_dbconfig_keyspacelen_requirement(
 ):
     required = False
     keyspacelen = None
+    keyspacelen_min = None
     if dbconfig_keyname in benchmark_config:
         if type(benchmark_config[dbconfig_keyname]) == list:
             for k in benchmark_config[dbconfig_keyname]:
@@ -488,6 +489,9 @@ def check_dbconfig_keyspacelen_requirement(
                     if "keyspacelen" in k["check"]:
                         required = True
                         keyspacelen = int(k["check"]["keyspacelen"])
+                    if "keyspacelen_min" in k["check"]:
+                        required = True
+                        keyspacelen_min = int(k["check"]["keyspacelen_min"])
         if type(benchmark_config[dbconfig_keyname]) == dict:
             if "check" in benchmark_config[dbconfig_keyname]:
                 if "keyspacelen" in benchmark_config[dbconfig_keyname]["check"]:
@@ -495,7 +499,12 @@ def check_dbconfig_keyspacelen_requirement(
                     keyspacelen = int(
                         benchmark_config[dbconfig_keyname]["check"]["keyspacelen"]
                     )
-    return required, keyspacelen
+                if "keyspacelen_min" in benchmark_config[dbconfig_keyname]["check"]:
+                    required = True
+                    keyspacelen_min = int(
+                        benchmark_config[dbconfig_keyname]["check"]["keyspacelen_min"]
+                    )
+    return required, keyspacelen, keyspacelen_min
 
 
 def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
@@ -783,15 +792,22 @@ def dbconfig_keyspacelen_check(
     (
         requires_keyspacelen_check,
         keyspacelen,
+        keyspacelen_min,
     ) = check_dbconfig_keyspacelen_requirement(benchmark_config)
 
     if not requires_keyspacelen_check:
         return True
 
+    # Build requirement description for logging
+    if keyspacelen is not None:
+        requirement_desc = f"exactly {keyspacelen}"
+    else:
+        requirement_desc = f"at least {keyspacelen_min}"
+
     attempt = 0
     while time.time() - start_time < timeout:
         logging.info(
-            f"Ensuring keyspace length requirement = {keyspacelen} is met. attempt #{attempt + 1}"
+            f"Ensuring keyspace length requirement ({requirement_desc}) is met. attempt #{attempt + 1}"
         )
         total_keys = 0
         for shard_conn in redis_conns:
@@ -799,28 +815,46 @@ def dbconfig_keyspacelen_check(
             for _, dbdict in keyspace_dict.items():
                 total_keys += dbdict.get("keys", 0)
 
-        if total_keys == keyspacelen:
+        # Check exact match if keyspacelen is specified
+        if keyspacelen is not None and total_keys == keyspacelen:
             logging.info(
                 f"🟢 Keyspace check PASSED: expected={keyspacelen}, got={total_keys}"
             )
             return True
 
-        logging.warning(
-            "Keyspace length mismatch ({} != {}). Retrying in {} seconds...".format(
-                total_keys, keyspacelen, 2**attempt
+        # Check minimum if keyspacelen_min is specified
+        if keyspacelen_min is not None and total_keys >= keyspacelen_min:
+            logging.info(
+                f"🟢 Keyspace check PASSED: expected>={keyspacelen_min}, got={total_keys}"
             )
+            return True
+
+        # Build mismatch message
+        if keyspacelen is not None:
+            mismatch_msg = f"Keyspace length mismatch ({total_keys} != {keyspacelen})"
+        else:
+            mismatch_msg = (
+                f"Keyspace length below minimum ({total_keys} < {keyspacelen_min})"
+            )
+
+        logging.warning(
+            "{}. Retrying in {} seconds...".format(mismatch_msg, 2**attempt)
         )
         time.sleep(2**attempt)  # Exponential backoff
         attempt += 1
 
+    # Build error message
+    if keyspacelen is not None:
+        error_msg = f"The total number of keys in setup does not match the expected spec: {keyspacelen} != {total_keys}. Aborting after {attempt + 1} tries..."
+    else:
+        error_msg = f"The total number of keys in setup is below the minimum: {total_keys} < {keyspacelen_min}. Aborting after {attempt + 1} tries..."
+
     logging.error(
-        f"🔴 Keyspace check FAILED: expected={keyspacelen}, got={total_keys} (after {attempt + 1} tries)"
+        f"🔴 Keyspace check FAILED: expected {requirement_desc}, got={total_keys} (after {attempt + 1} tries)"
     )
 
     if not ignore_keyspace_errors:
-        raise Exception(
-            f"The total number of keys in setup does not match the expected spec: {keyspacelen} != {total_keys}. Aborting after {attempt + 1} tries..."
-        )
+        raise Exception(error_msg)
 
     return False
 
