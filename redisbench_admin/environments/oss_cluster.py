@@ -4,6 +4,7 @@
 #  All rights reserved.
 #
 import logging
+import os
 import subprocess
 from time import sleep
 
@@ -221,6 +222,28 @@ def generate_cluster_redis_server_args(
             "{}".format(ip),
         ]
     )
+    # Check for CLUSTER_NODE_TIMEOUT environment variable
+    cluster_node_timeout = os.environ.get("CLUSTER_NODE_TIMEOUT")
+    if cluster_node_timeout is not None:
+        try:
+            timeout_value = int(cluster_node_timeout)
+            command.extend(
+                [
+                    "--cluster-node-timeout",
+                    str(timeout_value),
+                ]
+            )
+            logging.info(
+                "Using cluster-node-timeout={} from CLUSTER_NODE_TIMEOUT env var".format(
+                    timeout_value
+                )
+            )
+        except ValueError:
+            logging.warning(
+                "CLUSTER_NODE_TIMEOUT env var '{}' is not a valid integer, ignoring".format(
+                    cluster_node_timeout
+                )
+            )
     if configuration_parameters is not None:
         for parameter, parameter_value in configuration_parameters.items():
             command.extend(
