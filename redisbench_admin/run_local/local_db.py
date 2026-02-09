@@ -54,6 +54,8 @@ def local_db_spin(
     artifact_version = "n/a"
     result = True
     temporary_dir = get_tmp_folder_rnd(dirname)
+    # Create the temporary directory
+    os.makedirs(temporary_dir, exist_ok=True)
     cluster_api_enabled = False
     if setup_type == "oss-cluster":
         cluster_api_enabled = True
