@@ -591,13 +591,16 @@ def get_run_full_filename(
     test_name,
     github_sha,
 ):
+    # Sanitize branch name: replace '/' with '-' so it can safely be used
+    # in a flat filename (e.g. "feature/foo" -> "feature-foo").
+    safe_branch = github_branch.replace("/", "-")
     benchmark_output_filename = (
         "{start_time_str}-{github_org}-{github_repo}-{github_branch}"
         "-{test_name}-{deployment_type}-{github_sha}.json".format(
             start_time_str=start_time_str,
             github_org=github_org,
             github_repo=github_repo,
-            github_branch=github_branch,
+            github_branch=safe_branch,
             test_name=test_name,
             deployment_type=deployment_type,
             github_sha=github_sha,

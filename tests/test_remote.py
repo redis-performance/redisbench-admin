@@ -16,6 +16,7 @@ from redisbench_admin.utils.benchmark_config import process_default_yaml_propert
 from redisbench_admin.utils.remote import (
     extract_git_vars,
     fetch_remote_setup_from_config,
+    get_run_full_filename,
     push_data_to_redistimeseries,
     extract_perversion_timeseries_from_results,
     extract_perbranch_timeseries_from_results,
@@ -518,3 +519,57 @@ def test_exporter_create_ts_labels():
 
     except redis.exceptions.ConnectionError:
         pytest.skip("Could not connect to Redis")
+
+
+def test_get_run_full_filename_simple_branch():
+    result = get_run_full_filename(
+        start_time_str="2026-02-09-16-10-52",
+        deployment_type="oss-standalone",
+        github_org="RediSearch",
+        github_repo="RediSearch",
+        github_branch="master",
+        test_name="bench1",
+        github_sha="abc123",
+    )
+    assert result == (
+        "2026-02-09-16-10-52-RediSearch-RediSearch-master"
+        "-bench1-oss-standalone-abc123.json"
+    )
+    assert "/" not in result
+
+
+def test_get_run_full_filename_branch_with_slash():
+    """Regression test: branch names containing '/' must be sanitized so the
+    resulting filename does not contain directory separators."""
+    result = get_run_full_filename(
+        start_time_str="2026-02-09-16-10-52",
+        deployment_type="oss-standalone-threads-6",
+        github_org="RediSearch",
+        github_repo="RediSearch",
+        github_branch="bd/hnsw-shared-lock",
+        test_name="vecsim-arxiv-titles-384-angular-filters-m16-ef-128-tag-filter",
+        github_sha="8727375b1c77b7f4bd509fb2105662b61fdc281d",
+    )
+    assert "/" not in result
+    assert "bd-hnsw-shared-lock" in result
+    assert result == (
+        "2026-02-09-16-10-52-RediSearch-RediSearch-bd-hnsw-shared-lock"
+        "-vecsim-arxiv-titles-384-angular-filters-m16-ef-128-tag-filter"
+        "-oss-standalone-threads-6"
+        "-8727375b1c77b7f4bd509fb2105662b61fdc281d.json"
+    )
+
+
+def test_get_run_full_filename_branch_with_multiple_slashes():
+    """Branch names like 'feat/area/thing' should have all slashes replaced."""
+    result = get_run_full_filename(
+        start_time_str="2026-01-01-00-00-00",
+        deployment_type="oss-standalone",
+        github_org="org",
+        github_repo="repo",
+        github_branch="feat/area/thing",
+        test_name="test",
+        github_sha="deadbeef",
+    )
+    assert "/" not in result
+    assert "feat-area-thing" in result
