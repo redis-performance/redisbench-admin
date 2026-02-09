@@ -4,17 +4,13 @@
 #  All rights reserved.
 #
 
-import pkg_resources
+from importlib.resources import files
 
 # ALLOWED_PROFILERS = "perf:record,ebpf:oncpu,ebpf:offcpu,vtune"
 ALLOWED_PROFILERS = "perf:record,vtune"
 PROFILERS_DEFAULT = "perf:record"
 PROFILE_FREQ_DEFAULT = "99"
 
-STACKCOLLAPSE_PATH = pkg_resources.resource_filename(
-    "redisbench_admin", "profilers/stackcollapse-perf.pl"
-)
+STACKCOLLAPSE_PATH = str(files("redisbench_admin").joinpath("profilers/stackcollapse-perf.pl"))
 
-FLAMEGRAPH_PATH = pkg_resources.resource_filename(
-    "redisbench_admin", "profilers/flamegraph.pl"
-)
+FLAMEGRAPH_PATH = str(files("redisbench_admin").joinpath("profilers/flamegraph.pl"))

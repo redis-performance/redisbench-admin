@@ -1,9 +1,7 @@
-import pkg_resources
+from importlib.resources import files
 
 
-ANN_MULTIRUN_PATH = pkg_resources.resource_filename(
-    "redisbench_admin", "run/ann/pkg/multirun.py"
-)
+ANN_MULTIRUN_PATH = str(files("redisbench_admin").joinpath("run/ann/pkg/multirun.py"))
 
 
 def prepare_ann_benchmark_command(
