@@ -5,7 +5,6 @@
 #
 import logging
 import os
-import tempfile
 import datetime
 
 import redis
@@ -33,7 +32,7 @@ from redisbench_admin.utils.local import (
     check_dataset_local_requirements,
     is_process_alive,
 )
-from redisbench_admin.utils.utils import setup_search_clusterset
+from redisbench_admin.utils.utils import setup_search_clusterset, get_tmp_folder_rnd
 
 
 def local_db_spin(
@@ -54,7 +53,7 @@ def local_db_spin(
     redis_conns = []
     artifact_version = "n/a"
     result = True
-    temporary_dir = tempfile.mkdtemp()
+    temporary_dir = get_tmp_folder_rnd(dirname)
     cluster_api_enabled = False
     if setup_type == "oss-cluster":
         cluster_api_enabled = True

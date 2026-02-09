@@ -11,7 +11,9 @@ import logging
 import operator
 import os
 import os.path
+import random
 import re
+import string
 import tarfile
 import time
 from functools import reduce
@@ -25,6 +27,22 @@ import requests
 from tqdm import tqdm
 
 EPOCH = dt.datetime.utcfromtimestamp(0)
+
+
+def get_tmp_folder_rnd(base_dir="/tmp"):
+    """
+    Generate a random temporary directory path.
+
+    Args:
+        base_dir: Base directory path (default: "/tmp")
+
+    Returns:
+        Path in format: <base_dir>/<20 random lowercase letters>
+    """
+    temporary_dir = "{}/{}".format(
+        base_dir, "".join(random.choice(string.ascii_lowercase) for i in range(20))
+    )
+    return temporary_dir
 
 
 def redis_server_config_module_part(

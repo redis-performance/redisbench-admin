@@ -1,0 +1,16 @@
+
+name: "vanilla-ftsb-load"
+setups:
+  - oss-standalone
+remote:
+ - type: oss-standalone
+ - setup: redisearch-disk-i7i
+
+
+clientconfig:
+  - tool: ftsb_redisearch
+  - dataset_name: "vanilla-ftsb"
+  - parameters:
+    - workers: 64
+    - reporting-period: 1s
+    - input: "https://s3.amazonaws.com/benchmarks.redislabs/redisearch/datasets/1700K-docs-union-iterators/100-docs-union-iterators.idx133.commands.SETUP.csv"

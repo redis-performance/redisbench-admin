@@ -48,6 +48,8 @@ ALLOWED_BENCH_TOOLS = os.getenv("ALLOWED_BENCH_TOOLS", ALLOWED_TOOLS_DEFAULT)
 SKIP_DB_SETUP = bool(int(os.getenv("SKIP_DB_SETUP", "0")))
 ARCH_X86 = "x86_64"
 ARCH_ARM = "aarch64"
+DEFAULT_DB_DIRNAME = "/tmp"
+DB_DIRNAME = os.getenv("DB_DIRNAME", DEFAULT_DB_DIRNAME)
 VALID_ARCHS = [ARCH_X86, ARCH_ARM]
 ARCH = os.getenv("ARCH", ARCH_X86)
 if "x64" in ARCH:
@@ -88,6 +90,13 @@ def common_run_args(parser):
         type=str,
         required=False,
         help="If specified the entire contents of the folder are copied to the redis dir.",
+    )
+    parser.add_argument(
+        "--db-dirname",
+        type=str,
+        required=False,
+        default=DB_DIRNAME,
+        help="Base directory path where a random subdirectory will be created for Redis working directory (e.g., <db-dirname>/<random>). Also used as the directory where dataset files are located. Defaults to '/tmp'.",
     )
     parser.add_argument(
         "--allowed-tools",
