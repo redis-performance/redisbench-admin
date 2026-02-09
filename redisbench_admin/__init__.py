@@ -10,8 +10,8 @@
 try:
     from importlib.metadata import version
 except ImportError:
-    try: # For Python<3.8
-        from importlib_metadata import version # type: ignore
+    try:  # For Python<3.8
+        from importlib_metadata import version  # type: ignore
     except ImportError:
         version = None
 

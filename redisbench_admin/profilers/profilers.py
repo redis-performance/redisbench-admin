@@ -11,6 +11,8 @@ ALLOWED_PROFILERS = "perf:record,vtune"
 PROFILERS_DEFAULT = "perf:record"
 PROFILE_FREQ_DEFAULT = "99"
 
-STACKCOLLAPSE_PATH = str(files("redisbench_admin").joinpath("profilers/stackcollapse-perf.pl"))
+STACKCOLLAPSE_PATH = str(
+    files("redisbench_admin").joinpath("profilers/stackcollapse-perf.pl")
+)
 
 FLAMEGRAPH_PATH = str(files("redisbench_admin").joinpath("profilers/flamegraph.pl"))
