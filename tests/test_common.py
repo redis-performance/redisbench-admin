@@ -473,11 +473,7 @@ def test_check_dbconfig_keyspacelen_requirement():
         assert keyspacelen_min == None
 
     # Test keyspacelen_min with list format
-    benchmark_config_min = {
-        "dbconfig": [
-            {"check": {"keyspacelen_min": 500}}
-        ]
-    }
+    benchmark_config_min = {"dbconfig": [{"check": {"keyspacelen_min": 500}}]}
     (
         requires_keyspacelen_check,
         keyspacelen,
@@ -488,11 +484,7 @@ def test_check_dbconfig_keyspacelen_requirement():
     assert keyspacelen_min == 500
 
     # Test keyspacelen_min with dict format
-    benchmark_config_min_dict = {
-        "dbconfig": {
-            "check": {"keyspacelen_min": 750}
-        }
-    }
+    benchmark_config_min_dict = {"dbconfig": {"check": {"keyspacelen_min": 750}}}
     (
         requires_keyspacelen_check,
         keyspacelen,

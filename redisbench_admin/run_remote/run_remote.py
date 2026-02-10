@@ -4,8 +4,6 @@
 #  All rights reserved.
 #
 import logging
-import random
-import string
 import sys
 import traceback
 import redis
@@ -86,6 +84,7 @@ from redisbench_admin.utils.utils import (
     EC2_SECRET_KEY,
     EC2_REGION,
     make_dashboard_callback,
+    get_tmp_folder_rnd,
 )
 
 from slack_sdk.webhook import WebhookClient
@@ -330,7 +329,7 @@ def run_remote_command_logic(args, project_name, project_version):
             exit(return_code)
 
     remote_envs = {}
-    dirname = "."
+    dirname = args.db_dirname
     (
         _,
         _,
@@ -536,7 +535,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                 tf_timeout_secs = remote_envs_timeout[remote_id]
                                 client_artifacts = []
                                 client_artifacts_map = {}
-                                temporary_dir = get_tmp_folder_rnd()
+                                temporary_dir = get_tmp_folder_rnd(dirname)
                                 (
                                     client_public_ip,
                                     server_plaintext_port,
@@ -1565,13 +1564,6 @@ def run_remote_command_logic(args, project_name, project_version):
     # Log environment reuse summary
     env_tracker.log_summary_table()
     exit(return_code)
-
-
-def get_tmp_folder_rnd():
-    temporary_dir = "/tmp/{}".format(
-        "".join(random.choice(string.ascii_lowercase) for i in range(20))
-    )
-    return temporary_dir
 
 
 def ro_benchmark_reuse(

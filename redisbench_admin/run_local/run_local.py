@@ -244,7 +244,7 @@ def run_local_command_logic(args, project_name, project_version):
                             # in case of some unexpected error we fail the test
                             # noinspection PyBroadException
                             try:
-                                dirname = "."
+                                dirname = args.db_dirname
                                 if setup_details["env"] is None:
                                     logging.info(
                                         "Starting setup named {} of topology type {}. Total primaries: {}".format(
