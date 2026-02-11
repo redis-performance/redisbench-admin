@@ -92,10 +92,37 @@ def extract_ftsb_extra_links(
         + f"redisearch/tools/ftsb/{benchmark_tool}_linux_{arch_txt}"
     )
     queries_file_link = None
-    for entry in benchmark_config[config_key]:
-        # Handle both dict and non-dict entries in the list
-        if isinstance(entry, dict) and "parameters" in entry:
-            for parameter in entry["parameters"]:
-                if "input" in parameter:
-                    queries_file_link = parameter["input"]
+    config_entry = benchmark_config[config_key]
+
+    # Handle v0.4 spec where clientconfig is a dict
+    if isinstance(config_entry, dict):
+        if "parameters" in config_entry:
+            parameters = config_entry["parameters"]
+            # v0.4 spec: parameters is a dict
+            if isinstance(parameters, dict):
+                queries_file_link = parameters.get("input")
+            # v0.1-0.3 spec: parameters is a list of dicts
+            elif isinstance(parameters, list):
+                for parameter in parameters:
+                    if isinstance(parameter, dict) and "input" in parameter:
+                        queries_file_link = parameter["input"]
+                        break
+
+    # Handle v0.1-0.3 spec where clientconfig is a list
+    elif isinstance(config_entry, list):
+        for entry in config_entry:
+            if isinstance(entry, dict) and "parameters" in entry:
+                parameters = entry["parameters"]
+                # v0.4 spec: parameters is a dict
+                if isinstance(parameters, dict):
+                    queries_file_link = parameters.get("input")
+                # v0.1-0.3 spec: parameters is a list of dicts
+                elif isinstance(parameters, list):
+                    for parameter in parameters:
+                        if isinstance(parameter, dict) and "input" in parameter:
+                            queries_file_link = parameter["input"]
+                            break
+                if queries_file_link is not None:
+                    break
+
     return queries_file_link, remote_tool_link, tool_link
