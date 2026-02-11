@@ -137,7 +137,7 @@ def fetch_benchmark_tool_from_source_to_local(
                 full_path = "{}/{}".format(binaries_localtemp_dir, filename)
                 if not os.path.exists(full_path):
                     logging.info(
-                        "Retrieving remote file from {} to {}. Using the dir {} as a cache for next time.".format(
+                        "Retrieving tool remote file from {} to {}. Using the dir {} as a cache for next time.".format(
                             tool_source, full_path, binaries_localtemp_dir
                         )
                     )
@@ -163,7 +163,9 @@ def fetch_benchmark_tool_from_source_to_local(
                     )
                 else:
                     logging.info(
-                        "Reusing cached remote file (located at {} ).".format(full_path)
+                        "Reusing tool cached remote file (located at {} ).".format(
+                            full_path
+                        )
                     )
 
         else:

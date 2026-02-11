@@ -4,6 +4,7 @@
 #  All rights reserved.
 #
 
+from redisbench_admin.utils.benchmark_config import extract_input_file_url_from_config
 from redisbench_admin.utils.local import check_if_needs_remote_fetch
 
 
@@ -91,11 +92,7 @@ def extract_ftsb_extra_links(
         "https://s3.amazonaws.com/benchmarks.redislabs/"
         + f"redisearch/tools/ftsb/{benchmark_tool}_linux_{arch_txt}"
     )
-    queries_file_link = None
-    for entry in benchmark_config[config_key]:
-        # Handle both dict and non-dict entries in the list
-        if isinstance(entry, dict) and "parameters" in entry:
-            for parameter in entry["parameters"]:
-                if "input" in parameter:
-                    queries_file_link = parameter["input"]
+    queries_file_link = extract_input_file_url_from_config(
+        benchmark_config, "input", config_key
+    )
     return queries_file_link, remote_tool_link, tool_link

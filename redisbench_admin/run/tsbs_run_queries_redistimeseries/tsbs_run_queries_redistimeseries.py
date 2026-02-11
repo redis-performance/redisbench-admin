@@ -4,6 +4,7 @@
 #  All rights reserved.
 #
 
+from redisbench_admin.utils.benchmark_config import extract_input_file_url_from_config
 from redisbench_admin.utils.local import check_if_needs_remote_fetch
 
 
@@ -84,11 +85,7 @@ def extract_remote_tool_extra_links(
             project, tools_group, benchmark_tool, os_str, arch_str
         )
     )
-    queries_file_link = None
-    for entry in benchmark_config[config_key]:
-        # Handle both dict and non-dict entries in the list
-        if isinstance(entry, dict) and "parameters" in entry:
-            for parameter in entry["parameters"]:
-                if "file" in parameter:
-                    queries_file_link = parameter["file"]
+    queries_file_link = extract_input_file_url_from_config(
+        benchmark_config, "file", config_key
+    )
     return queries_file_link, remote_tool_link, tool_link
