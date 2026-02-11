@@ -4,7 +4,7 @@
 #  All rights reserved.
 #
 
-from redisbench_admin.run.common import extract_input_file_url_from_config
+from redisbench_admin.utils.benchmark_config import extract_input_file_url_from_config
 from redisbench_admin.utils.local import check_if_needs_remote_fetch
 
 

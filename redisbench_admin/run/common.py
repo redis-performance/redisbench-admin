@@ -107,58 +107,6 @@ def extract_input_file_url_from_parameters(entry, benchmark_tool):
     return None
 
 
-def extract_input_file_url_from_config(
-    benchmark_config, param_name, config_key="clientconfig"
-):
-    """
-    Extract the input file URL from the benchmark config.
-    Handles both v0.4 spec (clientconfig is a dict) and v0.1-0.3 spec (clientconfig is a list).
-
-    Args:
-        benchmark_config: The full benchmark configuration
-        param_name: The parameter name to look for (e.g., "input" for ftsb, "file" for tsbs/aibench)
-        config_key: The config key to look under (default: "clientconfig")
-
-    Returns:
-        The file URL if found, None otherwise
-    """
-    config_entry = benchmark_config[config_key]
-    file_link = None
-
-    # Handle v0.4 spec where clientconfig is a dict
-    if isinstance(config_entry, dict):
-        if "parameters" in config_entry:
-            parameters = config_entry["parameters"]
-            # v0.4 spec: parameters is a dict
-            if isinstance(parameters, dict):
-                file_link = parameters.get(param_name)
-            # v0.1-0.3 spec: parameters is a list of dicts
-            elif isinstance(parameters, list):
-                for parameter in parameters:
-                    if isinstance(parameter, dict) and param_name in parameter:
-                        file_link = parameter[param_name]
-                        break
-
-    # Handle v0.1-0.3 spec where clientconfig is a list
-    elif isinstance(config_entry, list):
-        for entry in config_entry:
-            if isinstance(entry, dict) and "parameters" in entry:
-                parameters = entry["parameters"]
-                # v0.4 spec: parameters is a dict
-                if isinstance(parameters, dict):
-                    file_link = parameters.get(param_name)
-                # v0.1-0.3 spec: parameters is a list of dicts
-                elif isinstance(parameters, list):
-                    for parameter in parameters:
-                        if isinstance(parameter, dict) and param_name in parameter:
-                            file_link = parameter[param_name]
-                            break
-                if file_link is not None:
-                    break
-
-    return file_link
-
-
 def prepare_benchmark_parameters(
     benchmark_config,
     benchmark_tool,
