@@ -275,6 +275,8 @@ def prepare_benchmark_parameters_specif_tooling(
     if "tsbs_" in benchmark_tool:
         input_data_file = None
         if isremote is True:
+            from redisbench_admin.utils.utils import get_remote_input_file_from_url
+
             benchmark_tool = "/tmp/{}".format(benchmark_tool)
             input_data_file = get_remote_input_file_from_url(input_file_url)
         (
@@ -337,6 +339,8 @@ def prepare_benchmark_parameters_specif_tooling(
     if "ftsb_" in benchmark_tool:
         input_data_file = None
         if isremote is True:
+            from redisbench_admin.utils.utils import get_remote_input_file_from_url
+
             benchmark_tool = "/tmp/{}".format(benchmark_tool)
             input_data_file = get_remote_input_file_from_url(input_file_url)
         (
@@ -358,6 +362,8 @@ def prepare_benchmark_parameters_specif_tooling(
     if "aibench_" in benchmark_tool:
         input_data_file = None
         if isremote is True:
+            from redisbench_admin.utils.utils import get_remote_input_file_from_url
+
             benchmark_tool = "/tmp/{}".format(benchmark_tool)
             input_data_file = get_remote_input_file_from_url(input_file_url)
         (
