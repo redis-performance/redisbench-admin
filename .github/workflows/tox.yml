@@ -48,12 +48,18 @@ jobs:
         sudo apt-get install redis -y
         sudo systemctl stop redis-server
 
-        sudo DEBIAN_FRONTEND=noninteractive apt install build-essential autoconf automake libevent-dev pkg-config zlib1g-dev libssl-dev clang-format -y
-        git clone https://github.com/redis/memtier_benchmark --branch master --depth 1
-        sudo bash -c "cd memtier_benchmark && autoreconf -ivf && ./configure && make -j && sudo make install"
-        sudo rm -rf memtier_benchmark
+        sudo apt-get install build-essential autoconf automake libevent-dev pkg-config zlib1g-dev libssl-dev clang-format -y
+        git clone https://github.com/redis/memtier_benchmark --depth 1
+        cd memtier_benchmark
+        git checkout 1e7877b59dfe7d0f309e4e88ff0d2af6433a76d9 # added --monitor-input support
+        autoreconf -ivf
+        ./configure
+        make -j
+        sudo make install
+        cd ..
+        sudo rm -rf ./memtier_benchmark
         
-        echo "Printing memtier_benchmark info"
+        echo "memtier_benchmark version"
         memtier_benchmark --version
   
     - name: Install ftsb
