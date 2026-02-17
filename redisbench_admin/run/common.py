@@ -38,7 +38,6 @@ from redisbench_admin.run.ycsb.ycsb import (
     prepare_ycsb_benchmark_command,
     prepare_go_ycsb_benchmark_command,
 )
-from redisbench_admin.utils.utils import get_remote_input_file_from_url
 from redisbench_admin.run_remote.args import OVERRIDE_MODULES
 from redisbench_admin.run_remote.remote_helpers import (
     extract_module_semver_from_info_modules_cmd,
