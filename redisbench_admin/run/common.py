@@ -38,7 +38,6 @@ from redisbench_admin.run.ycsb.ycsb import (
     prepare_ycsb_benchmark_command,
     prepare_go_ycsb_benchmark_command,
 )
-from redisbench_admin.utils.utils import get_remote_input_file_from_url
 from redisbench_admin.run_remote.args import OVERRIDE_MODULES
 from redisbench_admin.run_remote.remote_helpers import (
     extract_module_semver_from_info_modules_cmd,
@@ -73,14 +72,29 @@ def extract_input_file_url_from_parameters(entry, benchmark_tool):
     Different tools use different parameter names:
     - ftsb_*: uses "input" parameter
     - tsbs_*, aibench_*: uses "file" parameter
+    - memtier_benchmark: uses "monitor-input" in arguments string
 
     Args:
-        entry: The benchmark config entry containing "parameters"
+        entry: The benchmark config entry containing "parameters" or "arguments"
         benchmark_tool: The benchmark tool name
 
     Returns:
         The file URL if found, None otherwise
     """
+    # Handle memtier_benchmark with monitor-input in arguments
+    if "memtier_benchmark" in benchmark_tool:
+        from redisbench_admin.run.memtier_benchmark.memtier_benchmark import (
+            extract_monitor_input_from_arguments,
+        )
+
+        if "arguments" in entry:
+            monitor_input = extract_monitor_input_from_arguments(entry["arguments"])
+            if monitor_input and (
+                monitor_input.startswith("http") or monitor_input.startswith("s3")
+            ):
+                return monitor_input
+        return None
+
     if "parameters" not in entry:
         return None
 
@@ -260,6 +274,8 @@ def prepare_benchmark_parameters_specif_tooling(
     if "tsbs_" in benchmark_tool:
         input_data_file = None
         if isremote is True:
+            from redisbench_admin.utils.utils import get_remote_input_file_from_url
+
             benchmark_tool = "/tmp/{}".format(benchmark_tool)
             input_data_file = get_remote_input_file_from_url(input_file_url)
         (
@@ -277,6 +293,12 @@ def prepare_benchmark_parameters_specif_tooling(
             cluster_api_enabled,
         )
     if "memtier_benchmark" in benchmark_tool:
+        # For remote execution, get the remote path for monitor-input file
+        remote_monitor_file = None
+        if isremote and input_file_url:
+            from redisbench_admin.utils.utils import get_remote_input_file_from_url
+
+            remote_monitor_file = get_remote_input_file_from_url(input_file_url)
         (
             command_arr,
             command_str,
@@ -288,6 +310,9 @@ def prepare_benchmark_parameters_specif_tooling(
             cluster_api_enabled,
             remote_results_file,
             redis_password,
+            local_temp_dir=current_workdir if current_workdir else "/tmp",
+            is_remote=isremote,
+            remote_monitor_file=remote_monitor_file,
         )
     if "ann" in benchmark_tool:
         ann_path = ANN_MULTIRUN_PATH
@@ -313,6 +338,8 @@ def prepare_benchmark_parameters_specif_tooling(
     if "ftsb_" in benchmark_tool:
         input_data_file = None
         if isremote is True:
+            from redisbench_admin.utils.utils import get_remote_input_file_from_url
+
             benchmark_tool = "/tmp/{}".format(benchmark_tool)
             input_data_file = get_remote_input_file_from_url(input_file_url)
         (
@@ -334,6 +361,8 @@ def prepare_benchmark_parameters_specif_tooling(
     if "aibench_" in benchmark_tool:
         input_data_file = None
         if isremote is True:
+            from redisbench_admin.utils.utils import get_remote_input_file_from_url
+
             benchmark_tool = "/tmp/{}".format(benchmark_tool)
             input_data_file = get_remote_input_file_from_url(input_file_url)
         (

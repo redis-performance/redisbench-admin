@@ -1,0 +1,10 @@
+
+name: "vanilla-memtier"
+setups:
+  - oss-standalone
+  - oss-standalone-threads-6
+
+clientconfig:
+  benchmark_type: "read-only"
+  tool: memtier_benchmark
+  arguments: "--test-time 120 -c 32 -t 1 --hide-histogram --monitor-input https://s3.us-east-1.amazonaws.com/benchmarks.redislabs/redisearch/internal.tasks/arxiv-titles-384-angular-filters-redis-hnsw-m-32-ef-512/vector.arxiv-titles-384-angular-filters.10-QUERIES.monitor.txt --command '__monitor_line@__'"

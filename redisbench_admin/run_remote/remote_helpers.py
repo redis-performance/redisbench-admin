@@ -130,6 +130,22 @@ def remote_tool_pre_bench_step(
         ensure_memtier_benchmark_available(
             client_public_ip, username, private_key, client_ssh_port
         )
+
+        # Check for monitor-input URL in arguments and download if needed
+        monitor_input_url = extract_memtier_monitor_input_link(
+            benchmark_config, config_key
+        )
+        if monitor_input_url:
+            remote_input_file = get_remote_input_file_from_url(monitor_input_url)
+            setup_remote_benchmark_tool_memtier_monitor_input(
+                client_public_ip,
+                username,
+                private_key,
+                monitor_input_url,
+                remote_input_file,
+                client_ssh_port,
+            )
+
     elif benchmark_tool == "redis-benchmark":
         from redisbench_admin.run_remote.standalone import ensure_redis_server_available
 
@@ -418,3 +434,94 @@ def post_process_remote_run(
     if artifact_version is None:
         artifact_version = "N/A"
     return artifact_version, local_benchmark_output_filename, results_dict, return_code
+
+
+def extract_memtier_monitor_input_link(benchmark_config, config_key="clientconfig"):
+    """
+    Extract the monitor-input URL from memtier_benchmark arguments.
+
+    Args:
+        benchmark_config: The benchmark configuration dict
+        config_key: The config key to look in (default: "clientconfig")
+
+    Returns:
+        The monitor-input URL if found and is a remote URL, None otherwise
+    """
+    from redisbench_admin.run.memtier_benchmark.memtier_benchmark import (
+        extract_monitor_input_from_arguments,
+    )
+
+    if config_key not in benchmark_config:
+        return None
+
+    config = benchmark_config[config_key]
+
+    # Handle both dict and list formats
+    if isinstance(config, dict):
+        if "arguments" in config:
+            monitor_input = extract_monitor_input_from_arguments(config["arguments"])
+            if monitor_input and (
+                monitor_input.startswith("http") or monitor_input.startswith("s3")
+            ):
+                return monitor_input
+    elif isinstance(config, list):
+        for entry in config:
+            if isinstance(entry, dict) and "arguments" in entry:
+                monitor_input = extract_monitor_input_from_arguments(entry["arguments"])
+                if monitor_input and (
+                    monitor_input.startswith("http") or monitor_input.startswith("s3")
+                ):
+                    return monitor_input
+
+    return None
+
+
+def setup_remote_benchmark_tool_memtier_monitor_input(
+    client_public_ip,
+    username,
+    private_key,
+    monitor_input_url,
+    remote_input_file,
+    client_ssh_port,
+):
+    """
+    Download the monitor-input file to the remote machine.
+
+    Args:
+        client_public_ip: The public IP of the remote client machine
+        username: SSH username
+        private_key: SSH private key
+        monitor_input_url: The URL of the monitor-input file (http/https/s3)
+        remote_input_file: The path where the file should be stored on remote
+        client_ssh_port: SSH port
+    """
+    logging.info(
+        "Setting up memtier monitor-input file on remote machine: {} -> {}".format(
+            monitor_input_url, remote_input_file
+        )
+    )
+
+    commands = []
+
+    # Detect if URL is S3 or HTTP and use appropriate download method
+    if monitor_input_url.startswith("s3://"):
+        ensure_aws_cli_available(
+            client_public_ip, username, private_key, client_ssh_port
+        )
+        commands.append(
+            "timeout 600 aws s3 cp {} {} --no-sign-request --cli-read-timeout 300".format(
+                monitor_input_url, remote_input_file
+            )
+        )
+    else:
+        # HTTP/HTTPS URL
+        commands.append("wget {} -q -O {}".format(monitor_input_url, remote_input_file))
+
+    execute_remote_commands(
+        client_public_ip,
+        username,
+        private_key,
+        commands,
+        client_ssh_port,
+        limit_output_print=True,
+    )

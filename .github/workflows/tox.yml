@@ -45,8 +45,22 @@ jobs:
         curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
         echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/redis.list
         sudo apt-get update
-        sudo apt-get install redis memtier-benchmark -y
+        sudo apt-get install redis -y
         sudo systemctl stop redis-server
+
+        sudo apt-get install build-essential autoconf automake libevent-dev pkg-config zlib1g-dev libssl-dev clang-format -y
+        git clone https://github.com/redis/memtier_benchmark --depth 1
+        cd memtier_benchmark
+        git checkout 1e7877b59dfe7d0f309e4e88ff0d2af6433a76d9 # added --monitor-input support
+        autoreconf -ivf
+        ./configure
+        make -j
+        sudo make install
+        cd ..
+        sudo rm -rf ./memtier_benchmark
+        
+        echo "memtier_benchmark version"
+        memtier_benchmark --version
   
     - name: Install ftsb
       run: |
@@ -54,6 +68,8 @@ jobs:
         sudo mv ftsb_redisearch /usr/local/bin/
 
     - name: Run tox
+      env:
+        TOX_DOCKER_GATEWAY: "0.0.0.0"
       run: |
         tox
 
