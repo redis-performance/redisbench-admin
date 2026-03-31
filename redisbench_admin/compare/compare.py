@@ -365,7 +365,11 @@ def compare_command_logic(args, project_name, project_version):
                             # Create test link if grafana_link_base is available
                             test_display_name = test_name
                             if grafana_link_base is not None:
-                                grafana_test_link = f"{grafana_link_base}?orgId=1&var-test_case={test_name}"
+                                grafana_test_link = f"{grafana_link_base}?var-test_case={test_name}"
+                                if tf_github_org is not None:
+                                    grafana_test_link += f"&var-github_org={tf_github_org}"
+                                if tf_github_repo is not None:
+                                    grafana_test_link += f"&var-github_repo={tf_github_repo}"
                                 if baseline_branch is not None:
                                     grafana_test_link += (
                                         f"&var-branch={baseline_branch}"
@@ -398,14 +402,19 @@ def compare_command_logic(args, project_name, project_version):
 
         if grafana_link_base is not None:
             grafana_link = "{}/".format(grafana_link_base)
+            params = []
+            if tf_github_org is not None:
+                params.append(f"var-github_org={tf_github_org}")
+            if tf_github_repo is not None:
+                params.append(f"var-github_repo={tf_github_repo}")
             if baseline_tag is not None and comparison_tag is not None:
-                grafana_link += "?var-version={}&var-version={}".format(
-                    baseline_tag, comparison_tag
-                )
+                params.append(f"var-version={baseline_tag}")
+                params.append(f"var-version={comparison_tag}")
             if baseline_branch is not None and comparison_branch is not None:
-                grafana_link += "?var-branch={}&var-branch={}".format(
-                    baseline_branch, comparison_branch
-                )
+                params.append(f"var-branch={baseline_branch}")
+                params.append(f"var-branch={comparison_branch}")
+            if params:
+                grafana_link += "?" + "&".join(params)
             comment_body += "You can check a comparison in detail via the [grafana link]({})".format(
                 grafana_link
             )
@@ -1430,6 +1439,8 @@ def from_rts_to_regression_table(
                     comparison_tag,
                     from_date,
                     to_date,
+                    tf_github_org,
+                    tf_github_repo,
                 )
     return (
         detected_regressions,
@@ -2557,12 +2568,17 @@ def add_line(
     comparison_version=None,
     from_date=None,
     to_date=None,
+    tf_github_org=None,
+    tf_github_repo=None,
 ):
     grafana_link = None
     if grafana_link_base is not None:
-        grafana_link = "{}?orgId=1".format(grafana_link_base)
-        grafana_link += f"&var-test_case={test_name}"
+        grafana_link = f"{grafana_link_base}?var-test_case={test_name}"
 
+        if tf_github_org is not None:
+            grafana_link += f"&var-github_org={tf_github_org}"
+        if tf_github_repo is not None:
+            grafana_link += f"&var-github_repo={tf_github_repo}"
         if baseline_branch is not None:
             grafana_link += f"&var-branch={baseline_branch}"
         if baseline_version is not None:
