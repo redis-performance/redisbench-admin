@@ -365,11 +365,17 @@ def compare_command_logic(args, project_name, project_version):
                             # Create test link if grafana_link_base is available
                             test_display_name = test_name
                             if grafana_link_base is not None:
-                                grafana_test_link = f"{grafana_link_base}?var-test_case={test_name}"
+                                grafana_test_link = (
+                                    f"{grafana_link_base}?var-test_case={test_name}"
+                                )
                                 if tf_github_org is not None:
-                                    grafana_test_link += f"&var-github_org={tf_github_org}"
+                                    grafana_test_link += (
+                                        f"&var-github_org={tf_github_org}"
+                                    )
                                 if tf_github_repo is not None:
-                                    grafana_test_link += f"&var-github_repo={tf_github_repo}"
+                                    grafana_test_link += (
+                                        f"&var-github_repo={tf_github_repo}"
+                                    )
                                 if baseline_branch is not None:
                                     grafana_test_link += (
                                         f"&var-branch={baseline_branch}"
@@ -1177,6 +1183,8 @@ def from_rts_to_regression_table(
                         running_platform,
                         baseline_architecture,
                         comparison_architecture,
+                        tf_github_org,
+                        tf_github_repo,
                         verbose,
                     )
 
@@ -1204,6 +1212,8 @@ def from_rts_to_regression_table(
                         running_platform,
                         baseline_architecture,
                         comparison_architecture,
+                        tf_github_org,
+                        tf_github_repo,
                         verbose,
                     )
 
@@ -1303,6 +1313,8 @@ def from_rts_to_regression_table(
                                     running_platform,
                                     baseline_architecture,
                                     comparison_architecture,
+                                    tf_github_org,
+                                    tf_github_repo,
                                     verbose,
                                 )
 
@@ -1476,6 +1488,8 @@ def check_client_side_latency(
     running_platform,
     baseline_architecture,
     comparison_architecture,
+    tf_github_org=None,
+    tf_github_repo=None,
     verbose=False,
 ):
     """
@@ -1761,6 +1775,8 @@ def perform_variance_and_p99_analysis(
     running_platform,
     baseline_architecture,
     comparison_architecture,
+    tf_github_org=None,
+    tf_github_repo=None,
     verbose=False,
 ):
     """
@@ -2050,7 +2066,9 @@ def check_latency_for_unstable_throughput(
     running_platform,
     baseline_architecture,
     comparison_architecture,
-    verbose,
+    tf_github_org=None,
+    tf_github_repo=None,
+    verbose=False,
 ):
     """
     Check latency (p50) for unstable throughput metrics to provide additional context.
