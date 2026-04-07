@@ -166,6 +166,12 @@ def local_db_spin(
         r.client_setname("redisbench-admin-standalone")
         redis_conns.append(r)
 
+    # Validate we have Redis connections before proceeding
+    if len(redis_conns) == 0:
+        raise Exception(
+            "No Redis connections available. Cannot proceed with benchmark setup."
+        )
+
     # Setup search CLUSTERSET if enabled (after all servers are started and cluster is set up)
     setup_search_clusterset(redis_conns, args.host, args.port, args.password)
 
