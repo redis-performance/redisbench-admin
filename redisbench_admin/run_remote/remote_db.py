@@ -278,6 +278,12 @@ def remote_db_spin(
         )
         server_plaintext_port = cluster_start_port
 
+    # Validate we have Redis connections before proceeding
+    if len(redis_conns) == 0:
+        raise Exception(
+            "No Redis connections available. Cannot proceed with benchmark setup."
+        )
+
     # Setup BigRedis CLUSTERSET if enabled (after all servers are started and cluster is set up)
     setup_search_clusterset(
         redis_conns,

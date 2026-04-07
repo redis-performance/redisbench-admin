@@ -182,6 +182,11 @@ def setup_search_clusterset(
         redis_conns = [redis_conns]
 
     shard_count = len(redis_conns)
+    if shard_count == 0:
+        logging.warning(
+            "SEARCH_CLUSTERSET is set but no Redis connections available. Skipping SEARCH.CLUSTERSET configuration."
+        )
+        return
     logging.info(
         f"Search Clusterset enabled - configuring SEARCH.CLUSTERSET for {shard_count} shard(s)"
     )
