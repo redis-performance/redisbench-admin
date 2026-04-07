@@ -116,11 +116,14 @@ def get_local_run_full_filename(
     test_name,
     setup_name,
 ):
+    # Match get_run_full_filename (remote): branch names may contain '/'
+    # (e.g. feature/foo);
+    safe_branch = (github_branch or "").replace("/", "-")
     benchmark_output_filename = (
         "{setup_name}-{start_time_str}-{github_branch}-{test_name}.json".format(
             setup_name=setup_name,
             start_time_str=start_time_str,
-            github_branch=github_branch,
+            github_branch=safe_branch,
             test_name=test_name,
         )
     )
