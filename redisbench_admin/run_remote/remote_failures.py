@@ -4,6 +4,7 @@
 #  All rights reserved.
 #
 import logging
+import os
 
 from redisbench_admin.utils.remote import fetch_file_from_remote_setup
 from redisbench_admin.utils.utils import upload_artifacts_to_s3
