@@ -330,6 +330,7 @@ def run_remote_command_logic(args, project_name, project_version):
 
     remote_envs = {}
     dirname = args.db_dirname
+    local_tmp_dir = get_tmp_folder_rnd()
     (
         _,
         _,
@@ -952,7 +953,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             failed_remote_run_artifact_store(
                                                 args.upload_results_s3,
                                                 server_public_ip,
-                                                dirname,
+                                                local_tmp_dir,
                                                 PERF_DAEMON_LOGNAME,
                                                 logname,
                                                 s3_bucket_name,
@@ -1023,7 +1024,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                     if remote_run_result is False:
                                         db_error_artifacts(
                                             db_ssh_port,
-                                            dirname,
+                                            local_tmp_dir,
                                             full_logfiles,
                                             logname,
                                             private_key,
@@ -1190,7 +1191,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             ) as e:
                                                 db_error_artifacts(
                                                     db_ssh_port,
-                                                    dirname,
+                                                    local_tmp_dir,
                                                     full_logfiles,
                                                     logname,
                                                     private_key,
@@ -1432,7 +1433,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             )
                                             db_error_artifacts(
                                                 db_ssh_port,
-                                                dirname,
+                                                local_tmp_dir,
                                                 _full_logfiles,
                                                 _logname,
                                                 private_key,
