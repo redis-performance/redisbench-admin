@@ -5,7 +5,6 @@
 #
 import logging
 import sys
-import tempfile
 import traceback
 import redis
 import pytablewriter
