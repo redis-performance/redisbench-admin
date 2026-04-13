@@ -1,6 +1,8 @@
 import argparse
 import os
+from typing import NamedTuple, Optional
 
+import pytest
 import redis
 
 from redisbench_admin.compare.args import create_compare_arguments
@@ -9,28 +11,40 @@ from redisbench_admin.export.args import create_export_arguments
 from redisbench_admin.export.export import export_command_logic
 
 
-def _get_redis_connection():
+class CompareResult(NamedTuple):
+    detected_regressions: list[str]
+    comment_body: str
+    total_improvements: int
+    total_regressions: int
+    total_stable: int
+    total_unstable: int
+    total_comparison_points: int
+    total_unstable_baseline: int
+    total_unstable_comparison: int
+    total_latency_confirmed_regressions: int
+
+
+def _get_redis_connection() -> Optional[tuple[redis.Redis, str, str, str]]:
     """Get Redis connection for testing."""
-    assert "RTS_PORT" in os.environ
     rts_port = os.environ.get("RTS_PORT", None)
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
     rts_pass = ""
-    if rts_host is None:
-        return None, None, None, None
-    rts = redis.Redis(port=rts_port, host=rts_host)
+    if rts_host is None or rts_port is None:
+        return None
+    rts = redis.Redis(port=int(rts_port), host=rts_host)
     rts.ping()
     return rts, rts_host, rts_port, rts_pass
 
 
 def _export_benchmark_data(
-    rts_host,
-    rts_port,
-    rts_pass,
-    github_branch,
-    github_org,
-    github_repo,
-    triggering_env="circleci",
-):
+    rts_host: str,
+    rts_port: str,
+    rts_pass: str,
+    github_branch: str,
+    github_org: str,
+    github_repo: str,
+    triggering_env: str = "circleci",
+) -> None:
     """Helper to export benchmark data."""
     parser = argparse.ArgumentParser(
         description="test",
@@ -66,16 +80,16 @@ def _export_benchmark_data(
 
 
 def _run_comparison(
-    rts_host,
-    rts_port,
-    rts_pass,
-    baseline_branch,
-    comparison_branch,
-    github_org,
-    github_repo,
-    metric_name="cpu_time",
-    triggering_env="circleci",
-):
+    rts_host: str,
+    rts_port: str,
+    rts_pass: str,
+    baseline_branch: str,
+    comparison_branch: str,
+    github_org: str,
+    github_repo: str,
+    metric_name: str = "cpu_time",
+    triggering_env: str = "circleci",
+) -> CompareResult:
     """Helper to run comparison logic."""
     parser = argparse.ArgumentParser(
         description="test",
@@ -106,14 +120,15 @@ def _run_comparison(
             triggering_env,
         ]
     )
-    return compare_command_logic(args, "tool", "v0")
+    return CompareResult(*compare_command_logic(args, "tool", "v0"))
 
 
-def test_compare_command_logic():
+def test_compare_command_logic() -> None:
     """Test basic compare command logic."""
-    rts, rts_host, rts_port, rts_pass = _get_redis_connection()
-    if rts is None:
-        return
+    conn = _get_redis_connection()
+    if conn is None:
+        pytest.skip("Redis not available (RTS_DATASINK_HOST or RTS_PORT not set)")
+    rts, rts_host, rts_port, rts_pass = conn
     rts.flushall()
 
     # Export baseline and comparison data
@@ -125,45 +140,35 @@ def test_compare_command_logic():
     )
 
     # Run comparison
-    (
-        detected_regressions,
-        comment_body,
-        total_improvements,
-        total_regressions,
-        total_stable,
-        total_unstable,
-        total_comparison_points,
-        _,
-        _,
-        _,
-    ) = _run_comparison(
+    result = _run_comparison(
         rts_host, rts_port, rts_pass, "master", "comparison", "redis-org", "redis-repo"
     )
 
     # Verify results
-    total_tests = rts.scard(
+    total_tests: int = rts.scard(  # type: ignore[assignment]
         "ci.benchmarks.redislabs/circleci/redis-org/redis-repo:testcases"
     )
     assert total_tests > 0
-    assert total_comparison_points == total_tests
-    assert total_regressions == 0
-    assert total_unstable == 0
-    assert total_stable == total_tests
-    assert total_improvements == 0
-    assert detected_regressions == []
-    assert "0.0%" in comment_body
+    assert result.total_comparison_points == total_tests
+    assert result.total_regressions == 0
+    assert result.total_unstable == 0
+    assert result.total_stable == total_tests
+    assert result.total_improvements == 0
+    assert result.detected_regressions == []
+    assert "0.0%" in result.comment_body
     assert (
         "Detected a total of {} stable tests between versions".format(total_tests)
-        in comment_body
+        in result.comment_body
     )
-    assert "Automated performance analysis summary" in comment_body
+    assert "Automated performance analysis summary" in result.comment_body
 
 
-def test_compare_with_org_repo_filtering():
+def test_compare_with_org_repo_filtering() -> None:
     """Test that org and repo filtering correctly isolates time series."""
-    rts, rts_host, rts_port, rts_pass = _get_redis_connection()
-    if rts is None:
-        return
+    conn = _get_redis_connection()
+    if conn is None:
+        pytest.skip("Redis not available (RTS_DATASINK_HOST or RTS_PORT not set)")
+    rts, rts_host, rts_port, rts_pass = conn
     rts.flushall()
 
     # Export data for two org/repo combinations (baseline only for org2)
@@ -172,50 +177,29 @@ def test_compare_with_org_repo_filtering():
     _export_benchmark_data(rts_host, rts_port, rts_pass, "comparison", "org1", "repo1")
 
     # Comparison with org1/repo1 should find results
-    (
-        _,
-        _,
-        _,
-        _,
-        total_stable,
-        _,
-        total_comparison_points,
-        _,
-        _,
-        _,
-    ) = _run_comparison(
+    result = _run_comparison(
         rts_host, rts_port, rts_pass, "master", "comparison", "org1", "repo1"
     )
-    total_tests_org1 = rts.scard(
+    total_tests_org1: int = rts.scard(  # type: ignore[assignment]
         "ci.benchmarks.redislabs/circleci/org1/repo1:testcases"
     )
     assert total_tests_org1 > 0
-    assert total_comparison_points == total_tests_org1
-    assert total_stable == total_tests_org1
+    assert result.total_comparison_points == total_tests_org1
+    assert result.total_stable == total_tests_org1
 
     # Comparison with org2/repo2 should have no comparison data
-    (
-        _,
-        _,
-        _,
-        _,
-        _,
-        _,
-        total_comparison_points,
-        _,
-        _,
-        _,
-    ) = _run_comparison(
+    result = _run_comparison(
         rts_host, rts_port, rts_pass, "master", "comparison", "org2", "repo2"
     )
-    assert total_comparison_points == 0
+    assert result.total_comparison_points == 0
 
 
-def test_compare_filters_applied_to_timeseries_queries():
+def test_compare_filters_applied_to_timeseries_queries() -> None:
     """Test that github_org and github_repo filters are correctly applied to time series queries."""
-    rts, rts_host, rts_port, rts_pass = _get_redis_connection()
-    if rts is None:
-        return
+    conn = _get_redis_connection()
+    if conn is None:
+        pytest.skip("Redis not available (RTS_DATASINK_HOST or RTS_PORT not set)")
+    rts, rts_host, rts_port, rts_pass = conn
     rts.flushall()
 
     # Export baseline and comparison data
@@ -227,36 +211,14 @@ def test_compare_filters_applied_to_timeseries_queries():
     )
 
     # Correct org/repo should find results
-    (
-        _,
-        _,
-        _,
-        _,
-        total_stable,
-        _,
-        total_comparison_points,
-        _,
-        _,
-        _,
-    ) = _run_comparison(
+    result = _run_comparison(
         rts_host, rts_port, rts_pass, "baseline", "feature", "test-org", "test-repo"
     )
-    assert total_comparison_points > 0
-    assert total_stable > 0
+    assert result.total_comparison_points > 0
+    assert result.total_stable > 0
 
     # Wrong org should find no results
-    (
-        _,
-        _,
-        _,
-        _,
-        _,
-        _,
-        total_comparison_points,
-        _,
-        _,
-        _,
-    ) = _run_comparison(
+    result = _run_comparison(
         rts_host, rts_port, rts_pass, "baseline", "feature", "wrong-org", "test-repo"
     )
-    assert total_comparison_points == 0
+    assert result.total_comparison_points == 0
