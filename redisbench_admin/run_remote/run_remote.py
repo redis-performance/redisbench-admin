@@ -1428,9 +1428,11 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 ) and setup_details["env"].get(
                                                     "remote_temporary_dir"
                                                 ):
-                                                    _remote_temporary_dir = setup_details[
-                                                        "env"
-                                                    ]["remote_temporary_dir"]
+                                                    _remote_temporary_dir = (
+                                                        setup_details["env"][
+                                                            "remote_temporary_dir"
+                                                        ]
+                                                    )
                                                     logging.info(
                                                         f"Using original remote_temporary_dir from reused environment: {_remote_temporary_dir}"
                                                     )
@@ -1605,7 +1607,9 @@ def ro_benchmark_reuse(
     server_plaintext_port = setup_details["env"]["server_plaintext_port"]
     ssh_tunnel = setup_details["env"]["ssh_tunnel"]
     remote_temporary_dir = setup_details["env"]["remote_temporary_dir"]
-    logging.info(f"Reusing remote_temporary_dir from original environment: {remote_temporary_dir}")
+    logging.info(
+        f"Reusing remote_temporary_dir from original environment: {remote_temporary_dir}"
+    )
 
     # Verify Redis PIDs are the same (same Redis instance is being reused)
     expected_pids = setup_details["env"].get("redis_pids", [])
