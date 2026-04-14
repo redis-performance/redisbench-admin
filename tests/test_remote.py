@@ -177,7 +177,7 @@ def test_extract_perversion_timeseries_from_results():
         ) as json_file:
             results_dict = json.load(json_file)
 
-            (timeseries_dict, _, _, _) = prepare_timeseries_dict(
+            timeseries_dict, _, _, _ = prepare_timeseries_dict(
                 "1.0.0",
                 benchmark_config,
                 default_metrics,
