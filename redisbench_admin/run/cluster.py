@@ -214,7 +214,7 @@ def spin_up_redis_cluster_remote_redis(
             full_command = ld_prefix + " ".join(command)
         else:
             full_command = " ".join(command)
-        logging.error(
+        logging.info(
             "Remote primary shard {} command: {}".format(master_shard_id, full_command)
         )
         logfiles.append(logfile)

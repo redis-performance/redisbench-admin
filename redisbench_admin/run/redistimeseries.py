@@ -133,7 +133,11 @@ def add_standardized_metric_bybranch(
         )
         ts = {"labels": labels}
         exporter_create_ts(rts, ts, tsname_use_case_duration)
-        logging.error(labels)
+        logging.debug(
+            "TimeSeries labels for metric {}={}: {}".format(
+                metric_name, metric_value, labels
+            )
+        )
         rts.ts().add(
             tsname_use_case_duration,
             start_time_ms,
