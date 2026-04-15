@@ -1197,6 +1197,15 @@ def run_remote_command_logic(args, project_name, project_version):
                                             except (
                                                 redis.exceptions.ConnectionError
                                             ) as e:
+                                                logging.error(
+                                                    "RedisTimeSeries connection error while pushing metrics for test '%s' "
+                                                    "(setup: '%s', branch: '%s'). The benchmark itself completed successfully, "
+                                                    "but the metrics export to RedisTimeSeries failed: %s",
+                                                    test_name,
+                                                    setup_name,
+                                                    tf_github_branch,
+                                                    e,
+                                                )
                                                 db_error_artifacts(
                                                     db_ssh_port,
                                                     local_tmp_dir,
@@ -1212,8 +1221,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
                                                 return_code |= 1
                                                 raise Exception(
-                                                    "Failed to run remote benchmark. {}".format(
-                                                        e.__str__()
+                                                    "Failed to push metrics to RedisTimeSeries for test '{}'. "
+                                                    "The benchmark ran successfully but the post-benchmark metrics export failed: {}".format(
+                                                        test_name, e
                                                     )
                                                 )
 
@@ -1383,7 +1393,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             remote_envs, keep_env_and_topo
                                         )
                                     exit(1)
-                                except:
+                                except Exception as e:
                                     (
                                         start_time,
                                         start_time_ms,
@@ -1401,14 +1411,25 @@ def run_remote_command_logic(args, project_name, project_version):
                                         tsname_project_total_failures,
                                     )
                                     return_code |= 1
-                                    failure_reason = "Some unexpected exception was caught during remote work on test named {}".format(
-                                        test_name
+                                    failure_reason = (
+                                        "Exception during remote work on test '%s' "
+                                        "(setup: '%s', branch: '%s'): %s: %s"
+                                        % (
+                                            test_name,
+                                            setup_name,
+                                            tf_github_branch,
+                                            type(e).__name__,
+                                            e,
+                                        )
                                     )
                                     logging.critical(
-                                        "{}. Failing test....".format(failure_reason)
+                                        "%s. Failing test....", failure_reason
                                     )
 
-                                    logging.critical(sys.exc_info()[0])
+                                    logging.critical(
+                                        "Full exception details:",
+                                        exc_info=True,
+                                    )
                                     print("-" * 60)
                                     traceback.print_exc(file=sys.stdout)
                                     print("-" * 60)
