@@ -215,7 +215,7 @@ def spin_up_redis_cluster_remote_redis(
         else:
             full_command = " ".join(command)
         logging.info(
-            "Remote primary shard {} command: {}".format(master_shard_id, full_command)
+            "Remote primary shard %s command: %s", master_shard_id, full_command
         )
         logfiles.append(logfile)
         redis_process_commands.append(full_command)

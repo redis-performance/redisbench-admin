@@ -1198,11 +1198,13 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 redis.exceptions.ConnectionError
                                             ) as e:
                                                 logging.error(
-                                                    "RedisTimeSeries connection error while pushing metrics for test '{}' "
-                                                    "(setup: '{}', branch: '{}'). The benchmark itself completed successfully, "
-                                                    "but the metrics export to RedisTimeSeries failed: {}".format(
-                                                        test_name, setup_name, tf_github_branch, e
-                                                    )
+                                                    "RedisTimeSeries connection error while pushing metrics for test '%s' "
+                                                    "(setup: '%s', branch: '%s'). The benchmark itself completed successfully, "
+                                                    "but the metrics export to RedisTimeSeries failed: %s",
+                                                    test_name,
+                                                    setup_name,
+                                                    tf_github_branch,
+                                                    e,
                                                 )
                                                 db_error_artifacts(
                                                     db_ssh_port,
@@ -1410,8 +1412,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                     )
                                     return_code |= 1
                                     failure_reason = (
-                                        "Exception during remote work on test '{}' "
-                                        "(setup: '{}', branch: '{}'): {}: {}".format(
+                                        "Exception during remote work on test '%s' "
+                                        "(setup: '%s', branch: '%s'): %s: %s"
+                                        % (
                                             test_name,
                                             setup_name,
                                             tf_github_branch,
@@ -1420,7 +1423,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                         )
                                     )
                                     logging.critical(
-                                        "{}. Failing test....".format(failure_reason)
+                                        "%s. Failing test....", failure_reason
                                     )
 
                                     logging.critical(
