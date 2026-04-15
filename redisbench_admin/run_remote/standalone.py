@@ -590,11 +590,13 @@ def generate_remote_standalone_redis_cmd(
     if os.getenv("BIGREDIS_ENABLED") is not None:
         bigredis_path = os.getenv("BIGREDIS_PATH", f"{remote_temporary_dir}/redis.big")
         bigredis_use_async = os.getenv("BIGREDIS_USE_ASYNC", "no")
+        bigredis_max_ram = os.getenv("BIGREDIS_MAX_RAM", "1GB")
         logging.info(f"BigRedis enabled. Using bigredis-path: {bigredis_path}")
         initial_redis_cmd += " --bigredis-enabled yes"
         initial_redis_cmd += " --bigredis-driver speedb"
         initial_redis_cmd += f" --bigredis-use-async {bigredis_use_async}"
         initial_redis_cmd += f" --bigredis-path {bigredis_path}"
+        initial_redis_cmd += f" --bigredis-max-ram {bigredis_max_ram}"
 
     return full_logfile, initial_redis_cmd
 
