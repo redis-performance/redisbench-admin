@@ -178,10 +178,16 @@ def execute_remote_commands(
         stderr_lines = []
 
         def _read_stdout():
-            stdout_lines.extend(stdout.readlines())
+            try:
+                stdout_lines.extend(stdout.readlines())
+            except Exception as e:
+                logging.debug("Error reading stdout: %s", e)
 
         def _read_stderr():
-            stderr_lines.extend(stderr.readlines())
+            try:
+                stderr_lines.extend(stderr.readlines())
+            except Exception as e:
+                logging.debug("Error reading stderr: %s", e)
 
         stdout_thread = threading.Thread(target=_read_stdout)
         stderr_thread = threading.Thread(target=_read_stderr)
