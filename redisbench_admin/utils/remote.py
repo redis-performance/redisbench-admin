@@ -169,7 +169,28 @@ def execute_remote_commands(
         stdin, stdout, stderr = c.exec_command(
             command, get_pty=get_pty, timeout=timeout
         )
-        recv_exit_status = stdout.channel.recv_exit_status()  # status is 0
+        channel = stdout.channel
+        if timeout is not None:
+            # Poll for exit status with timeout instead of blocking forever
+            start_time = time.time()
+            while not channel.exit_status_ready():
+                elapsed = time.time() - start_time
+                if elapsed >= timeout:
+                    logging.error(
+                        "SSH command timed out after %s seconds: %s",
+                        timeout,
+                        command,
+                    )
+                    channel.close()
+                    break
+                time.sleep(1)
+        if timeout is not None:
+            if channel.exit_status_ready():
+                recv_exit_status = channel.recv_exit_status()
+            else:
+                recv_exit_status = -1
+        else:
+            recv_exit_status = channel.recv_exit_status()
         stdout = stdout.readlines()
         stderr = stderr.readlines()
         if recv_exit_status != 0:
