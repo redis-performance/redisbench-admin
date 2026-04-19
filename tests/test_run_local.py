@@ -15,6 +15,20 @@ from redisbench_admin.run_local.run_local import (
     run_local_command_logic,
 )
 from redisbench_admin.run.redistimeseries import datasink_profile_tabular_data
+from redisbench_admin.utils.local import get_local_run_full_filename
+
+
+def test_get_local_run_full_filename_sanitizes_branch_slashes():
+    result = get_local_run_full_filename(
+        start_time_str="2026-04-07-10-00-00",
+        github_branch="feat/memtier/fix",
+        test_name="memtier-1",
+        setup_name="oss-standalone",
+    )
+    assert "/" not in result
+    assert result == (
+        "oss-standalone-2026-04-07-10-00-00-feat-memtier-fix-memtier-1.json"
+    )
 
 
 def test_check_benchmark_binaries_local_requirements():

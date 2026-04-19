@@ -339,7 +339,7 @@ def validate_remote_host_compatibility(
 
 
 def spin_up_standalone_remote_redis(
-    temporary_dir,
+    remote_temporary_dir,
     server_public_ip,
     username,
     private_key,
@@ -409,7 +409,7 @@ def spin_up_standalone_remote_redis(
         logfile,
         redis_configuration_parameters,
         remote_module_files,
-        temporary_dir,
+        remote_temporary_dir,
         modules_configuration_parameters_map,
         redis_7,
         custom_redis_server_path=remote_redis_server_path,
@@ -438,16 +438,16 @@ def spin_up_standalone_remote_redis(
 
 
 def cp_local_dbdir_to_remote(
-    dbdir_folder, private_key, server_public_ip, temporary_dir, username
+    dbdir_folder, private_key, server_public_ip, remote_temporary_dir, username
 ):
     if dbdir_folder is not None:
         logging.info(
-            "Copying entire content of {} into temporary path: {}".format(
-                dbdir_folder, temporary_dir
+            "Copying entire content of {} into remote temporary path: {}".format(
+                dbdir_folder, remote_temporary_dir
             )
         )
         ssh = SSHSession(server_public_ip, username, key_file=open(private_key, "r"))
-        ssh.put_all(dbdir_folder, temporary_dir)
+        ssh.put_all(dbdir_folder, remote_temporary_dir)
 
 
 def remote_module_files_cp(
@@ -535,7 +535,7 @@ def generate_remote_standalone_redis_cmd(
     logfile,
     redis_configuration_parameters,
     remote_module_files,
-    temporary_dir,
+    remote_temporary_dir,
     modules_configuration_parameters_map,
     enable_redis_7_config_directives=True,
     enable_debug_command="yes",
@@ -555,12 +555,12 @@ def generate_remote_standalone_redis_cmd(
         logging.info(f"Using custom redis.conf: {custom_redis_conf_path}")
     else:
         initial_redis_cmd = "{} --save '' --logfile {} --dir {} --daemonize yes --protected-mode no ".format(
-            redis_server_binary, logfile, temporary_dir
+            redis_server_binary, logfile, remote_temporary_dir
         )
     if enable_redis_7_config_directives:
         extra_str = " --enable-debug-command {} ".format(enable_debug_command)
         initial_redis_cmd = initial_redis_cmd + extra_str
-    full_logfile = "{}/{}".format(temporary_dir, logfile)
+    full_logfile = "{}/{}".format(remote_temporary_dir, logfile)
     if redis_configuration_parameters is not None:
         for (
             configuration_parameter,
@@ -588,13 +588,15 @@ def generate_remote_standalone_redis_cmd(
 
     # Add BigRedis configuration if enabled via environment variable
     if os.getenv("BIGREDIS_ENABLED") is not None:
-        bigredis_path = os.getenv("BIGREDIS_PATH", f"{temporary_dir}/redis.big")
+        bigredis_path = os.getenv("BIGREDIS_PATH", f"{remote_temporary_dir}/redis.big")
         bigredis_use_async = os.getenv("BIGREDIS_USE_ASYNC", "no")
+        bigredis_max_ram = os.getenv("BIGREDIS_MAX_RAM", "1GB")
         logging.info(f"BigRedis enabled. Using bigredis-path: {bigredis_path}")
         initial_redis_cmd += " --bigredis-enabled yes"
         initial_redis_cmd += " --bigredis-driver speedb"
         initial_redis_cmd += f" --bigredis-use-async {bigredis_use_async}"
         initial_redis_cmd += f" --bigredis-path {bigredis_path}"
+        initial_redis_cmd += f" --bigredis-max-ram {bigredis_max_ram}"
 
     return full_logfile, initial_redis_cmd
 
@@ -635,9 +637,9 @@ def spin_test_standalone_redis(
     logging.info("🚀 Starting spin-test mode...")
 
     try:
-        # Create temporary directory on remote host
-        temporary_dir = "/tmp/redisbench-spin-test"
-        create_dir_commands = [f"mkdir -p {temporary_dir}"]
+        # Create temporary directory on the remote DB host
+        remote_temporary_dir = "/tmp/redisbench-spin-test"
+        create_dir_commands = [f"mkdir -p {remote_temporary_dir}"]
         execute_remote_commands(
             server_public_ip, username, private_key, create_dir_commands, db_ssh_port
         )
@@ -663,7 +665,7 @@ def spin_test_standalone_redis(
                 )
                 return False
 
-            remote_redis_conf_path = f"{temporary_dir}/redis.conf"
+            remote_redis_conf_path = f"{remote_temporary_dir}/redis.conf"
             logging.info("📁 Copying custom redis.conf to remote host...")
 
             copy_result = copy_file_to_remote_setup(
@@ -688,7 +690,7 @@ def spin_test_standalone_redis(
                 )
                 return False
 
-            remote_redis_server_path = f"{temporary_dir}/redis-server"
+            remote_redis_server_path = f"{remote_temporary_dir}/redis-server"
             logging.info("📁 Copying custom redis-server binary to remote host...")
 
             copy_result = copy_file_to_remote_setup(
@@ -723,7 +725,7 @@ def spin_test_standalone_redis(
         # Copy modules if provided
         remote_module_files = None
         if local_module_files:
-            remote_module_file_dir = f"{temporary_dir}/modules"
+            remote_module_file_dir = f"{remote_temporary_dir}/modules"
             create_module_dir_commands = [f"mkdir -p {remote_module_file_dir}"]
             execute_remote_commands(
                 server_public_ip,
@@ -747,7 +749,7 @@ def spin_test_standalone_redis(
         if extra_libs:
             # Ensure module dir exists for extra libs too
             if not local_module_files:
-                remote_module_file_dir = f"{temporary_dir}/modules"
+                remote_module_file_dir = f"{remote_temporary_dir}/modules"
                 create_module_dir_commands = [f"mkdir -p {remote_module_file_dir}"]
                 execute_remote_commands(
                     server_public_ip,
@@ -787,7 +789,7 @@ def spin_test_standalone_redis(
             logfile,
             redis_configuration_parameters,
             remote_module_files,
-            temporary_dir,
+            remote_temporary_dir,
             modules_configuration_parameters_map or {},
             enable_redis_7_config_directives=True,
             enable_debug_command="yes",
@@ -909,7 +911,7 @@ def spin_test_standalone_redis(
         # Cleanup: Stop Redis server
         cleanup_commands = [
             f"redis-cli -p {redis_port} shutdown nosave",
-            f"rm -rf {temporary_dir}",
+            f"rm -rf {remote_temporary_dir}",
         ]
         execute_remote_commands(
             server_public_ip, username, private_key, cleanup_commands, db_ssh_port
@@ -925,7 +927,7 @@ def spin_test_standalone_redis(
         try:
             cleanup_commands = [
                 f"redis-cli -p {redis_port} shutdown nosave",
-                f"rm -rf {temporary_dir}",
+                f"rm -rf {remote_temporary_dir}",
             ]
             execute_remote_commands(
                 server_public_ip, username, private_key, cleanup_commands, db_ssh_port

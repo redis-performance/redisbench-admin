@@ -41,19 +41,19 @@ from redisbench_admin.utils.utils import setup_search_clusterset
 
 
 def remote_tmpdir_prune(
-    server_public_ip, ssh_port, temporary_dir, username, private_key
+    server_public_ip, ssh_port, remote_temporary_dir, username, private_key
 ):
     execute_remote_commands(
         server_public_ip,
         username,
         private_key,
         [
-            "mkdir -p {}".format(temporary_dir),
-            "rm -rf {}/*.log".format(temporary_dir),
-            "rm -rf {}/*.config".format(temporary_dir),
-            "rm -rf {}/*.rdb".format(temporary_dir),
-            "rm -rf {}/*.out".format(temporary_dir),
-            "rm -rf {}/*.data".format(temporary_dir),
+            "mkdir -p {}".format(remote_temporary_dir),
+            "rm -rf {}/*.log".format(remote_temporary_dir),
+            "rm -rf {}/*.config".format(remote_temporary_dir),
+            "rm -rf {}/*.rdb".format(remote_temporary_dir),
+            "rm -rf {}/*.out".format(remote_temporary_dir),
+            "rm -rf {}/*.data".format(remote_temporary_dir),
             "pkill -9 redis-server",
         ],
         ssh_port,
@@ -73,7 +73,8 @@ def remote_db_spin(
     client_public_ip,
     clusterconfig,
     dbdir_folder,
-    dirname,
+    remote_db_dir,
+    local_output_dir,
     local_module_files,
     logname,
     required_modules,
@@ -86,7 +87,7 @@ def remote_db_spin(
     shard_count,
     db_ssh_port,
     client_ssh_port,
-    temporary_dir,
+    remote_temporary_dir,
     test_name,
     testcase_start_time_str,
     tf_github_branch,
@@ -111,6 +112,18 @@ def remote_db_spin(
     extra_libs=None,
     custom_redis_server_path=None,
 ):
+    """Spin up Redis on the remote DB server and prepare it for benchmarking.
+
+    Args:
+        remote_db_dir: Base directory on the *remote DB server* where Redis
+            stores its working data (e.g. ``/mnt/flash``).  Used to locate
+            dataset files that already exist on the DB server.
+        local_output_dir: Directory on the *local driver* machine where
+            error artifacts will be saved when something goes wrong.
+        remote_temporary_dir: Random subdirectory under *remote_db_dir* on the
+            remote DB server used as the Redis working directory
+            (e.g. ``/mnt/flash/<random>``).
+    """
     (
         _,
         _,
@@ -128,7 +141,7 @@ def remote_db_spin(
             dbdir_folder,
             private_key,
             server_public_ip,
-            temporary_dir,
+            remote_temporary_dir,
             username,
         )
         logging.info("Checking if there are modules we need to cp to remote host...")
@@ -173,7 +186,7 @@ def remote_db_spin(
                 private_key,
                 remote_module_files,
                 redis_configuration_parameters,
-                temporary_dir,
+                remote_temporary_dir,
                 shard_count,
                 cluster_start_port,
                 db_ssh_port,
@@ -201,20 +214,20 @@ def remote_db_spin(
             logging.error("A error occurred while spinning DB: {}".format(e.__str__()))
             logfile = logfiles[0]
 
-            remote_file = "{}/{}".format(temporary_dir, logfile)
+            remote_file = "{}/{}".format(remote_temporary_dir, logfile)
             logging.error(
                 "Trying to fetch DB remote log {} into {}".format(remote_file, logfile)
             )
             db_error_artifacts(
                 db_ssh_port,
-                dirname,
+                local_output_dir,
                 full_logfiles,
                 logname,
                 private_key,
                 s3_bucket_name,
                 s3_bucket_path,
                 server_public_ip,
-                temporary_dir,
+                remote_temporary_dir,
                 True,
                 username,
             )
@@ -223,7 +236,7 @@ def remote_db_spin(
         try:
             if skip_redis_setup is False:
                 full_logfile = spin_up_standalone_remote_redis(
-                    temporary_dir,
+                    remote_temporary_dir,
                     server_public_ip,
                     username,
                     private_key,
@@ -252,14 +265,14 @@ def remote_db_spin(
             logging.error("A error occurred while spinning DB: {}".format(e.__str__()))
             db_error_artifacts(
                 db_ssh_port,
-                dirname,
+                local_output_dir,
                 full_logfiles,
                 logname,
                 private_key,
                 s3_bucket_name,
                 s3_bucket_path,
                 server_public_ip,
-                temporary_dir,
+                remote_temporary_dir,
                 True,
                 username,
             )
@@ -277,6 +290,12 @@ def remote_db_spin(
             cluster_start_port,
         )
         server_plaintext_port = cluster_start_port
+
+    # Validate we have Redis connections before proceeding
+    if len(redis_conns) == 0:
+        raise Exception(
+            "No Redis connections available. Cannot proceed with benchmark setup."
+        )
 
     # Setup BigRedis CLUSTERSET if enabled (after all servers are started and cluster is set up)
     setup_search_clusterset(
@@ -317,8 +336,8 @@ def remote_db_spin(
         server_public_ip,
         username,
         private_key,
-        temporary_dir,
-        dirname,
+        remote_temporary_dir,
+        remote_db_dir,
         shard_count,
         cluster_enabled,
         cluster_start_port,
@@ -400,14 +419,14 @@ def remote_db_spin(
         logging.error("Remote redis is not available")
         db_error_artifacts(
             db_ssh_port,
-            dirname,
+            local_output_dir,
             full_logfiles,
             logname,
             private_key,
             s3_bucket_name,
             s3_bucket_path,
             server_public_ip,
-            temporary_dir,
+            remote_temporary_dir,
             True,
             username,
         )
@@ -443,17 +462,34 @@ def remote_db_spin(
 
 def db_error_artifacts(
     db_ssh_port,
-    dirname,
+    local_output_dir,
     full_logfiles,
     logname,
     private_key,
     s3_bucket_name,
     s3_bucket_path,
     server_public_ip,
-    temporary_dir,
+    remote_temporary_dir,
     upload_s3,
     username,
 ):
+    """Fetch error artifacts from the remote DB server and optionally upload to S3.
+
+    Args:
+        db_ssh_port: SSH port of the DB server.
+        local_output_dir: Local (driver) directory where fetched artifacts will
+            be stored.  Must be a path on the machine running redisbench-admin.
+        full_logfiles: List of remote log file paths on the DB server.
+        logname: Base log name used for the zip / log filenames.
+        private_key: SSH private key path.
+        s3_bucket_name: S3 bucket name.
+        s3_bucket_path: S3 key prefix.
+        server_public_ip: Public IP of the DB server.
+        remote_temporary_dir: Working directory on the *remote DB server*
+            (e.g. ``/mnt/flash/<random>``).
+        upload_s3: Whether to upload to S3.
+        username: SSH user for the DB server.
+    """
     # Import the zip check function
     from redisbench_admin.run_remote.standalone import ensure_zip_available
 
@@ -469,7 +505,7 @@ def db_error_artifacts(
         username,
         private_key,
         [
-            "zip -r {} {}/*".format(remote_zipfile, temporary_dir),
+            "zip -r {} {}/*".format(remote_zipfile, remote_temporary_dir),
         ],
         db_ssh_port,
     )
@@ -492,7 +528,7 @@ def db_error_artifacts(
             failed_remote_run_artifact_store(
                 upload_s3,
                 server_public_ip,
-                dirname,
+                local_output_dir,
                 remote_zipfile,
                 local_zipfile,
                 s3_bucket_name,
@@ -513,7 +549,7 @@ def db_error_artifacts(
             failed_remote_run_artifact_store(
                 upload_s3,
                 server_public_ip,
-                dirname,
+                local_output_dir,
                 full_logfiles[0],
                 logname,
                 s3_bucket_name,

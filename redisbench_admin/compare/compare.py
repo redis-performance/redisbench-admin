@@ -365,7 +365,17 @@ def compare_command_logic(args, project_name, project_version):
                             # Create test link if grafana_link_base is available
                             test_display_name = test_name
                             if grafana_link_base is not None:
-                                grafana_test_link = f"{grafana_link_base}?orgId=1&var-test_case={test_name}"
+                                grafana_test_link = (
+                                    f"{grafana_link_base}?var-test_case={test_name}"
+                                )
+                                if tf_github_org is not None:
+                                    grafana_test_link += (
+                                        f"&var-github_org={tf_github_org}"
+                                    )
+                                if tf_github_repo is not None:
+                                    grafana_test_link += (
+                                        f"&var-github_repo={tf_github_repo}"
+                                    )
                                 if baseline_branch is not None:
                                     grafana_test_link += (
                                         f"&var-branch={baseline_branch}"
@@ -398,14 +408,19 @@ def compare_command_logic(args, project_name, project_version):
 
         if grafana_link_base is not None:
             grafana_link = "{}/".format(grafana_link_base)
+            params = []
+            if tf_github_org is not None:
+                params.append(f"var-github_org={tf_github_org}")
+            if tf_github_repo is not None:
+                params.append(f"var-github_repo={tf_github_repo}")
             if baseline_tag is not None and comparison_tag is not None:
-                grafana_link += "?var-version={}&var-version={}".format(
-                    baseline_tag, comparison_tag
-                )
+                params.append(f"var-version={baseline_tag}")
+                params.append(f"var-version={comparison_tag}")
             if baseline_branch is not None and comparison_branch is not None:
-                grafana_link += "?var-branch={}&var-branch={}".format(
-                    baseline_branch, comparison_branch
-                )
+                params.append(f"var-branch={baseline_branch}")
+                params.append(f"var-branch={comparison_branch}")
+            if params:
+                grafana_link += "?" + "&".join(params)
             comment_body += "You can check a comparison in detail via the [grafana link]({})".format(
                 grafana_link
             )
@@ -694,6 +709,8 @@ def compute_regression_table(
         comparison_tag,
         from_date,
         to_date,
+        tf_github_org,
+        tf_github_repo,
     )
     logging.info(
         "Printing differential analysis between {} and {}".format(
@@ -944,6 +961,8 @@ def from_rts_to_regression_table(
     comparison_tag=None,
     from_date=None,
     to_date=None,
+    tf_github_org=None,
+    tf_github_repo=None,
 ):
     print_all = print_regressions_only is False and print_improvements_only is False
     table = []
@@ -970,6 +989,10 @@ def from_rts_to_regression_table(
             "deployment_name={}".format(baseline_deployment_name),
             "triggering_env={}".format(tf_triggering_env),
         ]
+        if tf_github_org is not None:
+            filters_baseline.append("github_org={}".format(tf_github_org))
+        if tf_github_repo is not None:
+            filters_baseline.append("github_repo={}".format(tf_github_repo))
         if running_platform is not None:
             filters_baseline.append("running_platform={}".format(running_platform))
         if baseline_architecture != ARCH_X86:
@@ -981,6 +1004,10 @@ def from_rts_to_regression_table(
             "deployment_name={}".format(comparison_deployment_name),
             "triggering_env={}".format(tf_triggering_env),
         ]
+        if tf_github_org is not None:
+            filters_comparison.append("github_org={}".format(tf_github_org))
+        if tf_github_repo is not None:
+            filters_comparison.append("github_repo={}".format(tf_github_repo))
         if running_platform is not None:
             filters_comparison.append("running_platform={}".format(running_platform))
         if comparison_architecture != ARCH_X86:
@@ -1156,6 +1183,8 @@ def from_rts_to_regression_table(
                         running_platform,
                         baseline_architecture,
                         comparison_architecture,
+                        tf_github_org,
+                        tf_github_repo,
                         verbose,
                     )
 
@@ -1183,6 +1212,8 @@ def from_rts_to_regression_table(
                         running_platform,
                         baseline_architecture,
                         comparison_architecture,
+                        tf_github_org,
+                        tf_github_repo,
                         verbose,
                     )
 
@@ -1282,6 +1313,8 @@ def from_rts_to_regression_table(
                                     running_platform,
                                     baseline_architecture,
                                     comparison_architecture,
+                                    tf_github_org,
+                                    tf_github_repo,
                                     verbose,
                                 )
 
@@ -1418,6 +1451,8 @@ def from_rts_to_regression_table(
                     comparison_tag,
                     from_date,
                     to_date,
+                    tf_github_org,
+                    tf_github_repo,
                 )
     return (
         detected_regressions,
@@ -1453,6 +1488,8 @@ def check_client_side_latency(
     running_platform,
     baseline_architecture,
     comparison_architecture,
+    tf_github_org=None,
+    tf_github_repo=None,
     verbose=False,
 ):
     """
@@ -1496,6 +1533,12 @@ def check_client_side_latency(
             ]
 
             # Add optional filters
+            if tf_github_org is not None:
+                filters_baseline.append(f"github_org={tf_github_org}")
+                filters_comparison.append(f"github_org={tf_github_org}")
+            if tf_github_repo is not None:
+                filters_baseline.append(f"github_repo={tf_github_repo}")
+                filters_comparison.append(f"github_repo={tf_github_repo}")
             if running_platform is not None:
                 filters_baseline.append(f"running_platform={running_platform}")
                 filters_comparison.append(f"running_platform={running_platform}")
@@ -1732,6 +1775,8 @@ def perform_variance_and_p99_analysis(
     running_platform,
     baseline_architecture,
     comparison_architecture,
+    tf_github_org=None,
+    tf_github_repo=None,
     verbose=False,
 ):
     """
@@ -1762,6 +1807,12 @@ def perform_variance_and_p99_analysis(
         ]
 
         # Add optional filters
+        if tf_github_org is not None:
+            filters_baseline.append(f"github_org={tf_github_org}")
+            filters_comparison.append(f"github_org={tf_github_org}")
+        if tf_github_repo is not None:
+            filters_baseline.append(f"github_repo={tf_github_repo}")
+            filters_comparison.append(f"github_repo={tf_github_repo}")
         if running_platform is not None:
             filters_baseline.append(f"running_platform={running_platform}")
             filters_comparison.append(f"running_platform={running_platform}")
@@ -2015,7 +2066,9 @@ def check_latency_for_unstable_throughput(
     running_platform,
     baseline_architecture,
     comparison_architecture,
-    verbose,
+    tf_github_org=None,
+    tf_github_repo=None,
+    verbose=False,
 ):
     """
     Check latency (p50) for unstable throughput metrics to provide additional context.
@@ -2042,6 +2095,12 @@ def check_latency_for_unstable_throughput(
         ]
 
         # Add optional filters
+        if tf_github_org is not None:
+            filters_baseline.append(f"github_org={tf_github_org}")
+            filters_comparison.append(f"github_org={tf_github_org}")
+        if tf_github_repo is not None:
+            filters_baseline.append(f"github_repo={tf_github_repo}")
+            filters_comparison.append(f"github_repo={tf_github_repo}")
         if running_platform is not None:
             filters_baseline.append(f"running_platform={running_platform}")
             filters_comparison.append(f"running_platform={running_platform}")
@@ -2527,12 +2586,17 @@ def add_line(
     comparison_version=None,
     from_date=None,
     to_date=None,
+    tf_github_org=None,
+    tf_github_repo=None,
 ):
     grafana_link = None
     if grafana_link_base is not None:
-        grafana_link = "{}?orgId=1".format(grafana_link_base)
-        grafana_link += f"&var-test_case={test_name}"
+        grafana_link = f"{grafana_link_base}?var-test_case={test_name}"
 
+        if tf_github_org is not None:
+            grafana_link += f"&var-github_org={tf_github_org}"
+        if tf_github_repo is not None:
+            grafana_link += f"&var-github_repo={tf_github_repo}"
         if baseline_branch is not None:
             grafana_link += f"&var-branch={baseline_branch}"
         if baseline_version is not None:

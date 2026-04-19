@@ -9,6 +9,7 @@ import logging
 import os
 import sys
 import tempfile
+import threading
 import time
 import git
 import paramiko
@@ -169,9 +170,51 @@ def execute_remote_commands(
         stdin, stdout, stderr = c.exec_command(
             command, get_pty=get_pty, timeout=timeout
         )
-        recv_exit_status = stdout.channel.recv_exit_status()  # status is 0
-        stdout = stdout.readlines()
-        stderr = stderr.readlines()
+        channel = stdout.channel
+        # Read stdout/stderr in background threads to avoid deadlock
+        # when output exceeds the SSH transport window size
+        # (see https://github.com/paramiko/paramiko/issues/448)
+        stdout_lines = []
+        stderr_lines = []
+
+        def _read_stdout():
+            stdout_lines.extend(stdout.readlines())
+
+        def _read_stderr():
+            stderr_lines.extend(stderr.readlines())
+
+        stdout_thread = threading.Thread(target=_read_stdout)
+        stderr_thread = threading.Thread(target=_read_stderr)
+        stdout_thread.daemon = True
+        stderr_thread.daemon = True
+        stdout_thread.start()
+        stderr_thread.start()
+        if timeout is not None:
+            # Poll for exit status with timeout instead of blocking forever
+            # (recv_exit_status uses threading Event.wait() which ignores
+            # the channel socket timeout)
+            start_time = time.time()
+            while not channel.exit_status_ready():
+                elapsed = time.time() - start_time
+                if elapsed >= timeout:
+                    logging.error(
+                        "SSH command timed out after %s seconds: %s",
+                        timeout,
+                        command,
+                    )
+                    channel.close()
+                    break
+                time.sleep(1)
+            if channel.exit_status_ready():
+                recv_exit_status = channel.recv_exit_status()
+            else:
+                recv_exit_status = -1
+        else:
+            recv_exit_status = channel.recv_exit_status()
+        stdout_thread.join(timeout=10)
+        stderr_thread.join(timeout=10)
+        stdout = stdout_lines
+        stderr = stderr_lines
         if recv_exit_status != 0:
             if not limit_output_print:
                 logging.warning(

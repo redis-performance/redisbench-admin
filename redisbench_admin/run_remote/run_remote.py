@@ -4,6 +4,7 @@
 #  All rights reserved.
 #
 import logging
+import os
 import sys
 import traceback
 import redis
@@ -329,7 +330,12 @@ def run_remote_command_logic(args, project_name, project_version):
             exit(return_code)
 
     remote_envs = {}
-    dirname = args.db_dirname
+    # remote_db_dir: base directory on the *remote DB server* (e.g. /mnt/flash)
+    remote_db_dir = args.db_dirname
+    # local_tmp_dir: temporary directory on the *local driver* machine for
+    # storing fetched artifacts (logs, zip files, etc.)
+    local_tmp_dir = get_tmp_folder_rnd()
+    os.makedirs(local_tmp_dir, exist_ok=True)
     (
         _,
         _,
@@ -535,7 +541,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                 tf_timeout_secs = remote_envs_timeout[remote_id]
                                 client_artifacts = []
                                 client_artifacts_map = {}
-                                temporary_dir = get_tmp_folder_rnd(dirname)
+                                # remote_temporary_dir: random working dir on the
+                                # *remote DB server* (e.g. /mnt/flash/<random>)
+                                remote_temporary_dir = get_tmp_folder_rnd(remote_db_dir)
                                 (
                                     client_public_ip,
                                     server_plaintext_port,
@@ -624,7 +632,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             remote_tmpdir_prune(
                                                 server_public_ip,
                                                 db_ssh_port,
-                                                temporary_dir,
+                                                remote_temporary_dir,
                                                 username,
                                                 private_key,
                                             )
@@ -648,7 +656,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                             client_public_ip,
                                             clusterconfig,
                                             dbdir_folder,
-                                            dirname,
+                                            remote_db_dir,
+                                            local_tmp_dir,
                                             local_module_files,
                                             logname,
                                             required_modules,
@@ -661,7 +670,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             shard_count,
                                             db_ssh_port,
                                             client_ssh_port,
-                                            temporary_dir,
+                                            remote_temporary_dir,
                                             test_name,
                                             testcase_start_time_str,
                                             tf_github_branch,
@@ -710,7 +719,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 setup_details,
                                                 ssh_tunnel,
                                                 full_logfiles,
-                                                temporary_dir,
+                                                remote_temporary_dir,
                                             )
                                             # Update tracker with PIDs after ro_benchmark_set stores them
                                             if setup_details.get(
@@ -747,7 +756,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             server_plaintext_port,
                                             ssh_tunnel,
                                             pids_match,
-                                            temporary_dir,
+                                            remote_temporary_dir,
                                         ) = ro_benchmark_reuse(
                                             artifact_version,
                                             benchmark_type,
@@ -759,7 +768,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             server_plaintext_port,
                                             setup_details,
                                             ssh_tunnel,
-                                            temporary_dir,
+                                            remote_temporary_dir,
                                             benchmark_config,
                                             ignore_keyspace_errors,
                                         )
@@ -952,7 +961,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             failed_remote_run_artifact_store(
                                                 args.upload_results_s3,
                                                 server_public_ip,
-                                                dirname,
+                                                local_tmp_dir,
                                                 PERF_DAEMON_LOGNAME,
                                                 logname,
                                                 s3_bucket_name,
@@ -1023,14 +1032,14 @@ def run_remote_command_logic(args, project_name, project_version):
                                     if remote_run_result is False:
                                         db_error_artifacts(
                                             db_ssh_port,
-                                            dirname,
+                                            local_tmp_dir,
                                             full_logfiles,
                                             logname,
                                             private_key,
                                             s3_bucket_name,
                                             s3_bucket_path,
                                             server_public_ip,
-                                            temporary_dir,
+                                            remote_temporary_dir,
                                             args.upload_results_s3,
                                             username,
                                         )
@@ -1188,23 +1197,33 @@ def run_remote_command_logic(args, project_name, project_version):
                                             except (
                                                 redis.exceptions.ConnectionError
                                             ) as e:
+                                                logging.error(
+                                                    "RedisTimeSeries connection error while pushing metrics for test '%s' "
+                                                    "(setup: '%s', branch: '%s'). The benchmark itself completed successfully, "
+                                                    "but the metrics export to RedisTimeSeries failed: %s",
+                                                    test_name,
+                                                    setup_name,
+                                                    tf_github_branch,
+                                                    e,
+                                                )
                                                 db_error_artifacts(
                                                     db_ssh_port,
-                                                    dirname,
+                                                    local_tmp_dir,
                                                     full_logfiles,
                                                     logname,
                                                     private_key,
                                                     s3_bucket_name,
                                                     s3_bucket_path,
                                                     server_public_ip,
-                                                    temporary_dir,
+                                                    remote_temporary_dir,
                                                     args.upload_results_s3,
                                                     username,
                                                 )
                                                 return_code |= 1
                                                 raise Exception(
-                                                    "Failed to run remote benchmark. {}".format(
-                                                        e.__str__()
+                                                    "Failed to push metrics to RedisTimeSeries for test '{}'. "
+                                                    "The benchmark ran successfully but the post-benchmark metrics export failed: {}".format(
+                                                        test_name, e
                                                     )
                                                 )
 
@@ -1374,7 +1393,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             remote_envs, keep_env_and_topo
                                         )
                                     exit(1)
-                                except:
+                                except Exception as e:
                                     (
                                         start_time,
                                         start_time_ms,
@@ -1392,14 +1411,25 @@ def run_remote_command_logic(args, project_name, project_version):
                                         tsname_project_total_failures,
                                     )
                                     return_code |= 1
-                                    failure_reason = "Some unexpected exception was caught during remote work on test named {}".format(
-                                        test_name
+                                    failure_reason = (
+                                        "Exception during remote work on test '%s' "
+                                        "(setup: '%s', branch: '%s'): %s: %s"
+                                        % (
+                                            test_name,
+                                            setup_name,
+                                            tf_github_branch,
+                                            type(e).__name__,
+                                            e,
+                                        )
                                     )
                                     logging.critical(
-                                        "{}. Failing test....".format(failure_reason)
+                                        "%s. Failing test....", failure_reason
                                     )
 
-                                    logging.critical(sys.exc_info()[0])
+                                    logging.critical(
+                                        "Full exception details:",
+                                        exc_info=True,
+                                    )
                                     print("-" * 60)
                                     traceback.print_exc(file=sys.stdout)
                                     print("-" * 60)
@@ -1410,20 +1440,22 @@ def run_remote_command_logic(args, project_name, project_version):
                                         try:
                                             _logname = logname
                                             _full_logfiles = full_logfiles
-                                            # Use the original temporary_dir from setup_details["env"] if available
-                                            # (for reused environments), otherwise use the current temporary_dir
-                                            _temporary_dir = temporary_dir
+                                            # Use the original remote_temporary_dir from setup_details["env"]
+                                            # if available (reused environments), otherwise use the current one
+                                            _remote_temporary_dir = remote_temporary_dir
                                             try:
                                                 if setup_details.get(
                                                     "env"
                                                 ) and setup_details["env"].get(
-                                                    "temporary_dir"
+                                                    "remote_temporary_dir"
                                                 ):
-                                                    _temporary_dir = setup_details[
-                                                        "env"
-                                                    ]["temporary_dir"]
+                                                    _remote_temporary_dir = (
+                                                        setup_details["env"][
+                                                            "remote_temporary_dir"
+                                                        ]
+                                                    )
                                                     logging.info(
-                                                        f"Using original temporary_dir from reused environment: {_temporary_dir}"
+                                                        f"Using original remote_temporary_dir from reused environment: {_remote_temporary_dir}"
                                                     )
                                             except NameError:
                                                 pass  # setup_details not available
@@ -1432,14 +1464,14 @@ def run_remote_command_logic(args, project_name, project_version):
                                             )
                                             db_error_artifacts(
                                                 db_ssh_port,
-                                                dirname,
+                                                local_tmp_dir,
                                                 _full_logfiles,
                                                 _logname,
                                                 private_key,
                                                 s3_bucket_name,
                                                 s3_bucket_path,
                                                 server_public_ip,
-                                                _temporary_dir,
+                                                _remote_temporary_dir,
                                                 args.upload_results_s3,
                                                 username,
                                             )
@@ -1577,7 +1609,7 @@ def ro_benchmark_reuse(
     server_plaintext_port,
     setup_details,
     ssh_tunnel,
-    temporary_dir,
+    remote_temporary_dir,
     benchmark_config=None,
     ignore_keyspace_errors=False,
 ):
@@ -1595,8 +1627,10 @@ def ro_benchmark_reuse(
     return_code = setup_details["env"]["return_code"]
     server_plaintext_port = setup_details["env"]["server_plaintext_port"]
     ssh_tunnel = setup_details["env"]["ssh_tunnel"]
-    temporary_dir = setup_details["env"]["temporary_dir"]
-    logging.info(f"Reusing temporary_dir from original environment: {temporary_dir}")
+    remote_temporary_dir = setup_details["env"]["remote_temporary_dir"]
+    logging.info(
+        f"Reusing remote_temporary_dir from original environment: {remote_temporary_dir}"
+    )
 
     # Verify Redis PIDs are the same (same Redis instance is being reused)
     expected_pids = setup_details["env"].get("redis_pids", [])
@@ -1639,7 +1673,7 @@ def ro_benchmark_reuse(
         server_plaintext_port,
         ssh_tunnel,
         pids_match,
-        temporary_dir,
+        remote_temporary_dir,
     )
 
 
@@ -1653,14 +1687,14 @@ def ro_benchmark_set(
     setup_details,
     ssh_tunnel,
     full_logfiles,
-    temporary_dir,
+    remote_temporary_dir,
 ):
     logging.info(
         "Given the benchmark for this setup is read-only we will prepare to reuse it on the next read-only benchmarks (if any )."
     )
     setup_details["env"] = {}
     setup_details["env"]["full_logfiles"] = full_logfiles
-    setup_details["env"]["temporary_dir"] = temporary_dir
+    setup_details["env"]["remote_temporary_dir"] = remote_temporary_dir
 
     setup_details["env"]["artifact_version"] = artifact_version
     setup_details["env"]["cluster_enabled"] = cluster_enabled
@@ -1683,7 +1717,7 @@ def ro_benchmark_set(
             redis_pids.append(None)
     setup_details["env"]["redis_pids"] = redis_pids
     logging.info(f"Stored Redis PIDs for reuse verification: {redis_pids}")
-    logging.info(f"Stored temporary_dir for reuse: {temporary_dir}")
+    logging.info(f"Stored remote_temporary_dir for reuse: {remote_temporary_dir}")
 
 
 def export_redis_metrics(
