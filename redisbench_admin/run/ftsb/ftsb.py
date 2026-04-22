@@ -53,6 +53,8 @@ def prepare_ftsb_benchmark_command(
                     command_arr.extend(["--input", input_file])
                 elif key == "max-token-size-mb":
                     command_arr.extend(["--max-token-size-mb", str(value)])
+                elif key in ("batch-size", "batch_size"):
+                    command_arr.extend(["--batch-size", str(value)])
                 else:
                     command_arr.extend(["--{}".format(key), str(value)])
 
@@ -70,6 +72,9 @@ def prepare_ftsb_benchmark_command(
                         command_arr.extend(
                             ["--max-token-size-mb", str(k["max-token-size-mb"])]
                         )
+                    elif "batch-size" in k or "batch_size" in k:
+                        bs_key = "batch-size" if "batch-size" in k else "batch_size"
+                        command_arr.extend(["--batch-size", str(k[bs_key])])
                     else:
                         for kk in k.keys():
                             command_arr.extend(["--{}".format(kk), str(k[kk])])

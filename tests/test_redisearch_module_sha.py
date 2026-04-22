@@ -133,7 +133,9 @@ def test_extract_module_git_sha_against_live_redis_stack():
         pytest.skip("Could not connect to redis-stack sidecar on RTS_PORT")
 
     sha = extract_module_git_sha(conn)
-    assert sha is not None, "expected a non-None git_sha from redis-stack's search module"
+    assert (
+        sha is not None
+    ), "expected a non-None git_sha from redis-stack's search module"
     assert isinstance(sha, str) and sha != ""
     # defensive: looks like a git sha (hex-ish, non-trivial length)
     assert len(sha) >= 7
