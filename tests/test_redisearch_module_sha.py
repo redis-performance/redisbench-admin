@@ -1,3 +1,6 @@
+import os
+
+import pytest
 import redis
 
 from redisbench_admin.utils.redisearch import extract_module_git_sha
@@ -102,3 +105,23 @@ def test_extract_module_git_sha_debug_returns_empty_string_falls_through():
         debug_replies={"FT.DEBUG": b"   ", "JSON.DEBUG": b"json-sha"},
     )
     assert extract_module_git_sha(conn) == "json-sha"
+
+
+def test_extract_module_git_sha_against_live_redis_stack():
+    """End-to-end against the tox-managed redis-stack sidecar (which loads
+    the search module). Proves the helper works against a real FT.DEBUG
+    GIT_SHA reply, not just mocked bytes."""
+    if "RTS_PORT" not in os.environ:
+        pytest.skip("RTS_PORT environment variable not set")
+    rts_port = os.environ["RTS_PORT"]
+    try:
+        conn = redis.Redis(port=rts_port)
+        conn.ping()
+    except redis.ConnectionError:
+        pytest.skip("Could not connect to redis-stack sidecar on RTS_PORT")
+
+    sha = extract_module_git_sha(conn)
+    assert sha is not None, "expected a non-None git_sha from redis-stack's search module"
+    assert isinstance(sha, str) and sha != ""
+    # defensive: looks like a git sha (hex-ish, non-trivial length)
+    assert len(sha) >= 7
