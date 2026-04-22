@@ -393,8 +393,15 @@ def run_remote_command_logic(args, project_name, project_version):
     profiler_dashboard_table_headers = ["Setup", "Test-case", "Grafana Dashboard"]
     profiler_dashboard_links = []
 
-    benchmark_artifacts_table_name = "Benchmark client artifacts"
-    benchmark_artifacts_table_headers = ["Setup", "Test-case", "Artifact", "link"]
+    benchmark_artifacts_table_name = "Benchmark artifacts"
+    benchmark_artifacts_table_headers = [
+        "Setup",
+        "Test-case",
+        "Type",
+        "Status",
+        "Artifact",
+        "link",
+    ]
     benchmark_artifacts_links = []
     architecture = args.architecture
     if architecture not in VALID_ARCHS:
@@ -1043,6 +1050,18 @@ def run_remote_command_logic(args, project_name, project_version):
                                             args.upload_results_s3,
                                             username,
                                         )
+                                        # Track server artifacts for summary
+                                        for server_artifact in full_logfiles:
+                                            benchmark_artifacts_links.append(
+                                                [
+                                                    setup_name,
+                                                    test_name,
+                                                    "server",
+                                                    "error",
+                                                    server_artifact,
+                                                    "- n/a -",
+                                                ]
+                                            )
                                         # Upload client artifacts (including log files) on error
                                         if args.upload_results_s3:
                                             client_artifacts.append(local_bench_fname)
@@ -1056,11 +1075,40 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     )
                                                 )
                                                 try:
-                                                    upload_artifacts_to_s3(
-                                                        client_artifacts,
-                                                        s3_bucket_name,
-                                                        s3_bucket_path,
+                                                    error_client_artifacts_map = (
+                                                        upload_artifacts_to_s3(
+                                                            client_artifacts,
+                                                            s3_bucket_name,
+                                                            s3_bucket_path,
+                                                        )
                                                     )
+                                                    for (
+                                                        client_artifact
+                                                    ) in client_artifacts:
+                                                        client_artifact_link = "- n/a -"
+                                                        artifact_basename = (
+                                                            os.path.basename(
+                                                                client_artifact
+                                                            )
+                                                        )
+                                                        if (
+                                                            artifact_basename
+                                                            in error_client_artifacts_map
+                                                        ):
+                                                            client_artifact_link = error_client_artifacts_map[
+                                                                artifact_basename
+                                                            ]
+                                                        benchmark_artifacts_links.append(
+                                                            [
+                                                                setup_name,
+                                                                test_name,
+                                                                "client",
+                                                                "error",
+                                                                client_artifact,
+                                                                " %s "
+                                                                % client_artifact_link,
+                                                            ]
+                                                        )
                                                 except Exception as e:
                                                     logging.warning(
                                                         "Failed to upload client artifacts to S3: {}. Continuing.".format(
@@ -1069,7 +1117,14 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     )
                                         return_code |= 1
                                         raise Exception(
-                                            "Failed to run remote benchmark."
+                                            "Failed to run remote benchmark for test '%s' "
+                                            "(setup: '%s', branch: '%s'). "
+                                            "Check the server/client logs uploaded to S3 for details."
+                                            % (
+                                                test_name,
+                                                setup_name,
+                                                tf_github_branch,
+                                            )
                                         )
 
                                     else:
@@ -1363,12 +1418,6 @@ def run_remote_command_logic(args, project_name, project_version):
                                             s3_bucket_path,
                                         )
 
-                                    benchmark_artifacts_table_headers = [
-                                        "Setup",
-                                        "Test-case",
-                                        "Artifact",
-                                        "link",
-                                    ]
                                     for client_artifact in client_artifacts:
                                         client_artifact_link = "- n/a -"
                                         if client_artifact in client_artifacts_map:
@@ -1379,8 +1428,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                             [
                                                 setup_name,
                                                 test_name,
+                                                "client",
+                                                "success",
                                                 client_artifact,
-                                                " {} ".format(client_artifact_link),
+                                                " %s " % client_artifact_link,
                                             ]
                                         )
 
@@ -1475,6 +1526,18 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 args.upload_results_s3,
                                                 username,
                                             )
+                                            # Track server artifacts for summary
+                                            for server_artifact in _full_logfiles:
+                                                benchmark_artifacts_links.append(
+                                                    [
+                                                        setup_name,
+                                                        test_name,
+                                                        "server",
+                                                        "exception",
+                                                        server_artifact,
+                                                        "- n/a -",
+                                                    ]
+                                                )
                                         except NameError:
                                             logging.warning(
                                                 "Server log variables not yet initialized, skipping server artifact upload"
@@ -1501,11 +1564,39 @@ def run_remote_command_logic(args, project_name, project_version):
                                                         s3_bucket_name, s3_bucket_path
                                                     )
                                                 )
-                                                upload_artifacts_to_s3(
-                                                    exception_client_artifacts,
-                                                    s3_bucket_name,
-                                                    s3_bucket_path,
+                                                exc_client_artifacts_map = (
+                                                    upload_artifacts_to_s3(
+                                                        exception_client_artifacts,
+                                                        s3_bucket_name,
+                                                        s3_bucket_path,
+                                                    )
                                                 )
+                                                for (
+                                                    exc_artifact
+                                                ) in exception_client_artifacts:
+                                                    exc_artifact_link = "- n/a -"
+                                                    exc_artifact_basename = (
+                                                        os.path.basename(exc_artifact)
+                                                    )
+                                                    if (
+                                                        exc_artifact_basename
+                                                        in exc_client_artifacts_map
+                                                    ):
+                                                        exc_artifact_link = (
+                                                            exc_client_artifacts_map[
+                                                                exc_artifact_basename
+                                                            ]
+                                                        )
+                                                    benchmark_artifacts_links.append(
+                                                        [
+                                                            setup_name,
+                                                            test_name,
+                                                            "client",
+                                                            "exception",
+                                                            exc_artifact,
+                                                            " %s " % exc_artifact_link,
+                                                        ]
+                                                    )
                                     except Exception as upload_error:
                                         logging.warning(
                                             "Failed to upload artifacts on exception: {}. Continuing.".format(
