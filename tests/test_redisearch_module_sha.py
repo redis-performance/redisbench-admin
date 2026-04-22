@@ -46,12 +46,23 @@ def test_extract_module_git_sha_strips_whitespace():
     assert extract_module_git_sha(conn) == "abc1234"
 
 
-def test_extract_module_git_sha_prefers_requested_module():
+def test_extract_module_git_sha_ignores_modules_without_debug_git_sha():
+    """JSON/timeseries/bloom/graph are NOT in the map today (they don't
+    expose DEBUG GIT_SHA). When they're the only thing loaded, return None."""
     conn = _FakeConn(
-        module_list_reply=[_entry("search"), _entry("json")],
-        debug_replies={"FT.DEBUG": b"search-sha", "JSON.DEBUG": b"json-sha"},
+        module_list_reply=[_entry("ReJSON"), _entry("timeseries"), _entry("bf")],
     )
-    assert extract_module_git_sha(conn, module_name="json") == "json-sha"
+    assert extract_module_git_sha(conn) is None
+
+
+def test_extract_module_git_sha_search_wins_alongside_unsupported_modules():
+    """With search + unsupported modules all loaded, search's sha still
+    comes through — unsupported modules are silently skipped."""
+    conn = _FakeConn(
+        module_list_reply=[_entry("ReJSON"), _entry("search"), _entry("timeseries")],
+        debug_replies={"FT.DEBUG": b"search-sha"},
+    )
+    assert extract_module_git_sha(conn) == "search-sha"
 
 
 def test_extract_module_git_sha_no_module_loaded():
@@ -72,13 +83,14 @@ def test_extract_module_git_sha_module_list_fails():
     assert extract_module_git_sha(BrokenConn()) is None
 
 
-def test_extract_module_git_sha_debug_fails_falls_through():
+def test_extract_module_git_sha_debug_fails_returns_none():
+    """FT.DEBUG raising is not fatal — helper returns None, caller falls
+    through to other hash sources (e.g. the local-repo hash)."""
     conn = _FakeConn(
-        module_list_reply=[_entry("search"), _entry("json")],
+        module_list_reply=[_entry("search")],
         debug_raises={"FT.DEBUG": redis.ResponseError("nope")},
-        debug_replies={"JSON.DEBUG": b"json-sha"},
     )
-    assert extract_module_git_sha(conn) == "json-sha"
+    assert extract_module_git_sha(conn) is None
 
 
 def test_extract_module_git_sha_malformed_entry_is_skipped():
@@ -90,21 +102,21 @@ def test_extract_module_git_sha_malformed_entry_is_skipped():
     assert extract_module_git_sha(conn) == "abc1234"
 
 
-def test_extract_module_git_sha_debug_returns_none_falls_through():
-    """If <mod>.DEBUG GIT_SHA returns None, loop over to the next candidate."""
+def test_extract_module_git_sha_debug_returns_none_returns_none():
+    """If FT.DEBUG GIT_SHA returns nil, helper returns None."""
     conn = _FakeConn(
-        module_list_reply=[_entry("search"), _entry("json")],
-        debug_replies={"FT.DEBUG": None, "JSON.DEBUG": b"json-sha"},
+        module_list_reply=[_entry("search")],
+        debug_replies={"FT.DEBUG": None},
     )
-    assert extract_module_git_sha(conn) == "json-sha"
+    assert extract_module_git_sha(conn) is None
 
 
-def test_extract_module_git_sha_debug_returns_empty_string_falls_through():
+def test_extract_module_git_sha_debug_returns_empty_string_returns_none():
     conn = _FakeConn(
-        module_list_reply=[_entry("search"), _entry("json")],
-        debug_replies={"FT.DEBUG": b"   ", "JSON.DEBUG": b"json-sha"},
+        module_list_reply=[_entry("search")],
+        debug_replies={"FT.DEBUG": b"   "},
     )
-    assert extract_module_git_sha(conn) == "json-sha"
+    assert extract_module_git_sha(conn) is None
 
 
 def test_extract_module_git_sha_against_live_redis_stack():

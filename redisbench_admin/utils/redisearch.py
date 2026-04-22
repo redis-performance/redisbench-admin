@@ -13,22 +13,20 @@ import redis
 def extract_module_git_sha(redis_conn, module_name="search"):
     """Return the git SHA of a loaded Redis module, or None if unavailable.
 
-    Preferred lookup order:
-      1. `<module>.debug git_sha` for the requested module (default: search).
-      2. Any module exposing a git_sha via `<module>.debug git_sha`.
+    As of redis-stack-server 7.4, only the search module (RediSearch /
+    Searchlight) exposes a git SHA via a DEBUG subcommand
+    (`FT.DEBUG GIT_SHA`). JSON, timeseries, bloom and graph DO NOT expose
+    an equivalent command — calls against them fall through and the helper
+    returns None. The module map below is intentionally conservative and
+    will be extended when upstream modules add the capability.
 
-    Never raises on a missing module or command — returns None so callers can
-    fall through to other hash sources.
+    Never raises on a missing module or command — returns None so callers
+    can fall through to other hash sources.
     """
     debug_cmd_by_module = {
         "search": "FT.DEBUG",
         "ft": "FT.DEBUG",
         "searchlight": "FT.DEBUG",
-        "json": "JSON.DEBUG",
-        "timeseries": "TS.DEBUG",
-        "bf": "BF.DEBUG",
-        "cf": "CF.DEBUG",
-        "graph": "GRAPH.DEBUG",
     }
     try:
         modules = redis_conn.execute_command("MODULE", "LIST")
