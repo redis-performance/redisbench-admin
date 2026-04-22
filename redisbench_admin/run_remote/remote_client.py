@@ -385,10 +385,10 @@ def run_remote_benchmark(
             if "ftsb_" in cmd:
                 duration = extract_duration_from_command(cmd)
                 if duration is not None:
-                    # Add 60 seconds buffer to the duration for SSH timeout
-                    effective_timeout = duration * 3
+                    # Add large buffer to the duration for SSH timeout
+                    effective_timeout = duration * 10
                     logging.info(
-                        "Detected ftsb --duration parameter. Setting SSH timeout to {} seconds (duration*3 buffer)".format(
+                        "Detected ftsb --duration parameter. Setting SSH timeout to {} seconds (duration*10 buffer)".format(
                             effective_timeout
                         )
                     )
