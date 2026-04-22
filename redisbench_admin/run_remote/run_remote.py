@@ -51,6 +51,12 @@ from redisbench_admin.run_remote.args import TF_OVERRIDE_NAME, TF_OVERRIDE_REMOT
 from redisbench_admin.run_remote.consts import min_recommended_benchmark_duration
 from redisbench_admin.run_remote.notifications import generate_failure_notification
 from redisbench_admin.run_remote.remote_client import run_remote_client_tool
+from redisbench_admin.run_remote.parca_agent_labels import (
+    is_parca_agent_running,
+    set_parca_agent_labels,
+    clear_parca_agent_labels,
+    build_labels as build_parca_agent_labels,
+)
 from redisbench_admin.run_remote.remote_db import (
     remote_tmpdir_prune,
     remote_db_spin,
@@ -66,6 +72,7 @@ from redisbench_admin.utils.benchmark_config import (
     prepare_benchmark_definitions,
     get_metadata_tags,
     process_benchmark_definitions_remote_timeouts,
+    extract_benchmark_tool_settings,
 )
 from redisbench_admin.utils.redisgraph_benchmark_go import setup_remote_benchmark_agent
 from redisbench_admin.utils.remote import (
@@ -923,6 +930,64 @@ def run_remote_command_logic(args, project_name, project_version):
                                         )
                                     )
 
+                                    # --- parca-agent per-test label injection ---
+                                    # If the DB node has parca-agent installed
+                                    # (cloud-init sets it up on the redisearch-m7
+                                    # setups, matching the OSS coordinator's
+                                    # convention), push the current benchmark's
+                                    # metadata as `metadata-external-labels` so
+                                    # Polar Signals samples are tagged with
+                                    # test_name / git_hash / tested_commands / ...
+                                    parca_agent_active = False
+                                    try:
+                                        parca_agent_active = is_parca_agent_running(
+                                            server_public_ip,
+                                            db_ssh_port,
+                                            username,
+                                            private_key,
+                                        )
+                                    except Exception as _e:
+                                        logging.warning(
+                                            "parca-agent detection failed (non-fatal): %s",
+                                            _e,
+                                        )
+                                    if parca_agent_active:
+                                        try:
+                                            (_, _, _, _, _benchmark_tool, _, _, _) = (
+                                                extract_benchmark_tool_settings(
+                                                    benchmark_config, "clientconfig"
+                                                )
+                                            )
+                                            _parca_labels = build_parca_agent_labels(
+                                                setup_name=setup_name,
+                                                setup_type=setup_type,
+                                                architecture=architecture,
+                                                test_name=test_name,
+                                                benchmark_tool=_benchmark_tool,
+                                                metadata_tags=metadata_tags,
+                                                tf_github_org=tf_github_org,
+                                                tf_github_repo=tf_github_repo,
+                                                tf_github_branch=tf_github_branch,
+                                                tf_github_sha=tf_github_sha,
+                                                tf_triggering_env=tf_triggering_env,
+                                                coordinator_version=(
+                                                    redisbench_admin.__version__
+                                                ),
+                                            )
+                                            set_parca_agent_labels(
+                                                server_public_ip,
+                                                db_ssh_port,
+                                                username,
+                                                private_key,
+                                                _parca_labels,
+                                            )
+                                        except Exception as _e:
+                                            logging.warning(
+                                                "parca-agent label injection failed (non-fatal): %s",
+                                                _e,
+                                            )
+                                    # --- end parca-agent label injection ---
+
                                     (
                                         artifact_version,
                                         benchmark_duration_seconds,
@@ -958,6 +1023,26 @@ def run_remote_command_logic(args, project_name, project_version):
                                         redis_password,
                                         architecture,
                                     )
+
+                                    # --- parca-agent per-test label cleanup ---
+                                    # Clear metadata-external-labels so a
+                                    # subsequent test doesn't inherit stale
+                                    # labels if it crashes before the next
+                                    # set_parca_agent_labels() lands.
+                                    if parca_agent_active:
+                                        try:
+                                            clear_parca_agent_labels(
+                                                server_public_ip,
+                                                db_ssh_port,
+                                                username,
+                                                private_key,
+                                            )
+                                        except Exception as _e:
+                                            logging.warning(
+                                                "parca-agent label clear failed (non-fatal): %s",
+                                                _e,
+                                            )
+                                    # --- end parca-agent label cleanup ---
 
                                     if profilers_enabled:
                                         logging.info("Stopping remote profiler")
