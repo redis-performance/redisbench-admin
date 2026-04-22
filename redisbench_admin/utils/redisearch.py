@@ -4,9 +4,76 @@
 #  All rights reserved.
 #
 
+import logging
 import sys
 
 import redis
+
+
+def extract_module_git_sha(redis_conn, module_name="search"):
+    """Return the git SHA of a loaded Redis module, or None if unavailable.
+
+    Preferred lookup order:
+      1. `<module>.debug git_sha` for the requested module (default: search).
+      2. Any module exposing a git_sha via `<module>.debug git_sha`.
+
+    Never raises on a missing module or command — returns None so callers can
+    fall through to other hash sources.
+    """
+    debug_cmd_by_module = {
+        "search": "FT.DEBUG",
+        "ft": "FT.DEBUG",
+        "searchlight": "FT.DEBUG",
+        "json": "JSON.DEBUG",
+        "timeseries": "TS.DEBUG",
+        "bf": "BF.DEBUG",
+        "cf": "CF.DEBUG",
+        "graph": "GRAPH.DEBUG",
+    }
+    try:
+        modules = redis_conn.execute_command("MODULE", "LIST")
+    except redis.RedisError as err:
+        logging.debug("MODULE LIST failed while inferring module git_sha: %s", err)
+        return None
+
+    loaded = {}
+    for entry in modules:
+        try:
+            name = entry[1].decode() if isinstance(entry[1], bytes) else entry[1]
+        except (IndexError, AttributeError):
+            continue
+        loaded[name.lower()] = name
+
+    ordered = []
+    preferred = module_name.lower() if module_name else None
+    if preferred and preferred in loaded:
+        ordered.append(loaded[preferred])
+    for name in loaded.values():
+        if name not in ordered:
+            ordered.append(name)
+
+    for name in ordered:
+        debug_cmd = debug_cmd_by_module.get(name.lower())
+        if debug_cmd is None:
+            continue
+        try:
+            reply = redis_conn.execute_command(debug_cmd, "GIT_SHA")
+        except redis.RedisError as err:
+            logging.debug("%s GIT_SHA failed for module %s: %s", debug_cmd, name, err)
+            continue
+        if reply is None:
+            continue
+        sha = reply.decode() if isinstance(reply, bytes) else str(reply)
+        sha = sha.strip()
+        if sha:
+            logging.info(
+                "Inferred module git_sha=%s from module %s via %s",
+                sha,
+                name,
+                debug_cmd,
+            )
+            return sha
+    return None
 
 
 def check_and_extract_redisearch_info(redis_url):

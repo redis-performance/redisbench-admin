@@ -77,6 +77,7 @@ from redisbench_admin.utils.remote import (
     fetch_remote_id_from_config,
     perform_connectivity_test,
 )
+from redisbench_admin.utils.redisearch import extract_module_git_sha
 
 from redisbench_admin.utils.utils import (
     EC2_PRIVATE_PEM,
@@ -111,6 +112,7 @@ def run_remote_command_logic(args, project_name, project_version):
     tf_github_actor = args.github_actor
     tf_github_repo = args.github_repo
     tf_github_sha = args.github_sha
+    args_github_sha_explicit = args.github_sha not in (None, "")
     tf_github_branch = args.github_branch
     required_modules = args.required_module
     collect_commandstats = args.collect_commandstats
@@ -1265,6 +1267,18 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 f"Keeping environment active for dataset reuse (dataset: '{dataset_name}', setup: '{setup_name}')"
                                             )
 
+                                        if args_github_sha_explicit:
+                                            push_github_sha = tf_github_sha
+                                        else:
+                                            push_github_sha = None
+                                            if redis_conns:
+                                                push_github_sha = (
+                                                    extract_module_git_sha(
+                                                        redis_conns[0]
+                                                    )
+                                                )
+                                            if not push_github_sha:
+                                                push_github_sha = tf_github_sha
                                         (
                                             _,
                                             branch_target_tables,
@@ -1287,6 +1301,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             tf_github_repo,
                                             tf_triggering_env,
                                             metadata_tags,
+                                            tf_github_sha=push_github_sha,
                                         )
                                         if branch_target_tables is not None:
                                             for (

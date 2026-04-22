@@ -899,6 +899,7 @@ def extract_perversion_timeseries_from_results(
     build_variant_name=None,
     running_platform=None,
     testcase_metric_context_paths=[],
+    tf_github_sha=None,
 ):
     break_by_key = "version"
     break_by_str = "by.{}".format(break_by_key)
@@ -922,6 +923,7 @@ def extract_perversion_timeseries_from_results(
         build_variant_name,
         running_platform,
         testcase_metric_context_paths,
+        tf_github_sha=tf_github_sha,
     )
     return True, branch_time_series_dict, target_tables
 
@@ -943,6 +945,7 @@ def common_timeseries_extraction(
     build_variant_name=None,
     running_platform=None,
     testcase_metric_context_paths=[],
+    tf_github_sha=None,
 ):
     time_series_dict = {}
     target_tables = {}
@@ -977,6 +980,7 @@ def common_timeseries_extraction(
             tf_triggering_env,
             time_series_dict,
             use_metric_context_path,
+            tf_github_sha=tf_github_sha,
         )
         target_tables[target_table_keyname] = target_table_dict
 
@@ -1005,6 +1009,7 @@ def from_metric_kv_to_timeserie(
     tf_triggering_env,
     time_series_dict,
     use_metric_context_path,
+    tf_github_sha=None,
 ):
     timeserie_tags, ts_name = get_ts_tags_and_name(
         break_by_key,
@@ -1024,6 +1029,7 @@ def from_metric_kv_to_timeserie(
         tf_github_repo,
         tf_triggering_env,
         use_metric_context_path,
+        tf_github_sha=tf_github_sha,
     )
     time_series_dict[ts_name] = {
         "labels": timeserie_tags.copy(),
@@ -1101,6 +1107,7 @@ def get_ts_tags_and_name(
     tf_triggering_env,
     use_metric_context_path,
     arch=ARCH_X86,
+    tf_github_sha=None,
 ):
     # prepare tags
     timeserie_tags = get_project_ts_tags(
@@ -1112,6 +1119,7 @@ def get_ts_tags_and_name(
         metadata_tags,
         build_variant_name,
         running_platform,
+        tf_github_sha,
     )
     timeserie_tags[break_by_key] = break_by_value
     timeserie_tags["{}+{}".format("deployment_name", break_by_key)] = "{} {}".format(
@@ -1165,6 +1173,7 @@ def get_project_ts_tags(
     metadata_tags={},
     build_variant_name=None,
     running_platform=None,
+    tf_github_sha=None,
 ):
     tags = {
         "github_org": tf_github_org,
@@ -1182,6 +1191,8 @@ def get_project_ts_tags(
         tags["build_variant"] = build_variant_name
     if running_platform is not None:
         tags["running_platform"] = running_platform
+    if tf_github_sha:
+        tags["github_sha"] = str(tf_github_sha)
     for k, v in metadata_tags.items():
         tags[k] = str(v)
     return tags
@@ -1202,6 +1213,7 @@ def extract_perbranch_timeseries_from_results(
     build_variant_name=None,
     running_platform=None,
     testcase_metric_context_paths=[],
+    tf_github_sha=None,
 ):
     break_by_key = "branch"
     break_by_str = "by.{}".format(break_by_key)
@@ -1222,8 +1234,49 @@ def extract_perbranch_timeseries_from_results(
         build_variant_name,
         running_platform,
         testcase_metric_context_paths,
+        tf_github_sha=tf_github_sha,
     )
     return True, branch_time_series_dict, target_tables
+
+
+def extract_perhash_timeseries_from_results(
+    datapoints_timestamp: int,
+    metrics: list,
+    results_dict: dict,
+    tf_github_sha: str,
+    tf_github_org: str,
+    tf_github_repo: str,
+    deployment_name: str,
+    deployment_type: str,
+    test_name: str,
+    tf_triggering_env: str,
+    metadata_tags={},
+    build_variant_name=None,
+    running_platform=None,
+    testcase_metric_context_paths=[],
+):
+    break_by_key = "hash"
+    break_by_str = "by.{}".format(break_by_key)
+    (hash_time_series_dict, target_tables) = common_timeseries_extraction(
+        break_by_key,
+        break_by_str,
+        datapoints_timestamp,
+        deployment_name,
+        deployment_type,
+        metrics,
+        tf_github_sha,
+        results_dict,
+        test_name,
+        tf_github_org,
+        tf_github_repo,
+        tf_triggering_env,
+        metadata_tags,
+        build_variant_name,
+        running_platform,
+        testcase_metric_context_paths,
+        tf_github_sha=tf_github_sha,
+    )
+    return True, hash_time_series_dict, target_tables
 
 
 def get_overall_dashboard_keynames(

@@ -18,6 +18,7 @@ from redisbench_admin.utils.remote import (
     push_data_to_redistimeseries,
     perform_connectivity_test,
 )
+from redisbench_admin.utils.redisearch import extract_module_git_sha
 
 import redisbench_admin.run.metrics
 from redisbench_admin.profilers.perf import PERF_CALLGRAPH_MODE
@@ -86,6 +87,7 @@ def run_local_command_logic(args, project_name, project_version):
     tf_github_actor = args.github_actor
     tf_github_repo = args.github_repo
     tf_github_sha = args.github_sha
+    args_github_sha_explicit = args.github_sha not in (None, "")
     tf_github_branch = args.github_branch
 
     (
@@ -636,6 +638,16 @@ def run_local_command_logic(args, project_name, project_version):
                                         )
 
                                 metadata_tags = get_metadata_tags(benchmark_config)
+                                if args_github_sha_explicit:
+                                    push_github_sha = tf_github_sha
+                                else:
+                                    push_github_sha = None
+                                    if redis_conns:
+                                        push_github_sha = extract_module_git_sha(
+                                            redis_conns[0]
+                                        )
+                                    if not push_github_sha:
+                                        push_github_sha = github_sha
                                 (
                                     _,
                                     branch_target_tables,
@@ -658,6 +670,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     github_repo_name,
                                     tf_triggering_env,
                                     metadata_tags,
+                                    tf_github_sha=push_github_sha,
                                 )
 
                                 if setup_details["env"] is None:

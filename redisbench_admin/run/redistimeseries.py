@@ -39,6 +39,7 @@ def prepare_timeseries_dict(
     build_variant_name=None,
     running_platform=None,
     datapoints_timestamp=None,
+    tf_github_sha=None,
 ):
     time_series_dict = {}
     # check which metrics to extract
@@ -51,6 +52,8 @@ def prepare_timeseries_dict(
         testcase_metric_context_paths,
         version_target_tables,
         branch_target_tables,
+        per_hash_time_series_dict,
+        hash_target_tables,
     ) = common_exporter_logic(
         deployment_name,
         deployment_type,
@@ -67,14 +70,17 @@ def prepare_timeseries_dict(
         build_variant_name,
         running_platform,
         datapoints_timestamp,
+        tf_github_sha=tf_github_sha,
     )
     time_series_dict.update(per_version_time_series_dict)
     time_series_dict.update(per_branch_time_series_dict)
+    time_series_dict.update(per_hash_time_series_dict)
     return (
         time_series_dict,
         testcase_metric_context_paths,
         version_target_tables,
         branch_target_tables,
+        hash_target_tables,
     )
 
 
@@ -243,10 +249,12 @@ def timeseries_test_sucess_flow(
     build_variant_name=None,
     running_platform=None,
     timeseries_dict=None,
+    tf_github_sha=None,
 ):
     testcase_metric_context_paths = []
     version_target_tables = None
     branch_target_tables = None
+    hash_target_tables = None
 
     if timeseries_dict is None:
         (
@@ -254,6 +262,7 @@ def timeseries_test_sucess_flow(
             testcase_metric_context_paths,
             version_target_tables,
             branch_target_tables,
+            hash_target_tables,
         ) = prepare_timeseries_dict(
             artifact_version,
             benchmark_config,
@@ -271,6 +280,7 @@ def timeseries_test_sucess_flow(
             build_variant_name,
             running_platform,
             start_time_ms,
+            tf_github_sha=tf_github_sha,
         )
     if push_results_redistimeseries:
         logging.info(
@@ -319,6 +329,24 @@ def timeseries_test_sucess_flow(
                 rts.hset(
                     branch_target_table_keyname, None, None, branch_target_table_dict
                 )
+        if hash_target_tables is not None:
+            logging.info(
+                "There are a total of {} distinct target tables by hash".format(
+                    len(hash_target_tables.keys())
+                )
+            )
+            for (
+                hash_target_table_keyname,
+                hash_target_table_dict,
+            ) in hash_target_tables.items():
+                logging.info(
+                    "Setting target table by hash on key {}".format(
+                        hash_target_table_keyname
+                    )
+                )
+                if "contains-target" in hash_target_table_dict:
+                    del hash_target_table_dict["contains-target"]
+                rts.hset(hash_target_table_keyname, None, None, hash_target_table_dict)
         if test_name is not None:
             if type(test_name) is str:
                 update_secondary_result_keys(
