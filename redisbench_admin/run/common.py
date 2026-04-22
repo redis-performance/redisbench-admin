@@ -54,6 +54,7 @@ from redisbench_admin.utils.redisgraph_benchmark_go import (
 from redisbench_admin.utils.remote import (
     extract_perversion_timeseries_from_results,
     extract_perbranch_timeseries_from_results,
+    extract_perhash_timeseries_from_results,
 )
 from redisbench_admin.run.asm import execute_asm_commands
 
@@ -397,12 +398,15 @@ def common_exporter_logic(
     build_variant_name=None,
     running_platform=None,
     datapoints_timestamp=None,
+    tf_github_sha=None,
 ):
     per_version_time_series_dict = {}
     per_branch_time_series_dict = {}
+    per_hash_time_series_dict = {}
     testcase_metric_context_paths = []
     version_target_tables = None
     branch_target_tables = None
+    hash_target_tables = None
     used_ts = datapoints_timestamp
 
     if exporter_timemetric_path is not None and used_ts is None:
@@ -442,6 +446,7 @@ def common_exporter_logic(
             build_variant_name,
             running_platform,
             testcase_metric_context_paths,
+            tf_github_sha=tf_github_sha,
         )
     if tf_github_branch is not None and tf_github_branch != "":
         # extract per branch datapoints
@@ -464,11 +469,33 @@ def common_exporter_logic(
             build_variant_name,
             running_platform,
             testcase_metric_context_paths,
+            tf_github_sha=tf_github_sha,
         )
     else:
         logging.error(
             "Requested to push data to RedisTimeSeries but "
             'no exporter definition was found. Missing "exporter" config.'
+        )
+    if tf_github_sha is not None and tf_github_sha != "":
+        (
+            _,
+            per_hash_time_series_dict,
+            hash_target_tables,
+        ) = extract_perhash_timeseries_from_results(
+            used_ts,
+            metrics,
+            results_dict,
+            str(tf_github_sha),
+            tf_github_org,
+            tf_github_repo,
+            deployment_name,
+            deployment_type,
+            test_name,
+            tf_triggering_env,
+            metadata_tags,
+            build_variant_name,
+            running_platform,
+            testcase_metric_context_paths,
         )
     return (
         per_version_time_series_dict,
@@ -476,6 +503,8 @@ def common_exporter_logic(
         testcase_metric_context_paths,
         version_target_tables,
         branch_target_tables,
+        per_hash_time_series_dict,
+        hash_target_tables,
     )
 
 

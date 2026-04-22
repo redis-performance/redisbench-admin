@@ -20,6 +20,7 @@ from redisbench_admin.utils.remote import (
     push_data_to_redistimeseries,
     extract_perversion_timeseries_from_results,
     extract_perbranch_timeseries_from_results,
+    extract_perhash_timeseries_from_results,
     exporter_create_ts,
     get_overall_dashboard_keynames,
     common_timeseries_extraction,
@@ -177,7 +178,7 @@ def test_extract_perversion_timeseries_from_results():
         ) as json_file:
             results_dict = json.load(json_file)
 
-            timeseries_dict, _, _, _ = prepare_timeseries_dict(
+            timeseries_dict, _, _, _, _ = prepare_timeseries_dict(
                 "1.0.0",
                 benchmark_config,
                 default_metrics,
@@ -273,6 +274,145 @@ def test_extract_timeseries_from_results():
             assert (len(results_dict["Tests"].keys()) * len(metrics)) == len(
                 per_branch_time_series_dict.keys()
             )
+
+
+def test_extract_perhash_timeseries_from_results():
+    with open(
+        "./tests/test_data/redis-benchmark-full-suite-1Mkeys-100B.yml", "r"
+    ) as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+        merged_exporter_timemetric_path, metrics = merge_default_and_config_metrics(
+            benchmark_config, None, None
+        )
+        with open(
+            "./tests/test_data/results/oss-standalone-2021-07-23-16-15-12-71d4528-redis-benchmark-full-suite-1Mkeys-100B.json",
+            "r",
+        ) as json_file:
+            results_dict = json.load(json_file)
+            tf_github_org = "redis"
+            tf_github_repo = "redis"
+            tf_github_sha = "deadbeefcafebabe0000000000000000deadbeef"
+            tf_triggering_env = "gh"
+            test_name = "redis-benchmark-full-suite-1Mkeys-100B"
+            deployment_name = "oss-standalone"
+            deployment_type = "oss-standalone"
+            datapoints_timestamp = 1000
+            (
+                ok,
+                per_hash_time_series_dict,
+                target_tables,
+            ) = extract_perhash_timeseries_from_results(
+                datapoints_timestamp,
+                metrics,
+                results_dict,
+                tf_github_sha,
+                tf_github_org,
+                tf_github_repo,
+                deployment_name,
+                deployment_type,
+                test_name,
+                tf_triggering_env,
+            )
+            assert ok is True
+            assert (len(results_dict["Tests"].keys()) * len(metrics)) == len(
+                per_hash_time_series_dict
+            )
+            # every series must be keyed under by.hash/<sha> and carry the sha label
+            for ts_name, ts in per_hash_time_series_dict.items():
+                assert "/by.hash/" in ts_name
+                assert "/{}/".format(tf_github_sha) in ts_name
+                assert ts["labels"]["github_sha"] == tf_github_sha
+                assert ts["labels"]["hash"] == tf_github_sha
+
+
+def test_prepare_timeseries_dict_with_github_sha():
+    """End-to-end exercise of prepare_timeseries_dict with tf_github_sha
+    -- confirms the per-hash branch of common_exporter_logic emits
+    `by.hash/<sha>` keys on top of the branch/version ones."""
+    with open("./tests/test_data/common-properties-v0.1.yml", "r") as yml_file:
+        (
+            _,
+            _,
+            default_metrics,
+            exporter_timemetric_path,
+            _,
+            _,
+        ) = process_default_yaml_properties_file(None, None, None, "1.yml", None, yml_file)
+    with open("./tests/test_data/tsbs-devops-ingestion-scale100-4days.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+    with open(
+        "./tests/test_data/tsbs_load_redistimeseries_result.json", "r"
+    ) as json_file:
+        results_dict = json.load(json_file)
+
+    tf_github_sha = "abc1234deadbeef"
+    timeseries_dict, _, _, _, hash_target_tables = prepare_timeseries_dict(
+        "1.0.0",
+        benchmark_config,
+        default_metrics,
+        "oss-standalone",
+        "oss",
+        exporter_timemetric_path,
+        results_dict,
+        "test_name",
+        "tf_github_branch",
+        "tf_github_org",
+        "tf_github_repo",
+        "tf_triggering_env",
+        tf_github_sha=tf_github_sha,
+    )
+    assert timeseries_dict is not None
+    hash_keys = [k for k in timeseries_dict if "/by.hash/" in k]
+    assert len(hash_keys) > 0
+    for existing_metric in ["Totals.rowRate", "Totals.metricRate"]:
+        assert (
+            "ci.benchmarks.redislabs/by.hash/tf_triggering_env/tf_github_org/tf_github_repo/test_name/oss/oss-standalone/{}/{}".format(
+                tf_github_sha, existing_metric
+            )
+            in timeseries_dict
+        )
+    for _, ts in timeseries_dict.items():
+        assert ts["labels"].get("github_sha") == tf_github_sha
+    assert hash_target_tables is not None
+    assert len(hash_target_tables) > 0
+
+
+def test_prepare_timeseries_dict_without_github_sha_skips_hash_keys():
+    """Regression: omitting tf_github_sha must NOT emit by.hash keys."""
+    with open("./tests/test_data/common-properties-v0.1.yml", "r") as yml_file:
+        (
+            _,
+            _,
+            default_metrics,
+            exporter_timemetric_path,
+            _,
+            _,
+        ) = process_default_yaml_properties_file(None, None, None, "1.yml", None, yml_file)
+    with open("./tests/test_data/tsbs-devops-ingestion-scale100-4days.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+    with open(
+        "./tests/test_data/tsbs_load_redistimeseries_result.json", "r"
+    ) as json_file:
+        results_dict = json.load(json_file)
+
+    timeseries_dict, _, _, _, hash_target_tables = prepare_timeseries_dict(
+        "1.0.0",
+        benchmark_config,
+        default_metrics,
+        "oss-standalone",
+        "oss",
+        exporter_timemetric_path,
+        results_dict,
+        "test_name",
+        "tf_github_branch",
+        "tf_github_org",
+        "tf_github_repo",
+        "tf_triggering_env",
+    )
+    assert not any("/by.hash/" in k for k in timeseries_dict)
+    for _, ts in timeseries_dict.items():
+        assert "github_sha" not in ts["labels"]
+    assert hash_target_tables == {} or hash_target_tables is None
 
 
 def test_exporter_create_ts():
