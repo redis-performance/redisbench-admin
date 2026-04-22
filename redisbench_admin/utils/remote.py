@@ -36,6 +36,41 @@ VALID_ARCHS = [ARCH_X86, ARCH_ARM]
 ARCH = os.getenv("ARCH", ARCH_X86)
 
 
+def detect_target_arch(redis_conn):
+    """Detect the architecture of the Redis server behind `redis_conn`.
+
+    Parses the `os` field returned by `INFO server`. A typical value looks
+    like `Linux 6.8.0-1015-aws aarch64` — the last whitespace-separated
+    token is the machine architecture.
+
+    Returns one of VALID_ARCHS (`x86_64` / `aarch64`) on success.
+    Returns None if the server is unreachable, the field is missing, or
+    the arch token is unknown — callers should fall back to a safe default
+    (ARCH_X86) so existing behavior is preserved.
+
+    Never raises.
+    """
+    try:
+        info = redis_conn.info("server")
+    except Exception as err:  # redis.RedisError + connection edge cases
+        logging.debug("INFO server failed while detecting arch: %s", err)
+        return None
+    os_field = info.get("os") if isinstance(info, dict) else None
+    if not os_field:
+        return None
+    tokens = str(os_field).split()
+    if not tokens:
+        return None
+    arch_token = tokens[-1].strip().lower()
+    aliases = {
+        "x86_64": ARCH_X86,
+        "amd64": ARCH_X86,
+        "aarch64": ARCH_ARM,
+        "arm64": ARCH_ARM,
+    }
+    return aliases.get(arch_token)
+
+
 # environment variables
 PERFORMANCE_RTS_PUSH = bool(int(os.getenv("PUSH_RTS", "0")))
 PERFORMANCE_RTS_AUTH = os.getenv("PERFORMANCE_RTS_AUTH", None)
@@ -900,6 +935,7 @@ def extract_perversion_timeseries_from_results(
     running_platform=None,
     testcase_metric_context_paths=[],
     tf_github_sha=None,
+    arch=ARCH_X86,
 ):
     break_by_key = "version"
     break_by_str = "by.{}".format(break_by_key)
@@ -924,6 +960,7 @@ def extract_perversion_timeseries_from_results(
         running_platform,
         testcase_metric_context_paths,
         tf_github_sha=tf_github_sha,
+        arch=arch,
     )
     return True, branch_time_series_dict, target_tables
 
@@ -946,6 +983,7 @@ def common_timeseries_extraction(
     running_platform=None,
     testcase_metric_context_paths=[],
     tf_github_sha=None,
+    arch=ARCH_X86,
 ):
     time_series_dict = {}
     target_tables = {}
@@ -981,6 +1019,7 @@ def common_timeseries_extraction(
             time_series_dict,
             use_metric_context_path,
             tf_github_sha=tf_github_sha,
+            arch=arch,
         )
         target_tables[target_table_keyname] = target_table_dict
 
@@ -1010,6 +1049,7 @@ def from_metric_kv_to_timeserie(
     time_series_dict,
     use_metric_context_path,
     tf_github_sha=None,
+    arch=ARCH_X86,
 ):
     timeserie_tags, ts_name = get_ts_tags_and_name(
         break_by_key,
@@ -1029,6 +1069,7 @@ def from_metric_kv_to_timeserie(
         tf_github_repo,
         tf_triggering_env,
         use_metric_context_path,
+        arch=arch,
         tf_github_sha=tf_github_sha,
     )
     time_series_dict[ts_name] = {
@@ -1214,6 +1255,7 @@ def extract_perbranch_timeseries_from_results(
     running_platform=None,
     testcase_metric_context_paths=[],
     tf_github_sha=None,
+    arch=ARCH_X86,
 ):
     break_by_key = "branch"
     break_by_str = "by.{}".format(break_by_key)
@@ -1235,6 +1277,7 @@ def extract_perbranch_timeseries_from_results(
         running_platform,
         testcase_metric_context_paths,
         tf_github_sha=tf_github_sha,
+        arch=arch,
     )
     return True, branch_time_series_dict, target_tables
 
@@ -1254,6 +1297,7 @@ def extract_perhash_timeseries_from_results(
     build_variant_name=None,
     running_platform=None,
     testcase_metric_context_paths=[],
+    arch=ARCH_X86,
 ):
     break_by_key = "hash"
     break_by_str = "by.{}".format(break_by_key)
@@ -1275,6 +1319,7 @@ def extract_perhash_timeseries_from_results(
         running_platform,
         testcase_metric_context_paths,
         tf_github_sha=tf_github_sha,
+        arch=arch,
     )
     return True, hash_time_series_dict, target_tables
 

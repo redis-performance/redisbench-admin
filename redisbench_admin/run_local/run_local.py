@@ -17,6 +17,8 @@ from redisbench_admin.utils.remote import (
     get_project_ts_tags,
     push_data_to_redistimeseries,
     perform_connectivity_test,
+    detect_target_arch,
+    ARCH_X86,
 )
 from redisbench_admin.utils.redisearch import extract_module_git_sha
 
@@ -648,6 +650,11 @@ def run_local_command_logic(args, project_name, project_version):
                                         )
                                     if not push_github_sha:
                                         push_github_sha = github_sha
+                                push_arch = None
+                                if redis_conns:
+                                    push_arch = detect_target_arch(redis_conns[0])
+                                if not push_arch:
+                                    push_arch = args.architecture or ARCH_X86
                                 (
                                     _,
                                     branch_target_tables,
@@ -671,6 +678,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     tf_triggering_env,
                                     metadata_tags,
                                     tf_github_sha=push_github_sha,
+                                    arch=push_arch,
                                 )
 
                                 if setup_details["env"] is None:
