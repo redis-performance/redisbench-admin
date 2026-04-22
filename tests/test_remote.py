@@ -415,6 +415,111 @@ def test_prepare_timeseries_dict_without_github_sha_skips_hash_keys():
     assert hash_target_tables == {} or hash_target_tables is None
 
 
+def test_prepare_timeseries_dict_default_arch_x86_unchanged_keys():
+    """Default arch is x86_64 → keys have no arch suffix, labels tag
+    arch=x86_64. This is the pre-existing behavior and must be preserved."""
+    with open("./tests/test_data/common-properties-v0.1.yml", "r") as yml_file:
+        (
+            _,
+            _,
+            default_metrics,
+            exporter_timemetric_path,
+            _,
+            _,
+        ) = process_default_yaml_properties_file(None, None, None, "1.yml", None, yml_file)
+    with open("./tests/test_data/tsbs-devops-ingestion-scale100-4days.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+    with open(
+        "./tests/test_data/tsbs_load_redistimeseries_result.json", "r"
+    ) as json_file:
+        results_dict = json.load(json_file)
+
+    timeseries_dict, _, _, _, _ = prepare_timeseries_dict(
+        "1.0.0",
+        benchmark_config,
+        default_metrics,
+        "oss-standalone",
+        "oss",
+        exporter_timemetric_path,
+        results_dict,
+        "test_name",
+        "tf_github_branch",
+        "tf_github_org",
+        "tf_github_repo",
+        "tf_triggering_env",
+    )
+    assert not any("arch=" in k for k in timeseries_dict)
+    for _, ts in timeseries_dict.items():
+        assert ts["labels"]["arch"] == "x86_64"
+
+
+def test_prepare_timeseries_dict_with_aarch64_arch_segregates_keys():
+    """ARM benchmark pushed alongside the same benchmark name on x86 must
+    NOT collide: keys carry an arch=aarch64 suffix and labels tag the
+    running arch so Grafana can split them."""
+    with open("./tests/test_data/common-properties-v0.1.yml", "r") as yml_file:
+        (
+            _,
+            _,
+            default_metrics,
+            exporter_timemetric_path,
+            _,
+            _,
+        ) = process_default_yaml_properties_file(None, None, None, "1.yml", None, yml_file)
+    with open("./tests/test_data/tsbs-devops-ingestion-scale100-4days.yml", "r") as yml_file:
+        benchmark_config = yaml.safe_load(yml_file)
+    with open(
+        "./tests/test_data/tsbs_load_redistimeseries_result.json", "r"
+    ) as json_file:
+        results_dict = json.load(json_file)
+
+    timeseries_dict_x86, _, _, _, _ = prepare_timeseries_dict(
+        "1.0.0",
+        benchmark_config,
+        default_metrics,
+        "oss-standalone",
+        "oss",
+        exporter_timemetric_path,
+        results_dict,
+        "test_name",
+        "tf_github_branch",
+        "tf_github_org",
+        "tf_github_repo",
+        "tf_triggering_env",
+        arch="x86_64",
+    )
+    timeseries_dict_arm, _, _, _, _ = prepare_timeseries_dict(
+        "1.0.0",
+        benchmark_config,
+        default_metrics,
+        "oss-standalone",
+        "oss",
+        exporter_timemetric_path,
+        results_dict,
+        "test_name",
+        "tf_github_branch",
+        "tf_github_org",
+        "tf_github_repo",
+        "tf_triggering_env",
+        arch="aarch64",
+    )
+
+    # every ARM key must carry arch=aarch64 suffix; x86 keys must not
+    for k in timeseries_dict_arm:
+        assert k.endswith("arch=aarch64"), k
+    for k in timeseries_dict_x86:
+        assert "arch=" not in k, k
+
+    # ARM ∩ x86 key sets must be disjoint — the whole point of this change
+    assert set(timeseries_dict_x86).isdisjoint(set(timeseries_dict_arm))
+
+    # labels carry the running arch on both sides
+    for _, ts in timeseries_dict_arm.items():
+        assert ts["labels"]["arch"] == "aarch64"
+    for _, ts in timeseries_dict_x86.items():
+        assert ts["labels"]["arch"] == "x86_64"
+
+
 def test_exporter_create_ts():
     import os
     import pytest

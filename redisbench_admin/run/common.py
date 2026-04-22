@@ -55,6 +55,7 @@ from redisbench_admin.utils.remote import (
     extract_perversion_timeseries_from_results,
     extract_perbranch_timeseries_from_results,
     extract_perhash_timeseries_from_results,
+    ARCH_X86,
 )
 from redisbench_admin.run.asm import execute_asm_commands
 
@@ -399,6 +400,7 @@ def common_exporter_logic(
     running_platform=None,
     datapoints_timestamp=None,
     tf_github_sha=None,
+    arch=ARCH_X86,
 ):
     per_version_time_series_dict = {}
     per_branch_time_series_dict = {}
@@ -447,6 +449,7 @@ def common_exporter_logic(
             running_platform,
             testcase_metric_context_paths,
             tf_github_sha=tf_github_sha,
+            arch=arch,
         )
     if tf_github_branch is not None and tf_github_branch != "":
         # extract per branch datapoints
@@ -470,6 +473,7 @@ def common_exporter_logic(
             running_platform,
             testcase_metric_context_paths,
             tf_github_sha=tf_github_sha,
+            arch=arch,
         )
     else:
         logging.error(
@@ -496,6 +500,7 @@ def common_exporter_logic(
             build_variant_name,
             running_platform,
             testcase_metric_context_paths,
+            arch=arch,
         )
     return (
         per_version_time_series_dict,

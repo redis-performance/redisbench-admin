@@ -18,6 +18,7 @@ from redisbench_admin.utils.remote import (
     get_overall_dashboard_keynames,
     exporter_create_ts,
     push_data_to_redistimeseries,
+    ARCH_X86,
 )
 from redisbench_admin.utils.utils import get_ts_metric_name
 
@@ -40,6 +41,7 @@ def prepare_timeseries_dict(
     running_platform=None,
     datapoints_timestamp=None,
     tf_github_sha=None,
+    arch=ARCH_X86,
 ):
     time_series_dict = {}
     # check which metrics to extract
@@ -71,6 +73,7 @@ def prepare_timeseries_dict(
         running_platform,
         datapoints_timestamp,
         tf_github_sha=tf_github_sha,
+        arch=arch,
     )
     time_series_dict.update(per_version_time_series_dict)
     time_series_dict.update(per_branch_time_series_dict)
@@ -250,6 +253,7 @@ def timeseries_test_sucess_flow(
     running_platform=None,
     timeseries_dict=None,
     tf_github_sha=None,
+    arch=ARCH_X86,
 ):
     testcase_metric_context_paths = []
     version_target_tables = None
@@ -281,6 +285,7 @@ def timeseries_test_sucess_flow(
             running_platform,
             start_time_ms,
             tf_github_sha=tf_github_sha,
+            arch=arch,
         )
     if push_results_redistimeseries:
         logging.info(
