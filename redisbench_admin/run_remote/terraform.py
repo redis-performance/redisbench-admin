@@ -4,6 +4,7 @@
 #  All rights reserved.
 #
 import logging
+import os
 
 from python_terraform import Terraform, IsNotFlagged
 
@@ -13,6 +14,14 @@ from redisbench_admin.utils.remote import (
     setup_remote_environment,
     retrieve_tf_connection_vars,
 )
+
+# Allow pointing at a non-master branch of testing-infrastructure, useful when
+# validating an un-merged setup dir before opening a PR. Defaults to master.
+TESTING_INFRASTRUCTURE_REPO = os.getenv(
+    "TESTING_INFRASTRUCTURE_REPO",
+    "https://github.com/redis-performance/testing-infrastructure.git",
+)
+TESTING_INFRASTRUCTURE_BRANCH = os.getenv("TESTING_INFRASTRUCTURE_BRANCH", "master")
 
 
 def terraform_spin_or_reuse_env(
@@ -38,11 +47,16 @@ def terraform_spin_or_reuse_env(
         remote_id,
     ) = fetch_remote_setup_from_config(
         benchmark_config["remote"],
-        "https://github.com/redis-performance/testing-infrastructure.git",
-        "master",
+        TESTING_INFRASTRUCTURE_REPO,
+        TESTING_INFRASTRUCTURE_BRANCH,
         tf_folder_path,
         architecture,
     )
+    if TESTING_INFRASTRUCTURE_BRANCH != "master":
+        logging.info(
+            f"Using non-default testing-infrastructure branch="
+            f"{TESTING_INFRASTRUCTURE_BRANCH} (via env TESTING_INFRASTRUCTURE_BRANCH)"
+        )
     logging.info(
         f"Repetition {repetition} of {BENCHMARK_REPETITIONS}. Deploying test {test_name} on AWS using (architecture={architecture}) {remote_setup}"
     )
