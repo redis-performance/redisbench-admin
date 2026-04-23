@@ -83,10 +83,41 @@ def _format_labels(labels):
     return ";".join(parts)
 
 
-def set_parca_agent_labels(ip, port, user, pk, labels):
-    """Push metadata-external-labels=... to the parca-agent snap.
+def _restart_parca_agent(ip, port, user, pk):
+    """Restart the parca-agent snap service so new snap config takes effect.
 
-    Returns True on successful set. Logs but does not raise on failure.
+    The parca-agent snap's `parca-agent-wrapper` reads snap config via
+    `snapctl get` *once* at service start and bakes the values into the
+    `--metadata-external-labels=...` command-line flag. Runtime `snap set`
+    updates the stored config but leaves the running process untouched, so
+    samples continue to ship with whatever labels were baked in at boot
+    (typically empty). A service restart is therefore required after every
+    `snap set metadata-external-labels=...`. Sampling pauses for a few
+    seconds while the eBPF profiler re-attaches -- acceptable for
+    multi-minute benchmark runs.
+    """
+    cmd = "sudo snap restart parca-agent.parca-agent-svc"
+    res = _ssh(ip, user, pk, port, [cmd], timeout=60)
+    if not res:
+        return False
+    exit_code, _, stderr = res[0]
+    if exit_code != 0:
+        logging.warning(
+            "snap restart parca-agent.parca-agent-svc failed (exit=%d) on %s: %s",
+            exit_code,
+            ip,
+            stderr,
+        )
+        return False
+    return True
+
+
+def set_parca_agent_labels(ip, port, user, pk, labels):
+    """Push metadata-external-labels=... to the parca-agent snap and restart
+    the service so the new labels take effect on live samples.
+
+    Returns True on successful set + restart. Logs but does not raise on
+    failure.
     """
     blob = _format_labels(labels)
     if not blob:
@@ -105,22 +136,26 @@ def set_parca_agent_labels(ip, port, user, pk, labels):
             stderr,
         )
         return False
+    if not _restart_parca_agent(ip, port, user, pk):
+        # set succeeded but restart didn't -- labels are in snap config but
+        # won't reach live samples until the next natural restart
+        return False
     preview = blob if len(blob) < 300 else (blob[:297] + "...")
     logging.info("parca-agent labels set on %s: %s", ip, preview)
     return True
 
 
 def clear_parca_agent_labels(ip, port, user, pk):
-    """Clear metadata-external-labels on the snap.
+    """Clear metadata-external-labels on the snap and restart the service.
 
     Call between tests (or on teardown) so a crash mid-run doesn't leave
     stale labels attached to samples from the next test.
     """
     cmd = 'sudo snap set parca-agent metadata-external-labels=""'
     res = _ssh(ip, user, pk, port, [cmd])
-    if not res:
+    if not res or res[0][0] != 0:
         return False
-    return res[0][0] == 0
+    return _restart_parca_agent(ip, port, user, pk)
 
 
 def build_labels(
