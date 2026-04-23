@@ -90,6 +90,7 @@ def test_detect_target_arch_against_live_redis_stack():
         pytest.skip("Could not connect to redis-stack sidecar on RTS_PORT")
 
     arch = detect_target_arch(conn)
-    assert arch in (ARCH_X86, ARCH_ARM), (
-        "expected a valid arch from live INFO server, got {}".format(arch)
-    )
+    assert arch in (
+        ARCH_X86,
+        ARCH_ARM,
+    ), "expected a valid arch from live INFO server, got {}".format(arch)

@@ -337,8 +337,12 @@ def test_prepare_timeseries_dict_with_github_sha():
             exporter_timemetric_path,
             _,
             _,
-        ) = process_default_yaml_properties_file(None, None, None, "1.yml", None, yml_file)
-    with open("./tests/test_data/tsbs-devops-ingestion-scale100-4days.yml", "r") as yml_file:
+        ) = process_default_yaml_properties_file(
+            None, None, None, "1.yml", None, yml_file
+        )
+    with open(
+        "./tests/test_data/tsbs-devops-ingestion-scale100-4days.yml", "r"
+    ) as yml_file:
         benchmark_config = yaml.safe_load(yml_file)
     with open(
         "./tests/test_data/tsbs_load_redistimeseries_result.json", "r"
@@ -387,8 +391,12 @@ def test_prepare_timeseries_dict_without_github_sha_skips_hash_keys():
             exporter_timemetric_path,
             _,
             _,
-        ) = process_default_yaml_properties_file(None, None, None, "1.yml", None, yml_file)
-    with open("./tests/test_data/tsbs-devops-ingestion-scale100-4days.yml", "r") as yml_file:
+        ) = process_default_yaml_properties_file(
+            None, None, None, "1.yml", None, yml_file
+        )
+    with open(
+        "./tests/test_data/tsbs-devops-ingestion-scale100-4days.yml", "r"
+    ) as yml_file:
         benchmark_config = yaml.safe_load(yml_file)
     with open(
         "./tests/test_data/tsbs_load_redistimeseries_result.json", "r"
@@ -426,8 +434,12 @@ def test_prepare_timeseries_dict_default_arch_x86_unchanged_keys():
             exporter_timemetric_path,
             _,
             _,
-        ) = process_default_yaml_properties_file(None, None, None, "1.yml", None, yml_file)
-    with open("./tests/test_data/tsbs-devops-ingestion-scale100-4days.yml", "r") as yml_file:
+        ) = process_default_yaml_properties_file(
+            None, None, None, "1.yml", None, yml_file
+        )
+    with open(
+        "./tests/test_data/tsbs-devops-ingestion-scale100-4days.yml", "r"
+    ) as yml_file:
         benchmark_config = yaml.safe_load(yml_file)
     with open(
         "./tests/test_data/tsbs_load_redistimeseries_result.json", "r"
@@ -465,8 +477,12 @@ def test_prepare_timeseries_dict_with_aarch64_arch_segregates_keys():
             exporter_timemetric_path,
             _,
             _,
-        ) = process_default_yaml_properties_file(None, None, None, "1.yml", None, yml_file)
-    with open("./tests/test_data/tsbs-devops-ingestion-scale100-4days.yml", "r") as yml_file:
+        ) = process_default_yaml_properties_file(
+            None, None, None, "1.yml", None, yml_file
+        )
+    with open(
+        "./tests/test_data/tsbs-devops-ingestion-scale100-4days.yml", "r"
+    ) as yml_file:
         benchmark_config = yaml.safe_load(yml_file)
     with open(
         "./tests/test_data/tsbs_load_redistimeseries_result.json", "r"

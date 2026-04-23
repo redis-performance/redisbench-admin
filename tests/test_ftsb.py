@@ -4,6 +4,7 @@
 #  All rights reserved.
 #
 
+import pytest
 import yaml
 
 from redisbench_admin.run.ftsb.ftsb import (
@@ -115,6 +116,34 @@ def test_prepare_ftsb_benchmark_command_cluster_mode():
                 )
                 assert "--cluster-mode" in command_str
                 assert "--log-file /tmp/benchmark.log" in command_str
+
+
+@pytest.mark.parametrize(
+    "parameters,batch_value",
+    [
+        ([{"batch-size": 100}], "100"),
+        ([{"batch_size": 250}], "250"),
+        ({"batch-size": 500}, "500"),
+        ({"batch_size": 750}, "750"),
+    ],
+    ids=["list-hyphen", "list-underscore", "dict-hyphen", "dict-underscore"],
+)
+def test_prepare_ftsb_benchmark_command_batch_size(parameters, batch_value):
+    """Test batch-size is correctly passed for both config formats and key spellings."""
+    entry = {"parameters": parameters}
+    command_arr, command_str = prepare_ftsb_benchmark_command(
+        "ftsb_redisearch",
+        "localhost",
+        6379,
+        entry,
+        ".",
+        "/tmp/result.json",
+        "/tmp/input.data",
+        is_remote=False,
+    )
+    assert "--batch-size" in command_arr
+    idx = command_arr.index("--batch-size")
+    assert command_arr[idx + 1] == batch_value
 
 
 def test_extract_ftsb_extra_links():
