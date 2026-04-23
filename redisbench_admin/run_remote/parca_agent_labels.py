@@ -58,7 +58,9 @@ def is_parca_agent_running(ip, port, user, pk):
     state = stdout[0].strip() if stdout else ""
     running = state == "active"
     if running:
-        logging.info("parca-agent detected and active on %s -- labels will be injected", ip)
+        logging.info(
+            "parca-agent detected and active on %s -- labels will be injected", ip
+        )
     return running
 
 
@@ -155,9 +157,7 @@ def build_labels(
         "test_name": test_name,
         "client_tool": benchmark_tool,
         "tested_commands": (
-            metadata_tags.get("command")
-            or metadata_tags.get("commands")
-            or ""
+            metadata_tags.get("command") or metadata_tags.get("commands") or ""
         ),
         "tested_groups": metadata_tags.get("component", ""),
     }
