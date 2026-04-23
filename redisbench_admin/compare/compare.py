@@ -319,10 +319,36 @@ def compare_command_logic(args, project_name, project_version):
     if total_comparison_points > 0:
         comment_body = "### Automated performance analysis summary\n\n"
         comment_body += "This comment was automatically generated given there is performance data available.\n\n"
+        # Environment header -- surfaces the setup / architecture / platform
+        # the comparison was run against so a PR reviewer doesn't have to
+        # cross-reference the CI run to know what the numbers mean. When
+        # baseline and comparison used the same value, collapse to one line;
+        # when they diverge (e.g. x86 vs ARM cross-arch compare, or
+        # oss-standalone vs oss-standalone-threads-6 cross-topology), show
+        # both sides explicitly.
+        env_lines = []
         if running_platform is not None:
-            comment_body += "Using platform named: {} to do the comparison.\n\n".format(
-                running_platform
-            )
+            env_lines.append(f"- Running platform: `{running_platform}`")
+        if tf_triggering_env:
+            env_lines.append(f"- Triggering env: `{tf_triggering_env}`")
+        if baseline_architecture or comparison_architecture:
+            if baseline_architecture == comparison_architecture:
+                env_lines.append(f"- Architecture: `{baseline_architecture}`")
+            else:
+                env_lines.append(
+                    f"- Architecture (baseline / comparison): "
+                    f"`{baseline_architecture}` / `{comparison_architecture}`"
+                )
+        if baseline_deployment_name or comparison_deployment_name:
+            if baseline_deployment_name == comparison_deployment_name:
+                env_lines.append(f"- Deployment: `{baseline_deployment_name}`")
+            else:
+                env_lines.append(
+                    f"- Deployment (baseline / comparison): "
+                    f"`{baseline_deployment_name}` / `{comparison_deployment_name}`"
+                )
+        if env_lines:
+            comment_body += "**Environment:**\n" + "\n".join(env_lines) + "\n\n"
         comparison_summary = "In summary:\n"
         if total_stable > 0:
             comparison_summary += (
