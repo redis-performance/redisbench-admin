@@ -183,6 +183,43 @@ def get_total_cpu(info_data):
     return total_cpu
 
 
+def collect_search_and_bigredis_metrics(redis_conns):
+    """Collect the 4 atomic search/memory metrics from Redis INFO sections.
+
+    Returns a flat dict with:
+      - bigredis_used_ram
+      - bigredis_used_disk
+      - search_memory_search_used_memory_indexes
+      - search_disk_search_disk_usage
+
+    Any section that is unavailable (e.g. no bigredis module) is silently
+    skipped; the corresponding keys will simply be absent from the result.
+    """
+
+    _, _, bigredis_kv = collect_redis_metrics(
+        redis_conns,
+        ["bigredis"],
+        {"bigredis": ["used_ram", "used_disk"]},
+    )
+    _, _, search_mem_kv = collect_redis_metrics(
+        redis_conns,
+        ["search_memory"],
+        {"search_memory": ["search_used_memory_indexes"]},
+    )
+    _, _, search_disk_kv = collect_redis_metrics(
+        redis_conns,
+        ["search_disk"],
+        {"search_disk": ["search_disk_usage"]},
+    )
+
+    merged = {}
+    merged.update(bigredis_kv)
+    merged.update(search_mem_kv)
+    merged.update(search_disk_kv)
+
+    return merged
+
+
 BENCHMARK_RUNNING_GLOBAL = False
 BENCHMARK_CPU_STATS_GLOBAL = {}
 
