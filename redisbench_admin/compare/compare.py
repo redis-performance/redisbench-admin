@@ -32,6 +32,271 @@ def get_project_compare_zsets(triggering_env, org, repo):
     )
 
 
+def _build_env_lines(
+    running_platform,
+    tf_triggering_env,
+    baseline_architecture,
+    comparison_architecture,
+    baseline_deployment_name,
+    comparison_deployment_name,
+    include_arch=True,
+    include_deployment=True,
+):
+    """Build the bullet list under **Environment:** in the PR comment.
+
+    Legacy single-arch mode passes include_arch=True and include_deployment=True
+    -- the arch/deployment rows stay in the single section's env block.
+    Multi-arch mode passes False for both because each architecture is its own
+    H2 section (arch moves into the section title; deployment goes inline as a
+    per-section `**Deployment:**` line since it may differ across sections).
+    """
+    env_lines = []
+    if running_platform is not None:
+        env_lines.append(f"- Running platform: `{running_platform}`")
+    if tf_triggering_env:
+        env_lines.append(f"- Triggering env: `{tf_triggering_env}`")
+    if include_arch and (baseline_architecture or comparison_architecture):
+        if baseline_architecture == comparison_architecture:
+            env_lines.append(f"- Architecture: `{baseline_architecture}`")
+        else:
+            env_lines.append(
+                f"- Architecture (baseline / comparison): "
+                f"`{baseline_architecture}` / `{comparison_architecture}`"
+            )
+    if include_deployment and (baseline_deployment_name or comparison_deployment_name):
+        if baseline_deployment_name == comparison_deployment_name:
+            env_lines.append(f"- Deployment: `{baseline_deployment_name}`")
+        else:
+            env_lines.append(
+                f"- Deployment (baseline / comparison): "
+                f"`{baseline_deployment_name}` / `{comparison_deployment_name}`"
+            )
+    return env_lines
+
+
+def _render_section(
+    rts,
+    tf_github_org,
+    tf_github_repo,
+    tf_triggering_env,
+    metric_name,
+    baseline_branch,
+    comparison_branch,
+    baseline_tag,
+    comparison_tag,
+    baseline_deployment_name,
+    comparison_deployment_name,
+    print_improvements_only,
+    print_regressions_only,
+    skip_unstable,
+    regressions_percent_lower_limit,
+    regressions_percent_lower_limit_arg,
+    simplify_table,
+    test,
+    testname_regex,
+    verbose,
+    last_n_baseline,
+    last_n_comparison,
+    metric_mode,
+    from_date,
+    from_ts_ms,
+    to_date,
+    to_ts_ms,
+    use_metric_context_path,
+    running_platform,
+    baseline_architecture,
+    comparison_architecture,
+    first_n_baseline,
+    first_n_comparison,
+    grafana_link_base,
+):
+    """Run compute_regression_table for one (baseline_arch, comparison_arch,
+    baseline_branch, comparison_branch) tuple and render its markdown body.
+
+    Returns a 5-tuple:
+      (section_md, totals, had_data, detected_regressions, comparison_summary)
+
+    `section_md` is only the per-section content (summary + optional grafana
+    link + regression table). The H2 title, the top-level preamble
+    ("### Automated performance analysis summary") and the shared Environment
+    block are the caller's responsibility, because they're shared across
+    architectures in the multi-arch comment.
+    """
+    (
+        detected_regressions,
+        table_output,
+        total_improvements,
+        total_regressions,
+        total_stable,
+        total_unstable,
+        total_comparison_points,
+        total_unstable_baseline,
+        total_unstable_comparison,
+        total_latency_confirmed_regressions,
+        latency_confirmed_regression_details,
+    ) = compute_regression_table(
+        rts,
+        tf_github_org,
+        tf_github_repo,
+        tf_triggering_env,
+        metric_name,
+        comparison_branch,
+        baseline_branch,
+        baseline_tag,
+        comparison_tag,
+        baseline_deployment_name,
+        comparison_deployment_name,
+        print_improvements_only,
+        print_regressions_only,
+        skip_unstable,
+        regressions_percent_lower_limit,
+        simplify_table,
+        test,
+        testname_regex,
+        verbose,
+        last_n_baseline,
+        last_n_comparison,
+        metric_mode,
+        from_date,
+        from_ts_ms,
+        to_date,
+        to_ts_ms,
+        use_metric_context_path,
+        running_platform,
+        baseline_architecture,
+        comparison_architecture,
+        first_n_baseline,
+        first_n_comparison,
+        grafana_link_base,
+    )
+    totals = {
+        "total_improvements": total_improvements,
+        "total_regressions": total_regressions,
+        "total_stable": total_stable,
+        "total_unstable": total_unstable,
+        "total_comparison_points": total_comparison_points,
+        "total_unstable_baseline": total_unstable_baseline,
+        "total_unstable_comparison": total_unstable_comparison,
+        "total_latency_confirmed_regressions": total_latency_confirmed_regressions,
+    }
+    had_data = total_comparison_points > 0
+    if not had_data:
+        return "", totals, False, detected_regressions, ""
+
+    comparison_summary = "In summary:\n"
+    if total_stable > 0:
+        comparison_summary += (
+            f"- Detected a total of {total_stable} stable tests between versions.\n"
+        )
+
+    if total_unstable > 0:
+        unstable_details = []
+        if total_unstable_baseline > 0:
+            unstable_details.append(f"{total_unstable_baseline} baseline")
+        if total_unstable_comparison > 0:
+            unstable_details.append(f"{total_unstable_comparison} comparison")
+
+        unstable_breakdown = (
+            " (" + ", ".join(unstable_details) + ")" if unstable_details else ""
+        )
+        comparison_summary += (
+            "- Detected a total of {} highly unstable benchmarks{}.\n".format(
+                total_unstable, unstable_breakdown
+            )
+        )
+
+        # Add latency confirmation summary if applicable
+        if total_latency_confirmed_regressions > 0:
+            comparison_summary += "- Latency analysis confirmed regressions in {} of the unstable tests:\n".format(
+                total_latency_confirmed_regressions
+            )
+
+            # Add detailed breakdown as bullet points with test links
+            if latency_confirmed_regression_details:
+                for detail in latency_confirmed_regression_details:
+                    test_name = detail["test_name"]
+                    commands_info = []
+                    for cmd_detail in detail["commands"]:
+                        commands_info.append(
+                            f"{cmd_detail['command']} +{cmd_detail['change_percent']:.1f}%"
+                        )
+
+                    if commands_info:
+                        # Create test link if grafana_link_base is available
+                        test_display_name = test_name
+                        if grafana_link_base is not None:
+                            grafana_test_link = (
+                                f"{grafana_link_base}?var-test_case={test_name}"
+                            )
+                            if tf_github_org is not None:
+                                grafana_test_link += f"&var-github_org={tf_github_org}"
+                            if tf_github_repo is not None:
+                                grafana_test_link += (
+                                    f"&var-github_repo={tf_github_repo}"
+                                )
+                            if baseline_branch is not None:
+                                grafana_test_link += f"&var-branch={baseline_branch}"
+                            if comparison_branch is not None:
+                                grafana_test_link += f"&var-branch={comparison_branch}"
+                            grafana_test_link += "&from=now-30d&to=now"
+                            test_display_name = f"[{test_name}]({grafana_test_link})"
+
+                        # Add confidence indicator if available
+                        confidence_indicator = ""
+                        if "high_confidence" in detail:
+                            confidence_indicator = (
+                                " 🔴" if detail["high_confidence"] else " ⚠️"
+                            )
+
+                        comparison_summary += f"  - {test_display_name}: {', '.join(commands_info)}{confidence_indicator}\n"
+    if total_improvements > 0:
+        comparison_summary += f"- Detected a total of {total_improvements} improvements above the improvement water line.\n"
+    if total_regressions > 0:
+        comparison_summary += f"- Detected a total of {total_regressions} regressions bellow the regression water line {regressions_percent_lower_limit_arg}%.\n"
+    comparison_summary += "\n"
+
+    section_md = comparison_summary
+    section_md += "\n"
+    if grafana_link_base is not None:
+        grafana_link = "{}/".format(grafana_link_base)
+        params = []
+        if tf_github_org is not None:
+            params.append(f"var-github_org={tf_github_org}")
+        if tf_github_repo is not None:
+            params.append(f"var-github_repo={tf_github_repo}")
+        if baseline_tag is not None and comparison_tag is not None:
+            params.append(f"var-version={baseline_tag}")
+            params.append(f"var-version={comparison_tag}")
+        if baseline_branch is not None and comparison_branch is not None:
+            params.append(f"var-branch={baseline_branch}")
+            params.append(f"var-branch={comparison_branch}")
+        if params:
+            grafana_link += "?" + "&".join(params)
+        section_md += (
+            "You can check a comparison in detail via the [grafana link]({})".format(
+                grafana_link
+            )
+        )
+    section_md += "\n\n##" + table_output
+    return section_md, totals, True, detected_regressions, comparison_summary
+
+
+def _missing_arch_warning(arch, branch):
+    """Render the warning block shown when an arch has no RTS data on the PR.
+
+    Modules without ARM CI runners will hit this path for `aarch64`; rather
+    than emit an empty table (which reads as 'no regressions', falsely
+    reassuring) or silently drop the section, tell the reviewer exactly
+    what's going on.
+    """
+    return (
+        f"> ⚠️ No `{arch}` benchmark data found on branch `{branch}`. "
+        f"This module may not have ARM CI runners yet; consider adding one "
+        f"or removing `{arch}` from the `--architectures` list. "
+        f"Cross-arch delta skipped.\n\n"
+    )
+
+
 def compare_command_logic(args, project_name, project_version):
     logging.info(
         "Using: {project_name} {project_version}".format(
@@ -268,192 +533,264 @@ def compare_command_logic(args, project_name, project_version):
             )
         )
 
-    (
-        detected_regressions,
-        table_output,
-        total_improvements,
-        total_regressions,
-        total_stable,
-        total_unstable,
-        total_comparison_points,
-        total_unstable_baseline,
-        total_unstable_comparison,
-        total_latency_confirmed_regressions,
-        latency_confirmed_regression_details,
-    ) = compute_regression_table(
-        rts,
-        tf_github_org,
-        tf_github_repo,
-        tf_triggering_env,
-        metric_name,
-        comparison_branch,
-        baseline_branch,
-        baseline_tag,
-        comparison_tag,
-        baseline_deployment_name,
-        comparison_deployment_name,
-        print_improvements_only,
-        print_regressions_only,
-        skip_unstable,
-        regressions_percent_lower_limit,
-        simplify_table,
-        test,
-        testname_regex,
-        verbose,
-        last_n_baseline,
-        last_n_comparison,
-        metric_mode,
-        from_date,
-        from_ts_ms,
-        to_date,
-        to_ts_ms,
-        use_metric_context_path,
-        running_platform,
-        baseline_architecture,
-        comparison_architecture,
-        first_n_baseline,
-        first_n_comparison,
-        grafana_link_base,
-    )
+    # ------------------------------------------------------------------
+    # Dispatch on --architectures: multi-arch body with per-arch sections
+    # + optional cross-arch delta, or the single-arch legacy body.
+    # ------------------------------------------------------------------
+    multi_archs = []
+    if getattr(args, "architectures", None):
+        multi_archs = [a.strip() for a in args.architectures.split(",") if a.strip()]
+
     comment_body = ""
-    if total_comparison_points > 0:
-        comment_body = "### Automated performance analysis summary\n\n"
-        comment_body += "This comment was automatically generated given there is performance data available.\n\n"
-        # Environment header -- surfaces the setup / architecture / platform
-        # the comparison was run against so a PR reviewer doesn't have to
-        # cross-reference the CI run to know what the numbers mean. When
-        # baseline and comparison used the same value, collapse to one line;
-        # when they diverge (e.g. x86 vs ARM cross-arch compare, or
-        # oss-standalone vs oss-standalone-threads-6 cross-topology), show
-        # both sides explicitly.
-        env_lines = []
-        if running_platform is not None:
-            env_lines.append(f"- Running platform: `{running_platform}`")
-        if tf_triggering_env:
-            env_lines.append(f"- Triggering env: `{tf_triggering_env}`")
-        if baseline_architecture or comparison_architecture:
-            if baseline_architecture == comparison_architecture:
-                env_lines.append(f"- Architecture: `{baseline_architecture}`")
-            else:
-                env_lines.append(
-                    f"- Architecture (baseline / comparison): "
-                    f"`{baseline_architecture}` / `{comparison_architecture}`"
+    aggregated_detected_regressions = []
+    aggregated_totals = {
+        "total_improvements": 0,
+        "total_regressions": 0,
+        "total_stable": 0,
+        "total_unstable": 0,
+        "total_comparison_points": 0,
+        "total_unstable_baseline": 0,
+        "total_unstable_comparison": 0,
+        "total_latency_confirmed_regressions": 0,
+    }
+    comparison_summary = ""
+
+    def _accumulate(totals, detected_regressions_local):
+        for k in aggregated_totals:
+            aggregated_totals[k] += totals.get(k, 0)
+        aggregated_detected_regressions.extend(detected_regressions_local)
+
+    if multi_archs:
+        # Multi-arch path: one top-level preamble + env block, then a H2
+        # section per arch (branch-over-branch), then an optional cross-arch
+        # delta section on the comparison branch.
+        logging.info(
+            "Rendering multi-arch comment body for architectures: %s",
+            multi_archs,
+        )
+        per_arch_results = []
+        for arch in multi_archs:
+            section_md, totals, had_data, local_regressions, local_summary = (
+                _render_section(
+                    rts,
+                    tf_github_org,
+                    tf_github_repo,
+                    tf_triggering_env,
+                    metric_name,
+                    baseline_branch,
+                    comparison_branch,
+                    baseline_tag,
+                    comparison_tag,
+                    baseline_deployment_name,
+                    comparison_deployment_name,
+                    print_improvements_only,
+                    print_regressions_only,
+                    skip_unstable,
+                    regressions_percent_lower_limit,
+                    args.regressions_percent_lower_limit,
+                    simplify_table,
+                    test,
+                    testname_regex,
+                    verbose,
+                    last_n_baseline,
+                    last_n_comparison,
+                    metric_mode,
+                    from_date,
+                    from_ts_ms,
+                    to_date,
+                    to_ts_ms,
+                    use_metric_context_path,
+                    running_platform,
+                    arch,
+                    arch,
+                    first_n_baseline,
+                    first_n_comparison,
+                    grafana_link_base,
                 )
-        if baseline_deployment_name or comparison_deployment_name:
-            if baseline_deployment_name == comparison_deployment_name:
-                env_lines.append(f"- Deployment: `{baseline_deployment_name}`")
-            else:
-                env_lines.append(
-                    f"- Deployment (baseline / comparison): "
-                    f"`{baseline_deployment_name}` / `{comparison_deployment_name}`"
-                )
-        if env_lines:
-            comment_body += "**Environment:**\n" + "\n".join(env_lines) + "\n\n"
-        comparison_summary = "In summary:\n"
-        if total_stable > 0:
-            comparison_summary += (
-                f"- Detected a total of {total_stable} stable tests between versions.\n"
             )
-
-        if total_unstable > 0:
-            unstable_details = []
-            if total_unstable_baseline > 0:
-                unstable_details.append(f"{total_unstable_baseline} baseline")
-            if total_unstable_comparison > 0:
-                unstable_details.append(f"{total_unstable_comparison} comparison")
-
-            unstable_breakdown = (
-                " (" + ", ".join(unstable_details) + ")" if unstable_details else ""
+            per_arch_results.append(
+                (arch, section_md, totals, had_data, local_regressions, local_summary)
             )
-            comparison_summary += (
-                "- Detected a total of {} highly unstable benchmarks{}.\n".format(
-                    total_unstable, unstable_breakdown
-                )
+            if had_data:
+                _accumulate(totals, local_regressions)
+
+        # Build the top-level preamble only if at least one arch produced
+        # data; otherwise fall through to the no-data error branch below.
+        any_had_data = any(r[3] for r in per_arch_results)
+        if any_had_data:
+            comment_body = "### Automated performance analysis summary\n\n"
+            comment_body += (
+                "This comment was automatically generated given there is "
+                "performance data available.\n\n"
             )
+            # Arch-per-section, so arch is excluded from the shared env
+            # block. Deployment is also moved per-section (may vary between
+            # branch-over-branch and cross-arch sections in the future).
+            env_lines = _build_env_lines(
+                running_platform,
+                tf_triggering_env,
+                None,
+                None,
+                None,
+                None,
+                include_arch=False,
+                include_deployment=False,
+            )
+            if env_lines:
+                comment_body += "**Environment:**\n" + "\n".join(env_lines) + "\n\n"
 
-            # Add latency confirmation summary if applicable
-            if total_latency_confirmed_regressions > 0:
-                comparison_summary += "- Latency analysis confirmed regressions in {} of the unstable tests:\n".format(
-                    total_latency_confirmed_regressions
-                )
-
-                # Add detailed breakdown as bullet points with test links
-                if latency_confirmed_regression_details:
-                    for detail in latency_confirmed_regression_details:
-                        test_name = detail["test_name"]
-                        commands_info = []
-                        for cmd_detail in detail["commands"]:
-                            commands_info.append(
-                                f"{cmd_detail['command']} +{cmd_detail['change_percent']:.1f}%"
+            for arch, section_md, _, had_data, _, _ in per_arch_results:
+                comment_body += f"## Architecture: `{arch}` — branch-over-branch\n\n"
+                if had_data:
+                    if baseline_deployment_name or comparison_deployment_name:
+                        if baseline_deployment_name == comparison_deployment_name:
+                            comment_body += (
+                                f"**Deployment:** `{baseline_deployment_name}`\n\n"
                             )
+                        else:
+                            comment_body += (
+                                f"**Deployment (baseline / comparison):** "
+                                f"`{baseline_deployment_name}` / "
+                                f"`{comparison_deployment_name}`\n\n"
+                            )
+                    comment_body += section_md + "\n\n"
+                else:
+                    comment_body += _missing_arch_warning(arch, comparison_branch)
 
-                        if commands_info:
-                            # Create test link if grafana_link_base is available
-                            test_display_name = test_name
-                            if grafana_link_base is not None:
-                                grafana_test_link = (
-                                    f"{grafana_link_base}?var-test_case={test_name}"
-                                )
-                                if tf_github_org is not None:
-                                    grafana_test_link += (
-                                        f"&var-github_org={tf_github_org}"
-                                    )
-                                if tf_github_repo is not None:
-                                    grafana_test_link += (
-                                        f"&var-github_repo={tf_github_repo}"
-                                    )
-                                if baseline_branch is not None:
-                                    grafana_test_link += (
-                                        f"&var-branch={baseline_branch}"
-                                    )
-                                if comparison_branch is not None:
-                                    grafana_test_link += (
-                                        f"&var-branch={comparison_branch}"
-                                    )
-                                grafana_test_link += "&from=now-30d&to=now"
-                                test_display_name = (
-                                    f"[{test_name}]({grafana_test_link})"
-                                )
-
-                            # Add confidence indicator if available
-                            confidence_indicator = ""
-                            if "high_confidence" in detail:
-                                confidence_indicator = (
-                                    " 🔴" if detail["high_confidence"] else " ⚠️"
-                                )
-
-                            comparison_summary += f"  - {test_display_name}: {', '.join(commands_info)}{confidence_indicator}\n"
-        if total_improvements > 0:
-            comparison_summary += f"- Detected a total of {total_improvements} improvements above the improvement water line.\n"
-        if total_regressions > 0:
-            comparison_summary += f"- Detected a total of {total_regressions} regressions bellow the regression water line {args.regressions_percent_lower_limit}%.\n"
-        comparison_summary += "\n"
-
-        comment_body += comparison_summary
-        comment_body += "\n"
-
-        if grafana_link_base is not None:
-            grafana_link = "{}/".format(grafana_link_base)
-            params = []
-            if tf_github_org is not None:
-                params.append(f"var-github_org={tf_github_org}")
-            if tf_github_repo is not None:
-                params.append(f"var-github_repo={tf_github_repo}")
-            if baseline_tag is not None and comparison_tag is not None:
-                params.append(f"var-version={baseline_tag}")
-                params.append(f"var-version={comparison_tag}")
-            if baseline_branch is not None and comparison_branch is not None:
-                params.append(f"var-branch={baseline_branch}")
-                params.append(f"var-branch={comparison_branch}")
-            if params:
-                grafana_link += "?" + "&".join(params)
-            comment_body += "You can check a comparison in detail via the [grafana link]({})".format(
-                grafana_link
+            # Cross-arch delta section: both sides on the comparison branch,
+            # architectures differ. Rendered only when we have >=2 archs
+            # with data AND the user didn't opt out via --no-cross-arch.
+            archs_with_data = [r[0] for r in per_arch_results if r[3]]
+            if len(archs_with_data) >= 2 and not getattr(args, "no_cross_arch", False):
+                xa_baseline, xa_comparison = archs_with_data[0], archs_with_data[1]
+                (
+                    xa_section_md,
+                    _,
+                    xa_had_data,
+                    _,
+                    _,
+                ) = _render_section(
+                    rts,
+                    tf_github_org,
+                    tf_github_repo,
+                    tf_triggering_env,
+                    metric_name,
+                    comparison_branch,
+                    comparison_branch,
+                    baseline_tag,
+                    comparison_tag,
+                    baseline_deployment_name,
+                    comparison_deployment_name,
+                    print_improvements_only,
+                    print_regressions_only,
+                    skip_unstable,
+                    regressions_percent_lower_limit,
+                    args.regressions_percent_lower_limit,
+                    simplify_table,
+                    test,
+                    testname_regex,
+                    verbose,
+                    last_n_baseline,
+                    last_n_comparison,
+                    metric_mode,
+                    from_date,
+                    from_ts_ms,
+                    to_date,
+                    to_ts_ms,
+                    use_metric_context_path,
+                    running_platform,
+                    xa_baseline,
+                    xa_comparison,
+                    first_n_baseline,
+                    first_n_comparison,
+                    grafana_link_base,
+                )
+                if xa_had_data:
+                    comment_body += (
+                        f"## Cross-arch delta on `{comparison_branch}` "
+                        f"(`{xa_baseline}` → `{xa_comparison}`)\n\n"
+                    )
+                    comment_body += (
+                        f"> Same commit (`{comparison_branch}`) compared across "
+                        f"architectures. Positive deltas = `{xa_comparison}` "
+                        f"outperforms `{xa_baseline}`.\n\n"
+                    )
+                    comment_body += xa_section_md + "\n\n"
+                    # Display-only; cross-arch totals are NOT rolled into the
+                    # return tuple -- they measure hardware delta, not branch
+                    # regression.
+            comparison_summary = "\n".join(
+                r[5] for r in per_arch_results if r[3] and r[5]
             )
+    else:
+        # Legacy single-arch path: preserved byte-for-byte by delegating to
+        # _render_section with the original arch pair + the full env block
+        # (running platform, triggering env, arch, deployment) inline.
+        section_md, totals, had_data, local_regressions, local_summary = (
+            _render_section(
+                rts,
+                tf_github_org,
+                tf_github_repo,
+                tf_triggering_env,
+                metric_name,
+                baseline_branch,
+                comparison_branch,
+                baseline_tag,
+                comparison_tag,
+                baseline_deployment_name,
+                comparison_deployment_name,
+                print_improvements_only,
+                print_regressions_only,
+                skip_unstable,
+                regressions_percent_lower_limit,
+                args.regressions_percent_lower_limit,
+                simplify_table,
+                test,
+                testname_regex,
+                verbose,
+                last_n_baseline,
+                last_n_comparison,
+                metric_mode,
+                from_date,
+                from_ts_ms,
+                to_date,
+                to_ts_ms,
+                use_metric_context_path,
+                running_platform,
+                baseline_architecture,
+                comparison_architecture,
+                first_n_baseline,
+                first_n_comparison,
+                grafana_link_base,
+            )
+        )
+        if had_data:
+            comment_body = "### Automated performance analysis summary\n\n"
+            comment_body += (
+                "This comment was automatically generated given there is "
+                "performance data available.\n\n"
+            )
+            env_lines = _build_env_lines(
+                running_platform,
+                tf_triggering_env,
+                baseline_architecture,
+                comparison_architecture,
+                baseline_deployment_name,
+                comparison_deployment_name,
+                include_arch=True,
+                include_deployment=True,
+            )
+            if env_lines:
+                comment_body += "**Environment:**\n" + "\n".join(env_lines) + "\n\n"
+            comment_body += section_md
+            _accumulate(totals, local_regressions)
+            comparison_summary = local_summary
 
-        comment_body += "\n\n##" + table_output
+    # ------------------------------------------------------------------
+    # Upsert the PR comment (shared between legacy + multi-arch paths).
+    # ------------------------------------------------------------------
+    if comment_body:
         print(comment_body)
-
         if is_actionable_pr:
             zset_project_pull_request = get_project_compare_zsets(
                 tf_triggering_env,
@@ -477,7 +814,7 @@ def compare_command_logic(args, project_name, project_version):
             )
             user_input = "n"
             html_url = "n/a"
-            regression_count = len(detected_regressions)
+            regression_count = len(aggregated_detected_regressions)
             (
                 baseline_str,
                 by_str_baseline,
@@ -576,16 +913,16 @@ def compare_command_logic(args, project_name, project_version):
     else:
         logging.error("There was no comparison points to produce a table...")
     return (
-        detected_regressions,
+        aggregated_detected_regressions,
         comment_body,
-        total_improvements,
-        total_regressions,
-        total_stable,
-        total_unstable,
-        total_comparison_points,
-        total_unstable_baseline,
-        total_unstable_comparison,
-        total_latency_confirmed_regressions,
+        aggregated_totals["total_improvements"],
+        aggregated_totals["total_regressions"],
+        aggregated_totals["total_stable"],
+        aggregated_totals["total_unstable"],
+        aggregated_totals["total_comparison_points"],
+        aggregated_totals["total_unstable_baseline"],
+        aggregated_totals["total_unstable_comparison"],
+        aggregated_totals["total_latency_confirmed_regressions"],
     )
 
 

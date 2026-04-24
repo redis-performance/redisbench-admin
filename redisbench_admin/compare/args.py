@@ -75,6 +75,32 @@ def create_compare_arguments(parser):
         help=f"Architecture to filter comparison time-series. One of {VALID_ARCHS}.",
     )
     parser.add_argument(
+        "--architectures",
+        type=str,
+        required=False,
+        default=None,
+        help=(
+            "Comma-separated list of architectures to render as sections in "
+            "the PR comment (e.g. 'x86_64,aarch64'). When set, overrides "
+            "--baseline_architecture / --comparison_architecture: each arch "
+            "produces its own branch-over-branch section and, when >=2 archs "
+            "return data, a cross-arch delta section is appended. When an "
+            "arch has no data, a warning block is emitted in its place and "
+            "the cross-arch section is skipped. "
+            f"Valid values: {VALID_ARCHS}."
+        ),
+    )
+    parser.add_argument(
+        "--no-cross-arch",
+        required=False,
+        default=False,
+        action="store_true",
+        help=(
+            "When --architectures has >=2 values, skip the cross-arch delta "
+            "section. Ignored in single-arch / legacy mode."
+        ),
+    )
+    parser.add_argument(
         "--last_n",
         type=int,
         default=-1,
