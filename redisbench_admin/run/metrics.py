@@ -110,7 +110,7 @@ def collect_redis_metrics(
                         if section in section_filter:
                             if k not in section_filter[section]:
                                 collect = False
-                    if collect and type(v) is float or type(v) is int:
+                    if collect and (type(v) is float or type(v) is int):
                         if k not in overall[section]:
                             overall[section][k] = 0
                         overall[section][k] += v
