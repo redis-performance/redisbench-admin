@@ -658,11 +658,17 @@ def compare_command_logic(args, project_name, project_version):
                     comment_body += _missing_arch_warning(arch, comparison_branch)
 
             # Cross-arch delta section: both sides on the comparison branch,
-            # architectures differ. Rendered only when we have >=2 archs
-            # with data AND the user didn't opt out via --no-cross-arch.
-            archs_with_data = [r[0] for r in per_arch_results if r[3]]
-            if len(archs_with_data) >= 2 and not getattr(args, "no_cross_arch", False):
-                xa_baseline, xa_comparison = archs_with_data[0], archs_with_data[1]
+            # architectures differ. Gated ONLY on "user requested >=2 archs"
+            # + "didn't opt out"; NOT on whether branch-over-branch had data
+            # for each arch. The cross-arch comparison is valuable even on
+            # bootstrap PRs -- e.g. the first PR to introduce aarch64 has no
+            # aarch64 baseline on master (so that arch's branch-over-branch
+            # warns empty), but x86 and aarch64 data both exist on the PR
+            # commit itself, which is exactly what cross-arch wants to
+            # compare. We delegate the data-presence check to _render_section;
+            # if it returns had_data=False the section is simply omitted.
+            if len(multi_archs) >= 2 and not getattr(args, "no_cross_arch", False):
+                xa_baseline, xa_comparison = multi_archs[0], multi_archs[1]
                 (
                     xa_section_md,
                     _,
