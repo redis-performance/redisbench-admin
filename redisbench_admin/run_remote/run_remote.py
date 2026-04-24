@@ -1263,10 +1263,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     expire_ms,
                                                 )
                                                 if collect_search_memory:
-                                                    overall_search_memory_metrics = (
-                                                        collect_search_and_bigredis_metrics(
-                                                            redis_conns,
-                                                        )
+                                                    overall_search_memory_metrics = collect_search_and_bigredis_metrics(
+                                                        redis_conns,
                                                     )
                                                     export_redis_metrics(
                                                         artifact_version,
