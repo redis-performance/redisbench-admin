@@ -387,6 +387,72 @@ def test_compare_architectures_no_cross_arch_flag_skips_cross_section() -> None:
     assert "## Cross-arch delta" not in result.comment_body
 
 
+def test_compare_architectures_cross_arch_emits_without_aarch64_baseline() -> None:
+    """Bootstrap case: the PR introducing aarch64 has x86_64 baseline data on
+    master but NO aarch64 data on master. aarch64 branch-over-branch should
+    warn (no baseline), but the cross-arch delta MUST still render because
+    both archs have data on the PR (comparison) branch -- that's the whole
+    point of cross-arch.
+
+    Regression test for the 0.12.25 bug where cross-arch was gated on
+    len(archs_with_data) >= 2, suppressing it whenever one arch's
+    branch-over-branch had no baseline.
+    """
+    conn = _get_redis_connection()
+    if conn is None:
+        pytest.skip("Redis not available (RTS_DATASINK_HOST or RTS_PORT not set)")
+    rts, rts_host, rts_port, rts_pass = conn
+    rts.flushall()
+
+    # master: x86_64 only (simulates no ARM CI on master yet)
+    _export_benchmark_data(
+        rts_host,
+        rts_port,
+        rts_pass,
+        "master",
+        "org",
+        "repo",
+        architecture="x86_64",
+    )
+    # feature branch: BOTH archs (the PR introduces aarch64 CI)
+    _export_benchmark_data(
+        rts_host,
+        rts_port,
+        rts_pass,
+        "feature",
+        "org",
+        "repo",
+        architecture="x86_64",
+    )
+    _export_benchmark_data(
+        rts_host,
+        rts_port,
+        rts_pass,
+        "feature",
+        "org",
+        "repo",
+        architecture="aarch64",
+    )
+    result = _run_comparison(
+        rts_host,
+        rts_port,
+        rts_pass,
+        "master",
+        "feature",
+        "org",
+        "repo",
+        architectures="x86_64,aarch64",
+    )
+    # aarch64 branch-over-branch still warns -- no aarch64 baseline on master.
+    assert "## Architecture: `x86_64` — branch-over-branch" in result.comment_body
+    assert "## Architecture: `aarch64` — branch-over-branch" in result.comment_body
+    assert "No `aarch64` benchmark data found" in result.comment_body
+    # Cross-arch MUST still render -- both archs have data on the feature
+    # branch so the delta is well-defined.
+    assert "## Cross-arch delta on `feature`" in result.comment_body
+    assert "(`x86_64` → `aarch64`)" in result.comment_body
+
+
 def test_compare_architectures_single_entry_no_cross_arch() -> None:
     """--architectures with a single entry (e.g. 'x86_64') produces one
     section and no cross-arch delta -- there's nothing to cross-compare."""
