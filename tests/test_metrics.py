@@ -5,12 +5,18 @@
 #
 import json
 import os
+from unittest.mock import MagicMock
+
 import redis
 import yaml
 
 
 from redisbench_admin.run.common import merge_default_and_config_metrics
-from redisbench_admin.run.metrics import extract_results_table, collect_redis_metrics
+from redisbench_admin.run.metrics import (
+    collect_redis_metrics,
+    collect_search_and_bigredis_metrics,
+    extract_results_table,
+)
 
 
 def test_extract_results_table():
@@ -68,3 +74,93 @@ def test_collect_redis_metrics():
     assert "commandstats_cmdstat_ping_calls_shard_2" in overall_metrics
     assert "latencystats_latency_percentiles_usec_ping_p50_shard_1" in overall_metrics
     assert "latencystats_latency_percentiles_usec_ping_p50_shard_2" in overall_metrics
+
+
+def _mock_conn(section_responses):
+    """Build a mock redis connection whose `.info(section)` returns the
+    pre-canned dict for that section (or {} if the section isn't in the
+    map, matching what real Redis does for unknown/unloaded sections)."""
+    conn = MagicMock()
+
+    def _info(section):
+        return section_responses.get(section, {})
+
+    conn.info.side_effect = _info
+    return conn
+
+
+def test_collect_search_and_bigredis_metrics_flat_keys():
+    """All three targeted sections present on the shard -> single flat dict
+    keyed by `<section>_<metric>`. At minimum the four documented keys
+    (bigredis used_ram/used_disk + search_memory/search_disk counters) must
+    appear with the values reported by INFO."""
+    conn = _mock_conn(
+        {
+            "bigredis": {
+                "used_ram": 1024,
+                "used_disk": 2048,
+            },
+            "search_memory": {
+                "search_used_memory_indexes": 512,
+            },
+            "search_disk": {
+                "search_disk_usage": 4096,
+            },
+        }
+    )
+    out = collect_search_and_bigredis_metrics([conn])
+    assert out["bigredis_used_ram"] == 1024
+    assert out["bigredis_used_disk"] == 2048
+    assert out["search_memory_search_used_memory_indexes"] == 512
+    assert out["search_disk_search_disk_usage"] == 4096
+
+
+def test_collect_search_and_bigredis_metrics_missing_sections():
+    """Sections that Redis doesn't know about (e.g. vanilla Redis without
+    search or bigredis modules) return {} -- the helper must simply omit
+    their keys instead of raising or inserting Nones."""
+    # No section_responses = every conn.info(section) returns {}
+    conn = _mock_conn({})
+    out = collect_search_and_bigredis_metrics([conn])
+    assert out == {}
+
+
+def test_collect_search_and_bigredis_metrics_partial_sections():
+    """Only some sections populated (e.g. search module loaded but not
+    bigredis). The present keys appear in the result; absent sections
+    contribute nothing."""
+    conn = _mock_conn(
+        {
+            "search_memory": {"search_used_memory_indexes": 333},
+            # no bigredis, no search_disk
+        }
+    )
+    out = collect_search_and_bigredis_metrics([conn])
+    assert out == {"search_memory_search_used_memory_indexes": 333}
+
+
+def test_collect_search_and_bigredis_metrics_multi_shard_sums():
+    """Across multiple shards, collect_redis_metrics sums scalar values
+    per section/key, which is what the helper piggybacks on. Two shards
+    with the same key -> summed in the output."""
+    conn1 = _mock_conn(
+        {
+            "bigredis": {"used_ram": 1000, "used_disk": 2000},
+            "search_memory": {"search_used_memory_indexes": 100},
+            "search_disk": {"search_disk_usage": 4000},
+        }
+    )
+    conn2 = _mock_conn(
+        {
+            "bigredis": {"used_ram": 1500, "used_disk": 2500},
+            "search_memory": {"search_used_memory_indexes": 200},
+            "search_disk": {"search_disk_usage": 5000},
+        }
+    )
+    out = collect_search_and_bigredis_metrics([conn1, conn2])
+    assert out == {
+        "bigredis_used_ram": 2500,
+        "bigredis_used_disk": 4500,
+        "search_memory_search_used_memory_indexes": 300,
+        "search_disk_search_disk_usage": 9000,
+    }
