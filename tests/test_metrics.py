@@ -89,19 +89,72 @@ def _mock_conn(section_responses):
     return conn
 
 
+def test_collect_redis_metrics_section_filter_drops_scalar_keys():
+    """The section_filter is meant to restrict which INFO keys make it into
+    the overall map. Prior to this test it was silently broken for scalar
+    (int/float) values due to Python operator precedence on
+    `if collect and type(v) is float or type(v) is int` -- the `or` binds
+    last, so the `collect` flag was effectively ignored whenever v was an
+    int, and filtered-out keys leaked through. Lock in the intended
+    semantics: only keys listed in section_filter[section] end up in the
+    flat overall dict; the rest are dropped."""
+    conn = _mock_conn(
+        {
+            "section_a": {"keep_me": 10, "drop_me": 20, "also_drop": 30.5},
+            "section_b": {"included_b": 100, "excluded_b": 200},
+        }
+    )
+    _, _, overall = collect_redis_metrics(
+        [conn],
+        sections=["section_a", "section_b"],
+        section_filter={
+            "section_a": ["keep_me"],
+            "section_b": ["included_b"],
+        },
+    )
+    assert "section_a_keep_me" in overall
+    assert overall["section_a_keep_me"] == 10
+    assert "section_b_included_b" in overall
+    assert overall["section_b_included_b"] == 100
+    # The filtered-out keys must not appear in the overall dict.
+    assert "section_a_drop_me" not in overall
+    assert "section_a_also_drop" not in overall
+    assert "section_b_excluded_b" not in overall
+
+
+def test_collect_redis_metrics_no_filter_keeps_all_scalars():
+    """When section_filter is None, every scalar INFO key is collected --
+    this is the legacy default and the common code path. Regression check
+    to ensure the operator-precedence fix didn't accidentally flip the
+    default to 'filter everything out'."""
+    conn = _mock_conn({"section_a": {"alpha": 1, "beta": 2, "gamma": 3}})
+    _, _, overall = collect_redis_metrics([conn], sections=["section_a"])
+    assert overall["section_a_alpha"] == 1
+    assert overall["section_a_beta"] == 2
+    assert overall["section_a_gamma"] == 3
+
+
 def test_collect_search_and_bigredis_metrics_flat_keys():
     """All three targeted sections present on the shard -> single flat dict
     keyed by `<section>_<metric>`. At minimum the four documented keys
     (bigredis used_ram/used_disk + search_memory/search_disk counters) must
-    appear with the values reported by INFO."""
+    appear with the values reported by INFO.
+
+    After the section_filter fix (0.12.28), only the whitelisted keys pass
+    through, so the output is exactly the 4 documented keys -- not every
+    scalar in the section."""
     conn = _mock_conn(
         {
             "bigredis": {
                 "used_ram": 1024,
                 "used_disk": 2048,
+                # This extra scalar must now be dropped by section_filter.
+                "some_other_metric": 99,
             },
             "search_memory": {
                 "search_used_memory_indexes": 512,
+                # Filtered out.
+                "search_internal_thing": 7,
             },
             "search_disk": {
                 "search_disk_usage": 4096,
@@ -109,10 +162,12 @@ def test_collect_search_and_bigredis_metrics_flat_keys():
         }
     )
     out = collect_search_and_bigredis_metrics([conn])
-    assert out["bigredis_used_ram"] == 1024
-    assert out["bigredis_used_disk"] == 2048
-    assert out["search_memory_search_used_memory_indexes"] == 512
-    assert out["search_disk_search_disk_usage"] == 4096
+    assert out == {
+        "bigredis_used_ram": 1024,
+        "bigredis_used_disk": 2048,
+        "search_memory_search_used_memory_indexes": 512,
+        "search_disk_search_disk_usage": 4096,
+    }
 
 
 def test_collect_search_and_bigredis_metrics_missing_sections():
