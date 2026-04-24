@@ -15,6 +15,7 @@ from redisbench_admin.profilers.perf import PERF_CALLGRAPH_MODE
 from redisbench_admin.run.metrics import (
     from_info_to_overall_shard_cpu,
     collect_redis_metrics,
+    collect_search_and_bigredis_metrics,
 )
 from redisbench_admin.profilers.perf_daemon_caller import (
     PerfDaemonRemoteCaller,
@@ -1262,12 +1263,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     expire_ms,
                                                 )
                                                 if collect_search_memory:
-                                                    (
-                                                        end_time_ms,
-                                                        _,
-                                                        overall_search_memory_metrics,
-                                                    ) = collect_redis_metrics(
-                                                        redis_conns, ["search_memory"]
+                                                    overall_search_memory_metrics = (
+                                                        collect_search_and_bigredis_metrics(
+                                                            redis_conns,
+                                                        )
                                                     )
                                                     export_redis_metrics(
                                                         artifact_version,
