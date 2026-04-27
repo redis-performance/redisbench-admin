@@ -49,7 +49,22 @@ def extract_results_table(
                     use_metric_context_path = True
                 for metric in find_res:
                     metric_name = str(metric.path)
-                    metric_value = float(metric.value)
+                    if metric.value is None:
+                        logging.warning(
+                            "Skipping metric {} (path: {}) because its value is None".format(
+                                metric_jsonpath, metric_name
+                            )
+                        )
+                        continue
+                    try:
+                        metric_value = float(metric.value)
+                    except (TypeError, ValueError):
+                        logging.warning(
+                            "Skipping metric {} (path: {}) because its value {!r} is not numeric".format(
+                                metric_jsonpath, metric_name, metric.value
+                            )
+                        )
+                        continue
                     metric_context_path = str(metric.context.path)
                     if metric_jsonpath[0] == "$":
                         metric_jsonpath = metric_jsonpath[1:]
