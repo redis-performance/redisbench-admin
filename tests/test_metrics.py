@@ -38,6 +38,54 @@ def test_extract_results_table():
             )
 
 
+def test_extract_results_table_skips_none_values():
+    """Some tools (notably memtier_benchmark with multiple ``--command``
+    flags driving a mixed read/write workload) emit result JSON where a
+    wildcard JSONPath match yields ``None`` for one of the per-command
+    sub-stats. ``extract_results_table`` used to crash with
+    ``TypeError: float() argument must be a string or a real number,
+    not 'NoneType'`` on those rows. Verify it now skips them gracefully
+    and still emits the rows that do have numeric values.
+    """
+    results_dict = {
+        "ALL STATS": {
+            "Totals": {"Ops/sec": 12345.0, "Latency": 1.5},
+            "Cmd_A": {"Ops/sec": 100.0, "Latency": 5.0},
+            "Cmd_B": {"Ops/sec": None, "Latency": None},
+        }
+    }
+    metrics = [
+        '$."ALL STATS".*."Ops/sec"',
+        '$."ALL STATS".*."Latency"',
+    ]
+    rows = extract_results_table(metrics, results_dict)
+    # Two wildcards x three sub-keys = 6 candidates; 2 are None and must
+    # be skipped, leaving 4 numeric rows.
+    assert len(rows) == 4
+    for row in rows:
+        # row layout:
+        # [metric_jsonpath, metric_context_path, metric_name,
+        #  metric_value, test_case_targets_dict, use_metric_context_path]
+        assert row[3] is not None
+        assert isinstance(row[3], float)
+
+
+def test_extract_results_table_skips_non_numeric_values():
+    """Defensive check: if a tool emits a string (e.g. ``"--"`` placeholder)
+    where a numeric metric is expected, ``extract_results_table`` should
+    skip that entry instead of raising ``ValueError``."""
+    results_dict = {
+        "ALL STATS": {
+            "Totals": {"Ops/sec": 100.0},
+            "Empty": {"Ops/sec": "--"},
+        }
+    }
+    metrics = ['$."ALL STATS".*."Ops/sec"']
+    rows = extract_results_table(metrics, results_dict)
+    assert len(rows) == 1
+    assert rows[0][3] == 100.0
+
+
 def test_collect_redis_metrics():
     import os
     import pytest
