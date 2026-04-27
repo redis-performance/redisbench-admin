@@ -380,14 +380,19 @@ def compare_command_logic(args, project_name, project_version):
     to_ts_ms = args.to_timestamp
     from_date = args.from_date
     to_date = args.to_date
-    baseline_branch = args.baseline_branch
-    if baseline_branch is None and default_baseline_branch is not None:
+    baseline_branch = resolve_baseline_branch(
+        args.baseline_branch, args.baseline_tag, default_baseline_branch
+    )
+    if (
+        baseline_branch is not None
+        and args.baseline_branch is None
+        and args.baseline_tag is None
+    ):
         logging.info(
             "Given --baseline-branch was null using the default baseline branch {}".format(
-                default_baseline_branch
+                baseline_branch
             )
         )
-        baseline_branch = default_baseline_branch
     comparison_branch = args.comparison_branch
     simplify_table = args.simple_table
     print_regressions_only = args.print_regressions_only
@@ -1239,6 +1244,23 @@ def compute_regression_table(
     )
 
 
+def resolve_baseline_branch(
+    arg_baseline_branch, arg_baseline_tag, default_baseline_branch
+):
+    """Resolve the effective baseline branch from CLI args + defaults-file fallback.
+
+    The defaults-file branch is only used when the user provided neither
+    --baseline-branch nor --baseline-tag. If --baseline-tag is set the
+    fallback is skipped, otherwise get_by_strings would raise a spurious
+    "mutually exclusive" error.
+    """
+    if arg_baseline_branch is not None:
+        return arg_baseline_branch
+    if arg_baseline_tag is not None:
+        return None
+    return default_baseline_branch
+
+
 def get_by_strings(
     baseline_branch,
     comparison_branch,
@@ -1261,7 +1283,7 @@ def get_by_strings(
         comparison_str = comparison_branch
 
     if baseline_tag is not None:
-        if comparison_covered:
+        if baseline_covered:
             logging.error(
                 "--baseline-branch and --baseline-tag are mutually exclusive. Pick one..."
             )
