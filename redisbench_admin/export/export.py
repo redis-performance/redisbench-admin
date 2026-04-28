@@ -20,6 +20,8 @@ from redisbench_admin.export.pyperf.pyperf_json_format import (
 )
 from redisbench_admin.run.git import git_vars_crosscheck
 
+from redisbench_admin.run.postgres import postgres_test_success_flow
+from redisbench_admin.run.postgres_parsers import detect_and_parse
 from redisbench_admin.run.redistimeseries import timeseries_test_sucess_flow
 from redisbench_admin.utils.benchmark_config import (
     get_defaults,
@@ -220,6 +222,24 @@ def export_command_logic(args, project_name, project_version):
         None,
         None,
         timeseries_dict,
+    )
+    pg_samples = []
+    if benchmark_file:
+        pg_samples = detect_and_parse(benchmark_file)
+    postgres_test_success_flow(
+        True,
+        test_name=test_name,
+        metrics=metrics,
+        results_dict=results_dict,
+        samples=pg_samples,
+        branch=github_branch,
+        tag=deployment_version,
+        arch=arch,
+        setup=deployment_name,
+        deployment_type=deployment_type,
+        triggering_env=triggering_env,
+        start_time_ms=datapoints_timestamp,
+        duration_s=benchmark_duration_seconds,
     )
 
 

@@ -42,6 +42,12 @@ from redisbench_admin.run.metrics import (
     collect_cpu_data,
 )
 
+from redisbench_admin.run.postgres import (
+    derive_batch_id,
+    derive_run_id,
+    postgres_test_success_flow,
+)
+from redisbench_admin.run.postgres_parsers import detect_and_parse
 from redisbench_admin.run.redistimeseries import (
     datasink_profile_tabular_data,
     timeseries_test_sucess_flow,
@@ -215,7 +221,9 @@ def run_local_command_logic(args, project_name, project_version):
                     setup_details["env"] = None
 
                 for test_name, benchmark_config in benchmarks_map.items():
+                    batch_id = derive_batch_id()
                     for repetition in range(1, BENCHMARK_REPETITIONS + 1):
+                        run_id = derive_run_id(batch_id, test_name, repetition)
                         logging.info(
                             "Repetition {} of {}. Running test {}".format(
                                 repetition, BENCHMARK_REPETITIONS, test_name
@@ -640,6 +648,17 @@ def run_local_command_logic(args, project_name, project_version):
                                         )
 
                                 metadata_tags = get_metadata_tags(benchmark_config)
+                                metadata_tags["batch_id"] = str(batch_id)
+                                metadata_tags["run_id"] = str(run_id)
+                                metadata_tags["iteration"] = str(repetition)
+                                gh_run_id_env = os.getenv("GITHUB_RUN_ID")
+                                if gh_run_id_env:
+                                    metadata_tags["github_run_id"] = gh_run_id_env
+                                    gh_attempt_env = os.getenv("GITHUB_RUN_ATTEMPT")
+                                    if gh_attempt_env:
+                                        metadata_tags["github_run_attempt"] = (
+                                            gh_attempt_env
+                                        )
                                 if args_github_sha_explicit:
                                     push_github_sha = tf_github_sha
                                 else:
@@ -679,6 +698,31 @@ def run_local_command_logic(args, project_name, project_version):
                                     metadata_tags,
                                     tf_github_sha=push_github_sha,
                                     arch=push_arch,
+                                )
+                                pg_samples = []
+                                if local_benchmark_output_filename:
+                                    pg_samples = detect_and_parse(
+                                        local_benchmark_output_filename
+                                    )
+                                postgres_test_success_flow(
+                                    True,
+                                    run_id=run_id,
+                                    batch_id=batch_id,
+                                    iteration=repetition,
+                                    test_name=test_name,
+                                    benchmark_config=benchmark_config,
+                                    metrics=default_metrics,
+                                    results_dict=results_dict,
+                                    samples=pg_samples,
+                                    branch=github_branch,
+                                    tag=artifact_version,
+                                    commit_sha=push_github_sha,
+                                    arch=push_arch,
+                                    setup=setup_name,
+                                    deployment_type=setup_type,
+                                    triggering_env=tf_triggering_env,
+                                    start_time_ms=start_time_ms,
+                                    duration_s=benchmark_duration_seconds,
                                 )
 
                                 if setup_details["env"] is None:

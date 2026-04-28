@@ -35,6 +35,12 @@ from redisbench_admin.run.common import (
 from redisbench_admin.run.git import git_vars_crosscheck
 from redisbench_admin.run.grafana import generate_artifacts_table_grafana_redis
 from redisbench_admin.run.modules import redis_modules_check
+from redisbench_admin.run.postgres import (
+    derive_batch_id,
+    derive_run_id,
+    postgres_test_success_flow,
+)
+from redisbench_admin.run.postgres_parsers import detect_and_parse
 from redisbench_admin.run.redistimeseries import (
     timeseries_test_sucess_flow,
     timeseries_test_failure_flow,
@@ -506,12 +512,27 @@ def run_remote_command_logic(args, project_name, project_version):
                     metadata_tags = get_metadata_tags(benchmark_config)
                     if "arch" not in metadata_tags:
                         metadata_tags["arch"] = architecture
+                    # batch_id groups all repetitions of one test_name in a
+                    # single CLI invocation. When GITHUB_RUN_ID is present
+                    # we derive it deterministically so the PG row joins to
+                    # the GH Actions run that produced it.
+                    batch_id = derive_batch_id()
+                    metadata_tags["batch_id"] = str(batch_id)
+                    gh_run_id = os.getenv("GITHUB_RUN_ID")
+                    if gh_run_id:
+                        metadata_tags["github_run_id"] = gh_run_id
+                        gh_attempt = os.getenv("GITHUB_RUN_ATTEMPT")
+                        if gh_attempt:
+                            metadata_tags["github_run_attempt"] = gh_attempt
                     logging.info(
                         "Including the extra metadata tags into this test generated time-series: {}".format(
                             metadata_tags
                         )
                     )
                     for repetition in range(1, BENCHMARK_REPETITIONS + 1):
+                        run_id = derive_run_id(batch_id, test_name, repetition)
+                        metadata_tags["run_id"] = str(run_id)
+                        metadata_tags["iteration"] = str(repetition)
                         if return_code != 0 and args.fail_fast:
                             logging.warning(
                                 "Given you've selected fail fast skipping repetition {}".format(
@@ -1449,6 +1470,31 @@ def run_remote_command_logic(args, project_name, project_version):
                                             metadata_tags,
                                             tf_github_sha=push_github_sha,
                                             arch=push_arch,
+                                        )
+                                        pg_samples = []
+                                        if local_bench_fname:
+                                            pg_samples = detect_and_parse(
+                                                local_bench_fname
+                                            )
+                                        postgres_test_success_flow(
+                                            True,
+                                            run_id=run_id,
+                                            batch_id=batch_id,
+                                            iteration=repetition,
+                                            test_name=test_name,
+                                            benchmark_config=benchmark_config,
+                                            metrics=default_metrics,
+                                            results_dict=results_dict,
+                                            samples=pg_samples,
+                                            branch=tf_github_branch,
+                                            tag=artifact_version,
+                                            commit_sha=push_github_sha,
+                                            arch=push_arch,
+                                            setup=setup_name,
+                                            deployment_type=setup_type,
+                                            triggering_env=tf_triggering_env,
+                                            start_time_ms=start_time_ms,
+                                            duration_s=benchmark_duration_seconds,
                                         )
                                         if branch_target_tables is not None:
                                             for (

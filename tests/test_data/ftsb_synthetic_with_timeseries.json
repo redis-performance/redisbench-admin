@@ -1,0 +1,30 @@
+{
+  "Metadata": "synthetic for tests",
+  "ResultFormatVersion": "0.1",
+  "Limit": 0,
+  "Workers": 4,
+  "MaxRps": 0,
+  "DBSpecificConfigs": {},
+  "StartTime": 1700000000000,
+  "EndTime": 1700000005000,
+  "DurationMillis": 5000,
+  "Totals": {},
+  "MeasuredRatios": {},
+  "OverallRates": {},
+  "OverallQuantiles": {},
+  "TimeSeries": {
+    "setupWriteTs": [],
+    "writeTs": [],
+    "readTs": [
+      { "Timestamp": 1700000001, "MultiValues": { "rate": 9100.0, "q0": 0.05, "q50": 0.25, "q95": 0.62, "q99": 1.10, "q999": 2.40, "q100": 3.00 } },
+      { "Timestamp": 1700000002, "MultiValues": { "rate": 9300.0, "q0": 0.06, "q50": 0.26, "q95": 0.63, "q99": 1.11, "q999": 2.45, "q100": 3.10 } },
+      { "Timestamp": 1700000003, "MultiValues": { "rate": 9250.0, "q0": 0.05, "q50": 0.25, "q95": 0.62, "q99": 1.12, "q999": 2.41, "q100": 3.05 } },
+      { "Timestamp": 1700000004, "MultiValues": { "rate": 9400.0, "q0": 0.04, "q50": 0.24, "q95": 0.61, "q99": 1.09, "q999": 2.38, "q100": 2.95 } },
+      { "Timestamp": 1700000005, "MultiValues": { "rate": 9200.0, "q0": 0.05, "q50": 0.25, "q95": 0.62, "q99": 1.10, "q999": 2.40, "q100": 3.00 } }
+    ],
+    "readCursorTs": [],
+    "updateTs": [],
+    "deleteTs": []
+  },
+  "PerSecondEncodedHistograms": {}
+}
