@@ -182,7 +182,7 @@ def local_db_spin(
         )
         for conn in redis_conns:
             artifact_version = run_redis_pre_steps(
-                benchmark_config, conn, required_modules
+                benchmark_config, conn, required_modules, args=args
             )
 
     if dataset is None:
@@ -249,7 +249,7 @@ def local_db_spin(
     # Only run pre_steps here if SEARCH_CLUSTERSET is not set (otherwise it was already run before data loading)
     if "SEARCH_CLUSTERSET" not in os.environ:
         artifact_version = run_redis_pre_steps(
-            benchmark_config, redis_conns[0], required_modules
+            benchmark_config, redis_conns[0], required_modules, args=args
         )
 
     return result, artifact_version, cluster_api_enabled, redis_conns, redis_processes

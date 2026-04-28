@@ -123,6 +123,20 @@ def common_run_args(parser):
         help="specify a test regex pattern to use on the tests directory. by default uses '.*'. If --test is defined this options has no effect.",
     )
     parser.add_argument(
+        "--maxmemory-pct",
+        type=int,
+        required=False,
+        default=None,
+        help="If set, before running each spec's init_commands send `CONFIG SET maxmemory <pct%% of total_system_memory>` so OS-level OOM is replaced with Redis-level OOM. Floor: leaves >=4 GiB for the OS when total > 4 GiB. Overrides `dbconfig.maxmemory_pct` from the spec. Range: (0, 100].",
+    )
+    parser.add_argument(
+        "--no-maxmemory-cap",
+        required=False,
+        default=False,
+        action="store_true",
+        help="Force-disable the maxmemory cap for this run, even if --maxmemory-pct or `dbconfig.maxmemory_pct` is set.",
+    )
+    parser.add_argument(
         "--runner-group-member-id",
         type=str,
         default=BENCHMARK_RUNNER_GROUP_M_ID,

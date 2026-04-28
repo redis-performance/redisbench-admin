@@ -26,6 +26,12 @@ from redisbench_admin.run.common import (
     common_properties_log,
     execute_init_commands,
     extract_input_file_url_from_parameters,
+    _get_maxmemory_pct_from_dbconfig,
+    _resolve_maxmemory_pct,
+    _compute_maxmemory_cap_bytes,
+    apply_maxmemory_cap,
+    GIB,
+    MAXMEMORY_OS_RESERVE_BYTES,
 )
 from redisbench_admin.run_remote.args import create_run_remote_arguments
 
@@ -754,3 +760,204 @@ def test_extract_input_file_url_from_parameters():
         entry_missing_param_list, "ftsb_redisearch"
     )
     assert result is None
+
+
+# --- maxmemory cap helpers --------------------------------------------------
+
+class _Args:
+    """Minimal stand-in for argparse.Namespace, with optional attrs."""
+
+    def __init__(self, maxmemory_pct=None, no_maxmemory_cap=False):
+        self.maxmemory_pct = maxmemory_pct
+        self.no_maxmemory_cap = no_maxmemory_cap
+
+
+def test_get_maxmemory_pct_from_dbconfig_dict():
+    assert _get_maxmemory_pct_from_dbconfig({}) is None
+    assert _get_maxmemory_pct_from_dbconfig({"dbconfig": {}}) is None
+    assert _get_maxmemory_pct_from_dbconfig({"dbconfig": {"maxmemory_pct": 80}}) == 80
+    # int coercion from yaml-string
+    assert (
+        _get_maxmemory_pct_from_dbconfig({"dbconfig": {"maxmemory_pct": "75"}}) == 75
+    )
+
+
+def test_get_maxmemory_pct_from_dbconfig_list():
+    cfg = {
+        "dbconfig": [
+            {"dataset_name": "x"},
+            {"maxmemory_pct": 80},
+            {"init_commands": []},
+        ]
+    }
+    assert _get_maxmemory_pct_from_dbconfig(cfg) == 80
+    # absent
+    assert (
+        _get_maxmemory_pct_from_dbconfig({"dbconfig": [{"dataset_name": "x"}]}) is None
+    )
+
+
+def test_resolve_maxmemory_pct_precedence():
+    spec = {"dbconfig": {"maxmemory_pct": 50}}
+    # no flags -> spec wins
+    assert _resolve_maxmemory_pct(_Args(), spec) == 50
+    # CLI override -> CLI wins
+    assert _resolve_maxmemory_pct(_Args(maxmemory_pct=80), spec) == 80
+    # CLI no_cap -> None even when spec asks for one
+    assert _resolve_maxmemory_pct(_Args(no_maxmemory_cap=True), spec) is None
+    # CLI no_cap dominates CLI pct too
+    assert (
+        _resolve_maxmemory_pct(_Args(maxmemory_pct=80, no_maxmemory_cap=True), spec)
+        is None
+    )
+    # neither CLI nor spec -> None
+    assert _resolve_maxmemory_pct(_Args(), {}) is None
+
+
+def test_compute_maxmemory_cap_bytes_floor_kicks_in_on_large_instances():
+    # 128 GiB instance, 80% pct
+    total = 128 * GIB
+    pct = 80
+    pct_cap = int(total * 0.8)  # 102.4 GiB
+    floor_cap = total - MAXMEMORY_OS_RESERVE_BYTES  # 124 GiB
+    cap = _compute_maxmemory_cap_bytes(total, pct)
+    # floor doesn't bite here -> use pct cap
+    assert cap == min(pct_cap, floor_cap)
+    assert cap == pct_cap
+
+
+def test_compute_maxmemory_cap_bytes_floor_caps_high_pct_on_smaller_box():
+    # 8 GiB instance, 90% pct
+    total = 8 * GIB
+    pct = 90
+    pct_cap = int(total * 0.9)  # 7.2 GiB
+    floor_cap = total - MAXMEMORY_OS_RESERVE_BYTES  # 4 GiB
+    cap = _compute_maxmemory_cap_bytes(total, pct)
+    # 7.2 GiB > 4 GiB floor -> floor wins
+    assert cap == floor_cap
+    assert cap == 4 * GIB
+
+
+def test_compute_maxmemory_cap_bytes_no_floor_for_tiny_instances():
+    # 2 GiB instance, 50% pct -> floor bypassed (would yield negative)
+    total = 2 * GIB
+    pct = 50
+    cap = _compute_maxmemory_cap_bytes(total, pct)
+    assert cap == int(total * 0.5)
+
+
+class _MockRedis:
+    """Just enough of a redis client for apply_maxmemory_cap."""
+
+    def __init__(self, total_system_memory=None, existing_maxmemory=0, info_raises=False):
+        self._total = total_system_memory
+        self._existing = existing_maxmemory
+        self._info_raises = info_raises
+        self.config_set_calls = []
+
+    def info(self, _section):
+        if self._info_raises:
+            raise RuntimeError("boom")
+        if self._total is None:
+            return {}
+        return {"total_system_memory": self._total}
+
+    def config_get(self, _key):
+        return {"maxmemory": self._existing}
+
+    def config_set(self, key, value):
+        self.config_set_calls.append((key, value))
+
+
+def test_apply_maxmemory_cap_no_op_without_opt_in():
+    r = _MockRedis(total_system_memory=128 * GIB)
+    # No CLI flags, no spec field
+    pct, cap = apply_maxmemory_cap(r, {}, args=_Args())
+    assert pct is None and cap is None
+    assert r.config_set_calls == []
+
+
+def test_apply_maxmemory_cap_no_op_when_cli_disables():
+    spec = {"dbconfig": {"maxmemory_pct": 80}}
+    r = _MockRedis(total_system_memory=128 * GIB)
+    pct, cap = apply_maxmemory_cap(r, spec, args=_Args(no_maxmemory_cap=True))
+    assert pct is None and cap is None
+    assert r.config_set_calls == []
+
+
+def test_apply_maxmemory_cap_sets_from_spec_field():
+    spec = {"dbconfig": {"maxmemory_pct": 80}}
+    r = _MockRedis(total_system_memory=128 * GIB)
+    pct, cap = apply_maxmemory_cap(r, spec, args=_Args())
+    assert pct == 80
+    assert cap == int(128 * GIB * 0.8)
+    assert r.config_set_calls == [("maxmemory", cap)]
+
+
+def test_apply_maxmemory_cap_floor_wins_on_smaller_box():
+    spec = {"dbconfig": {"maxmemory_pct": 95}}
+    r = _MockRedis(total_system_memory=8 * GIB)
+    pct, cap = apply_maxmemory_cap(r, spec, args=_Args())
+    assert pct == 95
+    # 95% of 8 GiB > 8 GiB - 4 GiB -> floor wins
+    assert cap == 4 * GIB
+
+
+def test_apply_maxmemory_cap_skips_on_invalid_pct():
+    spec = {"dbconfig": {"maxmemory_pct": 0}}  # invalid, must be > 0
+    r = _MockRedis(total_system_memory=128 * GIB)
+    pct, cap = apply_maxmemory_cap(r, spec, args=_Args())
+    assert pct is None and cap is None
+    assert r.config_set_calls == []
+
+
+def test_apply_maxmemory_cap_skips_when_info_unavailable():
+    spec = {"dbconfig": {"maxmemory_pct": 80}}
+    r = _MockRedis(info_raises=True)
+    pct, cap = apply_maxmemory_cap(r, spec, args=_Args())
+    assert pct is None and cap is None
+    assert r.config_set_calls == []
+
+
+def test_apply_maxmemory_cap_overwrites_existing_with_warn(caplog=None):
+    """When Redis already has a non-zero maxmemory, a WARNING is logged but
+    the new cap is applied regardless."""
+    import logging as _logging
+
+    spec = {"dbconfig": {"maxmemory_pct": 80}}
+    r = _MockRedis(total_system_memory=128 * GIB, existing_maxmemory=10 * GIB)
+    with _MockLogHandler() as h:
+        apply_maxmemory_cap(r, spec, args=_Args())
+    new_cap = int(128 * GIB * 0.8)
+    assert r.config_set_calls == [("maxmemory", new_cap)]
+    assert any("Overwriting existing Redis maxmemory" in m for m in h.messages)
+
+
+class _MockLogHandler:
+    """Capture log records into self.messages."""
+
+    def __init__(self):
+        import logging as _logging
+
+        self._logging = _logging
+        self.messages = []
+
+    def __enter__(self):
+        class _Handler(self._logging.Handler):
+            def __init__(_self_inner, outer):  # noqa: N804
+                self._logging.Handler.__init__(_self_inner)
+                _self_inner.outer = outer
+
+            def emit(_self_inner, record):  # noqa: N804
+                _self_inner.outer.messages.append(record.getMessage())
+
+        self._handler = _Handler(self)
+        self._logger = self._logging.getLogger()
+        self._previous_level = self._logger.level
+        self._logger.setLevel(self._logging.DEBUG)
+        self._logger.addHandler(self._handler)
+        return self
+
+    def __exit__(self, *_):
+        self._logger.removeHandler(self._handler)
+        self._logger.setLevel(self._previous_level)
