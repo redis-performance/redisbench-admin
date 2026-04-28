@@ -570,7 +570,121 @@ def check_dbconfig_keyspacelen_requirement(
     return required, keyspacelen, keyspacelen_min
 
 
-def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
+# --- maxmemory cap helpers --------------------------------------------------
+
+GIB = 1024**3
+MAXMEMORY_OS_RESERVE_BYTES = 4 * GIB
+
+
+def _get_maxmemory_pct_from_dbconfig(benchmark_config, dbconfig_keyname="dbconfig"):
+    """Return spec-level `dbconfig.maxmemory_pct` (int), or None if not set.
+
+    Handles both spec formats: `dbconfig` as a dict, and `dbconfig` as a list
+    of single-key dicts.
+    """
+    if dbconfig_keyname not in benchmark_config:
+        return None
+    dbconfig = benchmark_config[dbconfig_keyname]
+    if isinstance(dbconfig, dict):
+        v = dbconfig.get("maxmemory_pct")
+        return int(v) if v is not None else None
+    if isinstance(dbconfig, list):
+        for k in dbconfig:
+            if isinstance(k, dict) and "maxmemory_pct" in k:
+                return int(k["maxmemory_pct"])
+    return None
+
+
+def _resolve_maxmemory_pct(args, benchmark_config, dbconfig_keyname="dbconfig"):
+    """CLI `--no-maxmemory-cap` > CLI `--maxmemory-pct` > spec `dbconfig.maxmemory_pct`.
+
+    Returns the resolved pct (int in (0, 100]) or None to skip the cap.
+    """
+    if getattr(args, "no_maxmemory_cap", False):
+        return None
+    cli_pct = getattr(args, "maxmemory_pct", None)
+    if cli_pct is not None:
+        return cli_pct
+    return _get_maxmemory_pct_from_dbconfig(benchmark_config, dbconfig_keyname)
+
+
+def _compute_maxmemory_cap_bytes(total_system_memory, pct):
+    """Apply pct% cap with a floor that always leaves
+    MAXMEMORY_OS_RESERVE_BYTES (4 GiB) for the OS, when total exceeds it.
+
+    For tiny instances (total <= 4 GiB), only the pct cap applies.
+    """
+    pct_cap = int(total_system_memory * pct / 100)
+    if total_system_memory > MAXMEMORY_OS_RESERVE_BYTES:
+        return min(pct_cap, total_system_memory - MAXMEMORY_OS_RESERVE_BYTES)
+    return pct_cap
+
+
+def apply_maxmemory_cap(r, benchmark_config, args=None, dbconfig_keyname="dbconfig"):
+    """Set Redis maxmemory based on resolved pct of total_system_memory, BEFORE
+    spec init_commands run. Overwrite-with-warn if Redis already has a non-zero
+    maxmemory configured.
+
+    No-op when no source asks for a cap.
+
+    Returns (applied_pct, applied_bytes) or (None, None).
+    """
+    pct = _resolve_maxmemory_pct(args, benchmark_config, dbconfig_keyname)
+    if pct is None:
+        return None, None
+    if not (0 < pct <= 100):
+        logging.warning(
+            "Invalid maxmemory_pct=%s; must be in (0, 100]. Skipping cap.", pct
+        )
+        return None, None
+    try:
+        info = r.info("memory")
+    except Exception as e:
+        logging.warning("Failed to read INFO memory; skipping cap: %s", e)
+        return None, None
+    total = int(info.get("total_system_memory", 0))
+    if total <= 0:
+        logging.warning(
+            "INFO memory.total_system_memory missing/zero; skipping cap"
+        )
+        return None, None
+    cap = _compute_maxmemory_cap_bytes(total, pct)
+    floor_active = total > MAXMEMORY_OS_RESERVE_BYTES
+    try:
+        existing = int(r.config_get("maxmemory").get("maxmemory", 0))
+        if existing > 0 and existing != cap:
+            logging.warning(
+                "Overwriting existing Redis maxmemory=%s with %s (%d%% of "
+                "total_system_memory=%s, 4GiB OS-reserve floor active=%s)",
+                existing,
+                cap,
+                pct,
+                total,
+                floor_active,
+            )
+    except Exception:
+        pass
+    logging.info(
+        "Setting Redis maxmemory=%s (%d%% of total_system_memory=%s, "
+        "4GiB OS-reserve floor active=%s)",
+        cap,
+        pct,
+        total,
+        floor_active,
+    )
+    r.config_set("maxmemory", cap)
+    return pct, cap
+
+
+# ---------------------------------------------------------------------------
+
+
+def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig", args=None):
+    # Apply the optional maxmemory cap BEFORE any spec-defined init_commands
+    # run, so that subsequent FT.CREATE / data load / benchmark all happen
+    # against the capped Redis. No-op unless --maxmemory-pct or
+    # dbconfig.maxmemory_pct is set (and --no-maxmemory-cap isn't).
+    apply_maxmemory_cap(r, benchmark_config, args, dbconfig_keyname)
     cmds = None
     res = 0
     if dbconfig_keyname in benchmark_config:
@@ -751,14 +865,14 @@ def merge_default_and_config_metrics(
     return exporter_timemetric_path, metrics
 
 
-def run_redis_pre_steps(benchmark_config, r, required_modules):
+def run_redis_pre_steps(benchmark_config, r, required_modules, args=None):
     # In case we have modules we use it's artifact version
     # otherwise we use redis version as artifact version
     version = "N/A"
     # run initialization commands before benchmark starts
     logging.info("Running initialization commands before benchmark starts.")
     execute_init_commands_start_time = datetime.datetime.now()
-    execute_init_commands(benchmark_config, r)
+    execute_init_commands(benchmark_config, r, args=args)
     execute_asm_commands(benchmark_config, r)
     execute_init_commands_duration_seconds = (
         datetime.datetime.now() - execute_init_commands_start_time
