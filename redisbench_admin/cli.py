@@ -13,6 +13,10 @@ import toml
 from redisbench_admin import __version__
 from redisbench_admin.compare.args import create_compare_arguments
 from redisbench_admin.compare.compare import compare_command_logic
+from redisbench_admin.compare_perrun.args import create_compare_perrun_arguments
+from redisbench_admin.compare_perrun.compare_perrun import (
+    compare_perrun_command_logic,
+)
 from redisbench_admin.deploy.args import create_deploy_arguments
 from redisbench_admin.deploy.deploy import deploy_command_logic
 from redisbench_admin.export.args import create_export_arguments
@@ -93,6 +97,8 @@ def main():
         parser = create_export_arguments(parser)
     elif requested_tool == "compare":
         parser = create_compare_arguments(parser)
+    elif requested_tool == "compare-perrun":
+        parser = create_compare_perrun_arguments(parser)
     elif requested_tool == "watchdog":
         parser = create_watchdog_arguments(parser)
     elif requested_tool == "grafana-api":
@@ -107,6 +113,7 @@ def main():
     else:
         valid_tool_options = [
             "compare",
+            "compare-perrun",
             "run-local",
             "run-remote",
             "run-async",
@@ -161,6 +168,8 @@ def main():
         watchdog_command_logic(args, project_name, project_version)
     if requested_tool == "compare":
         compare_command_logic(args, project_name, project_version)
+    if requested_tool == "compare-perrun":
+        compare_perrun_command_logic(args, project_name, project_version)
     if requested_tool == "deploy":
         deploy_command_logic(args, project_name, project_version)
     if requested_tool == "grafana-api":
