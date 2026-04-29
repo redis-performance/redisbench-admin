@@ -739,6 +739,12 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 ssh_tunnel,
                                                 full_logfiles,
                                                 remote_temporary_dir,
+                                                server_private_ip=server_private_ip,
+                                                server_public_ip=server_public_ip,
+                                                username=username,
+                                                db_ssh_port=db_ssh_port,
+                                                private_key=private_key,
+                                                redis_password=redis_password,
                                             )
                                             # Update tracker with PIDs after ro_benchmark_set stores them
                                             if setup_details.get(
@@ -1796,6 +1802,75 @@ def run_remote_command_logic(args, project_name, project_version):
     exit(return_code)
 
 
+def _try_get_redis_pids(redis_conns):
+    """Attempt to get Redis PIDs from connections. Returns (pids, all_failed)."""
+    pids = []
+    failures = 0
+    for conn in redis_conns:
+        try:
+            info = conn.info("server")
+            pids.append(info.get("process_id", None))
+        except Exception as e:
+            logging.warning(f"Failed to get PID from Redis connection: {e}")
+            pids.append(None)
+            failures += 1
+    all_failed = failures == len(redis_conns) and len(redis_conns) > 0
+    return pids, all_failed
+
+
+def _reconnect_ssh_tunnel_and_redis(setup_details):
+    """Re-establish SSH tunnel and Redis connections using stored parameters.
+
+    Returns (new_redis_conns, new_ssh_tunnel) or raises if reconnection fails.
+    """
+    from redisbench_admin.run.ssh import ssh_tunnel_redisconn
+
+    env = setup_details["env"]
+    server_private_ip = env.get("server_private_ip")
+    server_public_ip = env.get("server_public_ip")
+    username = env.get("username")
+    db_ssh_port = env.get("db_ssh_port", 22)
+    private_key = env.get("private_key")
+    redis_password = env.get("redis_password")
+    server_plaintext_port = env["server_plaintext_port"]
+
+    if not all([server_private_ip, server_public_ip, username, private_key]):
+        raise ConnectionError(
+            "Cannot reconnect SSH tunnel: missing connection parameters in "
+            "stored environment. Ensure ro_benchmark_set was called with "
+            "server_private_ip, server_public_ip, username, and private_key."
+        )
+
+    # Stop old tunnel gracefully
+    old_tunnel = env.get("ssh_tunnel")
+    if old_tunnel is not None:
+        try:
+            old_tunnel.stop()
+        except Exception:
+            pass
+
+    logging.info(
+        f"🔄 Attempting to re-establish SSH tunnel to "
+        f"{server_public_ip} -> {server_private_ip}:{server_plaintext_port}"
+    )
+    redis_conn, new_tunnel = ssh_tunnel_redisconn(
+        server_plaintext_port,
+        server_private_ip,
+        server_public_ip,
+        username,
+        db_ssh_port,
+        private_key,
+        redis_password,
+    )
+    logging.info("🟢 SSH tunnel and Redis connection re-established successfully")
+
+    # Update stored env so subsequent reuses also have fresh connections
+    env["redis_conns"] = [redis_conn]
+    env["ssh_tunnel"] = new_tunnel
+
+    return [redis_conn], new_tunnel
+
+
 def ro_benchmark_reuse(
     artifact_version,
     benchmark_type,
@@ -1832,14 +1907,28 @@ def ro_benchmark_reuse(
 
     # Verify Redis PIDs are the same (same Redis instance is being reused)
     expected_pids = setup_details["env"].get("redis_pids", [])
-    current_pids = []
-    for conn in redis_conns:
+    current_pids, all_failed = _try_get_redis_pids(redis_conns)
+
+    # If all connections failed, the SSH tunnel likely died — try to reconnect
+    if all_failed:
+        logging.warning(
+            "⚠️ All Redis connections failed. SSH tunnel may be stale. "
+            "Attempting to re-establish tunnel and connections..."
+        )
         try:
-            info = conn.info("server")
-            current_pids.append(info.get("process_id", None))
+            redis_conns, ssh_tunnel = _reconnect_ssh_tunnel_and_redis(setup_details)
+            current_pids, all_failed = _try_get_redis_pids(redis_conns)
+            if all_failed:
+                raise ConnectionError(
+                    "Redis connections still failing after SSH tunnel reconnection."
+                )
+        except ConnectionError:
+            raise
         except Exception as e:
-            logging.warning(f"Failed to get PID from Redis connection: {e}")
-            current_pids.append(None)
+            raise ConnectionError(
+                f"Failed to re-establish SSH tunnel and Redis connections: {e}"
+            ) from e
+
     pids_match = current_pids == expected_pids
     if pids_match:
         logging.info(
@@ -1886,6 +1975,12 @@ def ro_benchmark_set(
     ssh_tunnel,
     full_logfiles,
     remote_temporary_dir,
+    server_private_ip=None,
+    server_public_ip=None,
+    username=None,
+    db_ssh_port=22,
+    private_key=None,
+    redis_password=None,
 ):
     logging.info(
         "Given the benchmark for this setup is read-only we will prepare to reuse it on the next read-only benchmarks (if any )."
@@ -1903,6 +1998,14 @@ def ro_benchmark_set(
     setup_details["env"]["return_code"] = return_code
     setup_details["env"]["server_plaintext_port"] = server_plaintext_port
     setup_details["env"]["ssh_tunnel"] = ssh_tunnel
+
+    # Store SSH connection parameters for tunnel reconnection
+    setup_details["env"]["server_private_ip"] = server_private_ip
+    setup_details["env"]["server_public_ip"] = server_public_ip
+    setup_details["env"]["username"] = username
+    setup_details["env"]["db_ssh_port"] = db_ssh_port
+    setup_details["env"]["private_key"] = private_key
+    setup_details["env"]["redis_password"] = redis_password
 
     # Store Redis PIDs for verification when reusing
     redis_pids = []
