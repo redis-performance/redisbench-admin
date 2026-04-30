@@ -45,6 +45,7 @@ def ssh_tunnel_redisconn(
         ),  # remote redis server
         # Bind the socket to port 0. A random free port from 1024 to 65535 will be selected.
         local_bind_address=("0.0.0.0", 0),  # enable local forwarding port
+        set_keepalive=30,  # send SSH keepalive every 30 seconds to prevent stale tunnels
     )
     ssh_tunel.start()  # start tunnel
     redis_conn = redis.Redis(

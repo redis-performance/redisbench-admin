@@ -146,6 +146,34 @@ def test_prepare_ftsb_benchmark_command_batch_size(parameters, batch_value):
     assert command_arr[idx + 1] == batch_value
 
 
+@pytest.mark.parametrize(
+    "parameters,expected_value",
+    [
+        ([{"max-latency-seconds": 60}], "60"),
+        ([{"max_latency_seconds": 30}], "30"),
+        ({"max-latency-seconds": 60}, "60"),
+        ({"max_latency_seconds": 30}, "30"),
+    ],
+    ids=["list-hyphen", "list-underscore", "dict-hyphen", "dict-underscore"],
+)
+def test_prepare_ftsb_benchmark_command_max_latency_seconds(parameters, expected_value):
+    """Test max-latency-seconds is correctly passed for both config formats and key spellings."""
+    entry = {"parameters": parameters}
+    command_arr, command_str = prepare_ftsb_benchmark_command(
+        "ftsb_redisearch",
+        "localhost",
+        6379,
+        entry,
+        ".",
+        "/tmp/result.json",
+        "/tmp/input.data",
+        is_remote=False,
+    )
+    assert "--max-latency-seconds" in command_arr
+    idx = command_arr.index("--max-latency-seconds")
+    assert command_arr[idx + 1] == expected_value
+
+
 def test_extract_ftsb_extra_links():
     """Test extraction of ftsb extra links from config."""
     with open(
