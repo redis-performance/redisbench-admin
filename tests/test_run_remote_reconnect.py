@@ -122,13 +122,13 @@ def test_reconnect_happy_path_updates_env_and_returns_new_conn_and_tunnel():
 
     # ssh_tunnel_redisconn called with the params from env, in the expected order.
     mocked_setup.assert_called_once_with(
-        6379,           # server_plaintext_port
-        "10.0.0.5",     # server_private_ip
-        "1.2.3.4",      # server_public_ip
-        "ubuntu",       # username
-        22,             # db_ssh_port
-        "/tmp/key.pem", # private_key
-        "secret",       # redis_password
+        6379,  # server_plaintext_port
+        "10.0.0.5",  # server_private_ip
+        "1.2.3.4",  # server_public_ip
+        "ubuntu",  # username
+        22,  # db_ssh_port
+        "/tmp/key.pem",  # private_key
+        "secret",  # redis_password
     )
 
     # Return values
