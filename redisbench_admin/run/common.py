@@ -636,6 +636,58 @@ def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
     return res
 
 
+def execute_post_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
+    cmds = None
+    res = 0
+    if dbconfig_keyname in benchmark_config:
+        dbconfig = benchmark_config[dbconfig_keyname]
+        # Handle both dict and list formats
+        if isinstance(dbconfig, dict):
+            # New format: dbconfig is a dict
+            if "post_commands" in dbconfig:
+                cmds = dbconfig["post_commands"]
+        elif isinstance(dbconfig, list):
+            # Old format: dbconfig is a list of dicts
+            for k in dbconfig:
+                if isinstance(k, dict) and "post_commands" in k:
+                    cmds = k["post_commands"]
+    if cmds is not None:
+        for cmd in cmds:
+            is_array = False
+            if type(cmd) == list:
+                is_array = True
+            if '"' in cmd:
+                cols = []
+                for lines in csv.reader(
+                    cmd,
+                    quotechar='"',
+                    delimiter=" ",
+                    quoting=csv.QUOTE_ALL,
+                    skipinitialspace=True,
+                ):
+                    if lines[0] != " " and len(lines[0]) > 0:
+                        cols.append(lines[0])
+                cmd = cols
+                is_array = True
+            try:
+                logging.info("Sending post command: {}".format(cmd))
+                stdout = ""
+                if is_array:
+                    stdout = r.execute_command(*cmd)
+                else:
+                    stdout = r.execute_command(cmd)
+                res = res + 1
+                logging.info("Command reply: {}".format(stdout))
+            except redis.connection.ConnectionError as e:
+                logging.error(
+                    "Error establishing connection to Redis. Message: {}".format(
+                        e.__str__()
+                    )
+                )
+
+    return res
+
+
 def extract_test_feasible_setups(
     benchmark_config, param, default_specs, backwards_compatible=True
 ):
@@ -788,6 +840,20 @@ def run_redis_pre_steps(benchmark_config, r, required_modules):
         version = r.info("server")["redis_version"]
 
     return version
+
+
+def run_redis_post_steps(benchmark_config, r):
+    logging.info("Running post commands after benchmark completes.")
+    execute_post_commands_start_time = datetime.datetime.now()
+    execute_post_commands(benchmark_config, r)
+    execute_post_commands_duration_seconds = (
+        datetime.datetime.now() - execute_post_commands_start_time
+    ).seconds
+    logging.info(
+        "Running post commands took {} secs.".format(
+            execute_post_commands_duration_seconds
+        )
+    )
 
 
 def search_specific_init(r, module_names):

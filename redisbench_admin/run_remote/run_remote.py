@@ -31,6 +31,7 @@ from redisbench_admin.run.common import (
     get_setup_type_and_primaries_count,
     common_properties_log,
     print_results_table_stdout,
+    run_redis_post_steps,
 )
 from redisbench_admin.run.git import git_vars_crosscheck
 from redisbench_admin.run.grafana import generate_artifacts_table_grafana_redis
@@ -1030,6 +1031,12 @@ def run_remote_command_logic(args, project_name, project_version):
                                         redis_password,
                                         architecture,
                                     )
+
+                                    # run post commands after benchmark completes
+                                    for redis_conn in redis_conns:
+                                        run_redis_post_steps(
+                                            benchmark_config, redis_conn
+                                        )
 
                                     # --- parca-agent per-test label cleanup ---
                                     # Clear metadata-external-labels so a
