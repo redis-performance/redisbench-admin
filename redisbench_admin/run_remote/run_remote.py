@@ -1032,12 +1032,6 @@ def run_remote_command_logic(args, project_name, project_version):
                                         architecture,
                                     )
 
-                                    # run post commands after benchmark completes
-                                    for redis_conn in redis_conns:
-                                        run_redis_post_steps(
-                                            benchmark_config, redis_conn
-                                        )
-
                                     # --- parca-agent per-test label cleanup ---
                                     # Clear metadata-external-labels so a
                                     # subsequent test doesn't inherit stale
@@ -1379,6 +1373,16 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     "The benchmark ran successfully but the post-benchmark metrics export failed: {}".format(
                                                         test_name, e
                                                     )
+                                                )
+
+                                        # run post commands after benchmark completes and
+                                        # end-of-benchmark metrics have been collected and
+                                        # exported, so post_commands cannot mutate the
+                                        # measured state (used_memory, commandstats, etc.)
+                                        if args.dry_run is False:
+                                            for redis_conn in redis_conns:
+                                                run_redis_post_steps(
+                                                    benchmark_config, redis_conn
                                                 )
 
                                         # Check if environment is saved in shared_env for reuse

@@ -665,6 +665,28 @@ def test_execute_init_and_post_commands():
         assert b"key" not in redis.keys()
         # quoted string form: "HSET" "post_key2" "FIELD" "VAL"
         assert b"post_key2" in redis.keys()
+
+        # missing post_commands → graceful no-op, returns 0
+        empty_config = {"dbconfig": [{"init_commands": [["SET", "x", "1"]]}]}
+        assert execute_post_commands(empty_config, redis) == 0
+
+        # dict-format dbconfig (alternate to list-format) — exercises the
+        # `isinstance(dbconfig, dict)` branch
+        redis.flushall()
+        dict_config = {
+            "dbconfig": {
+                "post_commands": [
+                    ["SET", "dict_post_key", "v"],
+                    ["SET", "dict_post_key2", "v"],
+                ]
+            }
+        }
+        assert execute_post_commands(dict_config, redis) == 2
+        assert b"dict_post_key" in redis.keys()
+        assert b"dict_post_key2" in redis.keys()
+
+        # absent dbconfig altogether → graceful no-op
+        assert execute_post_commands({}, redis) == 0
     except ConnectionError:
         pass
 
