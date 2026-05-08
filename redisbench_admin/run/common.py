@@ -570,122 +570,118 @@ def check_dbconfig_keyspacelen_requirement(
     return required, keyspacelen, keyspacelen_min
 
 
-def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
+def _execute_dbconfig_commands(
+    benchmark_config,
+    r,
+    command_key,
+    log_label,
+    broadcast_ft_create,
+    dbconfig_keyname="dbconfig",
+):
+    """Execute a list of Redis commands declared under dbconfig.<command_key>.
+
+    Supports both dict-format (`dbconfig: {<command_key>: [...]}`) and the
+    legacy list-format (`dbconfig: [- <command_key>: [...]]`). Each command
+    may be a list (`["SET", "k", "v"]`) or a quoted-string form
+    (`'"SET" "k" "v"'`).
+
+    Returns the count of commands successfully sent. ConnectionError on a
+    given command is logged and the loop continues.
+
+    Parameters
+    ----------
+    command_key : str
+        The dbconfig sub-key to read commands from ("init_commands" or
+        "post_commands").
+    log_label : str
+        Human-readable label used in INFO log lines (e.g. "init command").
+    broadcast_ft_create : bool
+        If True, FT.CREATE is sent to all nodes via target_nodes="all" so it
+        works on OSS Cluster. Init-commands set this; post-commands do not
+        (preserved for backward compatibility).
+    """
     cmds = None
     res = 0
     if dbconfig_keyname in benchmark_config:
         dbconfig = benchmark_config[dbconfig_keyname]
         # Handle both dict and list formats
         if isinstance(dbconfig, dict):
-            # New format: dbconfig is a dict
-            if "init_commands" in dbconfig:
-                cmds = dbconfig["init_commands"]
+            if command_key in dbconfig:
+                cmds = dbconfig[command_key]
         elif isinstance(dbconfig, list):
-            # Old format: dbconfig is a list of dicts
             for k in dbconfig:
-                if isinstance(k, dict) and "init_commands" in k:
-                    cmds = k["init_commands"]
-    if cmds is not None:
-        for cmd in cmds:
-            is_array = False
-            if type(cmd) == list:
-                is_array = True
-            if '"' in cmd:
-                cols = []
-                for lines in csv.reader(
-                    cmd,
-                    quotechar='"',
-                    delimiter=" ",
-                    quoting=csv.QUOTE_ALL,
-                    skipinitialspace=True,
-                ):
-                    if lines[0] != " " and len(lines[0]) > 0:
-                        cols.append(lines[0])
-                cmd = cols
-                is_array = True
-            try:
-                logging.info("Sending init command: {}".format(cmd))
-                stdout = ""
-                if is_array:
-                    if "FT.CREATE" in cmd[0]:
-                        logging.info("Detected FT.CREATE to all nodes on OSS Cluster")
-                        try:
-                            stdout = r.execute_command(*cmd, target_nodes="all")
-                        except redis.exceptions.ResponseError:
-                            pass
+                if isinstance(k, dict) and command_key in k:
+                    cmds = k[command_key]
+    if cmds is None:
+        return res
+
+    for cmd in cmds:
+        is_array = False
+        if type(cmd) == list:
+            is_array = True
+        if '"' in cmd:
+            cols = []
+            for lines in csv.reader(
+                cmd,
+                quotechar='"',
+                delimiter=" ",
+                quoting=csv.QUOTE_ALL,
+                skipinitialspace=True,
+            ):
+                if lines[0] != " " and len(lines[0]) > 0:
+                    cols.append(lines[0])
+            cmd = cols
+            is_array = True
+        try:
+            logging.info("Sending {}: {}".format(log_label, cmd))
+            stdout = ""
+            verb = cmd[0] if is_array else cmd
+            if broadcast_ft_create and "FT.CREATE" in verb:
+                logging.info("Detected FT.CREATE to all nodes on OSS Cluster")
+                try:
+                    if is_array:
+                        stdout = r.execute_command(*cmd, target_nodes="all")
                     else:
-                        stdout = r.execute_command(*cmd)
-                else:
-                    if "FT.CREATE" in cmd:
-                        logging.info("Detected FT.CREATE to all nodes on OSS Cluster")
-                        try:
-                            stdout = r.execute_command(cmd, target_nodes="all")
-                        except redis.exceptions.ResponseError:
-                            pass
-                    else:
-                        stdout = r.execute_command(cmd)
-                res = res + 1
-                logging.info("Command reply: {}".format(stdout))
-            except redis.connection.ConnectionError as e:
-                logging.error(
-                    "Error establishing connection to Redis. Message: {}".format(
-                        e.__str__()
-                    )
-                )
-
-    return res
-
-
-def execute_post_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
-    cmds = None
-    res = 0
-    if dbconfig_keyname in benchmark_config:
-        dbconfig = benchmark_config[dbconfig_keyname]
-        # Handle both dict and list formats
-        if isinstance(dbconfig, dict):
-            # New format: dbconfig is a dict
-            if "post_commands" in dbconfig:
-                cmds = dbconfig["post_commands"]
-        elif isinstance(dbconfig, list):
-            # Old format: dbconfig is a list of dicts
-            for k in dbconfig:
-                if isinstance(k, dict) and "post_commands" in k:
-                    cmds = k["post_commands"]
-    if cmds is not None:
-        for cmd in cmds:
-            is_array = False
-            if type(cmd) == list:
-                is_array = True
-            if '"' in cmd:
-                cols = []
-                for lines in csv.reader(
-                    cmd,
-                    quotechar='"',
-                    delimiter=" ",
-                    quoting=csv.QUOTE_ALL,
-                    skipinitialspace=True,
-                ):
-                    if lines[0] != " " and len(lines[0]) > 0:
-                        cols.append(lines[0])
-                cmd = cols
-                is_array = True
-            try:
-                logging.info("Sending post command: {}".format(cmd))
-                stdout = ""
+                        stdout = r.execute_command(cmd, target_nodes="all")
+                except redis.exceptions.ResponseError:
+                    pass
+            else:
                 if is_array:
                     stdout = r.execute_command(*cmd)
                 else:
                     stdout = r.execute_command(cmd)
-                res = res + 1
-                logging.info("Command reply: {}".format(stdout))
-            except redis.connection.ConnectionError as e:
-                logging.error(
-                    "Error establishing connection to Redis. Message: {}".format(
-                        e.__str__()
-                    )
+            res = res + 1
+            logging.info("Command reply: {}".format(stdout))
+        except redis.connection.ConnectionError as e:
+            logging.error(
+                "Error establishing connection to Redis. Message: {}".format(
+                    e.__str__()
                 )
+            )
 
     return res
+
+
+def execute_init_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
+    return _execute_dbconfig_commands(
+        benchmark_config,
+        r,
+        command_key="init_commands",
+        log_label="init command",
+        broadcast_ft_create=True,
+        dbconfig_keyname=dbconfig_keyname,
+    )
+
+
+def execute_post_commands(benchmark_config, r, dbconfig_keyname="dbconfig"):
+    return _execute_dbconfig_commands(
+        benchmark_config,
+        r,
+        command_key="post_commands",
+        log_label="post command",
+        broadcast_ft_create=False,
+        dbconfig_keyname=dbconfig_keyname,
+    )
 
 
 def extract_test_feasible_setups(
