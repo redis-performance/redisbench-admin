@@ -25,6 +25,7 @@ from redisbench_admin.run.common import (
     dbconfig_keyspacelen_check,
     common_properties_log,
     execute_init_commands,
+    execute_post_commands,
     extract_input_file_url_from_parameters,
 )
 from redisbench_admin.run_remote.args import create_run_remote_arguments
@@ -631,7 +632,7 @@ def test_common_properties_log():
     )
 
 
-def test_execute_init_commands():
+def test_execute_init_and_post_commands():
     from redis import StrictRedis
     from redis.exceptions import ConnectionError
 
@@ -655,6 +656,37 @@ def test_execute_init_commands():
 
         assert b"key" in redis.keys()
         assert b"key2" in redis.keys()
+
+        # now test post_commands (array, simple array, and quoted string)
+        total_post_cmds = execute_post_commands(benchmark_config, redis)
+        assert total_post_cmds == 3
+        assert b"post_key" in redis.keys()
+        # key should have been deleted by the DEL post_command
+        assert b"key" not in redis.keys()
+        # quoted string form: "HSET" "post_key2" "FIELD" "VAL"
+        assert b"post_key2" in redis.keys()
+
+        # missing post_commands → graceful no-op, returns 0
+        empty_config = {"dbconfig": [{"init_commands": [["SET", "x", "1"]]}]}
+        assert execute_post_commands(empty_config, redis) == 0
+
+        # dict-format dbconfig (alternate to list-format) — exercises the
+        # `isinstance(dbconfig, dict)` branch
+        redis.flushall()
+        dict_config = {
+            "dbconfig": {
+                "post_commands": [
+                    ["SET", "dict_post_key", "v"],
+                    ["SET", "dict_post_key2", "v"],
+                ]
+            }
+        }
+        assert execute_post_commands(dict_config, redis) == 2
+        assert b"dict_post_key" in redis.keys()
+        assert b"dict_post_key2" in redis.keys()
+
+        # absent dbconfig altogether → graceful no-op
+        assert execute_post_commands({}, redis) == 0
     except ConnectionError:
         pass
 

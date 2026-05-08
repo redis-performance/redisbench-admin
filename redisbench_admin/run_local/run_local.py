@@ -35,6 +35,7 @@ from redisbench_admin.run.common import (
     get_setup_type_and_primaries_count,
     dso_check,
     print_results_table_stdout,
+    run_redis_post_steps,
 )
 from redisbench_admin.run.metrics import (
     from_info_to_overall_shard_cpu,
@@ -572,6 +573,15 @@ def run_local_command_logic(args, project_name, project_version):
                                         ]
                                     },
                                 )
+
+                                # run post commands after benchmark completes and
+                                # end-of-benchmark metrics have been collected, so
+                                # post_commands cannot mutate measured state
+                                if args.dry_run is False:
+                                    for redis_conn in redis_conns:
+                                        run_redis_post_steps(
+                                            benchmark_config, redis_conn
+                                        )
 
                                 if (
                                     profilers_enabled

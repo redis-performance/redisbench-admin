@@ -31,6 +31,7 @@ from redisbench_admin.run.common import (
     get_setup_type_and_primaries_count,
     common_properties_log,
     print_results_table_stdout,
+    run_redis_post_steps,
 )
 from redisbench_admin.run.git import git_vars_crosscheck
 from redisbench_admin.run.grafana import generate_artifacts_table_grafana_redis
@@ -1372,6 +1373,16 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     "The benchmark ran successfully but the post-benchmark metrics export failed: {}".format(
                                                         test_name, e
                                                     )
+                                                )
+
+                                        # run post commands after benchmark completes and
+                                        # end-of-benchmark metrics have been collected and
+                                        # exported, so post_commands cannot mutate the
+                                        # measured state (used_memory, commandstats, etc.)
+                                        if args.dry_run is False:
+                                            for redis_conn in redis_conns:
+                                                run_redis_post_steps(
+                                                    benchmark_config, redis_conn
                                                 )
 
                                         # Check if environment is saved in shared_env for reuse
