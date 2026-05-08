@@ -1386,7 +1386,13 @@ def from_rts_to_regression_table(
             filters_baseline.append("github_repo={}".format(tf_github_repo))
         if running_platform is not None:
             filters_baseline.append("running_platform={}".format(running_platform))
-        if baseline_architecture != ARCH_X86:
+        if baseline_architecture is not None:
+            # Always apply the arch filter, including for x86_64. Multiple
+            # architectures coexist under the same test_name in RTS (each
+            # series carries an explicit arch={x86_64,aarch64} label), so
+            # without this filter TS.QUERYINDEX returns both and the
+            # downstream "take the first one" fallback can silently
+            # cross-compare arches and produce fake regressions/improvements.
             filters_baseline.append(f"arch={baseline_architecture}")
         filters_comparison = [
             "{}={}".format(by_str_comparison, comparison_str),
@@ -1401,7 +1407,8 @@ def from_rts_to_regression_table(
             filters_comparison.append("github_repo={}".format(tf_github_repo))
         if running_platform is not None:
             filters_comparison.append("running_platform={}".format(running_platform))
-        if comparison_architecture != ARCH_X86:
+        if comparison_architecture is not None:
+            # See note above on filters_baseline.
             filters_comparison.append(f"arch={comparison_architecture}")
         baseline_timeseries = rts.ts().queryindex(filters_baseline)
         comparison_timeseries = rts.ts().queryindex(filters_comparison)
@@ -1933,9 +1940,10 @@ def check_client_side_latency(
             if running_platform is not None:
                 filters_baseline.append(f"running_platform={running_platform}")
                 filters_comparison.append(f"running_platform={running_platform}")
-            if baseline_architecture != ARCH_X86:
+            # Always apply arch filter (see note at the throughput-query site).
+            if baseline_architecture is not None:
                 filters_baseline.append(f"arch={baseline_architecture}")
-            if comparison_architecture != ARCH_X86:
+            if comparison_architecture is not None:
                 filters_comparison.append(f"arch={comparison_architecture}")
 
             # Query for client-side latency time-series
@@ -2207,9 +2215,10 @@ def perform_variance_and_p99_analysis(
         if running_platform is not None:
             filters_baseline.append(f"running_platform={running_platform}")
             filters_comparison.append(f"running_platform={running_platform}")
-        if baseline_architecture != ARCH_X86:
+        # Always apply arch filter (see note at the throughput-query site).
+        if baseline_architecture is not None:
             filters_baseline.append(f"arch={baseline_architecture}")
-        if comparison_architecture != ARCH_X86:
+        if comparison_architecture is not None:
             filters_comparison.append(f"arch={comparison_architecture}")
 
         # Query for p99 latency time-series
@@ -2495,9 +2504,10 @@ def check_latency_for_unstable_throughput(
         if running_platform is not None:
             filters_baseline.append(f"running_platform={running_platform}")
             filters_comparison.append(f"running_platform={running_platform}")
-        if baseline_architecture != ARCH_X86:
+        # Always apply arch filter (see note at the throughput-query site).
+        if baseline_architecture is not None:
             filters_baseline.append(f"arch={baseline_architecture}")
-        if comparison_architecture != ARCH_X86:
+        if comparison_architecture is not None:
             filters_comparison.append(f"arch={comparison_architecture}")
 
         # Query for p50 latency time-series
