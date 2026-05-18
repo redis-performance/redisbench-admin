@@ -838,6 +838,12 @@ def push_data_to_redistimeseries(rts, time_series_dict: dict, expire_msecs=0):
                     f"Error while working in timeseries named {timeseries_name}. "
                 )
                 datapoint_errors += 1
+            except redis.exceptions.ConnectionError as e:
+                logging.error(
+                    "Connection error while working on timeseries named %s after client-side retries: %s",
+                    timeseries_name, e,
+                )
+                datapoint_errors += 1
             progress.update()
     return datapoint_errors, datapoint_inserts
 
