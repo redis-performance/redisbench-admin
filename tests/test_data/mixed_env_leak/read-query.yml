@@ -1,0 +1,22 @@
+
+name: "mixed-env-leak-query"
+setups:
+  - oss-standalone
+remote:
+ - type: oss-standalone
+ - setup: redisearch-m5
+# Read-only benchmark on the same dataset. Its presence in the plan is what
+# flips `reuse_mixed` to True (the optimization that triggers the bug path).
+# After the fix, this test also exercises the cross-type handoff: it inherits
+# the Redis env spun up by the last mixed-load*.yml via shared_env.
+dbconfig:
+  tool: memtier_benchmark
+  dataset_name: "mixed-env-leak"
+  arguments: "--ratio 1:0 --key-maximum 1000 --key-minimum 1 --key-pattern P:P -d 1 -n allkeys --hide-histogram"
+  check:
+   keyspacelen: 1000
+
+clientconfig:
+  benchmark_type: "read-only"
+  tool: memtier_benchmark
+  arguments: "-d 100 --ratio 0:1 --test-time 2 --pipeline 15 --key-pattern=P:P -t 2 --hide-histogram --key-maximum=1000 --key-minimum 1"

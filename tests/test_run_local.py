@@ -247,6 +247,45 @@ def test_run_local_command_logic():
         assert e.code == 0
 
 
+def test_run_local_mixed_env_no_leak():
+    """Regression test: two `mixed` benchmarks sharing (setup, dataset_name)
+    plus one `read-only` benchmark must complete without crashing.
+
+    The plan is:
+      - mixed-load.yml   (benchmark_type=mixed,     dataset=mixed-env-leak)
+      - mixed-load2.yml  (benchmark_type=mixed,     dataset=mixed-env-leak)
+      - read-query.yml   (benchmark_type=read-only, dataset=mixed-env-leak)
+
+    The presence of both mixed and read-only flips `reuse_mixed` to True, and
+    the two mixed benchmarks land in the same (setup, dataset) group. Pre-fix,
+    the second mixed test inherited the first one's populated `setup_details
+    ["env"]` and got routed through `ro_benchmark_reuse`, which asserts
+    `benchmark_type == "read-only"` and crashed. Post-fix, each mixed test
+    spins up its own fresh env; the read-only test reuses the env from the
+    last mixed test via `shared_env`.
+    """
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_local_arguments(parser)
+    args = parser.parse_args(
+        args=[
+            "--test-glob",
+            "./tests/test_data/mixed_env_leak/*.yml",
+        ]
+    )
+    try:
+        run_local_command_logic(args, "tool", "v0")
+    except SystemExit as e:
+        assert e.code == 0, (
+            f"run_local_command_logic exited with code {e.code} — the "
+            "mixed -> mixed env leak likely tripped the "
+            "ro_benchmark_reuse `assert benchmark_type == 'read-only'` "
+            "invariant."
+        )
+
+
 def test_run_local_dataset_reuse_memtier():
     """
     Test that benchmarks with the same dataset_name are grouped together

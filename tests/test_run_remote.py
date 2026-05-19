@@ -204,6 +204,77 @@ def test_export_redis_metrics():
         pass
 
 
+def test_run_remote_mixed_env_no_leak():
+    """Regression test for the `mixed -> mixed` env-leak bug, in remote mode.
+
+    Plan:
+      - mixed-load.yml   (benchmark_type=mixed,     dataset=mixed-env-leak)
+      - mixed-load2.yml  (benchmark_type=mixed,     dataset=mixed-env-leak)
+      - read-query.yml   (benchmark_type=read-only, dataset=mixed-env-leak)
+
+    Pre-fix, the second mixed benchmark inherited the populated
+    `setup_details["env"]` from the first and was routed through
+    `ro_benchmark_reuse`, which asserts `benchmark_type == "read-only"`.
+    Post-fix, each mixed test spins up fresh; the read-only test inherits the
+    env from the last mixed test via `shared_env`.
+
+    Same infrastructure requirements as test_run_remote_dataset_reuse_memtier:
+    RUN_REMOTE_TESTS=1 plus either AWS credentials or pre-deployed inventory.
+    """
+    if os.getenv("RUN_REMOTE_TESTS", "0") != "1":
+        pytest.skip("Remote tests disabled. Set RUN_REMOTE_TESTS=1 to enable.")
+
+    db_server_ip = os.getenv("DB_SERVER_HOST", None)
+    client_server_ip = os.getenv("CLIENT_SERVER_HOST", None)
+    private_key_path = os.getenv(
+        "EC2_PRIVATE_PEM", "./tests/test_data/test-ssh/tox_rsa"
+    )
+
+    has_inventory = db_server_ip is not None and client_server_ip is not None
+    has_aws_credentials, _ = check_ec2_env()
+
+    if not has_inventory and not has_aws_credentials:
+        pytest.skip(
+            "This test requires either pre-deployed inventory "
+            "(DB_SERVER_HOST, CLIENT_SERVER_HOST) or AWS credentials "
+            "(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION)"
+        )
+
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_remote_arguments(parser)
+
+    args_list = [
+        "--test-glob",
+        "./tests/test_data/mixed_env_leak/*.yml",
+        "--skip-env-vars-verify",
+    ]
+
+    if has_inventory:
+        args_list.extend(
+            [
+                "--inventory",
+                f"server_private_ip={db_server_ip},server_public_ip={db_server_ip},client_public_ip={client_server_ip}",
+                "--private_key",
+                private_key_path,
+            ]
+        )
+
+    args = parser.parse_args(args=args_list)
+
+    try:
+        run_remote_command_logic(args, "tool", "v0")
+    except SystemExit as e:
+        assert e.code == 0, (
+            f"run_remote_command_logic exited with code {e.code} — the "
+            "mixed -> mixed env leak likely tripped the "
+            "ro_benchmark_reuse `assert benchmark_type == 'read-only'` "
+            "invariant."
+        )
+
+
 def test_run_remote_dataset_reuse_memtier():
     """
     Test that benchmarks with the same dataset_name are grouped together
