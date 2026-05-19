@@ -328,6 +328,12 @@ def run_local_command_logic(args, project_name, project_version):
                                         # Save to shared storage for cross-benchmark-type reuse
                                         if reuse_mixed:
                                             shared_env[env_key] = setup_details["env"]
+                                            # Mixed tests must not share env with the next
+                                            # mixed test in this group — state is dirty.
+                                            # shared_env keeps the env alive for a subsequent
+                                            # read-only group on this (setup, dataset).
+                                            if benchmark_type == "mixed":
+                                                setup_details["env"] = None
                                 else:
                                     logging.info(
                                         f"Reusing environment from previous benchmark for dataset reuse (dataset: {dataset_name}, setup: {setup_name})."

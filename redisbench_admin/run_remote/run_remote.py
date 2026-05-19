@@ -768,6 +768,11 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 shared_env[env_key] = setup_details[
                                                     "env"
                                                 ]
+                                                # Mixed tests must not share env with the next
+                                                # mixed test in this group — state is dirty.
+                                                # shared_env keeps the env alive for a subsequent
+                                                # read-only group on this (setup, dataset).
+                                                setup_details["env"] = None
                                                 logging.info(
                                                     f"Saved environment to shared_env for dataset '{dataset_name}' and setup '{setup_name}'"
                                                 )
