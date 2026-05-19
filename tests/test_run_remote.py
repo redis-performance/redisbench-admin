@@ -16,6 +16,7 @@ from redisbench_admin.run_remote.run_remote import (
     export_redis_metrics,
     run_remote_command_logic,
     save_env_for_cross_type_reuse,
+    tear_down_previous_mixed_env_if_needed,
 )
 from redisbench_admin.utils.remote import check_ec2_env
 
@@ -350,20 +351,10 @@ def test_run_remote_dataset_reuse_memtier():
         assert e.code == 0, f"run_remote_command_logic exited with code {e.code}"
 
 
-def test_save_env_for_cross_type_reuse_mixed_clears_setup_details():
-    """Regression for the `mixed -> mixed` env-leak bug.
-
-    Two mixed tests sharing `(setup, dataset)` with `reuse_mixed=True` must NOT
-    share an env: the contract of `mixed` is that each test gets a fresh
-    spin-up. Before the fix, `setup_details["env"]` was left populated after
-    the first mixed test, the dispatcher took the reuse branch on the second
-    one, and `ro_benchmark_reuse` crashed on
-    `assert benchmark_type == "read-only"`.
-
-    Invariant: after publishing the mixed env to `shared_env`,
-    `setup_details["env"]` must be cleared so the next iteration re-enters the
-    spin-up branch (`if setup_details.get("env") is None`).
-    """
+def test_save_env_for_cross_type_reuse_publishes_to_shared_env():
+    """`save_env_for_cross_type_reuse` publishes a mixed benchmark's spun-up
+    env to `shared_env` so a subsequent read-only group on the same
+    `(setup, dataset)` can inherit it via the cross-type handoff."""
     fake_env = {"redis_pids": [1234], "server_plaintext_port": 6379}
     setup_details = {"env": fake_env}
     shared_env = {}
@@ -378,10 +369,10 @@ def test_save_env_for_cross_type_reuse_mixed_clears_setup_details():
     )
 
     assert published is True
-    # Cleared so the next mixed test in the group spins up fresh.
-    assert setup_details["env"] is None
-    # Still available for the next read-only group on the same (setup, dataset).
     assert shared_env[("ds1", "oss-standalone")] is fake_env
+    # The env stays in setup_details too — the dispatcher reads it on the
+    # next iteration to decide spin-up vs reuse.
+    assert setup_details["env"] is fake_env
 
 
 def test_save_env_for_cross_type_reuse_read_only_is_noop():
@@ -407,10 +398,10 @@ def test_save_env_for_cross_type_reuse_read_only_is_noop():
 
 
 def test_save_env_for_cross_type_reuse_mixed_without_reuse_mixed_is_noop():
-    """If `reuse_mixed` is False, mixed benchmarks neither publish nor clear:
-    the cross-type handoff is disabled and standard mixed semantics apply
-    (each iteration re-enters the spin-up branch on its own, because env was
-    teared down between tests)."""
+    """If `reuse_mixed` is False, the cross-type handoff is disabled — neither
+    publish happens. Each mixed test is then expected to be torn down between
+    iterations via the existing teardown logic (no inter-group reuse to
+    preserve)."""
     fake_env = {"redis_pids": [1234]}
     setup_details = {"env": fake_env}
     shared_env = {}
@@ -427,3 +418,136 @@ def test_save_env_for_cross_type_reuse_mixed_without_reuse_mixed_is_noop():
     assert published is False
     assert setup_details["env"] is fake_env
     assert shared_env == {}
+
+
+def test_tear_down_previous_mixed_env_clears_and_removes_from_shared_env(monkeypatch):
+    """Regression for the `mixed -> mixed` env-leak bug.
+
+    Between two mixed tests sharing `(setup, dataset)`, the previous test's
+    remote Redis env must be torn down and `setup_details["env"]` cleared so
+    the dispatcher takes the spin-up path for the next mixed test (rather
+    than the reuse branch, which asserts `benchmark_type == "read-only"`).
+    The env must also be removed from `shared_env` since the Redis it
+    references no longer exists."""
+    from redisbench_admin.run_remote import run_remote as run_remote_mod
+
+    teardown_calls = []
+    monkeypatch.setattr(
+        run_remote_mod,
+        "shutdown_remote_redis",
+        lambda conns, tunnel: teardown_calls.append((conns, tunnel)),
+    )
+
+    fake_tunnel = object()
+    fake_env = {"redis_conns": ["c1"], "ssh_tunnel": fake_tunnel}
+    setup_details = {"env": fake_env}
+    env_key = ("ds1", "oss-standalone")
+    shared_env = {env_key: fake_env}
+
+    tore_down = run_remote_mod.tear_down_previous_mixed_env_if_needed(
+        benchmark_type="mixed",
+        reuse_mixed=True,
+        setup_details=setup_details,
+        shared_env=shared_env,
+        env_key=env_key,
+        keep_env_and_topo=False,
+        skip_remote_db_setup=False,
+    )
+
+    assert tore_down is True
+    assert teardown_calls == [(["c1"], fake_tunnel)]
+    assert setup_details["env"] is None
+    assert shared_env == {}
+
+
+def test_tear_down_previous_mixed_env_noop_on_first_iteration(monkeypatch):
+    """First iteration in a mixed group: `setup_details["env"]` is None — no
+    previous env to tear down. Helper must be a no-op."""
+    from redisbench_admin.run_remote import run_remote as run_remote_mod
+
+    teardown_calls = []
+    monkeypatch.setattr(
+        run_remote_mod,
+        "shutdown_remote_redis",
+        lambda conns, tunnel: teardown_calls.append((conns, tunnel)),
+    )
+
+    setup_details = {"env": None}
+    shared_env = {}
+
+    tore_down = run_remote_mod.tear_down_previous_mixed_env_if_needed(
+        benchmark_type="mixed",
+        reuse_mixed=True,
+        setup_details=setup_details,
+        shared_env=shared_env,
+        env_key=("ds1", "oss-standalone"),
+        keep_env_and_topo=False,
+        skip_remote_db_setup=False,
+    )
+
+    assert tore_down is False
+    assert teardown_calls == []
+
+
+def test_tear_down_previous_mixed_env_noop_for_read_only(monkeypatch):
+    """Read-only types intentionally reuse env within a group (that's the
+    original RO optimization); the helper must not interfere."""
+    from redisbench_admin.run_remote import run_remote as run_remote_mod
+
+    teardown_calls = []
+    monkeypatch.setattr(
+        run_remote_mod,
+        "shutdown_remote_redis",
+        lambda conns, tunnel: teardown_calls.append((conns, tunnel)),
+    )
+
+    fake_env = {"redis_conns": ["c1"], "ssh_tunnel": object()}
+    setup_details = {"env": fake_env}
+    env_key = ("ds1", "oss-standalone")
+    shared_env = {env_key: fake_env}
+
+    tore_down = run_remote_mod.tear_down_previous_mixed_env_if_needed(
+        benchmark_type="read-only",
+        reuse_mixed=True,
+        setup_details=setup_details,
+        shared_env=shared_env,
+        env_key=env_key,
+        keep_env_and_topo=False,
+        skip_remote_db_setup=False,
+    )
+
+    assert tore_down is False
+    assert teardown_calls == []
+    assert setup_details["env"] is fake_env
+    assert shared_env[env_key] is fake_env
+
+
+def test_tear_down_previous_mixed_env_noop_when_keep_env_and_topo(monkeypatch):
+    """`--keep-env-and-topo` is the user explicitly opting out of teardown —
+    the helper must respect that even for mixed groups."""
+    from redisbench_admin.run_remote import run_remote as run_remote_mod
+
+    teardown_calls = []
+    monkeypatch.setattr(
+        run_remote_mod,
+        "shutdown_remote_redis",
+        lambda conns, tunnel: teardown_calls.append((conns, tunnel)),
+    )
+
+    fake_env = {"redis_conns": ["c1"], "ssh_tunnel": object()}
+    setup_details = {"env": fake_env}
+    shared_env = {}
+
+    tore_down = run_remote_mod.tear_down_previous_mixed_env_if_needed(
+        benchmark_type="mixed",
+        reuse_mixed=True,
+        setup_details=setup_details,
+        shared_env=shared_env,
+        env_key=("ds1", "oss-standalone"),
+        keep_env_and_topo=True,
+        skip_remote_db_setup=False,
+    )
+
+    assert tore_down is False
+    assert teardown_calls == []
+    assert setup_details["env"] is fake_env
