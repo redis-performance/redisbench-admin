@@ -13,6 +13,7 @@ from redisbench_admin.run_local.local_helpers import (
 from redisbench_admin.profilers.profilers_schema import get_profilers_rts_key_prefix
 from redisbench_admin.run_local.run_local import (
     run_local_command_logic,
+    save_env_for_cross_type_reuse,
 )
 from redisbench_admin.run.redistimeseries import datasink_profile_tabular_data
 from redisbench_admin.utils.local import get_local_run_full_filename
@@ -365,3 +366,77 @@ def test_run_local_dataset_reuse_ftsb():
         run_local_command_logic(args, "tool", "v0")
     except SystemExit as e:
         assert e.code == 0
+
+
+def test_save_env_for_cross_type_reuse_mixed_clears_setup_details():
+    """Regression for the `mixed -> mixed` env-leak bug.
+
+    Two mixed tests sharing `(setup, dataset)` with `reuse_mixed=True` must NOT
+    share an env: the contract of `mixed` is that each test gets a fresh
+    spin-up. Before the fix, `setup_details["env"]` was left populated after
+    the first mixed test and the dispatcher took the reuse branch on the
+    second one.
+
+    Invariant: after publishing the mixed env to `shared_env`,
+    `setup_details["env"]` must be cleared so the next iteration re-enters the
+    spin-up branch (`if setup_details["env"] is None`).
+    """
+    fake_env = {"redis_pids": [1234], "redis_conns": []}
+    setup_details = {"env": fake_env}
+    shared_env = {}
+    env_key = ("ds1", "oss-standalone")
+
+    published = save_env_for_cross_type_reuse(
+        benchmark_type="mixed",
+        reuse_mixed=True,
+        env_key=env_key,
+        setup_details=setup_details,
+        shared_env=shared_env,
+    )
+
+    assert published is True
+    assert setup_details["env"] is None
+    assert shared_env[env_key] is fake_env
+
+
+def test_save_env_for_cross_type_reuse_read_only_keeps_setup_details():
+    """In run_local, `reuse_mixed=True` publishes for read-only too, so a
+    subsequent group on the same `(setup, dataset)` can pick the env up. But
+    `setup_details["env"]` must NOT be cleared: read-only's contract is that
+    state is pure and the env can (and should) be reused within the group."""
+    fake_env = {"redis_pids": [1234], "redis_conns": []}
+    setup_details = {"env": fake_env}
+    shared_env = {}
+    env_key = ("ds1", "oss-standalone")
+
+    published = save_env_for_cross_type_reuse(
+        benchmark_type="read-only",
+        reuse_mixed=True,
+        env_key=env_key,
+        setup_details=setup_details,
+        shared_env=shared_env,
+    )
+
+    assert published is True
+    assert setup_details["env"] is fake_env
+    assert shared_env[env_key] is fake_env
+
+
+def test_save_env_for_cross_type_reuse_disabled_is_noop():
+    """When `reuse_mixed` is False, neither publish nor clear happens."""
+    fake_env = {"redis_pids": [1234], "redis_conns": []}
+    setup_details = {"env": fake_env}
+    shared_env = {}
+    env_key = ("ds1", "oss-standalone")
+
+    published = save_env_for_cross_type_reuse(
+        benchmark_type="mixed",
+        reuse_mixed=False,
+        env_key=env_key,
+        setup_details=setup_details,
+        shared_env=shared_env,
+    )
+
+    assert published is False
+    assert setup_details["env"] is fake_env
+    assert shared_env == {}

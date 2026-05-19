@@ -760,19 +760,14 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 ]
                                             # If this is a mixed benchmark and we're reusing,
                                             # save to shared_env for cross-benchmark-type reuse
-                                            if (
-                                                benchmark_type == "mixed"
-                                                and reuse_mixed
+                                            if save_env_for_cross_type_reuse(
+                                                benchmark_type,
+                                                reuse_mixed,
+                                                dataset_name,
+                                                setup_name,
+                                                setup_details,
+                                                shared_env,
                                             ):
-                                                env_key = (dataset_name, setup_name)
-                                                shared_env[env_key] = setup_details[
-                                                    "env"
-                                                ]
-                                                # Mixed tests must not share env with the next
-                                                # mixed test in this group — state is dirty.
-                                                # shared_env keeps the env alive for a subsequent
-                                                # read-only group on this (setup, dataset).
-                                                setup_details["env"] = None
                                                 logging.info(
                                                     f"Saved environment to shared_env for dataset '{dataset_name}' and setup '{setup_name}'"
                                                 )
@@ -1978,6 +1973,33 @@ def ro_benchmark_reuse(
         pids_match,
         remote_temporary_dir,
     )
+
+
+def save_env_for_cross_type_reuse(
+    benchmark_type,
+    reuse_mixed,
+    dataset_name,
+    setup_name,
+    setup_details,
+    shared_env,
+):
+    """For a freshly-spun-up `mixed` benchmark with `reuse_mixed=True`, publish
+    the env to `shared_env` so a subsequent read-only group on the same
+    `(setup, dataset)` can reuse it, then clear `setup_details["env"]` so the
+    next mixed test in the *current* group gets its own fresh spin-up.
+
+    Returns True if the publish happened, False otherwise.
+
+    `mixed` semantically forbids env reuse within a group — without the clear,
+    the next iteration takes the `ro_benchmark_reuse` branch and asserts on
+    `benchmark_type == "read-only"`.
+    """
+    if not (benchmark_type == "mixed" and reuse_mixed):
+        return False
+    env_key = (dataset_name, setup_name)
+    shared_env[env_key] = setup_details["env"]
+    setup_details["env"] = None
+    return True
 
 
 def ro_benchmark_set(

@@ -326,14 +326,13 @@ def run_local_command_logic(args, project_name, project_version):
                                             ],
                                         )
                                         # Save to shared storage for cross-benchmark-type reuse
-                                        if reuse_mixed:
-                                            shared_env[env_key] = setup_details["env"]
-                                            # Mixed tests must not share env with the next
-                                            # mixed test in this group — state is dirty.
-                                            # shared_env keeps the env alive for a subsequent
-                                            # read-only group on this (setup, dataset).
-                                            if benchmark_type == "mixed":
-                                                setup_details["env"] = None
+                                        save_env_for_cross_type_reuse(
+                                            benchmark_type,
+                                            reuse_mixed,
+                                            env_key,
+                                            setup_details,
+                                            shared_env,
+                                        )
                                 else:
                                     logging.info(
                                         f"Reusing environment from previous benchmark for dataset reuse (dataset: {dataset_name}, setup: {setup_name})."
@@ -771,6 +770,31 @@ def run_local_command_logic(args, project_name, project_version):
     # Log environment reuse summary
     env_tracker.log_summary_table()
     exit(return_code)
+
+
+def save_env_for_cross_type_reuse(
+    benchmark_type,
+    reuse_mixed,
+    env_key,
+    setup_details,
+    shared_env,
+):
+    """For a freshly-spun-up benchmark with `reuse_mixed=True`, publish the env
+    to `shared_env` so a subsequent group on the same `(setup, dataset)` can
+    reuse it. For `mixed` only, also clear `setup_details["env"]` so the next
+    mixed test in the *current* group gets its own fresh spin-up.
+
+    Returns True if the publish happened, False otherwise.
+
+    `mixed` semantically forbids env reuse within a group — without the clear,
+    the next iteration takes the reuse branch with a dirty env.
+    """
+    if not reuse_mixed:
+        return False
+    shared_env[env_key] = setup_details["env"]
+    if benchmark_type == "mixed":
+        setup_details["env"] = None
+    return True
 
 
 def teardown_local_setup(redis_conns, redis_processes, setup_name):

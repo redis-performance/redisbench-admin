@@ -15,6 +15,7 @@ from redisbench_admin.run_remote.args import create_run_remote_arguments
 from redisbench_admin.run_remote.run_remote import (
     export_redis_metrics,
     run_remote_command_logic,
+    save_env_for_cross_type_reuse,
 )
 from redisbench_admin.utils.remote import check_ec2_env
 
@@ -276,3 +277,82 @@ def test_run_remote_dataset_reuse_memtier():
         run_remote_command_logic(args, "tool", "v0")
     except SystemExit as e:
         assert e.code == 0, f"run_remote_command_logic exited with code {e.code}"
+
+
+def test_save_env_for_cross_type_reuse_mixed_clears_setup_details():
+    """Regression for the `mixed -> mixed` env-leak bug.
+
+    Two mixed tests sharing `(setup, dataset)` with `reuse_mixed=True` must NOT
+    share an env: the contract of `mixed` is that each test gets a fresh
+    spin-up. Before the fix, `setup_details["env"]` was left populated after
+    the first mixed test, the dispatcher took the reuse branch on the second
+    one, and `ro_benchmark_reuse` crashed on
+    `assert benchmark_type == "read-only"`.
+
+    Invariant: after publishing the mixed env to `shared_env`,
+    `setup_details["env"]` must be cleared so the next iteration re-enters the
+    spin-up branch (`if setup_details.get("env") is None`).
+    """
+    fake_env = {"redis_pids": [1234], "server_plaintext_port": 6379}
+    setup_details = {"env": fake_env}
+    shared_env = {}
+
+    published = save_env_for_cross_type_reuse(
+        benchmark_type="mixed",
+        reuse_mixed=True,
+        dataset_name="ds1",
+        setup_name="oss-standalone",
+        setup_details=setup_details,
+        shared_env=shared_env,
+    )
+
+    assert published is True
+    # Cleared so the next mixed test in the group spins up fresh.
+    assert setup_details["env"] is None
+    # Still available for the next read-only group on the same (setup, dataset).
+    assert shared_env[("ds1", "oss-standalone")] is fake_env
+
+
+def test_save_env_for_cross_type_reuse_read_only_is_noop():
+    """Read-only benchmarks do not publish via this path in run_remote: env is
+    kept in `setup_details["env"]` so the next read-only test in the group can
+    reuse it through the dispatcher's reuse branch."""
+    fake_env = {"redis_pids": [1234]}
+    setup_details = {"env": fake_env}
+    shared_env = {}
+
+    published = save_env_for_cross_type_reuse(
+        benchmark_type="read-only",
+        reuse_mixed=True,
+        dataset_name="ds1",
+        setup_name="oss-standalone",
+        setup_details=setup_details,
+        shared_env=shared_env,
+    )
+
+    assert published is False
+    assert setup_details["env"] is fake_env
+    assert shared_env == {}
+
+
+def test_save_env_for_cross_type_reuse_mixed_without_reuse_mixed_is_noop():
+    """If `reuse_mixed` is False, mixed benchmarks neither publish nor clear:
+    the cross-type handoff is disabled and standard mixed semantics apply
+    (each iteration re-enters the spin-up branch on its own, because env was
+    teared down between tests)."""
+    fake_env = {"redis_pids": [1234]}
+    setup_details = {"env": fake_env}
+    shared_env = {}
+
+    published = save_env_for_cross_type_reuse(
+        benchmark_type="mixed",
+        reuse_mixed=False,
+        dataset_name="ds1",
+        setup_name="oss-standalone",
+        setup_details=setup_details,
+        shared_env=shared_env,
+    )
+
+    assert published is False
+    assert setup_details["env"] is fake_env
+    assert shared_env == {}
