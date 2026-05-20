@@ -1,0 +1,17 @@
+
+name: "mixed-env-leak-load"
+setups:
+  - oss-standalone
+remote:
+ - type: oss-standalone
+ - setup: redisearch-m5
+# First of two `mixed` benchmarks sharing the same (setup, dataset_name).
+# Together with mixed-load2.yml and read-query.yml in the same glob, this
+# reproduces the bug where the second mixed test inherited the first one's
+# Redis env and was routed through ro_benchmark_reuse, which asserts on
+# benchmark_type == "read-only".
+clientconfig:
+  benchmark_type: "mixed"
+  dataset_name: "mixed-env-leak"
+  tool: memtier_benchmark
+  arguments: "--ratio 1:0 --key-maximum 1000 --key-minimum 1 --key-pattern P:P -d 1 -n allkeys --hide-histogram"

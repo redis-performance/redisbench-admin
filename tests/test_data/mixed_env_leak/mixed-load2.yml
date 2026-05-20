@@ -1,0 +1,16 @@
+
+name: "mixed-env-leak-load2"
+setups:
+  - oss-standalone
+remote:
+ - type: oss-standalone
+ - setup: redisearch-m5
+# Second of two `mixed` benchmarks sharing (setup="oss-standalone",
+# dataset_name="mixed-env-leak"). Pre-fix, running this after mixed-load.yml
+# crashed on `assert benchmark_type == "read-only"` inside ro_benchmark_reuse,
+# because setup_details["env"] was left populated by the first mixed test.
+clientconfig:
+  benchmark_type: "mixed"
+  dataset_name: "mixed-env-leak"
+  tool: memtier_benchmark
+  arguments: "--ratio 1:0 --key-maximum 1000 --key-minimum 1 --key-pattern P:P -d 1 -n allkeys --hide-histogram"

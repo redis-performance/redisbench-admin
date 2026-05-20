@@ -597,6 +597,21 @@ def run_remote_command_logic(args, project_name, project_version):
                                     architecture,
                                 )
 
+                                # Mixed groups: tear down the previous test's
+                                # env so each mixed test gets a fresh spin-up.
+                                # No-op on the first iteration (env is None) and
+                                # for read-only types (which intentionally reuse
+                                # within a group).
+                                tear_down_previous_mixed_env_if_needed(
+                                    benchmark_type,
+                                    reuse_mixed,
+                                    setup_details,
+                                    shared_env,
+                                    (dataset_name, setup_name),
+                                    args.keep_env_and_topo,
+                                    skip_remote_db_setup,
+                                )
+
                                 # after we've created the env, even on error we should always teardown
                                 # in case of some unexpected error we fail the test
                                 try:
@@ -760,14 +775,14 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 ]
                                             # If this is a mixed benchmark and we're reusing,
                                             # save to shared_env for cross-benchmark-type reuse
-                                            if (
-                                                benchmark_type == "mixed"
-                                                and reuse_mixed
+                                            if save_env_for_cross_type_reuse(
+                                                benchmark_type,
+                                                reuse_mixed,
+                                                dataset_name,
+                                                setup_name,
+                                                setup_details,
+                                                shared_env,
                                             ):
-                                                env_key = (dataset_name, setup_name)
-                                                shared_env[env_key] = setup_details[
-                                                    "env"
-                                                ]
                                                 logging.info(
                                                     f"Saved environment to shared_env for dataset '{dataset_name}' and setup '{setup_name}'"
                                                 )
@@ -1973,6 +1988,78 @@ def ro_benchmark_reuse(
         pids_match,
         remote_temporary_dir,
     )
+
+
+def save_env_for_cross_type_reuse(
+    benchmark_type,
+    reuse_mixed,
+    dataset_name,
+    setup_name,
+    setup_details,
+    shared_env,
+):
+    """For a freshly-spun-up `mixed` benchmark with `reuse_mixed=True`, publish
+    the env to `shared_env` so a subsequent read-only group on the same
+    `(setup, dataset)` can reuse it via the cross-type handoff.
+
+    Returns True if the publish happened, False otherwise.
+    """
+    if not (benchmark_type == "mixed" and reuse_mixed):
+        return False
+    env_key = (dataset_name, setup_name)
+    shared_env[env_key] = setup_details["env"]
+    return True
+
+
+def tear_down_previous_mixed_env_if_needed(
+    benchmark_type,
+    reuse_mixed,
+    setup_details,
+    shared_env,
+    env_key,
+    keep_env_and_topo,
+    skip_remote_db_setup,
+):
+    """Pre-iteration cleanup for mixed groups: tear down the env left populated
+    by the previous iteration so this test gets a fresh spin-up.
+
+    `mixed` semantically requires each test to run against a fresh Redis env.
+    The cross-type-reuse optimization keeps the env alive across iterations
+    (via `shared_env`) so a subsequent read-only group can inherit it, but
+    that means the env from the previous mixed test would otherwise leak into
+    the next mixed test — the dispatcher would take the reuse branch and
+    `ro_benchmark_reuse` would assert `benchmark_type == "read-only"`.
+
+    The last mixed test's env still survives at end-of-group (because this
+    helper is a no-op on the FIRST iteration: env is None), and the end-of-
+    group logic preserves it in `shared_env` for the cross-type handoff.
+
+    No-op for non-mixed types (read-only intentionally reuses within a group),
+    for the first iteration in a group (env is None), when `keep_env_and_topo`
+    is True (user opted out of teardown), or when `skip_remote_db_setup` is
+    True.
+
+    Returns True if a teardown happened, False otherwise.
+    """
+    if benchmark_type != "mixed" or not reuse_mixed:
+        return False
+    if setup_details["env"] is None:
+        return False
+    if keep_env_and_topo or skip_remote_db_setup:
+        return False
+
+    old_env = setup_details["env"]
+    try:
+        shutdown_remote_redis(old_env["redis_conns"], old_env["ssh_tunnel"])
+    except Exception as e:
+        logging.warning(
+            f"Best-effort teardown of previous mixed env failed: {e!r}. "
+            "Continuing to spin up fresh for the next mixed test."
+        )
+    if shared_env.get(env_key) is old_env:
+        del shared_env[env_key]
+    setup_details["env"] = None
+    return True
 
 
 def ro_benchmark_set(

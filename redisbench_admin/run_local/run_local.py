@@ -245,6 +245,18 @@ def run_local_command_logic(args, project_name, project_version):
                         if setup_type in args.allowed_envs:
                             redis_processes = []
                             redis_conns = []
+                            # Mixed groups: tear down the previous test's env so
+                            # each mixed test gets a fresh spin-up. No-op on the
+                            # first iteration (env is None) and for read-only
+                            # types (which intentionally reuse within a group).
+                            tear_down_previous_mixed_env_if_needed(
+                                benchmark_type,
+                                reuse_mixed,
+                                setup_details,
+                                shared_env,
+                                env_key,
+                                args.keep_env_and_topo,
+                            )
                             # after we've spinned Redis, even on error we should always teardown
                             # in case of some unexpected error we fail the test
                             # noinspection PyBroadException
@@ -326,8 +338,12 @@ def run_local_command_logic(args, project_name, project_version):
                                             ],
                                         )
                                         # Save to shared storage for cross-benchmark-type reuse
-                                        if reuse_mixed:
-                                            shared_env[env_key] = setup_details["env"]
+                                        save_env_for_cross_type_reuse(
+                                            reuse_mixed,
+                                            env_key,
+                                            setup_details,
+                                            shared_env,
+                                        )
                                 else:
                                     logging.info(
                                         f"Reusing environment from previous benchmark for dataset reuse (dataset: {dataset_name}, setup: {setup_name})."
@@ -765,6 +781,69 @@ def run_local_command_logic(args, project_name, project_version):
     # Log environment reuse summary
     env_tracker.log_summary_table()
     exit(return_code)
+
+
+def save_env_for_cross_type_reuse(
+    reuse_mixed,
+    env_key,
+    setup_details,
+    shared_env,
+):
+    """When `reuse_mixed=True`, publish a freshly-spun-up benchmark's env to
+    `shared_env` so a subsequent group on the same `(setup, dataset)` can
+    reuse it via the cross-type handoff.
+
+    Returns True if the publish happened, False otherwise.
+    """
+    if not reuse_mixed:
+        return False
+    shared_env[env_key] = setup_details["env"]
+    return True
+
+
+def tear_down_previous_mixed_env_if_needed(
+    benchmark_type,
+    reuse_mixed,
+    setup_details,
+    shared_env,
+    env_key,
+    keep_env_and_topo,
+):
+    """Pre-iteration cleanup for mixed groups: tear down the env left populated
+    by the previous iteration so this test gets a fresh spin-up.
+
+    `mixed` semantically requires each test to run against a fresh Redis env.
+    The cross-type-reuse optimization keeps the env alive across iterations
+    (via `shared_env`) so a subsequent read-only group can inherit it, but
+    that means the env from the previous mixed test would otherwise leak into
+    the next mixed test — the dispatcher would take the reuse branch and
+    `ro_benchmark_reuse` would assert `benchmark_type == "read-only"`.
+
+    The last mixed test's env still survives at end-of-group (because this
+    helper is a no-op on the FIRST iteration: env is None), and the end-of-
+    group logic preserves it in `shared_env` for the cross-type handoff.
+
+    No-op for non-mixed types (read-only intentionally reuses within a group),
+    for the first iteration in a group (env is None), and when
+    `keep_env_and_topo` is True (user opted out of teardown).
+
+    Returns True if a teardown happened, False otherwise.
+    """
+    if benchmark_type != "mixed" or not reuse_mixed:
+        return False
+    if setup_details["env"] is None:
+        return False
+    if keep_env_and_topo:
+        return False
+
+    old_env = setup_details["env"]
+    teardown_local_setup(
+        old_env["redis_conns"], old_env["redis_processes"], "previous-mixed"
+    )
+    if shared_env.get(env_key) is old_env:
+        del shared_env[env_key]
+    setup_details["env"] = None
+    return True
 
 
 def teardown_local_setup(redis_conns, redis_processes, setup_name):
