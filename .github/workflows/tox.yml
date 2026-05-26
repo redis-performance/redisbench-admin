@@ -22,7 +22,7 @@ jobs:
     - uses: actions/checkout@master
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -63,7 +63,7 @@ jobs:
         tox
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v2
+      uses: codecov/codecov-action@v6
       if: contains(env.USING_COVERAGE, matrix.python-version)
       with:
         token: ${{secrets.CODECOV_TOKEN}}
