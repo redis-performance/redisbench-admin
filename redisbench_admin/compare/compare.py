@@ -376,6 +376,11 @@ def compare_command_logic(args, project_name, project_version):
             comparison_deployment_name,
         )
     )
+    upsert_marker = build_upsert_marker(
+        baseline_deployment_name,
+        comparison_deployment_name,
+        tf_triggering_env,
+    )
     from_ts_ms = args.from_timestamp
     to_ts_ms = args.to_timestamp
     from_date = args.from_date
@@ -495,7 +500,9 @@ def compare_command_logic(args, project_name, project_version):
             pr_link = github_pr.html_url
             logging.info("Working on github PR already: {}".format(pr_link))
             is_actionable_pr = True
-            contains_regression_comment, pos = check_regression_comment(comments)
+            contains_regression_comment, pos = check_regression_comment(
+                comments, marker=upsert_marker
+            )
             if contains_regression_comment:
                 regression_comment = comments[pos]
                 old_regression_comment_body = regression_comment.body
@@ -801,6 +808,12 @@ def compare_command_logic(args, project_name, project_version):
     # Upsert the PR comment (shared between legacy + multi-arch paths).
     # ------------------------------------------------------------------
     if comment_body:
+        if is_actionable_pr:
+            # Append the upsert marker so future compare runs from the same
+            # (deployment, triggering_env) tuple find this comment and edit
+            # it in place rather than colliding with a sibling matrix
+            # entry's comment.
+            comment_body += "\n\n" + upsert_marker
         print(comment_body)
         if is_actionable_pr:
             zset_project_pull_request = get_project_compare_zsets(
@@ -937,14 +950,62 @@ def compare_command_logic(args, project_name, project_version):
     )
 
 
-def check_regression_comment(comments):
+UPSERT_MARKER_PREFIX = "<!-- redisbench-admin:upsert"
+
+
+def build_upsert_marker(
+    baseline_deployment_name,
+    comparison_deployment_name,
+    tf_triggering_env,
+):
+    """Build the hidden HTML marker used to identify *this* compare invocation's
+    PR comment for upsert.
+
+    Concurrent compare runs against the same PR (one per matrix entry --
+    different deployments, different triggering envs) used to collide on the
+    legacy "Comparison between"/"Time Period from" predicate and overwrite each
+    other's comments. Embedding the deployment + triggering_env in a stable
+    marker lets the matcher scope upsert to comments produced by the same
+    (deployment, triggering_env) tuple, so each setup gets its own comment.
+
+    Architecture is intentionally NOT part of the key: in multi-arch mode a
+    single comment renders one H2 section per arch, and as additional arches
+    finish we want to upsert that one comment rather than fragment it.
+    """
+    return (
+        f"{UPSERT_MARKER_PREFIX} "
+        f"baseline_deployment={baseline_deployment_name} "
+        f"comparison_deployment={comparison_deployment_name} "
+        f"triggering_env={tf_triggering_env} -->"
+    )
+
+
+def check_regression_comment(comments, marker=None):
+    """Locate the PR comment to upsert.
+
+    When `marker` is provided, only comments containing that exact marker
+    substring match -- so concurrent compare runs targeting the same PR with
+    different (deployment, triggering_env) tuples each upsert their own
+    comment. When no comment carries the marker, returns (False, -1) so the
+    caller posts a fresh comment (any pre-marker legacy comment is left in
+    place as an orphan rather than silently overwritten with a body from a
+    different setup).
+
+    When `marker` is None the legacy generic predicate is used, preserving
+    behavior for callers that don't yet pass a marker.
+    """
     res = False
     pos = -1
     for n, comment in enumerate(comments):
         body = comment.body
-        if "Comparison between" in body and "Time Period from" in body:
-            res = True
-            pos = n
+        if marker is not None:
+            if marker in body:
+                res = True
+                pos = n
+        else:
+            if "Comparison between" in body and "Time Period from" in body:
+                res = True
+                pos = n
     return res, pos
 
 

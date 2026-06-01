@@ -6,7 +6,11 @@ import pytest
 import redis
 
 from redisbench_admin.compare.args import create_compare_arguments
-from redisbench_admin.compare.compare import compare_command_logic
+from redisbench_admin.compare.compare import (
+    build_upsert_marker,
+    check_regression_comment,
+    compare_command_logic,
+)
 from redisbench_admin.export.args import create_export_arguments
 from redisbench_admin.export.export import export_command_logic
 
@@ -493,3 +497,132 @@ def test_compare_architectures_single_entry_no_cross_arch() -> None:
     assert "## Architecture: `x86_64` — branch-over-branch" in result.comment_body
     assert "## Architecture: `aarch64`" not in result.comment_body
     assert "## Cross-arch delta" not in result.comment_body
+
+
+# ----------------------------------------------------------------------------
+# Unit tests for the PR-comment upsert marker / matcher. No live RTS required.
+# ----------------------------------------------------------------------------
+
+
+class _FakeComment:
+    """Minimal stand-in for github.IssueComment.IssueComment used by
+    `check_regression_comment` -- only `.body` is read."""
+
+    def __init__(self, body: str) -> None:
+        self.body = body
+
+
+def test_build_upsert_marker_is_deterministic_and_html_hidden() -> None:
+    a = build_upsert_marker("oss-standalone", "oss-standalone", "circleci")
+    b = build_upsert_marker("oss-standalone", "oss-standalone", "circleci")
+    assert a == b
+    assert a.startswith("<!--")
+    assert a.endswith("-->")
+    assert "oss-standalone" in a
+    assert "circleci" in a
+
+
+def test_build_upsert_marker_differs_per_deployment() -> None:
+    standalone = build_upsert_marker("oss-standalone", "oss-standalone", "circleci")
+    cluster = build_upsert_marker(
+        "oss-cluster-02-primaries",
+        "oss-cluster-02-primaries",
+        "circleci",
+    )
+    threads = build_upsert_marker(
+        "oss-standalone-threads-8",
+        "oss-standalone-threads-8",
+        "circleci",
+    )
+    assert standalone != cluster
+    assert standalone != threads
+    assert cluster != threads
+    # And no marker is a substring of another -- the prefix-collision guard
+    # for setups whose names share a prefix (e.g. `oss-standalone` vs
+    # `oss-standalone-threads-8`).
+    assert standalone not in cluster
+    assert standalone not in threads
+
+
+def test_build_upsert_marker_differs_per_triggering_env() -> None:
+    circle = build_upsert_marker("oss-standalone", "oss-standalone", "circleci")
+    actions = build_upsert_marker("oss-standalone", "oss-standalone", "github-actions")
+    assert circle != actions
+
+
+def test_check_regression_comment_legacy_predicate_when_no_marker() -> None:
+    comments = [
+        _FakeComment("unrelated comment"),
+        _FakeComment(
+            "## Performance Regressions and Issues - "
+            "Comparison between master and feature.\n\n"
+            "Time Period from 2026-01-01 to 2026-02-01. (environment used: ci)\n"
+        ),
+        _FakeComment("another unrelated comment"),
+    ]
+    found, pos = check_regression_comment(comments)
+    assert found is True
+    assert pos == 1
+
+
+def test_check_regression_comment_no_match_returns_false() -> None:
+    comments = [_FakeComment("hello"), _FakeComment("world")]
+    found, pos = check_regression_comment(comments)
+    assert found is False
+    assert pos == -1
+
+
+def test_check_regression_comment_with_marker_matches_only_same_marker() -> None:
+    marker_standalone = build_upsert_marker(
+        "oss-standalone", "oss-standalone", "circleci"
+    )
+    marker_cluster = build_upsert_marker(
+        "oss-cluster-02-primaries",
+        "oss-cluster-02-primaries",
+        "circleci",
+    )
+    comments = [
+        _FakeComment("body for standalone\n\n" + marker_standalone),
+        _FakeComment("body for cluster\n\n" + marker_cluster),
+    ]
+    found, pos = check_regression_comment(comments, marker=marker_standalone)
+    assert found is True
+    assert pos == 0
+
+    found, pos = check_regression_comment(comments, marker=marker_cluster)
+    assert found is True
+    assert pos == 1
+
+
+def test_check_regression_comment_with_marker_ignores_legacy_comments() -> None:
+    # A PR that already has a pre-fix comment posted by an older
+    # redisbench-admin must NOT be overwritten with a body produced for a
+    # different setup; the matcher should return (False, -1) so the caller
+    # creates a new marker-tagged comment and leaves the legacy one alone.
+    marker = build_upsert_marker(
+        "oss-standalone-threads-8",
+        "oss-standalone-threads-8",
+        "circleci",
+    )
+    legacy_body = (
+        "## Performance Regressions and Issues - "
+        "Comparison between master and feature.\n\n"
+        "Time Period from 2026-01-01 to 2026-02-01. (environment used: ci)\n"
+    )
+    found, pos = check_regression_comment([_FakeComment(legacy_body)], marker=marker)
+    assert found is False
+    assert pos == -1
+
+
+def test_check_regression_comment_with_marker_returns_last_match() -> None:
+    # If somehow two comments share the same marker (shouldn't happen in
+    # practice, but possible if a user manually duplicated one), prefer the
+    # last to mirror legacy behavior.
+    marker = build_upsert_marker("oss-standalone", "oss-standalone", "circleci")
+    comments = [
+        _FakeComment("first\n\n" + marker),
+        _FakeComment("second\n\n" + marker),
+    ]
+    found, pos = check_regression_comment(comments, marker=marker)
+    assert found is True
+    assert pos == 1
