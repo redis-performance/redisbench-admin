@@ -5,6 +5,7 @@
 #
 import logging
 import os
+import time
 
 import paramiko
 import redis
@@ -51,7 +52,27 @@ def ssh_tunnel_redisconn(
     redis_conn = redis.Redis(
         host="localhost", port=ssh_tunel.local_bind_port, password=redis_pass
     )
-    redis_conn.ping()
+    # A server cold-starting from a large RDB (e.g. --preload-file or a big
+    # dbconfig dataset) replies -LOADING for a while; wait for it to finish
+    # loading instead of failing the DB spin on the first ping.
+    loading_timeout_secs = int(os.getenv("REDIS_LOADING_TIMEOUT_SECS", "600"))
+    deadline = time.time() + loading_timeout_secs
+    while True:
+        try:
+            redis_conn.ping()
+            break
+        except redis.exceptions.BusyLoadingError:
+            if time.time() > deadline:
+                logging.error(
+                    "Redis was still loading its dataset after {}s (REDIS_LOADING_TIMEOUT_SECS); giving up.".format(
+                        loading_timeout_secs
+                    )
+                )
+                raise
+            logging.info(
+                "Redis is loading the dataset in memory; waiting for it to become ready..."
+            )
+            time.sleep(5)
     return redis_conn, ssh_tunel
 
 
