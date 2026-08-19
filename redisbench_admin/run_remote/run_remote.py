@@ -1453,6 +1453,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             tf_github_repo,
                                             tf_triggering_env,
                                             metadata_tags,
+                                            running_platform=args.running_platform,
                                             tf_github_sha=push_github_sha,
                                             arch=push_arch,
                                         )
