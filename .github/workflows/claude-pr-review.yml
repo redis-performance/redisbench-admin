@@ -154,7 +154,7 @@ jobs:
 
           claude_args: |
             --allowedTools "Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr list:*)"
-            --max-turns 8
+            --max-turns 20
             --json-schema '{"type":"object","properties":{"skip_comment":{"type":"boolean","description":"true if this routine/out-of-scope PR should get no comment at all"},"comment_body":{"type":"string","description":"The review comment text, empty string if skip_comment is true"}},"required":["skip_comment","comment_body"]}'
 
       - name: Post comment (only after a deterministic secret-pattern check)
