@@ -265,6 +265,10 @@ def run_local_command_logic(args, project_name, project_version):
                             # noinspection PyBroadException
                             try:
                                 dirname = args.db_dirname
+                                # empty means no index build was timed: either the
+                                # env is reused below, so there was no db spin up,
+                                # or nothing was indexing during it
+                                index_measurements = {}
                                 if setup_details["env"] is None:
                                     logging.info(
                                         "Starting setup named {} of topology type {}. Total primaries: {}".format(
@@ -352,9 +356,6 @@ def run_local_command_logic(args, project_name, project_version):
                                     logging.info(
                                         f"Reusing environment from previous benchmark for dataset reuse (dataset: {dataset_name}, setup: {setup_name})."
                                     )
-                                    # reused env: no db spin up happened, so no
-                                    # index build was timed
-                                    index_measurements = {}
                                     cluster_api_enabled = setup_details["env"][
                                         "cluster_api_enabled"
                                     ]
