@@ -825,6 +825,11 @@ def run_redis_pre_steps(benchmark_config, r, required_modules):
     logging.info("Running initialization commands before benchmark starts.")
     execute_init_commands_start_time = datetime.datetime.now()
     execute_init_commands(benchmark_config, r)
+    # a FT.CREATE among the init commands has already kicked off its background
+    # scan by the time they return, so the index build clock starts here. Anything
+    # after this point -- the asm commands, the info modules round trip -- runs
+    # while the scan does, and would otherwise be silently left out of it
+    indexing_start_time = time.time()
     execute_asm_commands(benchmark_config, r)
     execute_init_commands_duration_seconds = (
         datetime.datetime.now() - execute_init_commands_start_time
@@ -845,7 +850,7 @@ def run_redis_pre_steps(benchmark_config, r, required_modules):
         logging.info(
             "Detected redisearch module. Ensuring all indices are indexed prior benchmark"
         )
-        measurements = search_specific_init(r, module_names)
+        measurements = search_specific_init(r, module_names, indexing_start_time)
     if required_modules is not None and len(required_modules) > 0:
         check_required_modules(module_names, required_modules)
 
@@ -870,7 +875,7 @@ def run_redis_post_steps(benchmark_config, r):
     )
 
 
-def search_specific_init(r, module_names):
+def search_specific_init(r, module_names, start_time=None):
     """Block until every secondary index finished indexing, and time the wait.
 
     The wait itself is not new: the runners have always blocked here so that the
@@ -880,6 +885,10 @@ def search_specific_init(r, module_names):
     dbconfig preload tool and the rdb dataset both run before the init_commands
     that create it.
 
+    `start_time` is when the work being timed began, normally the moment the
+    dbconfig init commands returned. Defaults to now, which undercounts by
+    however long the caller took to get here.
+
     Returns a measurements dict, empty unless at least one index was actually
     caught mid scan. Benchmarks that create the index before the documents exist
     ( RediSearch registers no scan when the keyspace is empty ) get no datapoint
@@ -888,6 +897,8 @@ def search_specific_init(r, module_names):
     measurements = {}
     if "search" not in module_names:
         return measurements
+    if start_time is None:
+        start_time = time.time()
     logging.info(
         "Given redisearch was detected, checking for any index that is still indexing."
     )
@@ -895,7 +906,6 @@ def search_specific_init(r, module_names):
         decode_if_bytes(index_name) for index_name in r.execute_command("ft._list")
     ]
     logging.info("Detected {} indices.".format(len(pending_indices)))
-    start_time = time.time()
     caught_indexing = False
     last_seen = {}
     while len(pending_indices) > 0:

@@ -1,5 +1,7 @@
 import yaml
 
+import time
+
 import pytest
 
 from redisbench_admin.run.common import (
@@ -18,7 +20,7 @@ from redisbench_admin.utils.results import merge_measurements_into_results
 class FakeSearchRedis:
     """Redis conn stub replying a scripted FT.INFO sequence per index."""
 
-    def __init__(self, ft_info_replies, ft_list_reply=None):
+    def __init__(self, ft_info_replies, ft_list_reply=None, info_modules_delay=0.0):
         # dict of index name -> list of replies, or a single list for "idx"
         if isinstance(ft_info_replies, list):
             ft_info_replies = {"idx": ft_info_replies}
@@ -29,11 +31,15 @@ class FakeSearchRedis:
             else list(self.ft_info_replies.keys())
         )
         self.commands = []
+        self.info_modules_delay = info_modules_delay
 
     def execute_command(self, *args, **kwargs):
         command = " ".join([str(a) for a in args])
         self.commands.append(command)
         if command.lower() == "info modules":
+            # stands in for whatever runs between the init commands returning and
+            # the barrier starting to poll, while the scan is already going
+            time.sleep(self.info_modules_delay)
             return "# Modules\nmodule:name=search,ver=81201\n"
         if command.lower() == "ft._list":
             return list(self.ft_list_reply)
@@ -262,30 +268,113 @@ def test_run_redis_pre_steps_without_a_background_build():
     assert measurements == {}
 
 
-def test_local_db_spin_returns_a_consistent_tuple_arity():
+def test_db_spin_functions_return_a_consistent_tuple_arity():
     """local_db_spin returns early on --skip-db-setup with an rdb dataset.
 
     That return is a separate tuple literal from the one at the tail, so growing
     the tail alone makes the early path raise ValueError in run_local.py's
     unpack, swallowed by its broad except into an unrelated error message.
+    remote_db_spin has a single return today, but it needs terraform and ssh to
+    execute, so it is checked here for the same reason its sibling test gives.
     """
     import ast
 
-    with open("redisbench_admin/run_local/local_db.py", "r") as source_file:
-        tree = ast.parse(source_file.read())
-    fn = next(
-        n
-        for n in tree.body
-        if isinstance(n, ast.FunctionDef) and n.name == "local_db_spin"
+    for path, fn_name in (
+        ("redisbench_admin/run_local/local_db.py", "local_db_spin"),
+        ("redisbench_admin/run_remote/remote_db.py", "remote_db_spin"),
+    ):
+        with open(path, "r") as source_file:
+            tree = ast.parse(source_file.read())
+        fn = next(
+            n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == fn_name
+        )
+        arities = {
+            len(n.value.elts)
+            for n in ast.walk(fn)
+            if isinstance(n, ast.Return) and isinstance(n.value, ast.Tuple)
+        }
+        assert (
+            len(arities) == 1
+        ), f"{fn_name} returns tuples of differing sizes: {arities}"
+
+
+def test_search_specific_init_honours_an_explicit_start_time():
+    conn = FakeSearchRedis([ft_info_reply(1), ft_info_reply(0)])
+    measurements = search_specific_init(conn, ["search"], start_time=time.time() - 5.0)
+    assert measurements["index_time_secs"] >= 5.0
+
+
+def test_run_redis_pre_steps_clock_starts_when_the_init_commands_returned(monkeypatch):
+    """The scan is already running before the barrier starts polling.
+
+    run_redis_pre_steps must hand it the moment the init commands returned, so
+    that the asm commands and the info modules round trip land inside the
+    measurement rather than being silently dropped from it. The poll interval is
+    shrunk to near zero so that the delay before the barrier is the only thing
+    the duration can come from.
+    """
+    monkeypatch.setattr(
+        "redisbench_admin.run.common.SEARCH_INDEXING_POLL_INTERVAL_SECS", 0.001
     )
-    arities = {
-        len(n.value.elts)
-        for n in ast.walk(fn)
-        if isinstance(n, ast.Return) and isinstance(n.value, ast.Tuple)
-    }
-    assert (
-        len(arities) == 1
-    ), f"local_db_spin returns tuples of differing sizes: {arities}"
+    conn = FakeSearchRedis([ft_info_reply(1), ft_info_reply(0)], info_modules_delay=0.2)
+    _, measurements = run_redis_pre_steps(BENCHMARK_CONFIG, conn, ["search"])
+    assert measurements["index_time_secs"] >= 0.2
+
+
+def test_post_process_remote_run_fails_on_an_unreadable_results_file(tmp_path):
+    """A client tool killed mid-write must not produce a green run.
+
+    results_dict is now initialised, so the JSONDecodeError no longer escapes as
+    an UnboundLocalError. results_dict_kpi_check is a no-op on a spec without
+    `kpis`, which the measurement-only example spec deliberately is, so the
+    decode branch has to fail the run itself.
+    """
+    from redisbench_admin.run_remote.remote_helpers import post_process_remote_run
+
+    results_file = tmp_path / "benchmark-result.json"
+    results_file.write_text('{"ALL STATS": {"Totals": {"Ops/sec": 12')  # truncated
+
+    _, _, results_dict, return_code = post_process_remote_run(
+        "81201",
+        {},
+        "memtier_benchmark",
+        str(results_file),
+        0,
+        1756200000000,
+        "2026-08-26-00-00-00",
+        "",
+        None,
+        extra_results={"index_time_secs": 12.5},
+    )
+    assert return_code == 1
+    # no lone measurement exported off a run whose client output is unreadable
+    assert "Measurements" not in results_dict
+    # and the artifact itself is preserved for diagnosis
+    assert results_file.read_text() == '{"ALL STATS": {"Totals": {"Ops/sec": 12'
+
+
+def test_post_process_remote_run_merges_into_a_readable_results_file(tmp_path):
+    from redisbench_admin.run_remote.remote_helpers import post_process_remote_run
+
+    results_file = tmp_path / "benchmark-result.json"
+    results_file.write_text('{"ALL STATS": {"Totals": {"Ops/sec": 12.0}}}')
+
+    _, _, results_dict, return_code = post_process_remote_run(
+        "81201",
+        {},
+        "memtier_benchmark",
+        str(results_file),
+        0,
+        1756200000000,
+        "2026-08-26-00-00-00",
+        "",
+        None,
+        extra_results={"index_time_secs": 12.5},
+    )
+    assert return_code == 0
+    assert results_dict["Measurements"]["index_time_secs"] == 12.5
+    # written back, so the uploaded artifact carries the measurement too
+    assert "index_time_secs" in results_file.read_text()
 
 
 def test_merge_measurements_into_results():

@@ -115,6 +115,9 @@ Notes:
   The recorded duration runs until the first poll that observes `indexing: 0`, so
   it is an upper bound quantised to that interval -- fine for the multi-second
   builds this is meant for, not for gating a build of a second or two.
+- the clock starts when the `init_commands` return, not at the `FT.CREATE` itself.
+  With the index created by the last init command those are the same instant; with
+  further commands after it, their duration lands outside the measurement.
 - the wait is bounded by `SEARCH_INDEXING_TIMEOUT_SECS` ( 3 hours by default, far
   above any real build so that it only catches a genuine hang ) and raises when
   exceeded, naming the index and its last observed `indexing` value.
