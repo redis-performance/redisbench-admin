@@ -137,6 +137,20 @@ def test_search_specific_init_times_out(monkeypatch):
     assert "indexing=" in str(excinfo.value)
 
 
+def test_search_specific_init_missing_field_is_not_treated_as_done(monkeypatch):
+    # an absent `indexing` field must keep the index pending, the same as an
+    # unreadable one. reading it as done would silently skip the barrier the
+    # client phase relies on, which costs more than a missing datapoint
+    monkeypatch.setattr("time.sleep", lambda secs: None)
+    monkeypatch.setattr(
+        "redisbench_admin.run.common.SEARCH_INDEXING_TIMEOUT_SECS", -1.0
+    )
+    conn = FakeSearchRedis([["index_name", "idx", "num_docs", 1000]])
+    with pytest.raises(Exception) as excinfo:
+        search_specific_init(conn, ["search"])
+    assert "Gave up after" in str(excinfo.value)
+
+
 def test_search_specific_init_unreadable_field_is_not_treated_as_done(monkeypatch):
     monkeypatch.setattr("time.sleep", lambda secs: None)
     monkeypatch.setattr(
@@ -246,6 +260,32 @@ def test_run_redis_pre_steps_without_a_background_build():
     version, measurements = run_redis_pre_steps(BENCHMARK_CONFIG, conn, ["search"])
     assert version == "81201"
     assert measurements == {}
+
+
+def test_local_db_spin_returns_a_consistent_tuple_arity():
+    """local_db_spin returns early on --skip-db-setup with an rdb dataset.
+
+    That return is a separate tuple literal from the one at the tail, so growing
+    the tail alone makes the early path raise ValueError in run_local.py's
+    unpack, swallowed by its broad except into an unrelated error message.
+    """
+    import ast
+
+    with open("redisbench_admin/run_local/local_db.py", "r") as source_file:
+        tree = ast.parse(source_file.read())
+    fn = next(
+        n
+        for n in tree.body
+        if isinstance(n, ast.FunctionDef) and n.name == "local_db_spin"
+    )
+    arities = {
+        len(n.value.elts)
+        for n in ast.walk(fn)
+        if isinstance(n, ast.Return) and isinstance(n.value, ast.Tuple)
+    }
+    assert (
+        len(arities) == 1
+    ), f"local_db_spin returns tuples of differing sizes: {arities}"
 
 
 def test_merge_measurements_into_results():

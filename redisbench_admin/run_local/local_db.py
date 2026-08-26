@@ -81,6 +81,7 @@ def local_db_spin(
                 cluster_api_enabled,
                 redis_conns,
                 redis_processes,
+                index_measurements,
             )
     else:
         if args.skip_redis_spin is False:

@@ -424,9 +424,11 @@ def post_process_remote_run(
             stdout,
         )
     results_dict = {}
+    results_file_parsed = False
     try:
         with open(local_benchmark_output_filename, "r") as json_file:
             results_dict = json.load(json_file)
+        results_file_parsed = True
     except json.decoder.JSONDecodeError as e:
         logging.error("Received error while decoding JSON: {}".format(e.__str__()))
         pass
@@ -435,8 +437,19 @@ def post_process_remote_run(
     # of this function sees them alongside the client tool metrics
     if extra_results:
         results_dict = merge_measurements_into_results(results_dict, extra_results)
-        with open(local_benchmark_output_filename, "w") as json_file:
-            json.dump(results_dict, json_file, indent=True)
+        # only write back over a file we managed to read: replacing malformed
+        # client output with a two key Measurements dict destroys the very
+        # artifact needed to work out why it was malformed
+        if results_file_parsed:
+            with open(local_benchmark_output_filename, "w") as json_file:
+                json.dump(results_dict, json_file, indent=True)
+        else:
+            logging.warning(
+                "Not writing the merged measurements back to {}: its contents could"
+                " not be parsed and overwriting them would lose the artifact.".format(
+                    local_benchmark_output_filename
+                )
+            )
     # check KPIs
     return_code = results_dict_kpi_check(benchmark_config, results_dict, return_code)
     # if the benchmark tool is redisgraph-benchmark-go and

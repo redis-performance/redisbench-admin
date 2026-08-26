@@ -904,7 +904,11 @@ def search_specific_init(r, module_names):
             ft_info = flat_reply_to_dict(
                 r.execute_command("ft.info {}".format(fts_indexname))
             )
-            is_indexing = decode_if_bytes(ft_info.get("indexing", 0))
+            # default to None, not 0: an absent field must not read as "done".
+            # reply_field_is_zero(None) is False, so a reply without `indexing`
+            # keeps the index pending and surfaces at the timeout, rather than
+            # silently skipping the barrier the client phase relies on
+            is_indexing = decode_if_bytes(ft_info.get("indexing", None))
             percent_indexed = decode_if_bytes(ft_info.get("percent_indexed", "n/a"))
             logging.info(
                 "index={} indexing={} ; percent_indexed={}.".format(
