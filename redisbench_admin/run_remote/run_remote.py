@@ -685,7 +685,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             return_code,
                                             server_plaintext_port,
                                             ssh_tunnel,
-                                            wait_for_measurements,
+                                            index_measurements,
                                         ) = remote_db_spin(
                                             allowed_tools,
                                             benchmark_config,
@@ -789,8 +789,8 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
                                     else:
                                         # reused env: no db spin up happened, so no
-                                        # dbconfig wait_for condition was evaluated
-                                        wait_for_measurements = {}
+                                        # index build was timed
+                                        index_measurements = {}
                                         (
                                             artifact_version,
                                             cluster_enabled,
@@ -1049,7 +1049,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                         True,
                                         redis_password,
                                         architecture,
-                                        wait_for_measurements,
+                                        index_measurements,
                                     )
 
                                     # --- parca-agent per-test label cleanup ---

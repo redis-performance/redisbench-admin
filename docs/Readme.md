@@ -23,8 +23,6 @@ A benchmark definition will then consist of:
 
 - optional ci remote definition (`remote`), with the proper terraform deployment configurations definition. The properties allowed here are `type` and `setup`. Both properties are used to find the proper benchmark specification folder within [redis-performance/testing-infrastructure](https://github.com/redis-performance/testing-infrastructure). As an example, if you specify ` - type: oss-standalone` and `- setup: redistimeseries-m5` the used terraform setup will be described by the setup at [`testing-infrastructure/tree/terraform/oss-standalone-redistimeseries-m5`](https://github.com/redis-performance/testing-infrastructure/tree/master/terraform/oss-standalone-redistimeseries-m5)
 
-- optional server side wait conditions (`dbconfig.wait_for`), timing how long a server side condition takes to be met and turning that duration into an exportable metric. See [Measuring server side conditions](#measuring-server-side-conditions-dbconfigwait_for).
-
 - optional KPIs definition (`kpis`), specifying the target upper or lower bounds for each relevant performance metric. If specified the KPIs definitions constraints the tests passing/failing. 
 
 - optional metric exporters definition ( `exporter`: currently only `redistimeseries`), specifying which metrics to parse after each benchmark run and push to remote stores.
@@ -65,37 +63,20 @@ exporter:
 
 ```
 
-## Measuring server side conditions (`dbconfig.wait_for`)
+## Secondary index build time (`Measurements.index_time_secs`)
 
-Some benchmarks measure something the client tool cannot see -- for instance how
-long RediSearch takes to build an index in the background after a `FT.CREATE`
-over an already loaded keyspace. `dbconfig.wait_for` polls a server side
-condition, times how long it took to be met, and merges the duration into the
-benchmark results under `Measurements`, so the `exporter` and `comparison`
-sections reach it via jsonpath like any client tool metric.
+Before handing over to the client tool, the runners always block until every
+RediSearch secondary index reports `indexing: 0`, so that no benchmark ever runs
+against a half built index. That wait is now timed, and the duration is recorded
+as `index_time_secs` / `index_time_ms` under `Measurements` on the benchmark
+results, reachable from the `exporter` and `comparison` sections via jsonpath
+like any client tool metric:
 
 ```yml
-dbconfig:
-  # the keyspace is loaded first, so FT.CREATE triggers a background scan
-  - dataset: "https://.../1700K-docs-union-iterators.rdb"
-  - init_commands:
-    - '"FT.CREATE" "idx" "ON" "HASH" "PREFIX" "1" "doc:" "SCHEMA" "title" "TEXT"'
-  - wait_for:
-    - name: "index_time"
-      command: "FT.INFO idx"
-      field: "indexing"
-      eq: 0
-      poll_interval_ms: 100
-      timeout_secs: 1800
-      require:
-        percent_indexed: 1
-      record_fields:
-        - num_docs
 exporter:
   redistimeseries:
     metrics:
       - "$.Measurements.index_time_secs"
-      - "$.Measurements.index_time_num_docs"
   comparison:
     metrics:
       - "$.Measurements.index_time_secs"
@@ -103,38 +84,37 @@ exporter:
     baseline-branch: master
 ```
 
-Properties of each `wait_for` entry:
+There is nothing to declare on `dbconfig` for it. What decides whether the
+number is meaningful is *when* the index gets created relative to the documents:
 
-| property | required | description |
-| --- | --- | --- |
-| `name` | yes | measurement name. Produces `$.Measurements.<name>_secs` and `$.Measurements.<name>_ms` |
-| `command` | yes | command polled on the db. Its reply is read as a flat key/value array ( `FT.INFO`, `CONFIG GET`, ... ) |
-| `field` | yes | reply field the condition is evaluated on |
-| `eq`/`ne`/`lt`/`le`/`gt`/`ge` | yes | exactly one of them, the value `field` is compared against |
-| `poll_interval_ms` | no | how often to poll. Defaults to 100 ms |
-| `timeout_secs` | no | aborts the run if the condition is not met in time, instead of recording a wrong duration. Defaults to 900 secs |
-| `require` | no | field/value pairs asserted once the condition is met. Use it to reject conditions met for the wrong reason -- a RediSearch background scan aborted by OOM also reports `indexing: 0`, but with `percent_indexed` below 1 |
-| `record_fields` | no | extra numeric reply fields recorded as `$.Measurements.<name>_<field>` |
+- **documents first, index second** -- `FT.CREATE` in `dbconfig.init_commands`
+  with the documents coming from the `dbconfig` preload tool ( the dominant
+  pattern in the RediSearch specs ) or from `dbconfig.dataset` ( rdb ). Both run
+  before the `init_commands`, so RediSearch registers a background scan and
+  `index_time_secs` is its wall clock time. Pair it with `check.keyspacelen`,
+  which runs in between, to enforce the ordering. See
+  [tests/test_data/search-background-indexing.yml](../tests/test_data/search-background-indexing.yml).
+- **index first, documents second** -- the documents are ingested by the
+  `clientconfig` tool, or `SEARCH_CLUSTERSET` is set ( which runs the
+  `init_commands` before the data load ). RediSearch registers no scan at all
+  when the keyspace is empty, indexing happens inline with the writes, and
+  **no measurement is recorded**: the metric is absent rather than 0, so a
+  benchmark that does not build an index in the background produces no
+  datapoint instead of a misleading one.
 
 Notes:
 
-- the conditions are evaluated right after the `init_commands`, and a `wait_for`
-  entry on the `indexing` field replaces the unconditional indexing barrier the
-  runners apply when the search module is detected. Without it that barrier would
-  drain the background indexing before any measurement started.
-- the duration is measured from the first poll, i.e. from right after the
-  `init_commands` returned.
-- a single connection is used. On `oss-cluster` the coordinator aggregates
+- `FT.INFO` is polled once per second while indexing is in progress. Override
+  with the `SEARCH_INDEXING_POLL_INTERVAL_SECS` environment variable; keep it
+  coarse enough not to perturb the thing being measured.
+- the wait covers every index returned by `FT._LIST`, so with more than one
+  index the duration is until the last one finished.
+- on `oss-cluster` a single connection is enough: the coordinator aggregates
   `FT.INFO`'s `indexing` as a sum across shards, so `indexing: 0` means every
   shard finished.
-- the conditions are only evaluated when the db is spun up. A test that reuses
-  the environment of a previous test records no measurement.
-- a `clientconfig` tool is still required by the runners. For a pure server side
-  measurement use a short lived client whose results you ignore, as in
-  [tests/test_data/search-background-indexing-wait-for.yml](../tests/test_data/search-background-indexing-wait-for.yml).
-- the measurements are recorded and exported, they do not gate the run. The only
-  way a `wait_for` entry fails a benchmark is by not being met at all
-  ( `timeout_secs` ) or by failing its own `require` invariants.
+- the measurement is only taken when the db is spun up. A test that reuses the
+  environment of a previous test records none.
+- this is a measurement, not a gate. Nothing here fails a run.
 
 # Running benchmarks
 

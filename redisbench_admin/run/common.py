@@ -66,6 +66,11 @@ CIRCLE_JOB = os.getenv("CIRCLE_JOB", None)
 WH_TOKEN = os.getenv("PERFORMANCE_WH_TOKEN", None)
 PERFORMANCE_GH_TOKEN = os.getenv("PERFORMANCE_GH_TOKEN", None)
 REDIS_BINARY = os.getenv("REDIS_BINARY", "redis-server")
+# how often FT.INFO is polled while waiting for the secondary indices to be
+# built. kept coarse enough not to perturb the very thing being measured
+SEARCH_INDEXING_POLL_INTERVAL_SECS = float(
+    os.getenv("SEARCH_INDEXING_POLL_INTERVAL_SECS", 1.0)
+)
 
 
 def extract_input_file_url_from_parameters(entry, benchmark_tool):
@@ -799,12 +804,12 @@ def merge_default_and_config_metrics(
     return exporter_timemetric_path, metrics
 
 
-def run_redis_pre_steps(benchmark_config, r, required_modules, run_wait_for=True):
+def run_redis_pre_steps(benchmark_config, r, required_modules):
     """Run the pre-benchmark db steps and return (artifact_version, measurements).
 
-    `measurements` holds the timings of the dbconfig `wait_for` conditions, which
-    the callers merge into the benchmark results dict so that the `exporter` yaml
-    section can reference them.
+    `measurements` holds the server side timings collected here -- currently the
+    secondary index build time -- which the callers merge into the benchmark
+    results dict so that the `exporter` yaml section can reference them.
     """
     # In case we have modules we use it's artifact version
     # otherwise we use redis version as artifact version
@@ -823,12 +828,6 @@ def run_redis_pre_steps(benchmark_config, r, required_modules, run_wait_for=True
             execute_init_commands_duration_seconds
         )
     )
-    # the wait_for conditions are evaluated right after the init commands and
-    # before search_specific_init, otherwise the unconditional indexing barrier
-    # below would drain the background indexing and every measurement would be 0
-    wait_for_specs = extract_dbconfig_wait_for(benchmark_config)
-    if run_wait_for:
-        measurements = dbconfig_wait_for_conditions(wait_for_specs, r)
     stdout = r.execute_command("info modules")
     (
         module_names,
@@ -837,16 +836,10 @@ def run_redis_pre_steps(benchmark_config, r, required_modules, run_wait_for=True
     if OVERRIDE_MODULES is not None:
         module_names = OVERRIDE_MODULES.split(",")
     if "search" in module_names:
-        if run_wait_for and wait_for_covers_field(wait_for_specs, "indexing"):
-            logging.info(
-                "Detected redisearch module. Skipping the indexing barrier given a"
-                " dbconfig wait_for entry already waited on the indexing field."
-            )
-        else:
-            logging.info(
-                "Detected redisearch module. Ensuring all indices are indexed prior benchmark"
-            )
-            search_specific_init(r, module_names)
+        logging.info(
+            "Detected redisearch module. Ensuring all indices are indexed prior benchmark"
+        )
+        measurements = search_specific_init(r, module_names)
     if required_modules is not None and len(required_modules) > 0:
         check_required_modules(module_names, required_modules)
 
@@ -872,76 +865,75 @@ def run_redis_post_steps(benchmark_config, r):
 
 
 def search_specific_init(r, module_names):
-    if "search" in module_names:
-        logging.info(
-            "Given redisearch was detected, checking for any index that is still indexing."
-        )
-        loading_indices = r.execute_command("ft._list")
-        logging.info("Detected {} indices.".format(len(loading_indices)))
-        while len(loading_indices) > 0:
+    """Block until every secondary index finished indexing, and time the wait.
+
+    The wait itself is not new: the runners have always blocked here so that the
+    client phase never starts against a half built index. What is new is that we
+    return how long it took, which is the background indexing wall clock time
+    whenever the index was created over an already loaded keyspace -- the
+    dbconfig preload tool and the rdb dataset both run before the init_commands
+    that create it.
+
+    Returns a measurements dict, empty unless at least one index was actually
+    caught mid scan. Benchmarks that create the index before the documents exist
+    ( RediSearch registers no scan when the keyspace is empty ) get no datapoint
+    rather than a misleading 0.
+    """
+    measurements = {}
+    if "search" not in module_names:
+        return measurements
+    logging.info(
+        "Given redisearch was detected, checking for any index that is still indexing."
+    )
+    pending_indices = [
+        decode_if_bytes(index_name) for index_name in r.execute_command("ft._list")
+    ]
+    logging.info("Detected {} indices.".format(len(pending_indices)))
+    start_time = time.time()
+    caught_indexing = False
+    while len(pending_indices) > 0:
+        still_pending = []
+        for fts_indexname in pending_indices:
+            ft_info = flat_reply_to_dict(
+                r.execute_command("ft.info {}".format(fts_indexname))
+            )
+            is_indexing = decode_if_bytes(ft_info.get("indexing", 0))
+            percent_indexed = decode_if_bytes(ft_info.get("percent_indexed", "n/a"))
             logging.info(
-                "There are still {} indices loading. {}".format(
-                    len(loading_indices), loading_indices
+                "index={} indexing={} ; percent_indexed={}.".format(
+                    fts_indexname, is_indexing, percent_indexed
                 )
             )
-            for index_pos, fts_indexname in enumerate(loading_indices, start=0):
-                if type(fts_indexname) == bytes:
-                    fts_indexname = fts_indexname.decode()
-                ft_info = r.execute_command("ft.info {}".format(fts_indexname))
-                is_indexing = None
-                percent_indexed = "0.0"
-                for arraypos, arrayval in enumerate(ft_info, start=0):
-                    if arrayval == b"percent_indexed" or arrayval == "percent_indexed":
-                        percent_indexed = ft_info[arraypos + 1]
-                    if arrayval == b"indexing" or arrayval == "indexing":
-                        is_indexing = ft_info[arraypos + 1]
-
-                logging.info(
-                    "indexing={} ; percent_indexed={}.".format(
-                        is_indexing, percent_indexed
-                    )
+            if str(is_indexing) not in ["0", "0.0"]:
+                caught_indexing = True
+                still_pending.append(fts_indexname)
+        pending_indices = still_pending
+        # only sleep while there is still work left, so the measured duration is
+        # not inflated by a trailing poll interval
+        if len(pending_indices) > 0:
+            logging.info(
+                "There are still {} indices indexing. {}".format(
+                    len(pending_indices), pending_indices
                 )
-                if is_indexing == "0" or is_indexing == b"0" or is_indexing == 0:
-                    loading_indices.pop(index_pos)
-
-            time.sleep(5)
-        logging.info("Loaded all secondary indices.")
-
-
-WAIT_FOR_DEFAULT_POLL_INTERVAL_MS = int(
-    os.getenv("WAIT_FOR_DEFAULT_POLL_INTERVAL_MS", 100)
-)
-WAIT_FOR_DEFAULT_TIMEOUT_SECS = int(os.getenv("WAIT_FOR_DEFAULT_TIMEOUT_SECS", 900))
-WAIT_FOR_PROGRESS_LOG_INTERVAL_SECS = 5.0
-WAIT_FOR_COMPARISONS = ["eq", "ne", "lt", "le", "gt", "ge"]
-
-
-def extract_dbconfig_wait_for(benchmark_config, dbconfig_keyname="dbconfig"):
-    """Extract the `wait_for` specs declared on the dbconfig section.
-
-    Supports both the v0.4+ dict form and the legacy list-of-dicts form, the same
-    way `check_dbconfig_keyspacelen_requirement` does.
-    """
-    specs = []
-    if dbconfig_keyname not in benchmark_config:
-        return specs
-    dbconfig = benchmark_config[dbconfig_keyname]
-    entries = dbconfig if type(dbconfig) == list else [dbconfig]
-    for entry in entries:
-        if type(entry) != dict or "wait_for" not in entry:
-            continue
-        wait_for = entry["wait_for"]
-        if type(wait_for) == dict:
-            wait_for = [wait_for]
-        specs.extend(wait_for)
-    return specs
-
-
-def wait_for_covers_field(wait_for_specs, field):
-    for spec in wait_for_specs:
-        if spec.get("field", None) == field:
-            return True
-    return False
+            )
+            time.sleep(SEARCH_INDEXING_POLL_INTERVAL_SECS)
+    duration_secs = time.time() - start_time
+    if caught_indexing:
+        measurements = {
+            "index_time_secs": duration_secs,
+            "index_time_ms": duration_secs * 1000.0,
+        }
+        logging.info(
+            "Loaded all secondary indices. Background indexing took {:.3f} secs.".format(
+                duration_secs
+            )
+        )
+    else:
+        logging.info(
+            "Loaded all secondary indices. No index was being built in the"
+            " background, so no index_time is recorded."
+        )
+    return measurements
 
 
 def decode_if_bytes(value):
@@ -951,9 +943,9 @@ def decode_if_bytes(value):
 def flat_reply_to_dict(reply):
     """Convert a flat key/value array reply (FT.INFO, ...) into a dict.
 
-    Keys are decoded so that the field names declared on the yaml match
-    independently of the client's decode_responses setting. RESP3 map replies are
-    already dicts and only need their keys decoded.
+    Keys are decoded so that field lookups match independently of the client's
+    decode_responses setting. RESP3 map replies are already dicts and only need
+    their keys decoded.
     """
     if type(reply) == dict:
         return {decode_if_bytes(k): v for k, v in reply.items()}
@@ -961,206 +953,6 @@ def flat_reply_to_dict(reply):
     for pos in range(0, len(reply) - 1, 2):
         reply_dict[decode_if_bytes(reply[pos])] = reply[pos + 1]
     return reply_dict
-
-
-def wait_for_compare(actual, comparison, expected):
-    """Compare a server-side reply field against the yaml declared expectation.
-
-    Comparisons are numeric whenever both sides parse as a number -- FT.INFO
-    replies `indexing` as an integer but a RESP2 client may hand it over as a
-    byte string -- and fall back to a string comparison otherwise.
-    """
-    actual = decode_if_bytes(actual)
-    expected = decode_if_bytes(expected)
-    try:
-        actual = float(actual)
-        expected = float(expected)
-    except (TypeError, ValueError):
-        actual = str(actual)
-        expected = str(expected)
-        if comparison not in ["eq", "ne"]:
-            raise Exception(
-                "Comparison '{}' requires numeric values. Got actual={} expected={}".format(
-                    comparison, actual, expected
-                )
-            )
-    if comparison == "eq":
-        return actual == expected
-    if comparison == "ne":
-        return actual != expected
-    if comparison == "lt":
-        return actual < expected
-    if comparison == "le":
-        return actual <= expected
-    if comparison == "gt":
-        return actual > expected
-    if comparison == "ge":
-        return actual >= expected
-    raise Exception(
-        "Unsupported wait_for comparison '{}'. Supported ones: {}".format(
-            comparison, WAIT_FOR_COMPARISONS
-        )
-    )
-
-
-def extract_wait_for_comparison(spec):
-    comparisons = [c for c in WAIT_FOR_COMPARISONS if c in spec]
-    if len(comparisons) != 1:
-        raise Exception(
-            "Each wait_for entry requires exactly one of {}. Got {} on spec {}".format(
-                WAIT_FOR_COMPARISONS, comparisons, spec
-            )
-        )
-    comparison = comparisons[0]
-    return comparison, spec[comparison]
-
-
-def wait_for_condition(spec, redis_conn):
-    """Poll a server-side condition and return how long it took to be met.
-
-    The clock starts on the first poll -- i.e. right after the dbconfig
-    `init_commands` returned -- so for a `FT.CREATE` on an already loaded
-    keyspace the measured duration is the background indexing wall clock time.
-    Raises on timeout instead of recording a bogus duration.
-    """
-    name = spec.get("name", None)
-    command = spec.get("command", None)
-    field = spec.get("field", None)
-    if name is None or command is None or field is None:
-        raise Exception(
-            "A wait_for entry requires the 'name', 'command' and 'field' properties. Got {}".format(
-                spec
-            )
-        )
-    comparison, expected = extract_wait_for_comparison(spec)
-    poll_interval_secs = (
-        float(spec.get("poll_interval_ms", WAIT_FOR_DEFAULT_POLL_INTERVAL_MS)) / 1000.0
-    )
-    timeout_secs = float(spec.get("timeout_secs", WAIT_FOR_DEFAULT_TIMEOUT_SECS))
-    required_fields = spec.get("require", {})
-    recorded_fields = spec.get("record_fields", [])
-
-    logging.info(
-        "Waiting for '{}' to be met: {} field '{}' {} {} (poll every {} ms, timeout {} secs).".format(
-            name,
-            command,
-            field,
-            comparison,
-            expected,
-            spec.get("poll_interval_ms", WAIT_FOR_DEFAULT_POLL_INTERVAL_MS),
-            timeout_secs,
-        )
-    )
-    start_time = time.time()
-    last_progress_log = start_time
-    reply_dict = {}
-    polls = 0
-    while True:
-        reply_dict = flat_reply_to_dict(redis_conn.execute_command(command))
-        polls += 1
-        if field not in reply_dict:
-            raise Exception(
-                "wait_for '{}': field '{}' is not present on the reply of '{}'. Available fields: {}".format(
-                    name, field, command, list(reply_dict.keys())
-                )
-            )
-        elapsed = time.time() - start_time
-        if wait_for_compare(reply_dict[field], comparison, expected):
-            break
-        if elapsed > timeout_secs:
-            raise Exception(
-                "wait_for '{}' timed out after {:.3f} secs ({} polls). Last observed {}={}, expected {} {}.".format(
-                    name,
-                    elapsed,
-                    polls,
-                    field,
-                    decode_if_bytes(reply_dict[field]),
-                    comparison,
-                    expected,
-                )
-            )
-        if time.time() - last_progress_log >= WAIT_FOR_PROGRESS_LOG_INTERVAL_SECS:
-            last_progress_log = time.time()
-            logging.info(
-                "wait_for '{}' still pending after {:.1f} secs. {}={}. {}".format(
-                    name,
-                    elapsed,
-                    field,
-                    decode_if_bytes(reply_dict[field]),
-                    {
-                        k: decode_if_bytes(reply_dict.get(k, "n/a"))
-                        for k in recorded_fields
-                    },
-                )
-            )
-        time.sleep(poll_interval_secs)
-
-    duration_secs = time.time() - start_time
-    logging.info(
-        "🟢 wait_for '{}' met after {:.3f} secs ({} polls).".format(
-            name, duration_secs, polls
-        )
-    )
-
-    # A condition can also be met for the wrong reason -- a RediSearch background
-    # scan aborted by OOM flips `indexing` back to 0 without having indexed
-    # everything -- so validate the caller declared invariants before recording.
-    for required_field, required_value in required_fields.items():
-        if required_field not in reply_dict:
-            raise Exception(
-                "wait_for '{}': required field '{}' is not present on the reply of '{}'.".format(
-                    name, required_field, command
-                )
-            )
-        if not wait_for_compare(reply_dict[required_field], "eq", required_value):
-            raise Exception(
-                "wait_for '{}': condition was met but the required field '{}' is {} instead of {}. "
-                "Refusing to record a partial result.".format(
-                    name,
-                    required_field,
-                    decode_if_bytes(reply_dict[required_field]),
-                    required_value,
-                )
-            )
-
-    measurements = {
-        "{}_secs".format(name): duration_secs,
-        "{}_ms".format(name): duration_secs * 1000.0,
-    }
-    for recorded_field in recorded_fields:
-        if recorded_field not in reply_dict:
-            logging.warning(
-                "wait_for '{}': record_fields entry '{}' is not present on the reply of '{}'. Skipping it.".format(
-                    name, recorded_field, command
-                )
-            )
-            continue
-        try:
-            measurements["{}_{}".format(name, recorded_field)] = float(
-                decode_if_bytes(reply_dict[recorded_field])
-            )
-        except (TypeError, ValueError):
-            logging.warning(
-                "wait_for '{}': record_fields entry '{}' is not numeric. Skipping it.".format(
-                    name, recorded_field
-                )
-            )
-    return measurements
-
-
-def dbconfig_wait_for_conditions(wait_for_specs, redis_conn):
-    """Evaluate every dbconfig `wait_for` entry and return the measurements dict.
-
-    On oss-cluster a single connection is enough: the coordinator aggregates
-    FT.INFO's `indexing` as a sum across shards, so `indexing == 0` means every
-    shard finished.
-    """
-    measurements = {}
-    for spec in wait_for_specs:
-        measurements.update(wait_for_condition(spec, redis_conn))
-    if len(measurements) > 0:
-        logging.info("wait_for measurements: {}".format(measurements))
-    return measurements
 
 
 def dso_check(dso, local_module_file):

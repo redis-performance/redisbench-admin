@@ -430,9 +430,9 @@ def post_process_remote_run(
     except json.decoder.JSONDecodeError as e:
         logging.error("Received error while decoding JSON: {}".format(e.__str__()))
         pass
-    # server side measurements ( dbconfig wait_for ) are merged into the client
-    # tool results as soon as they are read, so that everything downstream of
-    # this function sees them alongside the client tool metrics
+    # server side measurements ( e.g. the index build time ) are merged into the
+    # client tool results as soon as they are read, so that everything downstream
+    # of this function sees them alongside the client tool metrics
     if extra_results:
         results_dict = merge_measurements_into_results(results_dict, extra_results)
         with open(local_benchmark_output_filename, "w") as json_file:

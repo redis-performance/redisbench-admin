@@ -22,8 +22,6 @@ from redisbench_admin.environments.oss_cluster import (
 from redisbench_admin.environments.oss_standalone import spin_up_local_redis
 from redisbench_admin.run.cluster import cluster_init_steps
 from redisbench_admin.run.common import (
-    dbconfig_wait_for_conditions,
-    extract_dbconfig_wait_for,
     run_redis_pre_steps,
     check_dbconfig_tool_requirement,
     prepare_benchmark_parameters,
@@ -54,7 +52,7 @@ def local_db_spin(
 ):
     redis_conns = []
     artifact_version = "n/a"
-    wait_for_measurements = {}
+    index_measurements = {}
     result = True
     temporary_dir = get_tmp_folder_rnd(dirname)
     # Create the temporary directory
@@ -184,8 +182,10 @@ def local_db_spin(
             "SEARCH_CLUSTERSET is set. Running run_redis_pre_steps for each shard before data loading"
         )
         for conn in redis_conns:
+            # the indices are created here, before the data load, so there is no
+            # background index build to time
             artifact_version, _ = run_redis_pre_steps(
-                benchmark_config, conn, required_modules, run_wait_for=False
+                benchmark_config, conn, required_modules
             )
 
     if dataset is None:
@@ -251,14 +251,8 @@ def local_db_spin(
 
     # Only run pre_steps here if SEARCH_CLUSTERSET is not set (otherwise it was already run before data loading)
     if "SEARCH_CLUSTERSET" not in os.environ:
-        artifact_version, wait_for_measurements = run_redis_pre_steps(
+        artifact_version, index_measurements = run_redis_pre_steps(
             benchmark_config, redis_conns[0], required_modules
-        )
-    else:
-        # on SEARCH_CLUSTERSET the indices were created before the data load, so
-        # this is the first point where waiting on them is meaningful
-        wait_for_measurements = dbconfig_wait_for_conditions(
-            extract_dbconfig_wait_for(benchmark_config), redis_conns[0]
         )
 
     return (
@@ -267,5 +261,5 @@ def local_db_spin(
         cluster_api_enabled,
         redis_conns,
         redis_processes,
-        wait_for_measurements,
+        index_measurements,
     )

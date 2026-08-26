@@ -280,7 +280,7 @@ def run_local_command_logic(args, project_name, project_version):
                                         cluster_api_enabled,
                                         redis_conns,
                                         redis_processes,
-                                        wait_for_measurements,
+                                        index_measurements,
                                     ) = local_db_spin(
                                         binary,
                                         args,
@@ -353,8 +353,8 @@ def run_local_command_logic(args, project_name, project_version):
                                         f"Reusing environment from previous benchmark for dataset reuse (dataset: {dataset_name}, setup: {setup_name})."
                                     )
                                     # reused env: no db spin up happened, so no
-                                    # dbconfig wait_for condition was evaluated
-                                    wait_for_measurements = {}
+                                    # index build was timed
+                                    index_measurements = {}
                                     cluster_api_enabled = setup_details["env"][
                                         "cluster_api_enabled"
                                     ]
@@ -640,9 +640,9 @@ def run_local_command_logic(args, project_name, project_version):
                                     # server side measurements are merged into the
                                     # client tool results so that the exporter
                                     # section reaches them via jsonpath
-                                    if wait_for_measurements:
+                                    if index_measurements:
                                         results_dict = merge_measurements_into_results(
-                                            results_dict, wait_for_measurements
+                                            results_dict, index_measurements
                                         )
                                         with open(
                                             local_benchmark_output_filename, "w"
