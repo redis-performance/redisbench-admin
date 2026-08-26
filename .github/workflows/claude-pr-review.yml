@@ -53,6 +53,18 @@ name: Claude Automated PR Review
 on:
   pull_request_target:
     types: [opened]
+  # Manual re-run for maintainer testing/verification only (e.g. exercising
+  # this workflow once against an existing PR after merge, since a
+  # pull_request_target workflow definition can't be pre-tested via a draft
+  # PR). GitHub restricts workflow_dispatch to actors with write access to
+  # this repo, so this doesn't widen who can trigger a run beyond the
+  # existing `opened`-event trigger's real-world audience.
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to run the review against"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -62,8 +74,9 @@ jobs:
   claude-review:
     # Skip bot-authored PRs (e.g. Dependabot) -- real history on this repo
     # shows no substantive human engagement with these; an AI review comment
-    # here is pure noise, not a courtesy.
-    if: github.event.pull_request.user.type != 'Bot'
+    # here is pure noise, not a courtesy. (No `user.type` to check on a
+    # manual workflow_dispatch run, so this only applies to the real trigger.)
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -82,7 +95,7 @@ jobs:
 
           prompt: |
             REPO: ${{ github.repository }}
-            PR NUMBER: ${{ github.event.pull_request.number }}
+            PR NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
 
             Use the redisbench-admin-maintainer-review skill
             (.claude/skills/redisbench-admin-maintainer-review/) to review this
@@ -149,7 +162,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           STRUCTURED_OUTPUT: ${{ steps.claude.outputs.structured_output }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
         run: |
           set -euo pipefail
 
