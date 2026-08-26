@@ -29,6 +29,7 @@ from redisbench_admin.profilers.profilers_schema import (
 )
 from redisbench_admin.run.args import PROFILE_FREQ
 from redisbench_admin.run.common import (
+    merge_measurements_into_results,
     prepare_benchmark_parameters,
     get_start_time_vars,
     BENCHMARK_REPETITIONS,
@@ -262,6 +263,9 @@ def run_local_command_logic(args, project_name, project_version):
                             # noinspection PyBroadException
                             try:
                                 dirname = args.db_dirname
+                                # reset per test: on env reuse there is no db spin
+                                # up, so no wait_for condition is evaluated
+                                wait_for_measurements = {}
                                 if setup_details["env"] is None:
                                     logging.info(
                                         "Starting setup named {} of topology type {}. Total primaries: {}".format(
@@ -277,6 +281,7 @@ def run_local_command_logic(args, project_name, project_version):
                                         cluster_api_enabled,
                                         redis_conns,
                                         redis_processes,
+                                        wait_for_measurements,
                                     ) = local_db_spin(
                                         binary,
                                         args,
@@ -630,40 +635,53 @@ def run_local_command_logic(args, project_name, project_version):
                                         local_benchmark_output_filename, "r"
                                     ) as json_file:
                                         results_dict = json.load(json_file)
-                                        print_results_table_stdout(
-                                            benchmark_config,
-                                            default_metrics,
-                                            results_dict,
-                                            setup_name,
-                                            setup_type,
-                                            test_name,
-                                            total_shards_cpu_usage,
-                                            overall_end_time_metrics,
-                                            [
-                                                "memory_used_memory",
-                                                "memory_used_memory_dataset",
-                                            ],
+                                    # server side measurements are merged into the
+                                    # client tool results so that the exporter
+                                    # section reaches them via jsonpath
+                                    if wait_for_measurements:
+                                        results_dict = merge_measurements_into_results(
+                                            results_dict, wait_for_measurements
                                         )
-                                        export_redis_metrics(
-                                            artifact_version,
-                                            end_time_ms,
-                                            overall_end_time_metrics,
-                                            rts,
-                                            setup_name,
-                                            setup_type,
-                                            test_name,
-                                            tf_github_branch,
-                                            tf_github_org,
-                                            tf_github_repo,
-                                            tf_triggering_env,
-                                            {"metric-type": "redis-metrics"},
-                                            0,
-                                        )
+                                        with open(
+                                            local_benchmark_output_filename, "w"
+                                        ) as json_file:
+                                            json.dump(
+                                                results_dict, json_file, indent=True
+                                            )
+                                    print_results_table_stdout(
+                                        benchmark_config,
+                                        default_metrics,
+                                        results_dict,
+                                        setup_name,
+                                        setup_type,
+                                        test_name,
+                                        total_shards_cpu_usage,
+                                        overall_end_time_metrics,
+                                        [
+                                            "memory_used_memory",
+                                            "memory_used_memory_dataset",
+                                        ],
+                                    )
+                                    export_redis_metrics(
+                                        artifact_version,
+                                        end_time_ms,
+                                        overall_end_time_metrics,
+                                        rts,
+                                        setup_name,
+                                        setup_type,
+                                        test_name,
+                                        tf_github_branch,
+                                        tf_github_org,
+                                        tf_github_repo,
+                                        tf_triggering_env,
+                                        {"metric-type": "redis-metrics"},
+                                        0,
+                                    )
 
-                                        # check KPIs
-                                        return_code = results_dict_kpi_check(
-                                            benchmark_config, results_dict, return_code
-                                        )
+                                    # check KPIs
+                                    return_code = results_dict_kpi_check(
+                                        benchmark_config, results_dict, return_code
+                                    )
 
                                 metadata_tags = get_metadata_tags(benchmark_config)
                                 if args_github_sha_explicit:

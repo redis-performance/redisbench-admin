@@ -71,8 +71,8 @@ Some benchmarks measure something the client tool cannot see -- for instance how
 long RediSearch takes to build an index in the background after a `FT.CREATE`
 over an already loaded keyspace. `dbconfig.wait_for` polls a server side
 condition, times how long it took to be met, and merges the duration into the
-benchmark results under `Measurements`, so the `exporter`, `kpis` and
-`comparison` sections reach it via jsonpath like any client tool metric.
+benchmark results under `Measurements`, so the `exporter` and `comparison`
+sections reach it via jsonpath like any client tool metric.
 
 ```yml
 dbconfig:
@@ -91,14 +91,16 @@ dbconfig:
         percent_indexed: 1
       record_fields:
         - num_docs
-kpis:
-  - le:
-      "$.Measurements.index_time_secs": 120
 exporter:
   redistimeseries:
     metrics:
       - "$.Measurements.index_time_secs"
       - "$.Measurements.index_time_num_docs"
+  comparison:
+    metrics:
+      - "$.Measurements.index_time_secs"
+    mode: lower-better
+    baseline-branch: master
 ```
 
 Properties of each `wait_for` entry:
@@ -110,7 +112,7 @@ Properties of each `wait_for` entry:
 | `field` | yes | reply field the condition is evaluated on |
 | `eq`/`ne`/`lt`/`le`/`gt`/`ge` | yes | exactly one of them, the value `field` is compared against |
 | `poll_interval_ms` | no | how often to poll. Defaults to 100 ms |
-| `timeout_secs` | no | fails the test if the condition is not met in time, instead of recording a wrong duration. Defaults to 900 secs |
+| `timeout_secs` | no | aborts the run if the condition is not met in time, instead of recording a wrong duration. Defaults to 900 secs |
 | `require` | no | field/value pairs asserted once the condition is met. Use it to reject conditions met for the wrong reason -- a RediSearch background scan aborted by OOM also reports `indexing: 0`, but with `percent_indexed` below 1 |
 | `record_fields` | no | extra numeric reply fields recorded as `$.Measurements.<name>_<field>` |
 
@@ -130,6 +132,9 @@ Notes:
 - a `clientconfig` tool is still required by the runners. For a pure server side
   measurement use a short lived client whose results you ignore, as in
   [tests/test_data/search-background-indexing-wait-for.yml](../tests/test_data/search-background-indexing-wait-for.yml).
+- the measurements are recorded and exported, they do not gate the run. The only
+  way a `wait_for` entry fails a benchmark is by not being met at all
+  ( `timeout_secs` ) or by failing its own `require` invariants.
 
 # Running benchmarks
 

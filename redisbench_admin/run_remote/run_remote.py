@@ -661,6 +661,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                         "Starting common steps to cluster and standalone..."
                                     )
                                     full_logfiles = []
+                                    # reset per test: on env reuse there is no db
+                                    # spin up, so no wait_for condition is evaluated
+                                    wait_for_measurements = {}
                                     if setup_details.get("env", None) is None:
                                         if skip_remote_db_setup is False:
                                             # ensure /tmp folder is free of benchmark data from previous runs
@@ -685,6 +688,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             return_code,
                                             server_plaintext_port,
                                             ssh_tunnel,
+                                            wait_for_measurements,
                                         ) = remote_db_spin(
                                             allowed_tools,
                                             benchmark_config,
@@ -1045,6 +1049,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                         True,
                                         redis_password,
                                         architecture,
+                                        wait_for_measurements,
                                     )
 
                                     # --- parca-agent per-test label cleanup ---

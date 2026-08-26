@@ -15,6 +15,8 @@ from redisbench_admin.run.cluster import (
     cluster_init_steps,
 )
 from redisbench_admin.run.common import (
+    dbconfig_wait_for_conditions,
+    extract_dbconfig_wait_for,
     check_dbconfig_tool_requirement,
     get_start_time_vars,
     dbconfig_keyspacelen_check,
@@ -324,8 +326,8 @@ def remote_db_spin(
             "SEARCH_CLUSTERSET is set. Running run_redis_pre_steps for each shard before data loading"
         )
         for conn in redis_conns:
-            artifact_version = run_redis_pre_steps(
-                benchmark_config, conn, required_modules
+            artifact_version, _ = run_redis_pre_steps(
+                benchmark_config, conn, required_modules, run_wait_for=False
             )
     logging.info("Starting dataset loading...")
     dataset_load_start_time = datetime.datetime.now()
@@ -445,8 +447,14 @@ def remote_db_spin(
     )
     # Only run pre_steps here if SEARCH_CLUSTERSET is not set (otherwise it was already run before data loading)
     if "SEARCH_CLUSTERSET" not in os.environ:
-        artifact_version = run_redis_pre_steps(
+        artifact_version, wait_for_measurements = run_redis_pre_steps(
             benchmark_config, redis_conns[0], required_modules
+        )
+    else:
+        # on SEARCH_CLUSTERSET the indices were created before the data load, so
+        # this is the first point where waiting on them is meaningful
+        wait_for_measurements = dbconfig_wait_for_conditions(
+            extract_dbconfig_wait_for(benchmark_config), redis_conns[0]
         )
     return (
         artifact_version,
@@ -457,6 +465,7 @@ def remote_db_spin(
         return_code,
         server_plaintext_port,
         ssh_tunnel,
+        wait_for_measurements,
     )
 
 

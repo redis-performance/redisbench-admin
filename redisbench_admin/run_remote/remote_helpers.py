@@ -406,6 +406,7 @@ def post_process_remote_run(
     stdout,
     tmp,
     result_csv_filename="result.csv",
+    extra_results=None,
 ):
     if benchmark_tool == "redis-benchmark":
         local_benchmark_output_filename = tmp
@@ -419,12 +420,23 @@ def post_process_remote_run(
             start_time_str,
             stdout,
         )
+    results_dict = {}
     try:
         with open(local_benchmark_output_filename, "r") as json_file:
             results_dict = json.load(json_file)
     except json.decoder.JSONDecodeError as e:
         logging.error("Received error while decoding JSON: {}".format(e.__str__()))
         pass
+    # server side measurements ( dbconfig wait_for ) are merged into the client
+    # tool results as soon as they are read, so that everything downstream of
+    # this function sees them alongside the client tool metrics
+    if extra_results:
+        # local import: redisbench_admin.run.common imports from this module
+        from redisbench_admin.run.common import merge_measurements_into_results
+
+        results_dict = merge_measurements_into_results(results_dict, extra_results)
+        with open(local_benchmark_output_filename, "w") as json_file:
+            json.dump(results_dict, json_file, indent=True)
     # check KPIs
     return_code = results_dict_kpi_check(benchmark_config, results_dict, return_code)
     # if the benchmark tool is redisgraph-benchmark-go and
