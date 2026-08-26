@@ -320,7 +320,8 @@ def test_db_spin_functions_initialise_index_measurements_unconditionally():
         ("redisbench_admin/run_local/local_db.py", "local_db_spin"),
         ("redisbench_admin/run_remote/remote_db.py", "remote_db_spin"),
     ):
-        tree = ast.parse(open(path).read())
+        with open(path, "r") as source_file:
+            tree = ast.parse(source_file.read())
         fn = next(
             n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == fn_name
         )
