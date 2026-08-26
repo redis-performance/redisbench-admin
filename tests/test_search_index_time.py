@@ -110,21 +110,17 @@ def test_reply_field_is_zero_across_reply_types():
     assert reply_field_is_zero(None) is False
 
 
-def test_search_specific_init_backs_the_poll_interval_off(monkeypatch):
+def test_search_specific_init_never_sleeps_after_the_last_poll(monkeypatch):
     slept = []
     monkeypatch.setattr("time.sleep", lambda secs: slept.append(secs))
     monkeypatch.setattr(
-        "redisbench_admin.run.common.SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS", 0.05
-    )
-    monkeypatch.setattr(
         "redisbench_admin.run.common.SEARCH_INDEXING_POLL_INTERVAL_SECS", 0.2
     )
-    conn = FakeSearchRedis(
-        [ft_info_reply(1)] * 5 + [ft_info_reply(0)],
-    )
+    conn = FakeSearchRedis([ft_info_reply(1)] * 5 + [ft_info_reply(0)])
     assert "index_time_secs" in search_specific_init(conn, ["search"])
-    # short first, so a fast build is not over-reported, then capped
-    assert slept == [0.05, 0.1, 0.2, 0.2, 0.2]
+    # 6 polls, so 5 gaps: sleeping after the final one would inflate every
+    # measurement by a whole interval, which is what the old loop did
+    assert slept == [0.2] * 5
 
 
 def test_search_specific_init_times_out(monkeypatch):
@@ -153,9 +149,6 @@ def test_search_specific_init_unreadable_field_is_not_treated_as_done(monkeypatc
 
 
 def test_search_specific_init_times_the_index_build(monkeypatch):
-    monkeypatch.setattr(
-        "redisbench_admin.run.common.SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS", 0.001
-    )
     monkeypatch.setattr(
         "redisbench_admin.run.common.SEARCH_INDEXING_POLL_INTERVAL_SECS", 0.001
     )
@@ -186,9 +179,6 @@ def test_search_specific_init_records_nothing_when_no_scan_was_running():
 
 def test_search_specific_init_handles_resp2_byte_replies(monkeypatch):
     monkeypatch.setattr(
-        "redisbench_admin.run.common.SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS", 0.001
-    )
-    monkeypatch.setattr(
         "redisbench_admin.run.common.SEARCH_INDEXING_POLL_INTERVAL_SECS", 0.001
     )
     conn = FakeSearchRedis(
@@ -200,9 +190,6 @@ def test_search_specific_init_handles_resp2_byte_replies(monkeypatch):
 
 
 def test_search_specific_init_waits_for_every_index(monkeypatch):
-    monkeypatch.setattr(
-        "redisbench_admin.run.common.SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS", 0.001
-    )
     monkeypatch.setattr(
         "redisbench_admin.run.common.SEARCH_INDEXING_POLL_INTERVAL_SECS", 0.001
     )
@@ -241,9 +228,6 @@ BENCHMARK_CONFIG = {
 
 
 def test_run_redis_pre_steps_returns_the_index_build_time(monkeypatch):
-    monkeypatch.setattr(
-        "redisbench_admin.run.common.SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS", 0.001
-    )
     monkeypatch.setattr(
         "redisbench_admin.run.common.SEARCH_INDEXING_POLL_INTERVAL_SECS", 0.001
     )

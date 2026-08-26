@@ -109,17 +109,12 @@ be reported the same way as the index-first case.
 
 Notes:
 
-- **the poll interval sets the metric's resolution.** The recorded duration runs
-  until the first poll that observes `indexing: 0`, so it is an upper bound: it
-  over-reports by up to one interval and quantises to it. `FT.INFO` is therefore
-  polled on a growing interval, starting at 50 ms and doubling up to 1 s, which
-  keeps the error small for short builds without hammering a long one. Both ends
-  are overridable ( `SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS`,
-  `SEARCH_INDEXING_POLL_INTERVAL_SECS` ) -- raising the minimum trades resolution
-  for less interference with the thing being measured.
-  Do not put a build of only a few seconds behind `comparison`: at that scale the
-  quantisation alone can read as a regression. The metric earns its keep on builds
-  well above the maximum interval, like the ~1.7M document example.
+- `FT.INFO` is polled once per second while indexing is in progress, overridable
+  with `SEARCH_INDEXING_POLL_INTERVAL_SECS`. Kept coarse on purpose: `FT.INFO`
+  takes the spec lock, and polling harder would perturb the thing being measured.
+  The recorded duration runs until the first poll that observes `indexing: 0`, so
+  it is an upper bound quantised to that interval -- fine for the multi-second
+  builds this is meant for, not for gating a build of a second or two.
 - the wait is bounded by `SEARCH_INDEXING_TIMEOUT_SECS` ( 3 hours by default, far
   above any real build so that it only catches a genuine hang ) and raises when
   exceeded, naming the index and its last observed `indexing` value.

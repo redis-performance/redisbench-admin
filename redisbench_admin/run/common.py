@@ -66,13 +66,8 @@ CIRCLE_JOB = os.getenv("CIRCLE_JOB", None)
 WH_TOKEN = os.getenv("PERFORMANCE_WH_TOKEN", None)
 PERFORMANCE_GH_TOKEN = os.getenv("PERFORMANCE_GH_TOKEN", None)
 REDIS_BINARY = os.getenv("REDIS_BINARY", "redis-server")
-# FT.INFO is polled with a growing interval while waiting for the secondary
-# indices to be built: short at first, so that a fast build is not over-reported
-# by a whole interval, then backing off so that a long one does not hammer the
-# server whose timing we are measuring
-SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS = float(
-    os.getenv("SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS", 0.05)
-)
+# how often FT.INFO is polled while waiting for the secondary indices to be
+# built. kept coarse enough not to perturb the very thing being measured
 SEARCH_INDEXING_POLL_INTERVAL_SECS = float(
     os.getenv("SEARCH_INDEXING_POLL_INTERVAL_SECS", 1.0)
 )
@@ -902,7 +897,6 @@ def search_specific_init(r, module_names):
     logging.info("Detected {} indices.".format(len(pending_indices)))
     start_time = time.time()
     caught_indexing = False
-    poll_interval_secs = SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS
     last_seen = {}
     while len(pending_indices) > 0:
         still_pending = []
@@ -942,10 +936,7 @@ def search_specific_init(r, module_names):
                     len(pending_indices), pending_indices
                 )
             )
-            time.sleep(poll_interval_secs)
-            poll_interval_secs = min(
-                SEARCH_INDEXING_POLL_INTERVAL_SECS, poll_interval_secs * 2
-            )
+            time.sleep(SEARCH_INDEXING_POLL_INTERVAL_SECS)
     duration_secs = time.time() - start_time
     if caught_indexing:
         measurements = {
