@@ -66,10 +66,21 @@ CIRCLE_JOB = os.getenv("CIRCLE_JOB", None)
 WH_TOKEN = os.getenv("PERFORMANCE_WH_TOKEN", None)
 PERFORMANCE_GH_TOKEN = os.getenv("PERFORMANCE_GH_TOKEN", None)
 REDIS_BINARY = os.getenv("REDIS_BINARY", "redis-server")
-# how often FT.INFO is polled while waiting for the secondary indices to be
-# built. kept coarse enough not to perturb the very thing being measured
+# FT.INFO is polled with a growing interval while waiting for the secondary
+# indices to be built: short at first, so that a fast build is not over-reported
+# by a whole interval, then backing off so that a long one does not hammer the
+# server whose timing we are measuring
+SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS = float(
+    os.getenv("SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS", 0.05)
+)
 SEARCH_INDEXING_POLL_INTERVAL_SECS = float(
     os.getenv("SEARCH_INDEXING_POLL_INTERVAL_SECS", 1.0)
+)
+# the wait used to be unbounded. a ceiling turns a stuck or unreadable index into
+# a failed test instead of a job that hangs until CI kills it. deliberately far
+# above any real build ( 3 hours ) so that it only ever catches a genuine hang
+SEARCH_INDEXING_TIMEOUT_SECS = float(
+    os.getenv("SEARCH_INDEXING_TIMEOUT_SECS", 3 * 60 * 60)
 )
 
 
@@ -891,6 +902,8 @@ def search_specific_init(r, module_names):
     logging.info("Detected {} indices.".format(len(pending_indices)))
     start_time = time.time()
     caught_indexing = False
+    poll_interval_secs = SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS
+    last_seen = {}
     while len(pending_indices) > 0:
         still_pending = []
         for fts_indexname in pending_indices:
@@ -904,19 +917,35 @@ def search_specific_init(r, module_names):
                     fts_indexname, is_indexing, percent_indexed
                 )
             )
-            if str(is_indexing) not in ["0", "0.0"]:
+            last_seen[fts_indexname] = is_indexing
+            if not reply_field_is_zero(is_indexing):
                 caught_indexing = True
                 still_pending.append(fts_indexname)
         pending_indices = still_pending
         # only sleep while there is still work left, so the measured duration is
         # not inflated by a trailing poll interval
         if len(pending_indices) > 0:
+            elapsed_secs = time.time() - start_time
+            if elapsed_secs > SEARCH_INDEXING_TIMEOUT_SECS:
+                raise Exception(
+                    "Gave up after {:.0f} secs waiting for the secondary indices {}"
+                    " to be built. Last observed indexing={}. Raise"
+                    " SEARCH_INDEXING_TIMEOUT_SECS if the build legitimately takes"
+                    " this long.".format(
+                        elapsed_secs,
+                        pending_indices,
+                        {k: last_seen[k] for k in pending_indices},
+                    )
+                )
             logging.info(
                 "There are still {} indices indexing. {}".format(
                     len(pending_indices), pending_indices
                 )
             )
-            time.sleep(SEARCH_INDEXING_POLL_INTERVAL_SECS)
+            time.sleep(poll_interval_secs)
+            poll_interval_secs = min(
+                SEARCH_INDEXING_POLL_INTERVAL_SECS, poll_interval_secs * 2
+            )
     duration_secs = time.time() - start_time
     if caught_indexing:
         measurements = {
@@ -938,6 +967,22 @@ def search_specific_init(r, module_names):
 
 def decode_if_bytes(value):
     return value.decode() if type(value) == bytes else value
+
+
+def reply_field_is_zero(value):
+    """True when a reply field means zero, whatever type it arrives as.
+
+    `indexing` can reach us as an int, a float ( "0.000000" ), a byte string or,
+    on RESP3, a bool, and every one of those has to end the wait. Anything that
+    does not parse as a number is deliberately NOT treated as zero: mistaking an
+    unreadable value for "done" would record a bogus fast measurement, while
+    treating it as pending merely delays until the timeout, which reports loudly.
+    """
+    value = decode_if_bytes(value)
+    try:
+        return float(value) == 0.0
+    except (TypeError, ValueError):
+        return str(value).strip().lower() in ["false", "no"]
 
 
 def flat_reply_to_dict(reply):

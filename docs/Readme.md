@@ -102,16 +102,37 @@ number is meaningful is *when* the index gets created relative to the documents:
   benchmark that does not build an index in the background produces no
   datapoint instead of a misleading one.
 
+Strictly, an absent measurement means *no index build outlived the first
+`FT.INFO` round trip*, which is the same thing in practice but not identical: a
+genuine background scan over a tiny keyspace can finish before the first poll and
+be reported the same way as the index-first case.
+
 Notes:
 
-- `FT.INFO` is polled once per second while indexing is in progress. Override
-  with the `SEARCH_INDEXING_POLL_INTERVAL_SECS` environment variable; keep it
-  coarse enough not to perturb the thing being measured.
+- **the poll interval sets the metric's resolution.** The recorded duration runs
+  until the first poll that observes `indexing: 0`, so it is an upper bound: it
+  over-reports by up to one interval and quantises to it. `FT.INFO` is therefore
+  polled on a growing interval, starting at 50 ms and doubling up to 1 s, which
+  keeps the error small for short builds without hammering a long one. Both ends
+  are overridable ( `SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS`,
+  `SEARCH_INDEXING_POLL_INTERVAL_SECS` ) -- raising the minimum trades resolution
+  for less interference with the thing being measured.
+  Do not put a build of only a few seconds behind `comparison`: at that scale the
+  quantisation alone can read as a regression. The metric earns its keep on builds
+  well above the maximum interval, like the ~1.7M document example.
+- the wait is bounded by `SEARCH_INDEXING_TIMEOUT_SECS` ( 3 hours by default, far
+  above any real build so that it only catches a genuine hang ) and raises when
+  exceeded, naming the index and its last observed `indexing` value.
+  A value that cannot be read as a number is treated as still indexing rather
+  than as done, so an unexpected reply surfaces as that timeout instead of a
+  bogus fast measurement.
 - the wait covers every index returned by `FT._LIST`, so with more than one
   index the duration is until the last one finished.
-- on `oss-cluster` a single connection is enough: the coordinator aggregates
-  `FT.INFO`'s `indexing` as a sum across shards, so `indexing: 0` means every
-  shard finished.
+- only `redis_conns[0]` is polled. On `oss-cluster` that is enough because
+  `FT.INFO` is served by the coordinator, which aggregates `indexing` as a sum
+  across shards ( `InfoField_WholeSum` in `src/coord/info_command.c` ), so
+  `indexing: 0` means every shard finished. This single-connection behaviour
+  predates the measurement.
 - the measurement is only taken when the db is spun up. A test that reuses the
   environment of a previous test records none.
 - this is a measurement, not a gate. Nothing here fails a run.

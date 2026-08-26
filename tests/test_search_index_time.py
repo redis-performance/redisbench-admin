@@ -1,10 +1,13 @@
 import yaml
 
+import pytest
+
 from redisbench_admin.run.common import (
     check_dbconfig_keyspacelen_requirement,
     check_dbconfig_tool_requirement,
     decode_if_bytes,
     flat_reply_to_dict,
+    reply_field_is_zero,
     run_redis_pre_steps,
     search_specific_init,
 )
@@ -88,7 +91,71 @@ def test_flat_reply_to_dict():
     assert flat_reply_to_dict(reply)["indexing"] == 0
 
 
+def test_reply_field_is_zero_across_reply_types():
+    # every spelling of zero has to end the wait
+    assert reply_field_is_zero(0) is True
+    assert reply_field_is_zero(0.0) is True
+    assert reply_field_is_zero("0") is True
+    assert reply_field_is_zero(b"0") is True
+    assert reply_field_is_zero("0.000000") is True
+    assert reply_field_is_zero(False) is True
+    assert reply_field_is_zero("false") is True
+    # and everything else must not
+    assert reply_field_is_zero(1) is False
+    assert reply_field_is_zero(b"1") is False
+    assert reply_field_is_zero(True) is False
+    # an unreadable value must not be mistaken for done: recording a bogus fast
+    # measurement is worse than waiting until the timeout reports it
+    assert reply_field_is_zero("garbage") is False
+    assert reply_field_is_zero(None) is False
+
+
+def test_search_specific_init_backs_the_poll_interval_off(monkeypatch):
+    slept = []
+    monkeypatch.setattr("time.sleep", lambda secs: slept.append(secs))
+    monkeypatch.setattr(
+        "redisbench_admin.run.common.SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS", 0.05
+    )
+    monkeypatch.setattr(
+        "redisbench_admin.run.common.SEARCH_INDEXING_POLL_INTERVAL_SECS", 0.2
+    )
+    conn = FakeSearchRedis(
+        [ft_info_reply(1)] * 5 + [ft_info_reply(0)],
+    )
+    assert "index_time_secs" in search_specific_init(conn, ["search"])
+    # short first, so a fast build is not over-reported, then capped
+    assert slept == [0.05, 0.1, 0.2, 0.2, 0.2]
+
+
+def test_search_specific_init_times_out(monkeypatch):
+    monkeypatch.setattr("time.sleep", lambda secs: None)
+    monkeypatch.setattr(
+        "redisbench_admin.run.common.SEARCH_INDEXING_TIMEOUT_SECS", -1.0
+    )
+    conn = FakeSearchRedis([ft_info_reply(1, percent_indexed=0.5)])
+    with pytest.raises(Exception) as excinfo:
+        search_specific_init(conn, ["search"])
+    assert "Gave up after" in str(excinfo.value)
+    # the message must name the index and its last observed state
+    assert "idx" in str(excinfo.value)
+    assert "indexing=" in str(excinfo.value)
+
+
+def test_search_specific_init_unreadable_field_is_not_treated_as_done(monkeypatch):
+    monkeypatch.setattr("time.sleep", lambda secs: None)
+    monkeypatch.setattr(
+        "redisbench_admin.run.common.SEARCH_INDEXING_TIMEOUT_SECS", -1.0
+    )
+    conn = FakeSearchRedis([ft_info_reply("unexpected")])
+    with pytest.raises(Exception) as excinfo:
+        search_specific_init(conn, ["search"])
+    assert "Gave up after" in str(excinfo.value)
+
+
 def test_search_specific_init_times_the_index_build(monkeypatch):
+    monkeypatch.setattr(
+        "redisbench_admin.run.common.SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS", 0.001
+    )
     monkeypatch.setattr(
         "redisbench_admin.run.common.SEARCH_INDEXING_POLL_INTERVAL_SECS", 0.001
     )
@@ -119,6 +186,9 @@ def test_search_specific_init_records_nothing_when_no_scan_was_running():
 
 def test_search_specific_init_handles_resp2_byte_replies(monkeypatch):
     monkeypatch.setattr(
+        "redisbench_admin.run.common.SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS", 0.001
+    )
+    monkeypatch.setattr(
         "redisbench_admin.run.common.SEARCH_INDEXING_POLL_INTERVAL_SECS", 0.001
     )
     conn = FakeSearchRedis(
@@ -130,6 +200,9 @@ def test_search_specific_init_handles_resp2_byte_replies(monkeypatch):
 
 
 def test_search_specific_init_waits_for_every_index(monkeypatch):
+    monkeypatch.setattr(
+        "redisbench_admin.run.common.SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS", 0.001
+    )
     monkeypatch.setattr(
         "redisbench_admin.run.common.SEARCH_INDEXING_POLL_INTERVAL_SECS", 0.001
     )
@@ -168,6 +241,9 @@ BENCHMARK_CONFIG = {
 
 
 def test_run_redis_pre_steps_returns_the_index_build_time(monkeypatch):
+    monkeypatch.setattr(
+        "redisbench_admin.run.common.SEARCH_INDEXING_POLL_MIN_INTERVAL_SECS", 0.001
+    )
     monkeypatch.setattr(
         "redisbench_admin.run.common.SEARCH_INDEXING_POLL_INTERVAL_SECS", 0.001
     )
@@ -243,3 +319,45 @@ def test_example_benchmark_definition_produces_the_exported_metric():
         assert len(extract_results_table([jsonpath], results_dict)) == 1
     for jsonpath in exporter["comparison"]["metrics"]:
         assert len(extract_results_table([jsonpath], results_dict)) == 1
+
+
+def test_db_spin_functions_initialise_index_measurements_unconditionally():
+    """Both spin functions must bind index_measurements at function scope.
+
+    They assign it from run_redis_pre_steps only on the non SEARCH_CLUSTERSET
+    path, but return it unconditionally, so an assignment that lives solely
+    inside that branch is an UnboundLocalError on every clusterset run.
+    remote_db_spin needs terraform and ssh to execute, so this static check is
+    the only practical guard for that path.
+    """
+    import ast
+
+    for path, fn_name in (
+        ("redisbench_admin/run_local/local_db.py", "local_db_spin"),
+        ("redisbench_admin/run_remote/remote_db.py", "remote_db_spin"),
+    ):
+        tree = ast.parse(open(path).read())
+        fn = next(
+            n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == fn_name
+        )
+        returned = [
+            e.id
+            for n in ast.walk(fn)
+            if isinstance(n, ast.Return) and isinstance(n.value, ast.Tuple)
+            for e in n.value.elts
+            if isinstance(e, ast.Name)
+        ]
+        assert "index_measurements" in returned, fn_name
+        # an assignment directly in the function body, not nested in a branch
+        bound_at_function_scope = any(
+            isinstance(stmt, ast.Assign)
+            and any(
+                isinstance(t, ast.Name) and t.id == "index_measurements"
+                for t in stmt.targets
+            )
+            for stmt in fn.body
+        )
+        assert bound_at_function_scope, (
+            f"{fn_name} returns index_measurements without binding it at function"
+            " scope, so the SEARCH_CLUSTERSET path raises UnboundLocalError"
+        )

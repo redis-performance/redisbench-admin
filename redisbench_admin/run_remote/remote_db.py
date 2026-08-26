@@ -133,6 +133,9 @@ def remote_db_spin(
     ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
 
     full_logfiles = []
+    # on SEARCH_CLUSTERSET the pre steps run before the data load, so no index
+    # build is timed and this stays empty
+    index_measurements = {}
     cluster_enabled = False
     if setup_type == "oss-cluster":
         cluster_enabled = True
