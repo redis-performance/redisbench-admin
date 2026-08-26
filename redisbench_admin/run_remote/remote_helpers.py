@@ -27,7 +27,10 @@ from redisbench_admin.utils.remote import (
     execute_remote_commands,
     extract_redisgraph_version_from_resultdict,
 )
-from redisbench_admin.utils.results import post_process_benchmark_results
+from redisbench_admin.utils.results import (
+    merge_measurements_into_results,
+    post_process_benchmark_results,
+)
 from redisbench_admin.utils.utils import get_remote_input_file_from_url
 
 
@@ -431,9 +434,6 @@ def post_process_remote_run(
     # tool results as soon as they are read, so that everything downstream of
     # this function sees them alongside the client tool metrics
     if extra_results:
-        # local import: redisbench_admin.run.common imports from this module
-        from redisbench_admin.run.common import merge_measurements_into_results
-
         results_dict = merge_measurements_into_results(results_dict, extra_results)
         with open(local_benchmark_output_filename, "w") as json_file:
             json.dump(results_dict, json_file, indent=True)

@@ -1,6 +1,6 @@
 version: 0.5
 name: "search-background-indexing-wait-for"
-description: "Measures the RediSearch background indexing wall clock time: how long FT.INFO takes to report indexing: 0 after the index is created over an already loaded keyspace."
+description: "Measures the RediSearch background indexing wall clock time: how long FT.INFO takes to report indexing: 0 after the index is created over an already loaded keyspace. Measurement only, no pass/fail gating."
 
 metadata:
   component: "search"
@@ -40,10 +40,6 @@ clientconfig:
   benchmark_type: "mixed"
   tool: memtier_benchmark
   arguments: "--test-time 1 -c 1 -t 1 --ratio 0:1 --hide-histogram --command 'PING'"
-
-kpis:
-  - le:
-      "$.Measurements.index_time_secs": 120
 
 exporter:
   redistimeseries:

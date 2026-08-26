@@ -661,9 +661,6 @@ def run_remote_command_logic(args, project_name, project_version):
                                         "Starting common steps to cluster and standalone..."
                                     )
                                     full_logfiles = []
-                                    # reset per test: on env reuse there is no db
-                                    # spin up, so no wait_for condition is evaluated
-                                    wait_for_measurements = {}
                                     if setup_details.get("env", None) is None:
                                         if skip_remote_db_setup is False:
                                             # ensure /tmp folder is free of benchmark data from previous runs
@@ -791,6 +788,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     f"Saved environment to shared_env for dataset '{dataset_name}' and setup '{setup_name}'"
                                                 )
                                     else:
+                                        # reused env: no db spin up happened, so no
+                                        # dbconfig wait_for condition was evaluated
+                                        wait_for_measurements = {}
                                         (
                                             artifact_version,
                                             cluster_enabled,

@@ -2,12 +2,12 @@ import pytest
 import yaml
 
 from redisbench_admin.run.metrics import extract_results_table
+from redisbench_admin.utils.results import merge_measurements_into_results
 from redisbench_admin.run.common import (
     dbconfig_wait_for_conditions,
     extract_dbconfig_wait_for,
     extract_wait_for_comparison,
     flat_reply_to_dict,
-    merge_measurements_into_results,
     wait_for_compare,
     wait_for_condition,
     wait_for_covers_field,
@@ -285,14 +285,9 @@ def test_merge_measurements_into_results_overrides_non_dict_key():
     assert merged["Measurements"] == {"index_time_secs": 1.0}
 
 
-def test_wait_for_kpi_and_exporter_jsonpaths_reach_the_measurements():
-    from redisbench_admin.utils.benchmark_config import results_dict_kpi_check
-
+def test_wait_for_exporter_jsonpaths_reach_the_measurements():
     benchmark_config = yaml.safe_load(
         """
-kpis:
-  - le:
-      "$.Measurements.index_time_secs": 120
 exporter:
   redistimeseries:
     metrics:
@@ -300,16 +295,13 @@ exporter:
 """
     )
     results_dict = merge_measurements_into_results({}, {"index_time_secs": 12.5})
-    assert results_dict_kpi_check(benchmark_config, results_dict, 0) == 0
     results_table = extract_results_table(
         benchmark_config["exporter"]["redistimeseries"]["metrics"], results_dict
     )
     assert len(results_table) == 1
+    # the exported metric name is the jsonpath minus the leading "$."
     assert results_table[0][0] == "Measurements.index_time_secs"
     assert 12.5 in results_table[0]
-
-    over_kpi = merge_measurements_into_results({}, {"index_time_secs": 121.0})
-    assert results_dict_kpi_check(benchmark_config, over_kpi, 0) == 1
 
 
 def test_example_benchmark_definition_is_parseable():
@@ -323,17 +315,18 @@ def test_example_benchmark_definition_is_parseable():
     assert extract_wait_for_comparison(spec) == ("eq", 0)
     assert spec["field"] == "indexing"
     assert spec["require"] == {"percent_indexed": 1}
-    # the kpi and exporter jsonpaths must match the measurement names the
+    # measurement only: the definition must not gate the test on pass/fail
+    assert "kpis" not in benchmark_config
+    # the exporter and comparison jsonpaths must match the measurement names the
     # wait_for entry produces
     conn = FakeRedis([ft_info_reply(0)])
     measurements = wait_for_condition(dict(spec, poll_interval_ms=1), conn)
     results_dict = merge_measurements_into_results({}, measurements)
-    for jsonpath in benchmark_config["exporter"]["redistimeseries"]["metrics"]:
+    exporter = benchmark_config["exporter"]
+    for jsonpath in exporter["redistimeseries"]["metrics"]:
         assert len(extract_results_table([jsonpath], results_dict)) == 1
-    for expectation in benchmark_config["kpis"]:
-        for rules in expectation.values():
-            for jsonpath in rules.keys():
-                assert len(extract_results_table([jsonpath], results_dict)) == 1
+    for jsonpath in exporter["comparison"]["metrics"]:
+        assert len(extract_results_table([jsonpath], results_dict)) == 1
 
 
 class FakeSearchRedis:

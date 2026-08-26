@@ -29,7 +29,6 @@ from redisbench_admin.profilers.profilers_schema import (
 )
 from redisbench_admin.run.args import PROFILE_FREQ
 from redisbench_admin.run.common import (
-    merge_measurements_into_results,
     prepare_benchmark_parameters,
     get_start_time_vars,
     BENCHMARK_REPETITIONS,
@@ -76,7 +75,10 @@ from redisbench_admin.utils.local import (
     get_local_run_full_filename,
 )
 
-from redisbench_admin.utils.results import post_process_benchmark_results
+from redisbench_admin.utils.results import (
+    merge_measurements_into_results,
+    post_process_benchmark_results,
+)
 
 import threading
 
@@ -263,9 +265,6 @@ def run_local_command_logic(args, project_name, project_version):
                             # noinspection PyBroadException
                             try:
                                 dirname = args.db_dirname
-                                # reset per test: on env reuse there is no db spin
-                                # up, so no wait_for condition is evaluated
-                                wait_for_measurements = {}
                                 if setup_details["env"] is None:
                                     logging.info(
                                         "Starting setup named {} of topology type {}. Total primaries: {}".format(
@@ -353,6 +352,9 @@ def run_local_command_logic(args, project_name, project_version):
                                     logging.info(
                                         f"Reusing environment from previous benchmark for dataset reuse (dataset: {dataset_name}, setup: {setup_name})."
                                     )
+                                    # reused env: no db spin up happened, so no
+                                    # dbconfig wait_for condition was evaluated
+                                    wait_for_measurements = {}
                                     cluster_api_enabled = setup_details["env"][
                                         "cluster_api_enabled"
                                     ]

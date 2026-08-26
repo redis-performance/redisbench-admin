@@ -914,7 +914,6 @@ WAIT_FOR_DEFAULT_POLL_INTERVAL_MS = int(
 WAIT_FOR_DEFAULT_TIMEOUT_SECS = int(os.getenv("WAIT_FOR_DEFAULT_TIMEOUT_SECS", 900))
 WAIT_FOR_PROGRESS_LOG_INTERVAL_SECS = 5.0
 WAIT_FOR_COMPARISONS = ["eq", "ne", "lt", "le", "gt", "ge"]
-WAIT_FOR_MEASUREMENTS_KEY = "Measurements"
 
 
 def extract_dbconfig_wait_for(benchmark_config, dbconfig_keyname="dbconfig"):
@@ -1162,25 +1161,6 @@ def dbconfig_wait_for_conditions(wait_for_specs, redis_conn):
     if len(measurements) > 0:
         logging.info("wait_for measurements: {}".format(measurements))
     return measurements
-
-
-def merge_measurements_into_results(
-    results_dict, measurements, key=WAIT_FOR_MEASUREMENTS_KEY
-):
-    """Merge server-side measurements into the client tool results dict.
-
-    Placing them on the results dict is what makes them reachable from the
-    `exporter` yaml section via jsonpath ( $.Measurements.<name>_secs ), exactly
-    like any client tool metric.
-    """
-    if measurements is None or len(measurements) == 0:
-        return results_dict
-    if results_dict is None:
-        results_dict = {}
-    if key not in results_dict or type(results_dict[key]) != dict:
-        results_dict[key] = {}
-    results_dict[key].update(measurements)
-    return results_dict
 
 
 def dso_check(dso, local_module_file):
