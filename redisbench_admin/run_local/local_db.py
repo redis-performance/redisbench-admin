@@ -32,7 +32,11 @@ from redisbench_admin.utils.local import (
     check_dataset_local_requirements,
     is_process_alive,
 )
-from redisbench_admin.utils.utils import setup_search_clusterset, get_tmp_folder_rnd
+from redisbench_admin.utils.utils import (
+    setup_search_clusterset,
+    search_create_before_load,
+    get_tmp_folder_rnd,
+)
 
 
 def local_db_spin(
@@ -175,10 +179,11 @@ def local_db_spin(
     # Setup search CLUSTERSET if enabled (after all servers are started and cluster is set up)
     setup_search_clusterset(redis_conns, args.host, args.port, args.password)
 
-    # Run pre-steps before data loading when SEARCH_CLUSTERSET is set
-    if "SEARCH_CLUSTERSET" in os.environ:
+    # Run pre-steps before data loading when SEARCH_CREATE_BEFORE_LOAD is enabled
+    create_before_load = search_create_before_load()
+    if create_before_load:
         logging.info(
-            "SEARCH_CLUSTERSET is set. Running run_redis_pre_steps for each shard before data loading"
+            "SEARCH_CREATE_BEFORE_LOAD is enabled. Running run_redis_pre_steps for each shard before data loading"
         )
         for conn in redis_conns:
             artifact_version = run_redis_pre_steps(
@@ -246,8 +251,8 @@ def local_db_spin(
         )
     dbconfig_keyspacelen_check(benchmark_config, redis_conns, ignore_keyspace_errors)
 
-    # Only run pre_steps here if SEARCH_CLUSTERSET is not set (otherwise it was already run before data loading)
-    if "SEARCH_CLUSTERSET" not in os.environ:
+    # Only run pre_steps here if create-before-load is disabled (otherwise it was already run before data loading)
+    if not create_before_load:
         artifact_version = run_redis_pre_steps(
             benchmark_config, redis_conns[0], required_modules
         )

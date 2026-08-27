@@ -4,6 +4,8 @@ from redisbench_admin.utils.utils import (
     retrieve_local_or_remote_input_json,
     get_ts_metric_name,
     get_remote_input_file_from_url,
+    env_flag,
+    search_create_before_load,
 )
 
 
@@ -153,3 +155,47 @@ def test_get_remote_input_file_from_url():
     # Test with .dat extension
     url = "https://s3.amazonaws.com/data/benchmark_data.dat"
     assert get_remote_input_file_from_url(url) == "/tmp/input-benchmark_data.data"
+
+
+def test_env_flag(monkeypatch):
+    # unset is a distinct third state, not False
+    monkeypatch.delenv("SOME_FLAG", raising=False)
+    assert env_flag("SOME_FLAG") is None
+
+    for enabled in ["1", "true", "TRUE", "yes", "y", "on", "  True  ", "whatever"]:
+        monkeypatch.setenv("SOME_FLAG", enabled)
+        assert env_flag("SOME_FLAG") is True, enabled
+
+    for disabled in ["0", "false", "FALSE", "no", "n", "off", "", "  0  "]:
+        monkeypatch.setenv("SOME_FLAG", disabled)
+        assert env_flag("SOME_FLAG") is False, disabled
+
+
+def test_search_create_before_load_defaults_off(monkeypatch):
+    monkeypatch.delenv("SEARCH_CREATE_BEFORE_LOAD", raising=False)
+    monkeypatch.delenv("SEARCH_CLUSTERSET", raising=False)
+    assert search_create_before_load() is False
+
+
+def test_search_create_before_load_inherits_search_clusterset(monkeypatch):
+    # backwards compatibility: SEARCH_CLUSTERSET used to be the only thing
+    # driving the create-index-then-load ordering, and it is presence-based
+    monkeypatch.delenv("SEARCH_CREATE_BEFORE_LOAD", raising=False)
+    for clusterset in ["1", "yes", ""]:
+        monkeypatch.setenv("SEARCH_CLUSTERSET", clusterset)
+        assert search_create_before_load() is True, clusterset
+
+
+def test_search_create_before_load_standalone(monkeypatch):
+    # the whole point of the new var: enable the ordering without SEARCH_CLUSTERSET
+    monkeypatch.delenv("SEARCH_CLUSTERSET", raising=False)
+    monkeypatch.setenv("SEARCH_CREATE_BEFORE_LOAD", "1")
+    assert search_create_before_load() is True
+
+
+def test_search_create_before_load_explicit_opt_out(monkeypatch):
+    # an explicit disable wins over the SEARCH_CLUSTERSET fallback
+    monkeypatch.setenv("SEARCH_CLUSTERSET", "1")
+    for disabled in ["0", "false", "no", "off"]:
+        monkeypatch.setenv("SEARCH_CREATE_BEFORE_LOAD", disabled)
+        assert search_create_before_load() is False, disabled
