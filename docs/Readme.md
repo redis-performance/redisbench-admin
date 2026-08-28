@@ -84,8 +84,8 @@ exporter:
     baseline-branch: master
 ```
 
-There is nothing to declare on `dbconfig` for it. What decides whether the
-number is meaningful is *when* the index gets created relative to the documents:
+What decides whether the number is meaningful is *when* the index gets created
+relative to the documents:
 
 - **documents first, index second** -- `FT.CREATE` in `dbconfig.init_commands`
   with the documents coming from the `dbconfig` preload tool ( the dominant
@@ -95,12 +95,28 @@ number is meaningful is *when* the index gets created relative to the documents:
   which runs in between, to enforce the ordering. See
   [tests/test_data/search-background-indexing.yml](../tests/test_data/search-background-indexing.yml).
 - **index first, documents second** -- the documents are ingested by the
-  `clientconfig` tool, or `SEARCH_CLUSTERSET` is set ( which runs the
-  `init_commands` before the data load ). RediSearch registers no scan at all
-  when the keyspace is empty, indexing happens inline with the writes, and
+  `clientconfig` tool, or `SEARCH_CLUSTERSET` / `SEARCH_CREATE_BEFORE_LOAD` says
+  to run `init_commands` before the data load. RediSearch registers no scan at
+  all when the keyspace is empty, indexing happens inline with the writes, and
   **no measurement is recorded**: the metric is absent rather than 0, so a
   benchmark that does not build an index in the background produces no
   datapoint instead of a misleading one.
+
+The ordering is normally an environment decision ( `SEARCH_CREATE_BEFORE_LOAD`,
+falling back to whether `SEARCH_CLUSTERSET` is set at all -- see
+[`search_create_before_load`](../redisbench_admin/utils/utils.py) ), since it's
+usually the same for every benchmark a given CI job runs. A benchmark that
+needs the opposite ordering from the job running it can override this
+explicitly with `dbconfig.create_before_load` ( `true` / `false` ), which takes
+precedence over both env vars -- a benchmark's own requirement shouldn't depend
+on how the job invoking it happens to be wired:
+
+```yml
+dbconfig:
+  - create_before_load: false
+  - tool: ftsb_redisearch
+  # ...
+```
 
 Strictly, an absent measurement means *no index build outlived the first
 `FT.INFO` round trip*, which is the same thing in practice but not identical: a

@@ -178,18 +178,38 @@ def env_flag(var_name):
     return value.strip().lower() not in FALSY_ENV_VALUES
 
 
-def search_create_before_load():
+def _dbconfig_value(benchmark_config, key, dbconfig_keyname="dbconfig"):
+    """Read a scalar out of dbconfig, in either the dict or legacy list form."""
+    if benchmark_config is None or dbconfig_keyname not in benchmark_config:
+        return None
+    dbconfig = benchmark_config[dbconfig_keyname]
+    if isinstance(dbconfig, dict):
+        return dbconfig.get(key)
+    if isinstance(dbconfig, list):
+        for entry in dbconfig:
+            if isinstance(entry, dict) and key in entry:
+                return entry[key]
+    return None
+
+
+def search_create_before_load(benchmark_config=None):
     """Whether dbconfig init_commands (FT.CREATE) run before the dataset loads.
 
     When True the index is created on an empty keyspace and the loader indexes
     incrementally as it writes; when False the data is loaded first and the
     index backfills afterwards.
 
-    SEARCH_CREATE_BEFORE_LOAD decides it. If that var is unset we fall back to
-    the presence of SEARCH_CLUSTERSET, which used to be the only thing driving
-    this ordering, so existing SEARCH_CLUSTERSET runs are unaffected. Setting
-    SEARCH_CREATE_BEFORE_LOAD=0 opts out even under SEARCH_CLUSTERSET.
+    Precedence: an explicit `dbconfig.create_before_load` in the benchmark yml
+    wins first -- a benchmark's own ordering requirement shouldn't depend on
+    how the CI job that happens to run it is wired. Otherwise
+    SEARCH_CREATE_BEFORE_LOAD decides it. If that var is unset too we fall back
+    to the presence of SEARCH_CLUSTERSET, which used to be the only thing
+    driving this ordering, so existing SEARCH_CLUSTERSET runs are unaffected.
+    Setting SEARCH_CREATE_BEFORE_LOAD=0 opts out even under SEARCH_CLUSTERSET.
     """
+    yaml_value = _dbconfig_value(benchmark_config, "create_before_load")
+    if yaml_value is not None:
+        return bool(yaml_value)
     explicit = env_flag("SEARCH_CREATE_BEFORE_LOAD")
     if explicit is not None:
         return explicit

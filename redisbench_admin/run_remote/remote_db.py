@@ -324,7 +324,7 @@ def remote_db_spin(
         for redis_conn in redis_conns:
             redis_conn.flushall()
     # Run pre-steps before data loading when SEARCH_CREATE_BEFORE_LOAD is enabled
-    create_before_load = search_create_before_load()
+    create_before_load = search_create_before_load(benchmark_config)
     if create_before_load:
         logging.info(
             "SEARCH_CREATE_BEFORE_LOAD is enabled. Running run_redis_pre_steps for each shard before data loading"

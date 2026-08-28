@@ -182,7 +182,7 @@ def local_db_spin(
     setup_search_clusterset(redis_conns, args.host, args.port, args.password)
 
     # Run pre-steps before data loading when SEARCH_CREATE_BEFORE_LOAD is enabled
-    create_before_load = search_create_before_load()
+    create_before_load = search_create_before_load(benchmark_config)
     if create_before_load:
         logging.info(
             "SEARCH_CREATE_BEFORE_LOAD is enabled. Running run_redis_pre_steps for each shard before data loading"
