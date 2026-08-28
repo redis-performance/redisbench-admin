@@ -5,7 +5,6 @@
 #
 import datetime
 import logging
-import os
 import redis
 
 from redisbench_admin.environments.oss_cluster import setup_redis_cluster_from_conns
@@ -37,7 +36,10 @@ from redisbench_admin.utils.remote import (
     check_dataset_remote_requirements,
     get_run_full_filename,
 )
-from redisbench_admin.utils.utils import setup_search_clusterset
+from redisbench_admin.utils.utils import (
+    setup_search_clusterset,
+    search_create_before_load,
+)
 
 
 def remote_tmpdir_prune(
@@ -321,10 +323,11 @@ def remote_db_spin(
         )
         for redis_conn in redis_conns:
             redis_conn.flushall()
-    # Run pre-steps before data loading when SEARCH_CLUSTERSET is set
-    if "SEARCH_CLUSTERSET" in os.environ:
+    # Run pre-steps before data loading when SEARCH_CREATE_BEFORE_LOAD is enabled
+    create_before_load = search_create_before_load()
+    if create_before_load:
         logging.info(
-            "SEARCH_CLUSTERSET is set. Running run_redis_pre_steps for each shard before data loading"
+            "SEARCH_CREATE_BEFORE_LOAD is enabled. Running run_redis_pre_steps for each shard before data loading"
         )
         for conn in redis_conns:
             # the indices are created here, before the data load, so there is no
@@ -448,8 +451,8 @@ def remote_db_spin(
         ignore_keyspace_errors,
         keyspace_check_timeout,
     )
-    # Only run pre_steps here if SEARCH_CLUSTERSET is not set (otherwise it was already run before data loading)
-    if "SEARCH_CLUSTERSET" not in os.environ:
+    # Only run pre_steps here if create-before-load is disabled (otherwise it was already run before data loading)
+    if not create_before_load:
         artifact_version, index_measurements = run_redis_pre_steps(
             benchmark_config, redis_conns[0], required_modules
         )

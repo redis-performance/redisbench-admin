@@ -160,6 +160,42 @@ def generate_common_server_args(
     return command
 
 
+# Values that explicitly disable a boolean env var. Any other non-empty value
+# enables it, keeping the "setting the var turns it on" convention used by the
+# other env vars in this module.
+FALSY_ENV_VALUES = {"", "0", "false", "no", "n", "off"}
+
+
+def env_flag(var_name):
+    """Tri-state read of a boolean environment variable.
+
+    Returns None when the var is unset so callers can tell "the user did not
+    express an opinion" apart from "the user explicitly disabled this".
+    """
+    value = os.getenv(var_name)
+    if value is None:
+        return None
+    return value.strip().lower() not in FALSY_ENV_VALUES
+
+
+def search_create_before_load():
+    """Whether dbconfig init_commands (FT.CREATE) run before the dataset loads.
+
+    When True the index is created on an empty keyspace and the loader indexes
+    incrementally as it writes; when False the data is loaded first and the
+    index backfills afterwards.
+
+    SEARCH_CREATE_BEFORE_LOAD decides it. If that var is unset we fall back to
+    the presence of SEARCH_CLUSTERSET, which used to be the only thing driving
+    this ordering, so existing SEARCH_CLUSTERSET runs are unaffected. Setting
+    SEARCH_CREATE_BEFORE_LOAD=0 opts out even under SEARCH_CLUSTERSET.
+    """
+    explicit = env_flag("SEARCH_CREATE_BEFORE_LOAD")
+    if explicit is not None:
+        return explicit
+    return os.getenv("SEARCH_CLUSTERSET") is not None
+
+
 def setup_search_clusterset(
     redis_conns, host="127.0.0.1", start_port=6379, password=None
 ):
