@@ -63,6 +63,78 @@ exporter:
 
 ```
 
+## Secondary index build time (`Measurements.index_time_secs`)
+
+Before handing over to the client tool, the runners always block until every
+RediSearch secondary index reports `indexing: 0`, so that no benchmark ever runs
+against a half built index. That wait is now timed, and the duration is recorded
+as `index_time_secs` / `index_time_ms` under `Measurements` on the benchmark
+results, reachable from the `exporter` and `comparison` sections via jsonpath
+like any client tool metric:
+
+```yml
+exporter:
+  redistimeseries:
+    metrics:
+      - "$.Measurements.index_time_secs"
+  comparison:
+    metrics:
+      - "$.Measurements.index_time_secs"
+    mode: lower-better
+    baseline-branch: master
+```
+
+There is nothing to declare on `dbconfig` for it. What decides whether the
+number is meaningful is *when* the index gets created relative to the documents:
+
+- **documents first, index second** -- `FT.CREATE` in `dbconfig.init_commands`
+  with the documents coming from the `dbconfig` preload tool ( the dominant
+  pattern in the RediSearch specs ) or from `dbconfig.dataset` ( rdb ). Both run
+  before the `init_commands`, so RediSearch registers a background scan and
+  `index_time_secs` is its wall clock time. Pair it with `check.keyspacelen`,
+  which runs in between, to enforce the ordering. See
+  [tests/test_data/search-background-indexing.yml](../tests/test_data/search-background-indexing.yml).
+- **index first, documents second** -- the documents are ingested by the
+  `clientconfig` tool, or `SEARCH_CLUSTERSET` is set ( which runs the
+  `init_commands` before the data load ). RediSearch registers no scan at all
+  when the keyspace is empty, indexing happens inline with the writes, and
+  **no measurement is recorded**: the metric is absent rather than 0, so a
+  benchmark that does not build an index in the background produces no
+  datapoint instead of a misleading one.
+
+Strictly, an absent measurement means *no index build outlived the first
+`FT.INFO` round trip*, which is the same thing in practice but not identical: a
+genuine background scan over a tiny keyspace can finish before the first poll and
+be reported the same way as the index-first case.
+
+Notes:
+
+- `FT.INFO` is polled once per second while indexing is in progress, overridable
+  with `SEARCH_INDEXING_POLL_INTERVAL_SECS`. Kept coarse on purpose: `FT.INFO`
+  takes the spec lock, and polling harder would perturb the thing being measured.
+  The recorded duration runs until the first poll that observes `indexing: 0`, so
+  it is an upper bound quantised to that interval -- fine for the multi-second
+  builds this is meant for, not for gating a build of a second or two.
+- the clock starts when the `init_commands` return, not at the `FT.CREATE` itself.
+  With the index created by the last init command those are the same instant; with
+  further commands after it, their duration lands outside the measurement.
+- the wait is bounded by `SEARCH_INDEXING_TIMEOUT_SECS` ( 3 hours by default, far
+  above any real build so that it only catches a genuine hang ) and raises when
+  exceeded, naming the index and its last observed `indexing` value.
+  A value that cannot be read as a number is treated as still indexing rather
+  than as done, so an unexpected reply surfaces as that timeout instead of a
+  bogus fast measurement.
+- the wait covers every index returned by `FT._LIST`, so with more than one
+  index the duration is until the last one finished.
+- only `redis_conns[0]` is polled. On `oss-cluster` that is enough because
+  `FT.INFO` is served by the coordinator, which aggregates `indexing` as a sum
+  across shards ( `InfoField_WholeSum` in `src/coord/info_command.c` ), so
+  `indexing: 0` means every shard finished. This single-connection behaviour
+  predates the measurement.
+- the measurement is only taken when the db is spun up. A test that reuses the
+  environment of a previous test records none.
+- this is a measurement, not a gate. Nothing here fails a run.
+
 # Running benchmarks
 
 The benchmark automation currently allows running benchmarks in various environments:

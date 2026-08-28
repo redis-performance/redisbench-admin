@@ -66,6 +66,17 @@ CIRCLE_JOB = os.getenv("CIRCLE_JOB", None)
 WH_TOKEN = os.getenv("PERFORMANCE_WH_TOKEN", None)
 PERFORMANCE_GH_TOKEN = os.getenv("PERFORMANCE_GH_TOKEN", None)
 REDIS_BINARY = os.getenv("REDIS_BINARY", "redis-server")
+# how often FT.INFO is polled while waiting for the secondary indices to be
+# built. kept coarse enough not to perturb the very thing being measured
+SEARCH_INDEXING_POLL_INTERVAL_SECS = float(
+    os.getenv("SEARCH_INDEXING_POLL_INTERVAL_SECS", 1.0)
+)
+# the wait used to be unbounded. a ceiling turns a stuck or unreadable index into
+# a failed test instead of a job that hangs until CI kills it. deliberately far
+# above any real build ( 3 hours ) so that it only ever catches a genuine hang
+SEARCH_INDEXING_TIMEOUT_SECS = float(
+    os.getenv("SEARCH_INDEXING_TIMEOUT_SECS", 3 * 60 * 60)
+)
 
 
 def extract_input_file_url_from_parameters(entry, benchmark_tool):
@@ -800,13 +811,25 @@ def merge_default_and_config_metrics(
 
 
 def run_redis_pre_steps(benchmark_config, r, required_modules):
+    """Run the pre-benchmark db steps and return (artifact_version, measurements).
+
+    `measurements` holds the server side timings collected here -- currently the
+    secondary index build time -- which the callers merge into the benchmark
+    results dict so that the `exporter` yaml section can reference them.
+    """
     # In case we have modules we use it's artifact version
     # otherwise we use redis version as artifact version
     version = "N/A"
+    measurements = {}
     # run initialization commands before benchmark starts
     logging.info("Running initialization commands before benchmark starts.")
     execute_init_commands_start_time = datetime.datetime.now()
     execute_init_commands(benchmark_config, r)
+    # a FT.CREATE among the init commands has already kicked off its background
+    # scan by the time they return, so the index build clock starts here. Anything
+    # after this point -- the asm commands, the info modules round trip -- runs
+    # while the scan does, and would otherwise be silently left out of it
+    indexing_start_time = time.time()
     execute_asm_commands(benchmark_config, r)
     execute_init_commands_duration_seconds = (
         datetime.datetime.now() - execute_init_commands_start_time
@@ -827,7 +850,7 @@ def run_redis_pre_steps(benchmark_config, r, required_modules):
         logging.info(
             "Detected redisearch module. Ensuring all indices are indexed prior benchmark"
         )
-        search_specific_init(r, module_names)
+        measurements = search_specific_init(r, module_names, indexing_start_time)
     if required_modules is not None and len(required_modules) > 0:
         check_required_modules(module_names, required_modules)
 
@@ -835,7 +858,7 @@ def run_redis_pre_steps(benchmark_config, r, required_modules):
     else:
         version = r.info("server")["redis_version"]
 
-    return version
+    return version, measurements
 
 
 def run_redis_post_steps(benchmark_config, r):
@@ -852,41 +875,134 @@ def run_redis_post_steps(benchmark_config, r):
     )
 
 
-def search_specific_init(r, module_names):
-    if "search" in module_names:
-        logging.info(
-            "Given redisearch was detected, checking for any index that is still indexing."
-        )
-        loading_indices = r.execute_command("ft._list")
-        logging.info("Detected {} indices.".format(len(loading_indices)))
-        while len(loading_indices) > 0:
+def search_specific_init(r, module_names, start_time=None):
+    """Block until every secondary index finished indexing, and time the wait.
+
+    The wait itself is not new: the runners have always blocked here so that the
+    client phase never starts against a half built index. What is new is that we
+    return how long it took, which is the background indexing wall clock time
+    whenever the index was created over an already loaded keyspace -- the
+    dbconfig preload tool and the rdb dataset both run before the init_commands
+    that create it.
+
+    `start_time` is when the work being timed began, normally the moment the
+    dbconfig init commands returned. Defaults to now, which undercounts by
+    however long the caller took to get here.
+
+    Returns a measurements dict, empty unless at least one index was actually
+    caught mid scan. Benchmarks that create the index before the documents exist
+    ( RediSearch registers no scan when the keyspace is empty ) get no datapoint
+    rather than a misleading 0.
+    """
+    measurements = {}
+    if "search" not in module_names:
+        return measurements
+    if start_time is None:
+        start_time = time.time()
+    logging.info(
+        "Given redisearch was detected, checking for any index that is still indexing."
+    )
+    pending_indices = [
+        decode_if_bytes(index_name) for index_name in r.execute_command("ft._list")
+    ]
+    logging.info("Detected {} indices.".format(len(pending_indices)))
+    caught_indexing = False
+    last_seen = {}
+    while len(pending_indices) > 0:
+        still_pending = []
+        for fts_indexname in pending_indices:
+            ft_info = flat_reply_to_dict(
+                r.execute_command("ft.info {}".format(fts_indexname))
+            )
+            # default to None, not 0: an absent field must not read as "done".
+            # reply_field_is_zero(None) is False, so a reply without `indexing`
+            # keeps the index pending and surfaces at the timeout, rather than
+            # silently skipping the barrier the client phase relies on
+            is_indexing = decode_if_bytes(ft_info.get("indexing", None))
+            percent_indexed = decode_if_bytes(ft_info.get("percent_indexed", "n/a"))
             logging.info(
-                "There are still {} indices loading. {}".format(
-                    len(loading_indices), loading_indices
+                "index={} indexing={} ; percent_indexed={}.".format(
+                    fts_indexname, is_indexing, percent_indexed
                 )
             )
-            for index_pos, fts_indexname in enumerate(loading_indices, start=0):
-                if type(fts_indexname) == bytes:
-                    fts_indexname = fts_indexname.decode()
-                ft_info = r.execute_command("ft.info {}".format(fts_indexname))
-                is_indexing = None
-                percent_indexed = "0.0"
-                for arraypos, arrayval in enumerate(ft_info, start=0):
-                    if arrayval == b"percent_indexed" or arrayval == "percent_indexed":
-                        percent_indexed = ft_info[arraypos + 1]
-                    if arrayval == b"indexing" or arrayval == "indexing":
-                        is_indexing = ft_info[arraypos + 1]
-
-                logging.info(
-                    "indexing={} ; percent_indexed={}.".format(
-                        is_indexing, percent_indexed
+            last_seen[fts_indexname] = is_indexing
+            if not reply_field_is_zero(is_indexing):
+                caught_indexing = True
+                still_pending.append(fts_indexname)
+        pending_indices = still_pending
+        # only sleep while there is still work left, so the measured duration is
+        # not inflated by a trailing poll interval
+        if len(pending_indices) > 0:
+            elapsed_secs = time.time() - start_time
+            if elapsed_secs > SEARCH_INDEXING_TIMEOUT_SECS:
+                raise Exception(
+                    "Gave up after {:.0f} secs waiting for the secondary indices {}"
+                    " to be built. Last observed indexing={}. Raise"
+                    " SEARCH_INDEXING_TIMEOUT_SECS if the build legitimately takes"
+                    " this long.".format(
+                        elapsed_secs,
+                        pending_indices,
+                        {k: last_seen[k] for k in pending_indices},
                     )
                 )
-                if is_indexing == "0" or is_indexing == b"0" or is_indexing == 0:
-                    loading_indices.pop(index_pos)
+            logging.info(
+                "There are still {} indices indexing. {}".format(
+                    len(pending_indices), pending_indices
+                )
+            )
+            time.sleep(SEARCH_INDEXING_POLL_INTERVAL_SECS)
+    duration_secs = time.time() - start_time
+    if caught_indexing:
+        measurements = {
+            "index_time_secs": duration_secs,
+            "index_time_ms": duration_secs * 1000.0,
+        }
+        logging.info(
+            "Loaded all secondary indices. Background indexing took {:.3f} secs.".format(
+                duration_secs
+            )
+        )
+    else:
+        logging.info(
+            "Loaded all secondary indices. No index was being built in the"
+            " background, so no index_time is recorded."
+        )
+    return measurements
 
-            time.sleep(5)
-        logging.info("Loaded all secondary indices.")
+
+def decode_if_bytes(value):
+    return value.decode() if type(value) == bytes else value
+
+
+def reply_field_is_zero(value):
+    """True when a reply field means zero, whatever type it arrives as.
+
+    `indexing` can reach us as an int, a float ( "0.000000" ), a byte string or,
+    on RESP3, a bool, and every one of those has to end the wait. Anything that
+    does not parse as a number is deliberately NOT treated as zero: mistaking an
+    unreadable value for "done" would record a bogus fast measurement, while
+    treating it as pending merely delays until the timeout, which reports loudly.
+    """
+    value = decode_if_bytes(value)
+    try:
+        return float(value) == 0.0
+    except (TypeError, ValueError):
+        return str(value).strip().lower() in ["false", "no"]
+
+
+def flat_reply_to_dict(reply):
+    """Convert a flat key/value array reply (FT.INFO, ...) into a dict.
+
+    Keys are decoded so that field lookups match independently of the client's
+    decode_responses setting. RESP3 map replies are already dicts and only need
+    their keys decoded.
+    """
+    if type(reply) == dict:
+        return {decode_if_bytes(k): v for k, v in reply.items()}
+    reply_dict = {}
+    for pos in range(0, len(reply) - 1, 2):
+        reply_dict[decode_if_bytes(reply[pos])] = reply[pos + 1]
+    return reply_dict
 
 
 def dso_check(dso, local_module_file):

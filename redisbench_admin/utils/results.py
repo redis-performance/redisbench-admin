@@ -12,6 +12,26 @@ from redisbench_admin.run.redis_benchmark.redis_benchmark import (
 )
 from redisbench_admin.run.ycsb.ycsb import post_process_ycsb_results
 
+MEASUREMENTS_KEY = "Measurements"
+
+
+def merge_measurements_into_results(results_dict, measurements, key=MEASUREMENTS_KEY):
+    """Merge server-side measurements into the client tool results dict.
+
+    Server-side measurements ( e.g. the secondary index build time ) only become
+    reachable from the `exporter` yaml section via jsonpath
+    ( $.Measurements.index_time_secs ) once they sit on the results dict, exactly
+    like any client tool metric.
+    """
+    if measurements is None or len(measurements) == 0:
+        return results_dict
+    if results_dict is None:
+        results_dict = {}
+    if key not in results_dict or type(results_dict[key]) != dict:
+        results_dict[key] = {}
+    results_dict[key].update(measurements)
+    return results_dict
+
 
 def get_key_results_and_values(results_json, step, use_result):
     selected_run = None

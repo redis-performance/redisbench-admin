@@ -1,0 +1,53 @@
+version: 0.5
+name: "search-background-indexing"
+description: "Measures the RediSearch background indexing wall clock time: how long the runners block waiting for FT.INFO to report indexing: 0 after the index is created over an already loaded keyspace. Measurement only, no pass/fail gating."
+
+metadata:
+  component: "search"
+
+setups:
+  - oss-standalone
+
+remote:
+  - type: oss-standalone
+  - setup: redisearch-m7
+
+dbconfig:
+  # the documents land first: the dbconfig preload tool runs before the
+  # init_commands, so the FT.CREATE below sees a full keyspace and RediSearch
+  # registers a background scan ( it no-ops when DbSize is 0 ). loading the same
+  # csv from clientconfig instead would put the index ahead of the documents and
+  # there would be no background indexing to measure at all
+  - dataset_name: "1700K-docs-union-iterators.idx133-bgindex"
+  - tool: ftsb_redisearch
+  - parameters:
+    - workers: 64
+    - reporting-period: 1s
+    - input: "https://s3.amazonaws.com/benchmarks.redislabs/redisearch/datasets/1700K-docs-union-iterators/1700K-docs-union-iterators.idx133.commands.SETUP.csv"
+  - dataset_load_timeout_secs: 180
+  # enforces that every document is in place before the index gets created
+  - check:
+      keyspacelen: 1667304
+  - init_commands:
+    - '"FT.CREATE" "idx133" "PREFIX" "1" "idx133:" "SCHEMA" "field1" "NUMERIC" "field2" "TEXT" "field3" "TEXT" "field4" "NUMERIC" "field5" "NUMERIC" "field6" "NUMERIC" "field7" "NUMERIC" "field8" "NUMERIC" "field9" "NUMERIC"'
+
+clientconfig:
+  # this test measures a server side timing, the client is only here because the
+  # runners require a benchmark tool. its results are not used
+  benchmark_type: "mixed"
+  tool: memtier_benchmark
+  arguments: "--test-time 1 -c 1 -t 1 --ratio 0:1 --hide-histogram --command 'PING'"
+
+# index_time_secs is recorded automatically by the pre-benchmark steps, there is
+# nothing to declare for it. it is simply absent when no index was built in the
+# background, so a benchmark that does not do one produces no datapoint rather
+# than a misleading 0
+exporter:
+  redistimeseries:
+    metrics:
+      - "$.Measurements.index_time_secs"
+  comparison:
+    metrics:
+      - "$.Measurements.index_time_secs"
+    mode: lower-better
+    baseline-branch: master

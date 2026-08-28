@@ -661,6 +661,10 @@ def run_remote_command_logic(args, project_name, project_version):
                                         "Starting common steps to cluster and standalone..."
                                     )
                                     full_logfiles = []
+                                    # empty means no index build was timed: either
+                                    # the env is reused below, so there was no db
+                                    # spin up, or nothing was indexing during it
+                                    index_measurements = {}
                                     if setup_details.get("env", None) is None:
                                         if skip_remote_db_setup is False:
                                             # ensure /tmp folder is free of benchmark data from previous runs
@@ -685,6 +689,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             return_code,
                                             server_plaintext_port,
                                             ssh_tunnel,
+                                            index_measurements,
                                         ) = remote_db_spin(
                                             allowed_tools,
                                             benchmark_config,
@@ -1045,6 +1050,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                         True,
                                         redis_password,
                                         architecture,
+                                        index_measurements,
                                     )
 
                                     # --- parca-agent per-test label cleanup ---
