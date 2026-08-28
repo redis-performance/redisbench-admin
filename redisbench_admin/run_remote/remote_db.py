@@ -133,6 +133,9 @@ def remote_db_spin(
     ) = extract_redis_dbconfig_parameters(benchmark_config, "dbconfig")
 
     full_logfiles = []
+    # on SEARCH_CLUSTERSET the pre steps run before the data load, so no index
+    # build is timed and this stays empty
+    index_measurements = {}
     cluster_enabled = False
     if setup_type == "oss-cluster":
         cluster_enabled = True
@@ -324,7 +327,9 @@ def remote_db_spin(
             "SEARCH_CLUSTERSET is set. Running run_redis_pre_steps for each shard before data loading"
         )
         for conn in redis_conns:
-            artifact_version = run_redis_pre_steps(
+            # the indices are created here, before the data load, so there is no
+            # background index build to time
+            artifact_version, _ = run_redis_pre_steps(
                 benchmark_config, conn, required_modules
             )
     logging.info("Starting dataset loading...")
@@ -445,7 +450,7 @@ def remote_db_spin(
     )
     # Only run pre_steps here if SEARCH_CLUSTERSET is not set (otherwise it was already run before data loading)
     if "SEARCH_CLUSTERSET" not in os.environ:
-        artifact_version = run_redis_pre_steps(
+        artifact_version, index_measurements = run_redis_pre_steps(
             benchmark_config, redis_conns[0], required_modules
         )
     return (
@@ -457,6 +462,7 @@ def remote_db_spin(
         return_code,
         server_plaintext_port,
         ssh_tunnel,
+        index_measurements,
     )
 
 

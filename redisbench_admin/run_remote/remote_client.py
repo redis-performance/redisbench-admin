@@ -54,6 +54,7 @@ def run_remote_client_tool(
     do_post_process=True,
     redis_password=None,
     architecture="x86_64",
+    extra_results=None,
 ):
     (
         benchmark_min_tool_version,
@@ -225,6 +226,7 @@ def run_remote_client_tool(
                 start_time_str,
                 stdout,
                 tmp,
+                extra_results=extra_results,
             )
     else:
         logging.error(

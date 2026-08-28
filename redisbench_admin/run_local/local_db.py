@@ -52,6 +52,7 @@ def local_db_spin(
 ):
     redis_conns = []
     artifact_version = "n/a"
+    index_measurements = {}
     result = True
     temporary_dir = get_tmp_folder_rnd(dirname)
     # Create the temporary directory
@@ -80,6 +81,7 @@ def local_db_spin(
                 cluster_api_enabled,
                 redis_conns,
                 redis_processes,
+                index_measurements,
             )
     else:
         if args.skip_redis_spin is False:
@@ -181,7 +183,9 @@ def local_db_spin(
             "SEARCH_CLUSTERSET is set. Running run_redis_pre_steps for each shard before data loading"
         )
         for conn in redis_conns:
-            artifact_version = run_redis_pre_steps(
+            # the indices are created here, before the data load, so there is no
+            # background index build to time
+            artifact_version, _ = run_redis_pre_steps(
                 benchmark_config, conn, required_modules
             )
 
@@ -248,8 +252,15 @@ def local_db_spin(
 
     # Only run pre_steps here if SEARCH_CLUSTERSET is not set (otherwise it was already run before data loading)
     if "SEARCH_CLUSTERSET" not in os.environ:
-        artifact_version = run_redis_pre_steps(
+        artifact_version, index_measurements = run_redis_pre_steps(
             benchmark_config, redis_conns[0], required_modules
         )
 
-    return result, artifact_version, cluster_api_enabled, redis_conns, redis_processes
+    return (
+        result,
+        artifact_version,
+        cluster_api_enabled,
+        redis_conns,
+        redis_processes,
+        index_measurements,
+    )

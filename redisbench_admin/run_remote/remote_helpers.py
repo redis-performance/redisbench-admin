@@ -27,7 +27,10 @@ from redisbench_admin.utils.remote import (
     execute_remote_commands,
     extract_redisgraph_version_from_resultdict,
 )
-from redisbench_admin.utils.results import post_process_benchmark_results
+from redisbench_admin.utils.results import (
+    merge_measurements_into_results,
+    post_process_benchmark_results,
+)
 from redisbench_admin.utils.utils import get_remote_input_file_from_url
 
 
@@ -406,6 +409,7 @@ def post_process_remote_run(
     stdout,
     tmp,
     result_csv_filename="result.csv",
+    extra_results=None,
 ):
     if benchmark_tool == "redis-benchmark":
         local_benchmark_output_filename = tmp
@@ -419,12 +423,38 @@ def post_process_remote_run(
             start_time_str,
             stdout,
         )
+    results_dict = {}
+    results_file_parsed = False
     try:
         with open(local_benchmark_output_filename, "r") as json_file:
             results_dict = json.load(json_file)
+        results_file_parsed = True
     except json.decoder.JSONDecodeError as e:
-        logging.error("Received error while decoding JSON: {}".format(e.__str__()))
-        pass
+        # this used to fail the run by accident: results_dict stayed unbound and
+        # results_dict_kpi_check raised UnboundLocalError. Binding it above fixed
+        # that, but the kpi check is a no-op on a spec without `kpis`, so without
+        # this the run would go green off an unreadable client results file
+        logging.error(
+            "Unable to decode the client results file {}: {}. Failing the benchmark.".format(
+                local_benchmark_output_filename, e.__str__()
+            )
+        )
+        return_code |= 1
+    # server side measurements ( e.g. the index build time ) are merged into the
+    # client tool results as soon as they are read, so that everything downstream
+    # of this function sees them alongside the client tool metrics
+    if extra_results and results_file_parsed:
+        results_dict = merge_measurements_into_results(results_dict, extra_results)
+        with open(local_benchmark_output_filename, "w") as json_file:
+            json.dump(results_dict, json_file, indent=True)
+    elif extra_results:
+        # neither merge nor write back over a file we could not read: overwriting
+        # it would lose the artifact needed to diagnose it, and exporting a lone
+        # measurement off a broken run would read as a clean result
+        logging.warning(
+            "Not merging the server side measurements into {}: its contents could"
+            " not be parsed.".format(local_benchmark_output_filename)
+        )
     # check KPIs
     return_code = results_dict_kpi_check(benchmark_config, results_dict, return_code)
     # if the benchmark tool is redisgraph-benchmark-go and
