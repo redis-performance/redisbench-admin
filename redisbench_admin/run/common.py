@@ -48,6 +48,7 @@ from redisbench_admin.utils.benchmark_config import (
     parse_exporter_timemetric_definition,
     check_required_modules,
 )
+from redisbench_admin.utils.utils import _dbconfig_value
 from redisbench_admin.utils.redisgraph_benchmark_go import (
     get_redisbench_admin_remote_path,
 )
@@ -77,6 +78,20 @@ SEARCH_INDEXING_POLL_INTERVAL_SECS = float(
 SEARCH_INDEXING_TIMEOUT_SECS = float(
     os.getenv("SEARCH_INDEXING_TIMEOUT_SECS", 3 * 60 * 60)
 )
+
+
+def search_indexing_poll_interval_secs(benchmark_config=None):
+    """How often FT.INFO is polled while waiting for the secondary indices.
+
+    Precedence: an explicit `dbconfig.indexing_poll_interval_secs` in the
+    benchmark yml wins first -- a benchmark's own timing requirement shouldn't
+    depend on how the CI job invoking it happens to be wired. Otherwise
+    SEARCH_INDEXING_POLL_INTERVAL_SECS decides it.
+    """
+    yaml_value = _dbconfig_value(benchmark_config, "indexing_poll_interval_secs")
+    if yaml_value is not None:
+        return float(yaml_value)
+    return SEARCH_INDEXING_POLL_INTERVAL_SECS
 
 
 def extract_input_file_url_from_parameters(entry, benchmark_tool):
@@ -850,7 +865,9 @@ def run_redis_pre_steps(benchmark_config, r, required_modules):
         logging.info(
             "Detected redisearch module. Ensuring all indices are indexed prior benchmark"
         )
-        measurements = search_specific_init(r, module_names, indexing_start_time)
+        measurements = search_specific_init(
+            r, module_names, indexing_start_time, benchmark_config
+        )
     if required_modules is not None and len(required_modules) > 0:
         check_required_modules(module_names, required_modules)
 
@@ -875,7 +892,7 @@ def run_redis_post_steps(benchmark_config, r):
     )
 
 
-def search_specific_init(r, module_names, start_time=None):
+def search_specific_init(r, module_names, start_time=None, benchmark_config=None):
     """Block until every secondary index finished indexing, and time the wait.
 
     The wait itself is not new: the runners have always blocked here so that the
@@ -889,6 +906,9 @@ def search_specific_init(r, module_names, start_time=None):
     dbconfig init commands returned. Defaults to now, which undercounts by
     however long the caller took to get here.
 
+    `benchmark_config` is consulted for a `dbconfig.indexing_poll_interval_secs`
+    override of the FT.INFO poll interval; see search_indexing_poll_interval_secs.
+
     Returns a measurements dict, empty unless at least one index was actually
     caught mid scan. Benchmarks that create the index before the documents exist
     ( RediSearch registers no scan when the keyspace is empty ) get no datapoint
@@ -899,6 +919,7 @@ def search_specific_init(r, module_names, start_time=None):
         return measurements
     if start_time is None:
         start_time = time.time()
+    poll_interval_secs = search_indexing_poll_interval_secs(benchmark_config)
     logging.info(
         "Given redisearch was detected, checking for any index that is still indexing."
     )
@@ -950,7 +971,7 @@ def search_specific_init(r, module_names, start_time=None):
                     len(pending_indices), pending_indices
                 )
             )
-            time.sleep(SEARCH_INDEXING_POLL_INTERVAL_SECS)
+            time.sleep(poll_interval_secs)
     duration_secs = time.time() - start_time
     if caught_indexing:
         measurements = {

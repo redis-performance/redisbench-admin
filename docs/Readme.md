@@ -126,11 +126,22 @@ be reported the same way as the index-first case.
 Notes:
 
 - `FT.INFO` is polled once per second while indexing is in progress, overridable
-  with `SEARCH_INDEXING_POLL_INTERVAL_SECS`. Kept coarse on purpose: `FT.INFO`
-  takes the spec lock, and polling harder would perturb the thing being measured.
-  The recorded duration runs until the first poll that observes `indexing: 0`, so
-  it is an upper bound quantised to that interval -- fine for the multi-second
-  builds this is meant for, not for gating a build of a second or two.
+  with `SEARCH_INDEXING_POLL_INTERVAL_SECS`, or per benchmark with
+  `dbconfig.indexing_poll_interval_secs` ( takes precedence over the env var, same
+  as `create_before_load` above ):
+
+  ```yml
+  dbconfig:
+    - indexing_poll_interval_secs: 0.1
+    - tool: ftsb_redisearch
+    # ...
+  ```
+
+  Kept coarse on purpose: `FT.INFO` takes the spec lock, and polling harder would
+  perturb the thing being measured. The recorded duration runs until the first
+  poll that observes `indexing: 0`, so it is an upper bound quantised to that
+  interval -- a benchmark whose build is only a second or two long may need a
+  tighter interval to get a meaningful measurement at all.
 - the clock starts when the `init_commands` return, not at the `FT.CREATE` itself.
   With the index created by the last init command those are the same instant; with
   further commands after it, their duration lands outside the measurement.
