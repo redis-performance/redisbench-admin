@@ -11,6 +11,7 @@ from redisbench_admin.run.common import (
     flat_reply_to_dict,
     reply_field_is_zero,
     run_redis_pre_steps,
+    search_indexing_poll_interval_secs,
     search_specific_init,
 )
 from redisbench_admin.run.metrics import extract_results_table
@@ -114,6 +115,34 @@ def test_reply_field_is_zero_across_reply_types():
     # measurement is worse than waiting until the timeout reports it
     assert reply_field_is_zero("garbage") is False
     assert reply_field_is_zero(None) is False
+
+
+def test_search_indexing_poll_interval_secs_yaml_override(monkeypatch):
+    monkeypatch.setattr(
+        "redisbench_admin.run.common.SEARCH_INDEXING_POLL_INTERVAL_SECS", 1.0
+    )
+    # an explicit dbconfig value wins over the env-derived default
+    benchmark_config = {"dbconfig": [{"indexing_poll_interval_secs": 0.05}]}
+    assert search_indexing_poll_interval_secs(benchmark_config) == 0.05
+    # absent from the config, or no config at all, falls back to the default
+    assert search_indexing_poll_interval_secs({"dbconfig": []}) == 1.0
+    assert search_indexing_poll_interval_secs(None) == 1.0
+
+
+def test_search_specific_init_honours_a_yaml_poll_interval_override(monkeypatch):
+    slept = []
+    monkeypatch.setattr("time.sleep", lambda secs: slept.append(secs))
+    monkeypatch.setattr(
+        "redisbench_admin.run.common.SEARCH_INDEXING_POLL_INTERVAL_SECS", 1.0
+    )
+    benchmark_config = {"dbconfig": [{"indexing_poll_interval_secs": 0.01}]}
+    conn = FakeSearchRedis([ft_info_reply(1)] * 2 + [ft_info_reply(0)])
+    measurements = search_specific_init(
+        conn, ["search"], benchmark_config=benchmark_config
+    )
+    assert "index_time_secs" in measurements
+    # the yaml override, not the 1.0 default, drove every sleep
+    assert slept == [0.01] * 2
 
 
 def test_search_specific_init_never_sleeps_after_the_last_poll(monkeypatch):
