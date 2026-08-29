@@ -8,6 +8,8 @@ import os
 import sys
 import traceback
 import redis
+from redis.backoff import ExponentialBackoff
+from redis.retry import Retry
 import pytablewriter
 from pytablewriter import MarkdownTableWriter
 import redisbench_admin.run.metrics
@@ -374,11 +376,21 @@ def run_remote_command_logic(args, project_name, project_version):
                 args.redistimeseries_host, args.redistimeseries_port
             )
         )
+        # Resilient client: redis-py transparently retries transient
+        # connection/timeout errors (e.g. TCP RST from the RTS sidecar).
+        rts_retry = Retry(ExponentialBackoff(cap=10, base=1), retries=5)
         rts = redis.Redis(
             host=args.redistimeseries_host,
             port=args.redistimeseries_port,
             password=args.redistimeseries_pass,
-            retry_on_timeout=True,
+            socket_timeout=30,
+            socket_connect_timeout=10,
+            health_check_interval=30,
+            retry=rts_retry,
+            retry_on_error=[
+                redis.exceptions.ConnectionError,
+                redis.exceptions.TimeoutError,
+            ],
         )
         rts.ping()
 
@@ -1364,11 +1376,12 @@ def run_remote_command_logic(args, project_name, project_version):
                                                         expire_ms,
                                                     )
                                             except (
-                                                redis.exceptions.ConnectionError
+                                                redis.exceptions.ConnectionError,
+                                                redis.exceptions.TimeoutError,
                                             ) as e:
                                                 logging.error(
-                                                    "RedisTimeSeries connection error while pushing metrics for test '%s' "
-                                                    "(setup: '%s', branch: '%s'). The benchmark itself completed successfully, "
+                                                    "RedisTimeSeries error while pushing metrics for test '%s' "
+                                                    "(setup: '%s', branch: '%s') after client-side retries exhausted. The benchmark itself completed successfully, "
                                                     "but the metrics export to RedisTimeSeries failed: %s",
                                                     test_name,
                                                     setup_name,
@@ -1389,12 +1402,21 @@ def run_remote_command_logic(args, project_name, project_version):
                                                     username,
                                                 )
                                                 return_code |= 1
-                                                raise Exception(
-                                                    "Failed to push metrics to RedisTimeSeries for test '{}'. "
-                                                    "The benchmark ran successfully but the post-benchmark metrics export failed: {}".format(
-                                                        test_name, e
+                                                if getattr(
+                                                    args,
+                                                    "continue_on_redistimeseries_export_error",
+                                                    False,
+                                                ):
+                                                    logging.warning(
+                                                        "--continue-on-redistimeseries-export-error is set; continuing with next test."
                                                     )
-                                                )
+                                                else:
+                                                    raise Exception(
+                                                        "Failed to push metrics to RedisTimeSeries for test '{}'. "
+                                                        "The benchmark ran successfully but the post-benchmark metrics export failed: {}".format(
+                                                            test_name, e
+                                                        )
+                                                    )
 
                                         # run post commands after benchmark completes and
                                         # end-of-benchmark metrics have been collected and
