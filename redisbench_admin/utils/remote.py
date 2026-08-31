@@ -18,7 +18,6 @@ import redis
 from git import Repo
 from jsonpath_ng import parse
 from python_terraform import Terraform
-from tqdm import tqdm
 
 from redisbench_admin.environments.oss_cluster import get_cluster_dbfilename
 from redisbench_admin.run.metrics import extract_results_table
@@ -777,68 +776,156 @@ def fetch_remote_setup_from_config(
     return terraform_working_dir, setup_type, setup
 
 
+def _prepare_timeseries_entries(time_series_dict: dict):
+    """Resolve final key names and labels without touching the network.
+
+    Two things the push has to settle before it can write, both of which used to
+    happen inside the per-series round-trip loop:
+
+    * labels whose value is None cannot be sent, so they are dropped here rather
+      than failing the TS.CREATE.
+    * an aarch64 series whose key does not already say so gets the architecture
+      appended, so the two architectures do not share one series.
+    """
+    entries = []
+    for timeseries_name, time_series in time_series_dict.items():
+        final_labels = {}
+        for label_name, value in time_series.get("labels", {}).items():
+            if value is not None:
+                final_labels[label_name] = value
+            else:
+                logging.warning(
+                    f"The label {label_name} value was None. skipping it..."
+                )
+        time_series["labels"] = final_labels
+
+        arch = final_labels.get("arch", "x86_64")
+        if arch == "aarch64" and "aarch64" not in timeseries_name:
+            original_timeseries_name = timeseries_name
+            timeseries_name = f"{timeseries_name}/arch/{arch}"
+            logging.warning(
+                f"overriding key named {original_timeseries_name} given it does not "
+                f"contain arch and it's not x86_64. new key={timeseries_name}"
+            )
+        entries.append((timeseries_name, time_series))
+    return entries
+
+
 def push_data_to_redistimeseries(rts, time_series_dict: dict, expire_msecs=0):
+    """Write every series and datapoint in two round trips.
+
+    This used to cost 2-4 round trips *per series*: EXISTS, then TS.INFO to
+    compare labels or TS.CREATE, then one TS.ADD per datapoint, then an optional
+    PEXPIRE -- all sequential. That is only cheap when the exporter is next to
+    the database. Measured against a remote RedisTimeSeries at 108 ms RTT, one
+    benchmark's 8 datapoints took 6.0 s in ~28 sequential round trips.
+
+    The obstacle to batching was the conditional: you cannot pipeline
+    "TS.CREATE only if it does not exist" because the decision needs the answer.
+    So the work is split at the decision instead:
+
+      1. one pipelined TS.INFO per series -- a missing key comes back as a
+         ResponseError inside the results rather than raising, which is the same
+         signal EXISTS was being spent on, so EXISTS is no longer needed.
+      2. one pipeline carrying every TS.CREATE, TS.ALTER, TS.ADD and PEXPIRE.
+
+    Two round trips total, independent of how many series there are.
+
+    Errors are read out of the pipeline results rather than caught per call, so
+    the returned (errors, inserts) counts keep the same meaning: a partial
+    failure must not be able to look like a clean push.
+    """
     datapoint_errors = 0
     datapoint_inserts = 0
-    if rts is not None and time_series_dict is not None:
-        progress = tqdm(
-            unit="benchmark time-series", total=len(time_series_dict.values())
-        )
-        for timeseries_name, time_series in time_series_dict.items():
-            try:
-                arch = "x86_64"
-                if "arch" in time_series["labels"]:
-                    arch = time_series["labels"]["arch"]
-                if arch == "aarch64" and "aarch64" not in timeseries_name:
-                    original_timeseries_name = timeseries_name
-                    timeseries_name = f"{timeseries_name}/arch/{arch}"
-                    logging.warning(
-                        f"overriding key named {original_timeseries_name} given it does not contain arch and it's not x86_64. new key={timeseries_name}"
+    if rts is None or time_series_dict is None:
+        return datapoint_errors, datapoint_inserts
+
+    entries = _prepare_timeseries_entries(time_series_dict)
+    if len(entries) == 0:
+        return datapoint_errors, datapoint_inserts
+
+    # --- round trip 1: which series exist, and with which labels ---
+    probe = rts.ts().pipeline(transaction=False)
+    for timeseries_name, _ in entries:
+        probe.info(timeseries_name)
+    infos = probe.execute(raise_on_error=False)
+
+    # --- round trip 2: create or realign, then write every datapoint ---
+    writer = rts.ts().pipeline(transaction=False)
+    # what each queued command was, so a failure can be attributed and counted
+    planned = []
+    for (timeseries_name, time_series), info in zip(entries, infos):
+        labels = time_series["labels"]
+        if isinstance(info, Exception):
+            logging.debug(
+                "Creating timeseries named {} with labels {}".format(
+                    timeseries_name, labels
+                )
+            )
+            writer.create(timeseries_name, labels=labels, chunk_size=128)
+            planned.append(("create", timeseries_name, None))
+        else:
+            existing_labels = dict(getattr(info, "labels", None) or {})
+            if existing_labels != labels:
+                logging.info(
+                    "Given the labels don't match using TS.ALTER on {} to update "
+                    "labels to {}".format(timeseries_name, labels)
+                )
+                writer.alter(timeseries_name, labels=labels)
+                planned.append(("alter", timeseries_name, None))
+
+        for timestamp, value in time_series.get("data", {}).items():
+            if timestamp is None:
+                # "*" is the auto-timestamp form. Passing the value where the
+                # timestamp belongs, as this branch used to, drops the value
+                # argument entirely and raises TypeError -- which the old
+                # per-call handler did not catch.
+                logging.warning("The provided timestamp is null. Using auto-ts")
+                writer.add(timeseries_name, "*", value, duplicate_policy="last")
+            else:
+                writer.add(timeseries_name, timestamp, value, duplicate_policy="last")
+            planned.append(("add", timeseries_name, (timestamp, value)))
+
+        if expire_msecs > 0:
+            writer.pexpire(timeseries_name, expire_msecs)
+            planned.append(("pexpire", timeseries_name, None))
+
+    results = writer.execute(raise_on_error=False)
+
+    for (kind, timeseries_name, datapoint), result in zip(planned, results):
+        if isinstance(result, Exception):
+            if kind == "add":
+                timestamp, value = datapoint
+                logging.warning(
+                    "Error while inserting datapoint ({} : {}) in timeseries "
+                    "named {}. {}".format(
+                        timestamp, value, timeseries_name, result.__str__()
                     )
-                exporter_create_ts(rts, time_series, timeseries_name)
-                for timestamp, value in time_series["data"].items():
-                    try:
-                        if timestamp is None:
-                            logging.warning(
-                                "The provided timestamp is null. Using auto-ts"
-                            )
-                            rts.ts().add(
-                                timeseries_name,
-                                value,
-                                duplicate_policy="last",
-                            )
-                        else:
-                            rts.ts().add(
-                                timeseries_name,
-                                timestamp,
-                                value,
-                                duplicate_policy="last",
-                            )
-                        datapoint_inserts += 1
-                    except redis.exceptions.DataError:
-                        logging.warning(
-                            "Error while inserting datapoint ({} : {}) in timeseries named {}. ".format(
-                                timestamp, value, timeseries_name
-                            )
-                        )
-                        datapoint_errors += 1
-                        pass
-                    except redis.exceptions.ResponseError:
-                        logging.warning(
-                            "Error while inserting datapoint ({} : {}) in timeseries named {}. ".format(
-                                timestamp, value, timeseries_name
-                            )
-                        )
-                        datapoint_errors += 1
-                        pass
-                if expire_msecs > 0:
-                    rts.pexpire(timeseries_name, expire_msecs)
-            except redis.exceptions.TimeoutError:
-                logging.error(
-                    f"Error while working in timeseries named {timeseries_name}. "
                 )
                 datapoint_errors += 1
-            progress.update()
+            else:
+                logging.error(
+                    "Error on TS.{} for timeseries named {}: {}".format(
+                        kind.upper(), timeseries_name, result.__str__()
+                    )
+                )
+        elif kind == "add":
+            datapoint_inserts += 1
+
+    logging.info(
+        "Pushed {} datapoint(s) across {} series in 2 round trips ({} error(s)).".format(
+            datapoint_inserts, len(entries), datapoint_errors
+        )
+    )
+
+    if len(results) != len(planned):
+        # A truncated reply means commands we queued were never answered, so the
+        # counts above understate what happened. Loud rather than silent.
+        logging.error(
+            "Pipeline returned {} results for {} queued commands; some writes "
+            "are unaccounted for.".format(len(results), len(planned))
+        )
+
     return datapoint_errors, datapoint_inserts
 
 
@@ -1259,7 +1346,7 @@ def extract_perbranch_timeseries_from_results(
 ):
     break_by_key = "branch"
     break_by_str = "by.{}".format(break_by_key)
-    (branch_time_series_dict, target_tables) = common_timeseries_extraction(
+    branch_time_series_dict, target_tables = common_timeseries_extraction(
         break_by_key,
         break_by_str,
         datapoints_timestamp,
@@ -1301,7 +1388,7 @@ def extract_perhash_timeseries_from_results(
 ):
     break_by_key = "hash"
     break_by_str = "by.{}".format(break_by_key)
-    (hash_time_series_dict, target_tables) = common_timeseries_extraction(
+    hash_time_series_dict, target_tables = common_timeseries_extraction(
         break_by_key,
         break_by_str,
         datapoints_timestamp,
