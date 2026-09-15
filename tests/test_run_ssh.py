@@ -10,7 +10,7 @@ before the server has finished loading modules and binding its listening
 socket. These tests cover the retry loop that guards against that race.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 import redis
