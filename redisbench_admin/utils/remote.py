@@ -271,12 +271,69 @@ def execute_remote_commands(
     return res
 
 
+# An instance that terraform reports as running is not necessarily accepting
+# SSH yet: cloud-init is still bringing sshd up, and a connect in that window
+# fails with "Error reading SSH protocol banner" as sshd accepts the socket and
+# closes it. Provisioning several environments at once makes the window easy to
+# hit -- ten concurrent run-remote invocations lost every repetition to it.
+#
+# Authentication failures are deliberately not retried. A rejected key fails the
+# same way on every attempt, and retrying only delays a clear error by the whole
+# backoff budget.
+SSH_CONNECT_ATTEMPTS = int(os.getenv("SSH_CONNECT_ATTEMPTS", "6"))
+SSH_CONNECT_BACKOFF_SECS = float(os.getenv("SSH_CONNECT_BACKOFF_SECS", "2.0"))
+SSH_CONNECT_BACKOFF_MAX_SECS = float(os.getenv("SSH_CONNECT_BACKOFF_MAX_SECS", "30.0"))
+SSH_CONNECT_TIMEOUT_SECS = float(os.getenv("SSH_CONNECT_TIMEOUT_SECS", "30.0"))
+
+
 def connect_remote_ssh(port, private_key, server_public_ip, username):
     k = paramiko.RSAKey.from_private_key_file(private_key)
     c = paramiko.SSHClient()
     c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    logging.info("Connecting to remote server {}".format(server_public_ip))
-    c.connect(hostname=server_public_ip, port=port, username=username, pkey=k)
+    attempts = max(1, SSH_CONNECT_ATTEMPTS)
+    delay = SSH_CONNECT_BACKOFF_SECS
+    for attempt in range(1, attempts + 1):
+        logging.info(
+            "Connecting to remote server {} (attempt {}/{})".format(
+                server_public_ip, attempt, attempts
+            )
+        )
+        try:
+            c.connect(
+                hostname=server_public_ip,
+                port=port,
+                username=username,
+                pkey=k,
+                # paramiko's defaults leave the banner read effectively
+                # unbounded on a half-open socket; bound all three so a stuck
+                # handshake becomes a retry rather than a hang.
+                timeout=SSH_CONNECT_TIMEOUT_SECS,
+                banner_timeout=SSH_CONNECT_TIMEOUT_SECS,
+                auth_timeout=SSH_CONNECT_TIMEOUT_SECS,
+            )
+            break
+        except paramiko.ssh_exception.AuthenticationException:
+            raise
+        except (
+            paramiko.ssh_exception.SSHException,
+            paramiko.ssh_exception.NoValidConnectionsError,
+            EOFError,
+            OSError,
+        ) as e:
+            if attempt == attempts:
+                logging.error(
+                    "SSH to {} failed after {} attempt(s): {}".format(
+                        server_public_ip, attempts, e
+                    )
+                )
+                raise
+            logging.warning(
+                "SSH to {} failed ({}: {}); retrying in {:.1f}s".format(
+                    server_public_ip, type(e).__name__, e, delay
+                )
+            )
+            time.sleep(delay)
+            delay = min(delay * 2, SSH_CONNECT_BACKOFF_MAX_SECS)
     transport = c.get_transport()
     transport.set_keepalive(10)  # Send keepalive every 10 seconds
     logging.info("Connected to remote server {}".format(server_public_ip))

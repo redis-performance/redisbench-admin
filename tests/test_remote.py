@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 import redis
 import yaml
 
@@ -834,3 +836,106 @@ def test_get_run_full_filename_branch_with_multiple_slashes():
     )
     assert "/" not in result
     assert "feat-area-thing" in result
+
+
+def test_connect_remote_ssh_retries_transient_banner_failure(monkeypatch, tmp_path):
+    """A freshly booted instance refuses SSH before sshd is up.
+
+    The failure it produces -- "Error reading SSH protocol banner" -- is
+    transient, so the connect is retried rather than propagated. This is the
+    failure that lost every repetition of a ten-way concurrent run.
+    """
+    import paramiko
+    from redisbench_admin.utils import remote as remote_mod
+
+    attempts = {"n": 0}
+
+    class FakeTransport:
+        def set_keepalive(self, _secs):
+            pass
+
+    class FakeClient:
+        def set_missing_host_key_policy(self, _policy):
+            pass
+
+        def connect(self, **_kwargs):
+            attempts["n"] += 1
+            if attempts["n"] < 3:
+                raise paramiko.ssh_exception.SSHException(
+                    "Error reading SSH protocol banner"
+                )
+
+        def get_transport(self):
+            return FakeTransport()
+
+    monkeypatch.setattr(paramiko, "SSHClient", lambda: FakeClient())
+    monkeypatch.setattr(
+        paramiko.RSAKey, "from_private_key_file", staticmethod(lambda _p: "key")
+    )
+    monkeypatch.setattr(remote_mod.time, "sleep", lambda _s: None)
+
+    client = remote_mod.connect_remote_ssh(22, str(tmp_path / "k.pem"), "1.2.3.4", "ubuntu")
+
+    assert attempts["n"] == 3, "should have retried twice before succeeding"
+    assert client is not None
+
+
+def test_connect_remote_ssh_does_not_retry_auth_failure(monkeypatch, tmp_path):
+    """A rejected key fails identically on every attempt.
+
+    Retrying it only delays a clear error by the whole backoff budget, so
+    authentication failures propagate on the first one.
+    """
+    import paramiko
+    from redisbench_admin.utils import remote as remote_mod
+
+    attempts = {"n": 0}
+
+    class FakeClient:
+        def set_missing_host_key_policy(self, _policy):
+            pass
+
+        def connect(self, **_kwargs):
+            attempts["n"] += 1
+            raise paramiko.ssh_exception.AuthenticationException("Authentication failed.")
+
+    monkeypatch.setattr(paramiko, "SSHClient", lambda: FakeClient())
+    monkeypatch.setattr(
+        paramiko.RSAKey, "from_private_key_file", staticmethod(lambda _p: "key")
+    )
+    monkeypatch.setattr(remote_mod.time, "sleep", lambda _s: None)
+
+    with pytest.raises(paramiko.ssh_exception.AuthenticationException):
+        remote_mod.connect_remote_ssh(22, str(tmp_path / "k.pem"), "1.2.3.4", "ubuntu")
+
+    assert attempts["n"] == 1, "auth failure must not be retried"
+
+
+def test_connect_remote_ssh_gives_up_after_the_attempt_budget(monkeypatch, tmp_path):
+    """Retrying is bounded: a host that never comes up still fails the run."""
+    import paramiko
+    from redisbench_admin.utils import remote as remote_mod
+
+    attempts = {"n": 0}
+
+    class FakeClient:
+        def set_missing_host_key_policy(self, _policy):
+            pass
+
+        def connect(self, **_kwargs):
+            attempts["n"] += 1
+            raise paramiko.ssh_exception.NoValidConnectionsError(
+                {("1.2.3.4", 22): OSError("Connection refused")}
+            )
+
+    monkeypatch.setattr(paramiko, "SSHClient", lambda: FakeClient())
+    monkeypatch.setattr(
+        paramiko.RSAKey, "from_private_key_file", staticmethod(lambda _p: "key")
+    )
+    monkeypatch.setattr(remote_mod.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(remote_mod, "SSH_CONNECT_ATTEMPTS", 4)
+
+    with pytest.raises(paramiko.ssh_exception.NoValidConnectionsError):
+        remote_mod.connect_remote_ssh(22, str(tmp_path / "k.pem"), "1.2.3.4", "ubuntu")
+
+    assert attempts["n"] == 4, "should stop at the configured attempt budget"
