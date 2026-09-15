@@ -484,9 +484,15 @@ def run_remote_command_logic(args, project_name, project_version):
                 setup_settings = setup_details["setup_settings"]
                 benchmarks_map = setup_details["benchmarks"]
 
-                # Check if we have a shared environment from a previous benchmark type
+                # Check if we have a shared environment from a previous benchmark type.
+                # Only read-only benchmarks may adopt one. The reuse path asserts
+                # read-only, so handing it any other type crashes the test -- a
+                # write-only benchmark sharing a dataset with a mixed one died on
+                # "assert benchmark_type == 'read-only'". It is also wrong on the
+                # merits: a write benchmark mutates the dataset, so it must neither
+                # inherit an environment nor pass its own on.
                 env_key = (dataset_name, setup_name)
-                if reuse_mixed and env_key in shared_env:
+                if reuse_mixed and benchmark_type == "read-only" and env_key in shared_env:
                     setup_details["env"] = shared_env[env_key]
                     # Remove from shared_env so it gets torn down after we're done
                     del shared_env[env_key]

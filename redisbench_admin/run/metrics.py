@@ -226,11 +226,33 @@ def collect_search_and_bigredis_metrics(redis_conns):
         ["search_disk"],
         {"search_disk": ["search_disk_usage"]},
     )
+    # Vector write-path counters. total_relabel_ops_vector_fields is the only
+    # direct evidence that a re-indexed document with an unchanged vector was
+    # relabelled rather than deleted and re-added: the relabel falls back to
+    # delete-and-re-add when the index refuses it, so throughput alone cannot
+    # tell an engaged optimisation from a silently skipped one. Paired with the
+    # indexing counter it gives the ratio, not just the presence.
+    _, _, search_fields_kv = collect_redis_metrics(
+        redis_conns,
+        ["search_fields_statistics"],
+        {
+            "search_fields_statistics": [
+                "search_total_relabel_ops_vector_fields",
+                "search_total_indexing_ops_vector_fields",
+            ]
+        },
+    )
+    # Logged in full because the filter above is only as good as the field names,
+    # and a section that is absent or renamed is otherwise silently empty.
+    logging.info(
+        "search_fields_statistics collected: {}".format(search_fields_kv or "{} (absent)")
+    )
 
     merged = {}
     merged.update(bigredis_kv)
     merged.update(search_mem_kv)
     merged.update(search_disk_kv)
+    merged.update(search_fields_kv)
 
     return merged
 

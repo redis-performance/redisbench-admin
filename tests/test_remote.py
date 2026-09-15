@@ -880,37 +880,6 @@ def test_connect_remote_ssh_retries_transient_banner_failure(monkeypatch, tmp_pa
     assert client is not None
 
 
-def test_connect_remote_ssh_does_not_retry_auth_failure(monkeypatch, tmp_path):
-    """A rejected key fails identically on every attempt.
-
-    Retrying it only delays a clear error by the whole backoff budget, so
-    authentication failures propagate on the first one.
-    """
-    import paramiko
-    from redisbench_admin.utils import remote as remote_mod
-
-    attempts = {"n": 0}
-
-    class FakeClient:
-        def set_missing_host_key_policy(self, _policy):
-            pass
-
-        def connect(self, **_kwargs):
-            attempts["n"] += 1
-            raise paramiko.ssh_exception.AuthenticationException("Authentication failed.")
-
-    monkeypatch.setattr(paramiko, "SSHClient", lambda: FakeClient())
-    monkeypatch.setattr(
-        paramiko.RSAKey, "from_private_key_file", staticmethod(lambda _p: "key")
-    )
-    monkeypatch.setattr(remote_mod.time, "sleep", lambda _s: None)
-
-    with pytest.raises(paramiko.ssh_exception.AuthenticationException):
-        remote_mod.connect_remote_ssh(22, str(tmp_path / "k.pem"), "1.2.3.4", "ubuntu")
-
-    assert attempts["n"] == 1, "auth failure must not be retried"
-
-
 def test_connect_remote_ssh_gives_up_after_the_attempt_budget(monkeypatch, tmp_path):
     """Retrying is bounded: a host that never comes up still fails the run."""
     import paramiko
@@ -939,3 +908,74 @@ def test_connect_remote_ssh_gives_up_after_the_attempt_budget(monkeypatch, tmp_p
         remote_mod.connect_remote_ssh(22, str(tmp_path / "k.pem"), "1.2.3.4", "ubuntu")
 
     assert attempts["n"] == 4, "should stop at the configured attempt budget"
+
+
+def test_connect_remote_ssh_retries_auth_on_a_shorter_budget(monkeypatch, tmp_path):
+    """sshd accepts connections before cloud-init installs the key.
+
+    That window reports a plain "Authentication failed.", so it is retried -- but
+    on its own smaller cap, since a genuinely wrong key reports the same thing and
+    should not consume the whole backoff before saying so.
+    """
+    import paramiko
+    from redisbench_admin.utils import remote as remote_mod
+
+    attempts = {"n": 0}
+
+    class FakeTransport:
+        def set_keepalive(self, _secs):
+            pass
+
+    class FakeClient:
+        def set_missing_host_key_policy(self, _policy):
+            pass
+
+        def connect(self, **_kwargs):
+            attempts["n"] += 1
+            if attempts["n"] < 3:
+                raise paramiko.ssh_exception.AuthenticationException(
+                    "Authentication failed."
+                )
+
+        def get_transport(self):
+            return FakeTransport()
+
+    monkeypatch.setattr(paramiko, "SSHClient", lambda: FakeClient())
+    monkeypatch.setattr(
+        paramiko.RSAKey, "from_private_key_file", staticmethod(lambda _p: "key")
+    )
+    monkeypatch.setattr(remote_mod.time, "sleep", lambda _s: None)
+
+    remote_mod.connect_remote_ssh(22, str(tmp_path / "k.pem"), "1.2.3.4", "ubuntu")
+    assert attempts["n"] == 3, "transient auth failure should be retried"
+
+
+def test_connect_remote_ssh_auth_budget_is_smaller_than_the_connect_budget(
+    monkeypatch, tmp_path
+):
+    """A wrong key stops at SSH_AUTH_ATTEMPTS, not SSH_CONNECT_ATTEMPTS."""
+    import paramiko
+    from redisbench_admin.utils import remote as remote_mod
+
+    attempts = {"n": 0}
+
+    class FakeClient:
+        def set_missing_host_key_policy(self, _policy):
+            pass
+
+        def connect(self, **_kwargs):
+            attempts["n"] += 1
+            raise paramiko.ssh_exception.AuthenticationException("Authentication failed.")
+
+    monkeypatch.setattr(paramiko, "SSHClient", lambda: FakeClient())
+    monkeypatch.setattr(
+        paramiko.RSAKey, "from_private_key_file", staticmethod(lambda _p: "key")
+    )
+    monkeypatch.setattr(remote_mod.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(remote_mod, "SSH_CONNECT_ATTEMPTS", 10)
+    monkeypatch.setattr(remote_mod, "SSH_AUTH_ATTEMPTS", 3)
+
+    with pytest.raises(paramiko.ssh_exception.AuthenticationException):
+        remote_mod.connect_remote_ssh(22, str(tmp_path / "k.pem"), "1.2.3.4", "ubuntu")
+
+    assert attempts["n"] == 3, "auth must stop at its own, smaller budget"

@@ -277,12 +277,16 @@ def execute_remote_commands(
 # closes it. Provisioning several environments at once makes the window easy to
 # hit -- ten concurrent run-remote invocations lost every repetition to it.
 #
-# Authentication failures are deliberately not retried. A rejected key fails the
-# same way on every attempt, and retrying only delays a clear error by the whole
-# backoff budget.
-SSH_CONNECT_ATTEMPTS = int(os.getenv("SSH_CONNECT_ATTEMPTS", "6"))
+# Authentication failures are retried too, but on a shorter budget. sshd accepts
+# connections before cloud-init has finished installing the key, and that window
+# reports a plain "Authentication failed." -- indistinguishable by message from a
+# genuinely wrong key, which is why it gets its own smaller cap: a transient
+# failure clears in seconds, while a misconfigured key still fails promptly
+# instead of consuming the full backoff.
+SSH_CONNECT_ATTEMPTS = int(os.getenv("SSH_CONNECT_ATTEMPTS", "10"))
+SSH_AUTH_ATTEMPTS = int(os.getenv("SSH_AUTH_ATTEMPTS", "4"))
 SSH_CONNECT_BACKOFF_SECS = float(os.getenv("SSH_CONNECT_BACKOFF_SECS", "2.0"))
-SSH_CONNECT_BACKOFF_MAX_SECS = float(os.getenv("SSH_CONNECT_BACKOFF_MAX_SECS", "30.0"))
+SSH_CONNECT_BACKOFF_MAX_SECS = float(os.getenv("SSH_CONNECT_BACKOFF_MAX_SECS", "60.0"))
 SSH_CONNECT_TIMEOUT_SECS = float(os.getenv("SSH_CONNECT_TIMEOUT_SECS", "30.0"))
 
 
@@ -312,8 +316,20 @@ def connect_remote_ssh(port, private_key, server_public_ip, username):
                 auth_timeout=SSH_CONNECT_TIMEOUT_SECS,
             )
             break
-        except paramiko.ssh_exception.AuthenticationException:
-            raise
+        except paramiko.ssh_exception.AuthenticationException as e:
+            if attempt >= min(attempts, max(1, SSH_AUTH_ATTEMPTS)):
+                logging.error(
+                    "SSH auth to {} failed after {} attempt(s): {}".format(
+                        server_public_ip, attempt, e
+                    )
+                )
+                raise
+            logging.warning(
+                "SSH auth to {} failed ({}); the key may not be installed yet, "
+                "retrying in {:.1f}s".format(server_public_ip, e, delay)
+            )
+            time.sleep(delay)
+            delay = min(delay * 2, SSH_CONNECT_BACKOFF_MAX_SECS)
         except (
             paramiko.ssh_exception.SSHException,
             paramiko.ssh_exception.NoValidConnectionsError,
