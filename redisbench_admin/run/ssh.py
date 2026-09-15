@@ -5,12 +5,20 @@
 #
 import logging
 import os
+import time
 
 import paramiko
 import redis
 from sshtunnel import SSHTunnelForwarder
 
 from redisbench_admin.utils.remote import check_and_fix_pem_str, connect_remote_ssh
+
+# redis-server is started remotely with `--daemonize yes`, which returns as
+# soon as the process forks, before it has finished loading modules and
+# binding its listening socket. Retry the initial ping so a still-starting
+# server doesn't fail the whole run with a spurious connection-refused error.
+REDIS_PING_RETRIES = 10
+REDIS_PING_RETRY_DELAY_SECS = 2
 
 
 def ssh_tunnel_redisconn(
@@ -51,7 +59,23 @@ def ssh_tunnel_redisconn(
     redis_conn = redis.Redis(
         host="localhost", port=ssh_tunel.local_bind_port, password=redis_pass
     )
-    redis_conn.ping()
+    last_error = None
+    for attempt in range(1, REDIS_PING_RETRIES + 1):
+        try:
+            redis_conn.ping()
+            last_error = None
+            break
+        except redis.exceptions.ConnectionError as e:
+            last_error = e
+            logging.warning(
+                "Redis ping attempt {}/{} failed ({}); redis-server may still be"
+                " starting up. Retrying in {}s...".format(
+                    attempt, REDIS_PING_RETRIES, e, REDIS_PING_RETRY_DELAY_SECS
+                )
+            )
+            time.sleep(REDIS_PING_RETRY_DELAY_SECS)
+    if last_error is not None:
+        raise last_error
     return redis_conn, ssh_tunel
 
 
