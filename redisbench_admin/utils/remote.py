@@ -83,6 +83,18 @@ REDIS_AUTH_SERVER_PORT = int(os.getenv("REDIS_AUTH_SERVER_PORT", "6380"))
 REDIS_HEALTH_CHECK_INTERVAL = int(os.getenv("REDIS_HEALTH_CHECK_INTERVAL", "15"))
 REDIS_SOCKET_TIMEOUT = int(os.getenv("REDIS_SOCKET_TIMEOUT", "300"))
 TERRAFORM_BIN_PATH = os.getenv("TERRAFORM_BIN_PATH", "terraform")
+SSH_FETCH_MAX_RETRIES = int(os.getenv("SSH_FETCH_MAX_RETRIES", "3"))
+
+# Transient failure modes seen on an otherwise-healthy remote host: a dropped
+# packet or momentary network blip on a freshly opened SSH/SFTP connection.
+# None of these indicate the remote file is missing or the host is down.
+TRANSIENT_SSH_ERRORS = (
+    paramiko.SSHException,
+    EOFError,
+    ConnectionError,
+    TimeoutError,
+    OSError,
+)
 
 
 def get_git_root(path):
@@ -165,8 +177,22 @@ def copy_file_to_remote_setup(
 
 
 def fetch_file_from_remote_setup(
-    server_public_ip, username, private_key, local_file, remote_file
+    server_public_ip,
+    username,
+    private_key,
+    local_file,
+    remote_file,
+    max_retries=SSH_FETCH_MAX_RETRIES,
 ):
+    """Fetch a file from a remote server over SFTP.
+
+    A single dropped connection here used to be treated as fatal, even when
+    the remote host was otherwise healthy (see the benchmark run that failed
+    on "Error reading SSH protocol banner" seconds after its own benchmark
+    tool had exited successfully). Retries with exponential backoff on
+    TRANSIENT_SSH_ERRORS before giving up, mirroring the backoff pattern
+    already used for keyspace-check retries in run/common.py.
+    """
     logging.info(
         "Retrieving remote file {} from remote server {} ".format(
             remote_file, server_public_ip
@@ -174,11 +200,39 @@ def fetch_file_from_remote_setup(
     )
     cnopts = pysftp.CnOpts()
     cnopts.hostkeys = None
-    srv = pysftp.Connection(
-        host=server_public_ip, username=username, private_key=private_key, cnopts=cnopts
-    )
-    srv.get(remote_file, local_file, callback=view_bar_simple)
-    srv.close()
+    attempt = 0
+    while True:
+        try:
+            srv = pysftp.Connection(
+                host=server_public_ip,
+                username=username,
+                private_key=private_key,
+                cnopts=cnopts,
+            )
+            srv.get(remote_file, local_file, callback=view_bar_simple)
+            srv.close()
+            break
+        except TRANSIENT_SSH_ERRORS as e:
+            if attempt >= max_retries:
+                logging.error(
+                    "Giving up retrieving remote file {} from {} after {} attempts: {}".format(
+                        remote_file, server_public_ip, attempt + 1, e
+                    )
+                )
+                raise
+            logging.warning(
+                "Transient error retrieving remote file {} from {} (attempt {}/{}): {}. "
+                "Retrying in {} seconds...".format(
+                    remote_file,
+                    server_public_ip,
+                    attempt + 1,
+                    max_retries + 1,
+                    e,
+                    2**attempt,
+                )
+            )
+            time.sleep(2**attempt)
+            attempt += 1
     logging.info(
         "Finished retrieving remote file {} from remote server {} ".format(
             remote_file, server_public_ip
