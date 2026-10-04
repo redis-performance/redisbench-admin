@@ -16,6 +16,8 @@ from redisbench_admin.run_remote.run_remote import (
     export_redis_metrics,
     run_remote_command_logic,
     save_env_for_cross_type_reuse,
+    should_keep_env_for_reuse,
+    take_shared_env_for_cross_type_reuse,
     tear_down_previous_mixed_env_if_needed,
 )
 from redisbench_admin.utils.remote import check_ec2_env
@@ -276,6 +278,78 @@ def test_run_remote_mixed_env_no_leak():
         )
 
 
+def test_run_remote_mixed_then_write_only_no_reuse():
+    """Regression test for the `mixed -> write-only` reuse bug, in remote mode.
+
+    Plan:
+      - mixed-load.yml                (mixed,      dataset=mixed-write-only-reuse)
+      - write-only-1.yml              (write-only, dataset=mixed-write-only-reuse)
+      - write-only-2.yml              (write-only, dataset=mixed-write-only-reuse)
+      - read-query-other-dataset.yml  (read-only,  dataset=mixed-write-only-reuse-other)
+
+    The read-only benchmark on another dataset flips `reuse_mixed` on. Pre-fix,
+    the write-only group inherited the mixed env from `shared_env`, and each
+    write-only env was kept for the next test; both paths ended in
+    `ro_benchmark_reuse`, which asserts `benchmark_type == "read-only"`.
+    Post-fix, every write-only test spins up fresh.
+
+    Same infrastructure requirements as test_run_remote_dataset_reuse_memtier:
+    RUN_REMOTE_TESTS=1 plus either AWS credentials or pre-deployed inventory.
+    """
+    if os.getenv("RUN_REMOTE_TESTS", "0") != "1":
+        pytest.skip("Remote tests disabled. Set RUN_REMOTE_TESTS=1 to enable.")
+
+    db_server_ip = os.getenv("DB_SERVER_HOST", None)
+    client_server_ip = os.getenv("CLIENT_SERVER_HOST", None)
+    private_key_path = os.getenv(
+        "EC2_PRIVATE_PEM", "./tests/test_data/test-ssh/tox_rsa"
+    )
+
+    has_inventory = db_server_ip is not None and client_server_ip is not None
+    has_aws_credentials, _ = check_ec2_env()
+
+    if not has_inventory and not has_aws_credentials:
+        pytest.skip(
+            "This test requires either pre-deployed inventory "
+            "(DB_SERVER_HOST, CLIENT_SERVER_HOST) or AWS credentials "
+            "(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION)"
+        )
+
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_remote_arguments(parser)
+
+    args_list = [
+        "--test-glob",
+        "./tests/test_data/mixed_write_only_reuse/*.yml",
+        "--skip-env-vars-verify",
+    ]
+
+    if has_inventory:
+        args_list.extend(
+            [
+                "--inventory",
+                f"server_private_ip={db_server_ip},server_public_ip={db_server_ip},client_public_ip={client_server_ip}",
+                "--private_key",
+                private_key_path,
+            ]
+        )
+
+    args = parser.parse_args(args=args_list)
+
+    try:
+        run_remote_command_logic(args, "tool", "v0")
+    except SystemExit as e:
+        assert e.code == 0, (
+            f"run_remote_command_logic exited with code {e.code} — a "
+            "write-only benchmark likely reused an env and tripped the "
+            "ro_benchmark_reuse `assert benchmark_type == 'read-only'` "
+            "invariant."
+        )
+
+
 def test_run_remote_dataset_reuse_memtier():
     """
     Test that benchmarks with the same dataset_name are grouped together
@@ -418,6 +492,78 @@ def test_save_env_for_cross_type_reuse_mixed_without_reuse_mixed_is_noop():
     assert published is False
     assert setup_details["env"] is fake_env
     assert shared_env == {}
+
+
+@pytest.mark.parametrize(
+    "benchmark_type,reuse_mixed,expected",
+    [
+        ("read-only", False, True),
+        ("read-only", True, True),
+        ("mixed", True, True),
+        ("mixed", False, False),
+        ("write-only", True, False),
+        ("write-only", False, False),
+    ],
+)
+def test_should_keep_env_for_reuse(benchmark_type, reuse_mixed, expected):
+    """Regression for the `mixed -> write-only` reuse bug: under
+    `reuse_mixed`, a write-only env used to be kept, so the next write-only
+    test was routed through `ro_benchmark_reuse` and tripped its
+    `benchmark_type == "read-only"` assertion."""
+    assert should_keep_env_for_reuse(benchmark_type, reuse_mixed) is expected
+
+
+def test_take_shared_env_for_cross_type_reuse_read_only_inherits():
+    fake_env = {"redis_pids": [1234]}
+    shared_env = {("ds1", "oss-standalone"): fake_env}
+
+    taken = take_shared_env_for_cross_type_reuse(
+        benchmark_type="read-only",
+        reuse_mixed=True,
+        shared_env=shared_env,
+        env_key=("ds1", "oss-standalone"),
+    )
+
+    assert taken is fake_env
+    assert shared_env == {}
+
+
+@pytest.mark.parametrize("benchmark_type", ["write-only", "mixed"])
+def test_take_shared_env_for_cross_type_reuse_non_read_only_does_not_inherit(
+    benchmark_type,
+):
+    """Regression for the `mixed -> write-only` reuse bug: a mixed env
+    published to `shared_env` was handed to whatever group ran next on the
+    same `(setup, dataset)`. With no read-only group on that dataset, a
+    write-only group inherited it and tripped the `ro_benchmark_reuse`
+    assertion."""
+    fake_env = {"redis_pids": [1234]}
+    shared_env = {("ds1", "oss-standalone"): fake_env}
+
+    taken = take_shared_env_for_cross_type_reuse(
+        benchmark_type=benchmark_type,
+        reuse_mixed=True,
+        shared_env=shared_env,
+        env_key=("ds1", "oss-standalone"),
+    )
+
+    assert taken is None
+    assert shared_env == {("ds1", "oss-standalone"): fake_env}
+
+
+def test_take_shared_env_for_cross_type_reuse_without_reuse_mixed_is_noop():
+    fake_env = {"redis_pids": [1234]}
+    shared_env = {("ds1", "oss-standalone"): fake_env}
+
+    taken = take_shared_env_for_cross_type_reuse(
+        benchmark_type="read-only",
+        reuse_mixed=False,
+        shared_env=shared_env,
+        env_key=("ds1", "oss-standalone"),
+    )
+
+    assert taken is None
+    assert shared_env == {("ds1", "oss-standalone"): fake_env}
 
 
 def test_tear_down_previous_mixed_env_clears_and_removes_from_shared_env(monkeypatch):

@@ -486,10 +486,11 @@ def run_remote_command_logic(args, project_name, project_version):
 
                 # Check if we have a shared environment from a previous benchmark type
                 env_key = (dataset_name, setup_name)
-                if reuse_mixed and env_key in shared_env:
-                    setup_details["env"] = shared_env[env_key]
-                    # Remove from shared_env so it gets torn down after we're done
-                    del shared_env[env_key]
+                inherited_env = take_shared_env_for_cross_type_reuse(
+                    benchmark_type, reuse_mixed, shared_env, env_key
+                )
+                if inherited_env is not None:
+                    setup_details["env"] = inherited_env
                     logging.info(
                         f"Reusing shared environment for dataset '{dataset_name}' and setup '{setup_name}'"
                     )
@@ -748,7 +749,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 else []
                                             ),
                                         )
-                                        if benchmark_type == "read-only" or reuse_mixed:
+                                        if should_keep_env_for_reuse(
+                                            benchmark_type, reuse_mixed
+                                        ):
                                             ro_benchmark_set(
                                                 artifact_version,
                                                 cluster_enabled,
@@ -1994,6 +1997,36 @@ def ro_benchmark_reuse(
         pids_match,
         remote_temporary_dir,
     )
+
+
+def should_keep_env_for_reuse(benchmark_type, reuse_mixed):
+    """Whether the env spun up for this benchmark should be kept alive for a
+    later benchmark: read-only envs are reused by the next read-only test in
+    the group, and mixed envs (with `reuse_mixed=True`) are handed off to a
+    subsequent read-only group.
+
+    Any other type (e.g. write-only) must be torn down after each test: the
+    next test would otherwise be routed through `ro_benchmark_reuse`, which
+    asserts `benchmark_type == "read-only"`.
+    """
+    if benchmark_type == "read-only":
+        return True
+    return benchmark_type == "mixed" and reuse_mixed
+
+
+def take_shared_env_for_cross_type_reuse(
+    benchmark_type, reuse_mixed, shared_env, env_key
+):
+    """Pop and return the env published by `save_env_for_cross_type_reuse`
+    for `env_key` if this benchmark type may inherit it, else None.
+
+    Only read-only groups may inherit, for the same `ro_benchmark_reuse`
+    reason as in `should_keep_env_for_reuse`. A group that does not inherit
+    spins up fresh, and that spin-up kills the leftover Redis.
+    """
+    if not reuse_mixed or benchmark_type != "read-only":
+        return None
+    return shared_env.pop(env_key, None)
 
 
 def save_env_for_cross_type_reuse(

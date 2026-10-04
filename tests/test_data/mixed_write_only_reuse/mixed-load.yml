@@ -1,0 +1,15 @@
+
+name: "mixed-write-only-reuse-load"
+setups:
+  - oss-standalone
+remote:
+ - type: oss-standalone
+ - setup: redisearch-m5
+# The only `mixed` benchmark on dataset_name="mixed-write-only-reuse". Its
+# env is published to shared_env for a read-only group that never comes:
+# only write-only benchmarks follow on this dataset.
+clientconfig:
+  benchmark_type: "mixed"
+  dataset_name: "mixed-write-only-reuse"
+  tool: memtier_benchmark
+  arguments: "--ratio 1:0 --key-maximum 1000 --key-minimum 1 --key-pattern P:P -d 1 -n allkeys --hide-histogram"
