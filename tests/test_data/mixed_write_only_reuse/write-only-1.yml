@@ -1,0 +1,16 @@
+
+name: "mixed-write-only-reuse-write-1"
+setups:
+  - oss-standalone
+remote:
+ - type: oss-standalone
+ - setup: redisearch-m5
+# Write-only benchmark 1 of 2 on the mixed benchmark's dataset. Pre-fix, the
+# first one inherited the mixed env from shared_env, and the second one
+# inherited the first one's env; both were routed through ro_benchmark_reuse,
+# which asserts on benchmark_type == "read-only".
+clientconfig:
+  benchmark_type: "write-only"
+  dataset_name: "mixed-write-only-reuse"
+  tool: memtier_benchmark
+  arguments: "--ratio 1:0 --key-maximum 1000 --key-minimum 1 --key-pattern P:P -d 1 -n allkeys --hide-histogram"
