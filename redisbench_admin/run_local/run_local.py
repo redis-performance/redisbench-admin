@@ -643,9 +643,10 @@ def run_local_command_logic(args, project_name, project_version):
                                         local_benchmark_output_filename, "r"
                                     ) as json_file:
                                         results_dict = json.load(json_file)
-                                    # server side measurements are merged into the
-                                    # client tool results so that the exporter
-                                    # section reaches them via jsonpath
+                                    # Merge server-side measurements (index build
+                                    # time and CPU distribution across shards) into
+                                    # the client results so exporters can reach
+                                    # them through JSONPath.
                                     report_measurements = dict(index_measurements)
                                     report_measurements.update(cpu_usage_summary)
                                     if report_measurements:

@@ -440,9 +440,9 @@ def post_process_remote_run(
             )
         )
         return_code |= 1
-    # server side measurements ( e.g. the index build time ) are merged into the
-    # client tool results as soon as they are read, so that everything downstream
-    # of this function sees them alongside the client tool metrics
+    # Merge server-side measurements (e.g. index build time and shard CPU
+    # distribution) as soon as the client results are read, so everything
+    # downstream sees them alongside the client tool metrics.
     if extra_results and results_file_parsed:
         results_dict = merge_measurements_into_results(results_dict, extra_results)
         with open(local_benchmark_output_filename, "w") as json_file:

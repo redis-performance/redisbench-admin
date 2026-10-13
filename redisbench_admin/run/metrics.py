@@ -154,28 +154,43 @@ def collect_redis_metrics(
 
 
 def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
+    """Summarize Redis process CPU usage over time and across shards.
+
+    Consecutive INFO samples provide one CPU utilization interval. We first use
+    the p75 interval for each shard so brief spikes do not dominate its value,
+    then calculate avg/p50/p75/p99 across those per-shard values. The second
+    stage describes shard balance and deliberately does not sum CPU percentages
+    as the previous implementation did. On a single-shard deployment all four
+    summary values are identical; with few shards, NumPy linearly interpolates
+    the percentiles between the observed values.
+
+    Returns an empty summary when no shard has at least two samples. This keeps
+    short runs from reporting a misleading zero.
+    """
     import numpy as np
 
     res = {}
     for shard_n, cpu_stats_arr in benchmark_cpu_stats.items():
         avg_cpu_pct = None
-        shards_cpu_arr = []
-        # we need at least 2 elements to compute the cpu usage
+        shard_cpu_intervals = []
+        # Two cumulative CPU samples are required to calculate one interval.
         if len(cpu_stats_arr) >= 2:
             for start_pos in range(0, len(cpu_stats_arr) - 1):
                 avg_cpu_pct = get_avg_cpu_pct(
                     avg_cpu_pct, cpu_stats_arr[start_pos], cpu_stats_arr[start_pos + 1]
                 )
                 if avg_cpu_pct is not None:
-                    shards_cpu_arr.append(avg_cpu_pct)
-            if len(shards_cpu_arr) > 0:
-                avg_cpu_pct = np.percentile(shards_cpu_arr, 75)
+                    shard_cpu_intervals.append(avg_cpu_pct)
+            if len(shard_cpu_intervals) > 0:
+                # Represent each shard by its p75 utilization over the run.
+                avg_cpu_pct = np.percentile(shard_cpu_intervals, 75)
 
         res[shard_n] = avg_cpu_pct
 
     shard_cpu_values = [value for value in res.values() if value is not None]
     summary = {}
     if shard_cpu_values:
+        # These percentiles are across shards, not across time samples.
         summary = {
             "shards_cpu_usage_avg_pct": np.mean(shard_cpu_values),
             "shards_cpu_usage_p50_pct": np.percentile(shard_cpu_values, 50),
