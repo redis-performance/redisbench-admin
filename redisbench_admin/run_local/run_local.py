@@ -38,6 +38,7 @@ from redisbench_admin.run.common import (
     run_redis_post_steps,
 )
 from redisbench_admin.run.metrics import (
+    CPU_USAGE_SUMMARY_METRIC_NAMES,
     from_info_to_overall_shard_cpu,
     collect_redis_metrics,
     collect_cpu_data,
@@ -546,8 +547,15 @@ def run_local_command_logic(args, project_name, project_version):
                                     )
                                 )
                                 if not cpu_usage_summary:
-                                    logging.info("CPU usage summary: n/a")
+                                    logging.info("Total CPU usage (n/a)")
                                 else:
+                                    logging.info(
+                                        "Total CPU usage ({:.3f} %)".format(
+                                            cpu_usage_summary[
+                                                CPU_USAGE_SUMMARY_METRIC_NAMES[0]
+                                            ]
+                                        )
+                                    )
                                     logging.info(
                                         "CPU usage summary: {}".format(
                                             json.dumps(cpu_usage_summary, indent=2)

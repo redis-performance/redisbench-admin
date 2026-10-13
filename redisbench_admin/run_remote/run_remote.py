@@ -1153,13 +1153,21 @@ def run_remote_command_logic(args, project_name, project_version):
                                         for name in CPU_USAGE_SUMMARY_METRIC_NAMES
                                         if name in measurements
                                     }
-                                    logging.info(
-                                        "CPU usage summary: {}".format(
-                                            "n/a"
-                                            if not cpu_usage_summary
-                                            else cpu_usage_summary
+                                    if not cpu_usage_summary:
+                                        logging.info("Total CPU usage (n/a)")
+                                    else:
+                                        logging.info(
+                                            "Total CPU usage ({:.3f} %)".format(
+                                                cpu_usage_summary[
+                                                    CPU_USAGE_SUMMARY_METRIC_NAMES[0]
+                                                ]
+                                            )
                                         )
-                                    )
+                                        logging.info(
+                                            "CPU usage summary: {}".format(
+                                                cpu_usage_summary
+                                            )
+                                        )
 
                                     if remote_run_result is False:
                                         db_error_artifacts(

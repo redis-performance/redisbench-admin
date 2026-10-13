@@ -72,7 +72,7 @@ result artifact:
 ```json
 {
   "Measurements": {
-    "shards_cpu_usage_avg_pct": 62.5,
+    "total_shards_used_cpu_pct": 250.0,
     "shards_cpu_usage_p50_pct": 60.0,
     "shards_cpu_usage_p75_pct": 75.0,
     "shards_cpu_usage_p99_pct": 91.5
@@ -80,10 +80,11 @@ result artifact:
 }
 ```
 
-The report exposes the average and 50th, 75th, and 99th percentiles across the
-shards instead of summing their CPU percentages. Each shard's input value is
-the 75th percentile of its CPU usage intervals sampled from Redis `INFO`; a
-report omits the measurements when the run is too short to produce two samples.
+The report preserves `total_shards_used_cpu_pct`, the sum of the per-shard CPU
+percentages, and adds the 50th, 75th, and 99th percentiles across shards. Each
+shard's input value is the 75th percentile of its CPU usage intervals sampled
+from Redis `INFO`; a report omits the measurements when the run is too short to
+produce two samples.
 On a single-shard deployment all four values are identical; with only two or
 three shards, p99 is effectively an interpolated maximum. Remote benchmarks
 also report these measurements when they reuse an existing environment because
@@ -95,7 +96,7 @@ result metrics:
 exporter:
   redistimeseries:
     metrics:
-      - "$.Measurements.shards_cpu_usage_avg_pct"
+      - "$.Measurements.total_shards_used_cpu_pct"
       - "$.Measurements.shards_cpu_usage_p50_pct"
       - "$.Measurements.shards_cpu_usage_p75_pct"
       - "$.Measurements.shards_cpu_usage_p99_pct"

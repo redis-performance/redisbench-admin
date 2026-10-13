@@ -49,7 +49,7 @@ def test_cpu_consumption_summarizes_shards_from_two_samples():
     assert by_shard == pytest.approx({"1": 10.0, "2": 40.0})
     assert summary == pytest.approx(
         {
-            "shards_cpu_usage_avg_pct": 25.0,
+            "total_shards_used_cpu_pct": 50.0,
             "shards_cpu_usage_p50_pct": 25.0,
             "shards_cpu_usage_p75_pct": 32.5,
             "shards_cpu_usage_p99_pct": 39.7,
@@ -78,7 +78,7 @@ def test_cpu_consumption_is_exposed_in_report_measurements():
     results = merge_measurements_into_results(
         {"ALL STATS": {"Totals": {"Ops/sec": 100.0}}},
         {
-            "shards_cpu_usage_avg_pct": 60.0,
+            "total_shards_used_cpu_pct": 240.0,
             "shards_cpu_usage_p50_pct": 55.0,
             "shards_cpu_usage_p75_pct": 70.0,
             "shards_cpu_usage_p99_pct": 87.5,
@@ -86,7 +86,7 @@ def test_cpu_consumption_is_exposed_in_report_measurements():
     )
 
     assert results["Measurements"] == {
-        "shards_cpu_usage_avg_pct": 60.0,
+        "total_shards_used_cpu_pct": 240.0,
         "shards_cpu_usage_p50_pct": 55.0,
         "shards_cpu_usage_p75_pct": 70.0,
         "shards_cpu_usage_p99_pct": 87.5,

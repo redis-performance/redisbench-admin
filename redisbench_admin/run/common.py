@@ -24,7 +24,10 @@ from redisbench_admin.run.ftsb.ftsb import prepare_ftsb_benchmark_command
 from redisbench_admin.run.memtier_benchmark.memtier_benchmark import (
     prepare_memtier_benchmark_command,
 )
-from redisbench_admin.run.metrics import extract_results_table
+from redisbench_admin.run.metrics import (
+    CPU_USAGE_SUMMARY_METRIC_NAMES,
+    extract_results_table,
+)
 from redisbench_admin.run.redis_benchmark.redis_benchmark import (
     prepare_redis_benchmark_command,
 )
@@ -1174,7 +1177,11 @@ def print_results_table_stdout(
     results_matrix = extract_results_table(metrics, results_dict)
     if cpu_usage:
         for metric_name, metric_value in cpu_usage.items():
-            results_matrix.append([metric_name, "", "", metric_value])
+            display_name = metric_name
+            if metric_name == CPU_USAGE_SUMMARY_METRIC_NAMES[0]:
+                # Keep the existing console-report label for the summed metric.
+                display_name = "Total shards CPU usage %"
+            results_matrix.append([display_name, "", "", metric_value])
     for metric_name in metric_names:
         if metric_name in kv_overall:
             metric_value = kv_overall[metric_name]

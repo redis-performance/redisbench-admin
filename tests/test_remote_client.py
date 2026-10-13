@@ -93,7 +93,7 @@ def test_remote_post_processing_persists_cpu_summary(tmp_path):
     results_file = tmp_path / "benchmark-result.json"
     results_file.write_text('{"ALL STATS": {"Totals": {"Ops/sec": 12.0}}}')
     cpu_summary = {
-        "shards_cpu_usage_avg_pct": 25.0,
+        "total_shards_used_cpu_pct": 50.0,
         "shards_cpu_usage_p50_pct": 25.0,
         "shards_cpu_usage_p75_pct": 32.5,
         "shards_cpu_usage_p99_pct": 39.7,

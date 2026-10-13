@@ -9,7 +9,7 @@ import redis
 from jsonpath_ng import parse
 
 CPU_USAGE_SUMMARY_METRIC_NAMES = (
-    "shards_cpu_usage_avg_pct",
+    "total_shards_used_cpu_pct",
     "shards_cpu_usage_p50_pct",
     "shards_cpu_usage_p75_pct",
     "shards_cpu_usage_p99_pct",
@@ -165,11 +165,11 @@ def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
 
     Consecutive INFO samples provide one CPU utilization interval. We first use
     the p75 interval for each shard so brief spikes do not dominate its value,
-    then calculate avg/p50/p75/p99 across those per-shard values. The second
-    stage describes shard balance and deliberately does not sum CPU percentages
-    as the previous implementation did. On a single-shard deployment all four
-    summary values are identical; with few shards, NumPy linearly interpolates
-    the percentiles between the observed values.
+    preserve the existing sum across shards and add p50/p75/p99 across those
+    per-shard values. The percentiles describe shard balance without changing
+    the established total metric. On a single-shard deployment all four values
+    are identical; with few shards, NumPy linearly interpolates the percentiles
+    between the observed values.
 
     Returns an empty summary when no shard has at least two samples. This keeps
     short runs from reporting a misleading zero.
@@ -197,9 +197,9 @@ def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
     shard_cpu_values = [value for value in res.values() if value is not None]
     summary = {}
     if shard_cpu_values:
-        # These percentiles are across shards, not across time samples.
+        # Preserve the existing sum, then add percentiles across shards.
         summary = {
-            CPU_USAGE_SUMMARY_METRIC_NAMES[0]: np.mean(shard_cpu_values),
+            CPU_USAGE_SUMMARY_METRIC_NAMES[0]: np.sum(shard_cpu_values),
             CPU_USAGE_SUMMARY_METRIC_NAMES[1]: np.percentile(shard_cpu_values, 50),
             CPU_USAGE_SUMMARY_METRIC_NAMES[2]: np.percentile(shard_cpu_values, 75),
             CPU_USAGE_SUMMARY_METRIC_NAMES[3]: np.percentile(shard_cpu_values, 99),
