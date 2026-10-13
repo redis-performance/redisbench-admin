@@ -26,7 +26,6 @@ from redisbench_admin.utils.benchmark_config import extract_benchmark_tool_setti
 from redisbench_admin.utils.redisgraph_benchmark_go import (
     get_redisbench_admin_remote_path,
 )
-from redisbench_admin.utils.results import TOTAL_SHARDS_USED_CPU_PCT
 from redisbench_admin.utils.remote import (
     execute_remote_commands,
     fetch_file_from_remote_setup,
@@ -190,12 +189,12 @@ def run_remote_client_tool(
         redisbench_admin.run.metrics.BENCHMARK_RUNNING_GLOBAL = False
         cpu_stats_thread.join()
         logging.info("CPU collecting thread stopped")
-        total_shards_cpu_usage, _ = from_info_to_overall_shard_cpu(
+        cpu_usage_summary, _ = from_info_to_overall_shard_cpu(
             redisbench_admin.run.metrics.BENCHMARK_CPU_STATS_GLOBAL
         )
-        if total_shards_cpu_usage is not None:
+        if cpu_usage_summary:
             extra_results = dict(extra_results or {})
-            extra_results[TOTAL_SHARDS_USED_CPU_PCT] = total_shards_cpu_usage
+            extra_results.update(cpu_usage_summary)
     if len(post_commands) > 0:
         res = execute_remote_commands(
             client_public_ip, username, private_key, post_commands, client_ssh_port

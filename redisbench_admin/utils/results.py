@@ -13,7 +13,6 @@ from redisbench_admin.run.redis_benchmark.redis_benchmark import (
 from redisbench_admin.run.ycsb.ycsb import post_process_ycsb_results
 
 MEASUREMENTS_KEY = "Measurements"
-TOTAL_SHARDS_USED_CPU_PCT = "total_shards_used_cpu_pct"
 
 
 def merge_measurements_into_results(results_dict, measurements, key=MEASUREMENTS_KEY):

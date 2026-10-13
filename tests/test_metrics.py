@@ -8,6 +8,7 @@ import os
 from unittest.mock import MagicMock
 
 import redis
+import pytest
 import yaml
 
 
@@ -20,10 +21,7 @@ from redisbench_admin.run.metrics import (
     from_info_to_overall_shard_cpu,
     reset_cpu_stats,
 )
-from redisbench_admin.utils.results import (
-    TOTAL_SHARDS_USED_CPU_PCT,
-    merge_measurements_into_results,
-)
+from redisbench_admin.utils.results import merge_measurements_into_results
 
 
 def _cpu_sample(timestamp_usec, used_cpu_sys, used_cpu_user):
@@ -34,30 +32,37 @@ def _cpu_sample(timestamp_usec, used_cpu_sys, used_cpu_user):
     }
 
 
-def test_cpu_consumption_uses_the_only_interval_from_two_samples():
-    total, by_shard = from_info_to_overall_shard_cpu(
+def test_cpu_consumption_summarizes_shards_from_two_samples():
+    summary, by_shard = from_info_to_overall_shard_cpu(
         {
             "1": [
                 _cpu_sample(1_000_000, 1.0, 2.0),
-                _cpu_sample(2_000_000, 1.25, 2.25),
+                _cpu_sample(2_000_000, 1.05, 2.05),
             ],
             "2": [
                 _cpu_sample(1_000_000, 3.0, 4.0),
-                _cpu_sample(2_000_000, 3.1, 4.4),
+                _cpu_sample(2_000_000, 3.2, 4.2),
             ],
         }
     )
 
-    assert by_shard == {"1": 50.0, "2": 50.0}
-    assert total == 100.0
+    assert by_shard == pytest.approx({"1": 10.0, "2": 40.0})
+    assert summary == pytest.approx(
+        {
+            "shards_cpu_usage_avg_pct": 25.0,
+            "shards_cpu_usage_p50_pct": 25.0,
+            "shards_cpu_usage_p75_pct": 32.5,
+            "shards_cpu_usage_p99_pct": 39.7,
+        }
+    )
 
 
 def test_cpu_consumption_is_absent_without_enough_samples():
-    total, by_shard = from_info_to_overall_shard_cpu(
+    summary, by_shard = from_info_to_overall_shard_cpu(
         {"1": [_cpu_sample(1_000_000, 1.0, 2.0)]}
     )
 
-    assert total is None
+    assert summary == {}
     assert by_shard == {"1": None}
 
 
@@ -72,10 +77,20 @@ def test_cpu_stats_are_reset_between_reports():
 def test_cpu_consumption_is_exposed_in_report_measurements():
     results = merge_measurements_into_results(
         {"ALL STATS": {"Totals": {"Ops/sec": 100.0}}},
-        {TOTAL_SHARDS_USED_CPU_PCT: 87.5},
+        {
+            "shards_cpu_usage_avg_pct": 60.0,
+            "shards_cpu_usage_p50_pct": 55.0,
+            "shards_cpu_usage_p75_pct": 70.0,
+            "shards_cpu_usage_p99_pct": 87.5,
+        },
     )
 
-    assert results["Measurements"][TOTAL_SHARDS_USED_CPU_PCT] == 87.5
+    assert results["Measurements"] == {
+        "shards_cpu_usage_avg_pct": 60.0,
+        "shards_cpu_usage_p50_pct": 55.0,
+        "shards_cpu_usage_p75_pct": 70.0,
+        "shards_cpu_usage_p99_pct": 87.5,
+    }
 
 
 def test_extract_results_table():
@@ -147,7 +162,6 @@ def test_extract_results_table_skips_non_numeric_values():
 
 def test_collect_redis_metrics():
     import os
-    import pytest
 
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
     # Ensure we have the test DB to store results

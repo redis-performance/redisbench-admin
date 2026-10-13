@@ -1137,23 +1137,19 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
                                             )
 
-                                    total_shards_cpu_usage = None
+                                    cpu_usage_summary = {}
                                     if skip_remote_db_setup is False:
                                         (
-                                            total_shards_cpu_usage,
+                                            cpu_usage_summary,
                                             cpu_usage_map,
                                         ) = from_info_to_overall_shard_cpu(
                                             redisbench_admin.run.metrics.BENCHMARK_CPU_STATS_GLOBAL
                                         )
-                                    if total_shards_cpu_usage is None:
-                                        total_shards_cpu_usage_str = "n/a"
-                                    else:
-                                        total_shards_cpu_usage_str = "{:.3f}".format(
-                                            total_shards_cpu_usage
-                                        )
                                     logging.info(
-                                        "Total CPU usage ({} %)".format(
-                                            total_shards_cpu_usage_str
+                                        "CPU usage summary: {}".format(
+                                            "n/a"
+                                            if not cpu_usage_summary
+                                            else cpu_usage_summary
                                         )
                                     )
 
@@ -1270,10 +1266,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                                         ]
                                                     },
                                                 )
-                                                if total_shards_cpu_usage is not None:
-                                                    overall_end_time_metrics[
-                                                        "total_shards_used_cpu_pct"
-                                                    ] = total_shards_cpu_usage
+                                                overall_end_time_metrics.update(
+                                                    cpu_usage_summary
+                                                )
                                                 expire_ms = 7 * 24 * 60 * 60 * 1000
                                                 export_redis_metrics(
                                                     artifact_version,
@@ -1549,7 +1544,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             setup_name,
                                             setup_type,
                                             test_name,
-                                            total_shards_cpu_usage,
+                                            cpu_usage_summary,
                                         )
                                     client_artifacts.append(local_bench_fname)
                                     client_artifacts.extend(client_output_artifacts)

@@ -63,7 +63,7 @@ exporter:
 
 ```
 
-## CPU consumption (`Measurements.total_shards_used_cpu_pct`)
+## CPU consumption by shard
 
 Local and remote benchmark reports include the Redis server CPU consumed while
 the client workload ran. The value is stored under `Measurements` in the JSON
@@ -72,25 +72,32 @@ result artifact:
 ```json
 {
   "Measurements": {
-    "total_shards_used_cpu_pct": 187.5
+    "shards_cpu_usage_avg_pct": 62.5,
+    "shards_cpu_usage_p50_pct": 60.0,
+    "shards_cpu_usage_p75_pct": 75.0,
+    "shards_cpu_usage_p99_pct": 91.5
   }
 }
 ```
 
-The value is the sum of the per-shard CPU percentages, so it can exceed 100% on
-multi-shard deployments. Each shard's value is the 75th percentile of the CPU
-usage intervals sampled from Redis `INFO`; a report omits the measurement when
-the run is too short to produce two samples. Benchmark definitions can export
-or compare it through JSONPath like other result metrics:
+The report exposes the average and 50th, 75th, and 99th percentiles across the
+shards instead of summing their CPU percentages. Each shard's input value is
+the 75th percentile of its CPU usage intervals sampled from Redis `INFO`; a
+report omits the measurements when the run is too short to produce two samples.
+Benchmark definitions can export or compare them through JSONPath like other
+result metrics:
 
 ```yml
 exporter:
   redistimeseries:
     metrics:
-      - "$.Measurements.total_shards_used_cpu_pct"
+      - "$.Measurements.shards_cpu_usage_avg_pct"
+      - "$.Measurements.shards_cpu_usage_p50_pct"
+      - "$.Measurements.shards_cpu_usage_p75_pct"
+      - "$.Measurements.shards_cpu_usage_p99_pct"
   comparison:
     metrics:
-      - "$.Measurements.total_shards_used_cpu_pct"
+      - "$.Measurements.shards_cpu_usage_p99_pct"
     mode: lower-better
 ```
 

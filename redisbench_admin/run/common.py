@@ -1172,8 +1172,9 @@ def print_results_table_stdout(
         "Metric Value",
     ]
     results_matrix = extract_results_table(metrics, results_dict)
-    if cpu_usage is not None:
-        results_matrix.append(["Total shards CPU usage %", "", "", cpu_usage])
+    if cpu_usage:
+        for metric_name, metric_value in cpu_usage.items():
+            results_matrix.append([metric_name, "", "", metric_value])
     for metric_name in metric_names:
         if metric_name in kv_overall:
             metric_value = kv_overall[metric_name]

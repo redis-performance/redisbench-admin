@@ -156,7 +156,6 @@ def collect_redis_metrics(
 def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
     import numpy as np
 
-    total_avg_cpu_pct = None
     res = {}
     for shard_n, cpu_stats_arr in benchmark_cpu_stats.items():
         avg_cpu_pct = None
@@ -173,11 +172,17 @@ def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
                 avg_cpu_pct = np.percentile(shards_cpu_arr, 75)
 
         res[shard_n] = avg_cpu_pct
-        if avg_cpu_pct is not None:
-            if total_avg_cpu_pct is None:
-                total_avg_cpu_pct = 0.0
-            total_avg_cpu_pct += avg_cpu_pct
-    return total_avg_cpu_pct, res
+
+    shard_cpu_values = [value for value in res.values() if value is not None]
+    summary = {}
+    if shard_cpu_values:
+        summary = {
+            "shards_cpu_usage_avg_pct": np.mean(shard_cpu_values),
+            "shards_cpu_usage_p50_pct": np.percentile(shard_cpu_values, 50),
+            "shards_cpu_usage_p75_pct": np.percentile(shard_cpu_values, 75),
+            "shards_cpu_usage_p99_pct": np.percentile(shard_cpu_values, 99),
+        }
+    return summary, res
 
 
 def get_avg_cpu_pct(avg_cpu_pct, stats_start_pos, stats_end_pos):

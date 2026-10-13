@@ -77,7 +77,6 @@ from redisbench_admin.utils.local import (
 )
 
 from redisbench_admin.utils.results import (
-    TOTAL_SHARDS_USED_CPU_PCT,
     merge_measurements_into_results,
     post_process_benchmark_results,
 )
@@ -541,18 +540,17 @@ def run_local_command_logic(args, project_name, project_version):
                                     False
                                 )
                                 cpu_stats_thread.join()
-                                (
-                                    total_shards_cpu_usage,
-                                    cpu_usage_map,
-                                ) = from_info_to_overall_shard_cpu(
-                                    redisbench_admin.run.metrics.BENCHMARK_CPU_STATS_GLOBAL
+                                cpu_usage_summary, cpu_usage_map = (
+                                    from_info_to_overall_shard_cpu(
+                                        redisbench_admin.run.metrics.BENCHMARK_CPU_STATS_GLOBAL
+                                    )
                                 )
-                                if total_shards_cpu_usage is None:
-                                    logging.info("Total CPU usage (n/a)")
+                                if not cpu_usage_summary:
+                                    logging.info("CPU usage summary: n/a")
                                 else:
                                     logging.info(
-                                        "Total CPU usage ({:.3f} %)".format(
-                                            total_shards_cpu_usage
+                                        "CPU usage summary: {}".format(
+                                            json.dumps(cpu_usage_summary, indent=2)
                                         )
                                     )
                                 logging.info(
@@ -603,6 +601,7 @@ def run_local_command_logic(args, project_name, project_version):
                                         ]
                                     },
                                 )
+                                overall_end_time_metrics.update(cpu_usage_summary)
 
                                 # run post commands after benchmark completes and
                                 # end-of-benchmark metrics have been collected, so
@@ -648,10 +647,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     # client tool results so that the exporter
                                     # section reaches them via jsonpath
                                     report_measurements = dict(index_measurements)
-                                    if total_shards_cpu_usage is not None:
-                                        report_measurements[
-                                            TOTAL_SHARDS_USED_CPU_PCT
-                                        ] = total_shards_cpu_usage
+                                    report_measurements.update(cpu_usage_summary)
                                     if report_measurements:
                                         results_dict = merge_measurements_into_results(
                                             results_dict, report_measurements
@@ -669,7 +665,7 @@ def run_local_command_logic(args, project_name, project_version):
                                         setup_name,
                                         setup_type,
                                         test_name,
-                                        total_shards_cpu_usage,
+                                        cpu_usage_summary,
                                         overall_end_time_metrics,
                                         [
                                             "memory_used_memory",
