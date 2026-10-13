@@ -84,6 +84,10 @@ The report exposes the average and 50th, 75th, and 99th percentiles across the
 shards instead of summing their CPU percentages. Each shard's input value is
 the 75th percentile of its CPU usage intervals sampled from Redis `INFO`; a
 report omits the measurements when the run is too short to produce two samples.
+On a single-shard deployment all four values are identical; with only two or
+three shards, p99 is effectively an interpolated maximum. Remote benchmarks
+also report these measurements when they reuse an existing environment because
+the sampler is reset independently before every benchmark.
 Benchmark definitions can export or compare them through JSONPath like other
 result metrics:
 
