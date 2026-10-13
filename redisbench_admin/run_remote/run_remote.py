@@ -10,10 +10,10 @@ import traceback
 import redis
 import pytablewriter
 from pytablewriter import MarkdownTableWriter
-import redisbench_admin.run.metrics
+import redisbench_admin
 from redisbench_admin.profilers.perf import PERF_CALLGRAPH_MODE
 from redisbench_admin.run.metrics import (
-    from_info_to_overall_shard_cpu,
+    CPU_USAGE_SUMMARY_METRIC_NAMES,
     collect_redis_metrics,
     collect_search_and_bigredis_metrics,
 )
@@ -1137,14 +1137,22 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
                                             )
 
-                                    cpu_usage_summary = {}
-                                    if skip_remote_db_setup is False:
-                                        (
-                                            cpu_usage_summary,
-                                            cpu_usage_map,
-                                        ) = from_info_to_overall_shard_cpu(
-                                            redisbench_admin.run.metrics.BENCHMARK_CPU_STATS_GLOBAL
+                                    # remote_client already calculated and stored
+                                    # the CPU summary in the report. Reuse that
+                                    # exact result for logging and RedisTimeSeries
+                                    # instead of independently calculating it again.
+                                    measurements = {}
+                                    if type(results_dict) == dict:
+                                        measurements = results_dict.get(
+                                            "Measurements", {}
                                         )
+                                    if type(measurements) != dict:
+                                        measurements = {}
+                                    cpu_usage_summary = {
+                                        name: measurements[name]
+                                        for name in CPU_USAGE_SUMMARY_METRIC_NAMES
+                                        if name in measurements
+                                    }
                                     logging.info(
                                         "CPU usage summary: {}".format(
                                             "n/a"

@@ -8,6 +8,13 @@ import datetime as dt
 import redis
 from jsonpath_ng import parse
 
+CPU_USAGE_SUMMARY_METRIC_NAMES = (
+    "shards_cpu_usage_avg_pct",
+    "shards_cpu_usage_p50_pct",
+    "shards_cpu_usage_p75_pct",
+    "shards_cpu_usage_p99_pct",
+)
+
 
 def extract_results_table(
     metrics,
@@ -192,10 +199,10 @@ def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
     if shard_cpu_values:
         # These percentiles are across shards, not across time samples.
         summary = {
-            "shards_cpu_usage_avg_pct": np.mean(shard_cpu_values),
-            "shards_cpu_usage_p50_pct": np.percentile(shard_cpu_values, 50),
-            "shards_cpu_usage_p75_pct": np.percentile(shard_cpu_values, 75),
-            "shards_cpu_usage_p99_pct": np.percentile(shard_cpu_values, 99),
+            CPU_USAGE_SUMMARY_METRIC_NAMES[0]: np.mean(shard_cpu_values),
+            CPU_USAGE_SUMMARY_METRIC_NAMES[1]: np.percentile(shard_cpu_values, 50),
+            CPU_USAGE_SUMMARY_METRIC_NAMES[2]: np.percentile(shard_cpu_values, 75),
+            CPU_USAGE_SUMMARY_METRIC_NAMES[3]: np.percentile(shard_cpu_values, 99),
         }
     return summary, res
 
