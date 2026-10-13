@@ -156,14 +156,14 @@ def collect_redis_metrics(
 def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
     import numpy as np
 
-    total_avg_cpu_pct = 0.0
+    total_avg_cpu_pct = None
     res = {}
     for shard_n, cpu_stats_arr in benchmark_cpu_stats.items():
         avg_cpu_pct = None
         shards_cpu_arr = []
         # we need at least 2 elements to compute the cpu usage
         if len(cpu_stats_arr) >= 2:
-            for start_pos in range(0, len(cpu_stats_arr) - 2):
+            for start_pos in range(0, len(cpu_stats_arr) - 1):
                 avg_cpu_pct = get_avg_cpu_pct(
                     avg_cpu_pct, cpu_stats_arr[start_pos], cpu_stats_arr[start_pos + 1]
                 )
@@ -174,6 +174,8 @@ def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
 
         res[shard_n] = avg_cpu_pct
         if avg_cpu_pct is not None:
+            if total_avg_cpu_pct is None:
+                total_avg_cpu_pct = 0.0
             total_avg_cpu_pct += avg_cpu_pct
     return total_avg_cpu_pct, res
 
@@ -237,6 +239,11 @@ def collect_search_and_bigredis_metrics(redis_conns):
 
 BENCHMARK_RUNNING_GLOBAL = False
 BENCHMARK_CPU_STATS_GLOBAL = {}
+
+
+def reset_cpu_stats():
+    """Discard samples from previous benchmarks before starting a new run."""
+    BENCHMARK_CPU_STATS_GLOBAL.clear()
 
 
 def collect_cpu_data(redis_conns=[], delta_secs: float = 5.0, delay_start: float = 1.0):

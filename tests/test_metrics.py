@@ -13,10 +13,69 @@ import yaml
 
 from redisbench_admin.run.common import merge_default_and_config_metrics
 from redisbench_admin.run.metrics import (
+    BENCHMARK_CPU_STATS_GLOBAL,
     collect_redis_metrics,
     collect_search_and_bigredis_metrics,
     extract_results_table,
+    from_info_to_overall_shard_cpu,
+    reset_cpu_stats,
 )
+from redisbench_admin.utils.results import (
+    TOTAL_SHARDS_USED_CPU_PCT,
+    merge_measurements_into_results,
+)
+
+
+def _cpu_sample(timestamp_usec, used_cpu_sys, used_cpu_user):
+    return {
+        "server_time_usec": timestamp_usec,
+        "used_cpu_sys": used_cpu_sys,
+        "used_cpu_user": used_cpu_user,
+    }
+
+
+def test_cpu_consumption_uses_the_only_interval_from_two_samples():
+    total, by_shard = from_info_to_overall_shard_cpu(
+        {
+            "1": [
+                _cpu_sample(1_000_000, 1.0, 2.0),
+                _cpu_sample(2_000_000, 1.25, 2.25),
+            ],
+            "2": [
+                _cpu_sample(1_000_000, 3.0, 4.0),
+                _cpu_sample(2_000_000, 3.1, 4.4),
+            ],
+        }
+    )
+
+    assert by_shard == {"1": 50.0, "2": 50.0}
+    assert total == 100.0
+
+
+def test_cpu_consumption_is_absent_without_enough_samples():
+    total, by_shard = from_info_to_overall_shard_cpu(
+        {"1": [_cpu_sample(1_000_000, 1.0, 2.0)]}
+    )
+
+    assert total is None
+    assert by_shard == {"1": None}
+
+
+def test_cpu_stats_are_reset_between_reports():
+    BENCHMARK_CPU_STATS_GLOBAL["1"] = [_cpu_sample(1_000_000, 1.0, 2.0)]
+
+    reset_cpu_stats()
+
+    assert BENCHMARK_CPU_STATS_GLOBAL == {}
+
+
+def test_cpu_consumption_is_exposed_in_report_measurements():
+    results = merge_measurements_into_results(
+        {"ALL STATS": {"Totals": {"Ops/sec": 100.0}}},
+        {TOTAL_SHARDS_USED_CPU_PCT: 87.5},
+    )
+
+    assert results["Measurements"][TOTAL_SHARDS_USED_CPU_PCT] == 87.5
 
 
 def test_extract_results_table():

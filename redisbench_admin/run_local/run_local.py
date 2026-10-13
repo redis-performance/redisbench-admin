@@ -41,6 +41,7 @@ from redisbench_admin.run.metrics import (
     from_info_to_overall_shard_cpu,
     collect_redis_metrics,
     collect_cpu_data,
+    reset_cpu_stats,
 )
 
 from redisbench_admin.run.redistimeseries import (
@@ -76,6 +77,7 @@ from redisbench_admin.utils.local import (
 )
 
 from redisbench_admin.utils.results import (
+    TOTAL_SHARDS_USED_CPU_PCT,
     merge_measurements_into_results,
     post_process_benchmark_results,
 )
@@ -470,6 +472,7 @@ def run_local_command_logic(args, project_name, project_version):
 
                                 # run the benchmark
 
+                                reset_cpu_stats()
                                 cpu_stats_thread = threading.Thread(
                                     target=collect_cpu_data,
                                     args=(redis_conns, 5.0, 1.0),
@@ -544,11 +547,14 @@ def run_local_command_logic(args, project_name, project_version):
                                 ) = from_info_to_overall_shard_cpu(
                                     redisbench_admin.run.metrics.BENCHMARK_CPU_STATS_GLOBAL
                                 )
-                                logging.info(
-                                    "Total CPU usage ({:.3f} %)".format(
-                                        total_shards_cpu_usage
+                                if total_shards_cpu_usage is None:
+                                    logging.info("Total CPU usage (n/a)")
+                                else:
+                                    logging.info(
+                                        "Total CPU usage ({:.3f} %)".format(
+                                            total_shards_cpu_usage
+                                        )
                                     )
-                                )
                                 logging.info(
                                     "CPU MAP: {}".format(
                                         json.dumps(cpu_usage_map, indent=2)
@@ -641,9 +647,14 @@ def run_local_command_logic(args, project_name, project_version):
                                     # server side measurements are merged into the
                                     # client tool results so that the exporter
                                     # section reaches them via jsonpath
-                                    if index_measurements:
+                                    report_measurements = dict(index_measurements)
+                                    if total_shards_cpu_usage is not None:
+                                        report_measurements[
+                                            TOTAL_SHARDS_USED_CPU_PCT
+                                        ] = total_shards_cpu_usage
+                                    if report_measurements:
                                         results_dict = merge_measurements_into_results(
-                                            results_dict, index_measurements
+                                            results_dict, report_measurements
                                         )
                                         with open(
                                             local_benchmark_output_filename, "w"
