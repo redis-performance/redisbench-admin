@@ -73,22 +73,23 @@ result artifact:
 {
   "Measurements": {
     "total_shards_used_cpu_pct": 250.0,
-    "total_shards_used_cpu_p50_pct": 190.0,
-    "total_shards_used_cpu_p99_pct": 310.0
+    "shards_cpu_usage_min_pct": 40.0,
+    "shards_cpu_usage_max_pct": 90.0,
+    "shards_cpu_usage_avg_pct": 62.5,
+    "shards_cpu_usage_median_pct": 60.0
   }
 }
 ```
 
-The report calculates the 50th, 75th, and 99th percentiles over time for each
-shard from CPU usage intervals sampled from Redis `INFO`, then sums the matching
-percentile across shards. This makes p50 representative of usual utilization
-and p99 sensitive to brief peaks without calculating percentiles across shards.
-`total_shards_used_cpu_pct` preserves the existing summed p75 value and name;
-the p50 and p99 metrics are additive. Because the metrics sum all shards, they
-can exceed 100% on multi-shard deployments. A report omits the measurements
-when the run is too short to produce two samples. Remote benchmarks also report
-them when they reuse an existing environment because the sampler is reset
-independently before every benchmark.
+Each shard is represented by the 75th percentile of its CPU usage intervals
+sampled from Redis `INFO`. The report preserves `total_shards_used_cpu_pct`, the
+sum of those per-shard values, and adds their minimum, maximum, average, and
+median to show the distribution across shards. The total can exceed 100% on a
+multi-shard deployment; each distribution metric describes one shard and can
+also exceed 100% when a Redis process uses multiple CPU cores. A report omits
+the measurements when the run is too short to produce two samples. Remote
+benchmarks also report them when they reuse an existing environment because the
+sampler is reset independently before every benchmark.
 Benchmark definitions can export or compare them through JSONPath like other
 result metrics:
 
@@ -97,11 +98,13 @@ exporter:
   redistimeseries:
     metrics:
       - "$.Measurements.total_shards_used_cpu_pct"
-      - "$.Measurements.total_shards_used_cpu_p50_pct"
-      - "$.Measurements.total_shards_used_cpu_p99_pct"
+      - "$.Measurements.shards_cpu_usage_min_pct"
+      - "$.Measurements.shards_cpu_usage_max_pct"
+      - "$.Measurements.shards_cpu_usage_avg_pct"
+      - "$.Measurements.shards_cpu_usage_median_pct"
   comparison:
     metrics:
-      - "$.Measurements.total_shards_used_cpu_p99_pct"
+      - "$.Measurements.shards_cpu_usage_max_pct"
     mode: lower-better
 ```
 

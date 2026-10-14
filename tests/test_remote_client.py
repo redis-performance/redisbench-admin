@@ -94,8 +94,10 @@ def test_remote_post_processing_persists_cpu_summary(tmp_path):
     results_file.write_text('{"ALL STATS": {"Totals": {"Ops/sec": 12.0}}}')
     cpu_summary = {
         "total_shards_used_cpu_pct": 50.0,
-        "total_shards_used_cpu_p50_pct": 40.0,
-        "total_shards_used_cpu_p99_pct": 60.0,
+        "shards_cpu_usage_min_pct": 10.0,
+        "shards_cpu_usage_max_pct": 40.0,
+        "shards_cpu_usage_avg_pct": 25.0,
+        "shards_cpu_usage_median_pct": 25.0,
     }
 
     _, _, results_dict, return_code = post_process_remote_run(
@@ -113,4 +115,4 @@ def test_remote_post_processing_persists_cpu_summary(tmp_path):
 
     assert return_code == 0
     assert results_dict["Measurements"] == cpu_summary
-    assert "total_shards_used_cpu_p99_pct" in results_file.read_text()
+    assert "shards_cpu_usage_median_pct" in results_file.read_text()

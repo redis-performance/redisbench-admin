@@ -50,13 +50,15 @@ def test_cpu_consumption_summarizes_shards_from_two_samples():
     assert summary == pytest.approx(
         {
             "total_shards_used_cpu_pct": 50.0,
-            "total_shards_used_cpu_p50_pct": 50.0,
-            "total_shards_used_cpu_p99_pct": 50.0,
+            "shards_cpu_usage_min_pct": 10.0,
+            "shards_cpu_usage_max_pct": 40.0,
+            "shards_cpu_usage_avg_pct": 25.0,
+            "shards_cpu_usage_median_pct": 25.0,
         }
     )
 
 
-def test_cpu_consumption_summarizes_percentiles_over_time():
+def test_cpu_consumption_summarizes_shard_p75_values():
     summary, by_shard = from_info_to_overall_shard_cpu(
         {
             "1": [
@@ -80,8 +82,10 @@ def test_cpu_consumption_summarizes_percentiles_over_time():
     assert summary == pytest.approx(
         {
             "total_shards_used_cpu_pct": 97.5,
-            "total_shards_used_cpu_p50_pct": 75.0,
-            "total_shards_used_cpu_p99_pct": 119.1,
+            "shards_cpu_usage_min_pct": 32.5,
+            "shards_cpu_usage_max_pct": 65.0,
+            "shards_cpu_usage_avg_pct": 48.75,
+            "shards_cpu_usage_median_pct": 48.75,
         }
     )
 
@@ -108,15 +112,19 @@ def test_cpu_consumption_is_exposed_in_report_measurements():
         {"ALL STATS": {"Totals": {"Ops/sec": 100.0}}},
         {
             "total_shards_used_cpu_pct": 240.0,
-            "total_shards_used_cpu_p50_pct": 180.0,
-            "total_shards_used_cpu_p99_pct": 290.0,
+            "shards_cpu_usage_min_pct": 40.0,
+            "shards_cpu_usage_max_pct": 90.0,
+            "shards_cpu_usage_avg_pct": 60.0,
+            "shards_cpu_usage_median_pct": 55.0,
         },
     )
 
     assert results["Measurements"] == {
         "total_shards_used_cpu_pct": 240.0,
-        "total_shards_used_cpu_p50_pct": 180.0,
-        "total_shards_used_cpu_p99_pct": 290.0,
+        "shards_cpu_usage_min_pct": 40.0,
+        "shards_cpu_usage_max_pct": 90.0,
+        "shards_cpu_usage_avg_pct": 60.0,
+        "shards_cpu_usage_median_pct": 55.0,
     }
 
 
