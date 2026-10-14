@@ -141,7 +141,8 @@ def prepare_memtier_benchmark_command(
                     for kk in k.keys():
                         command_arr.extend(["--{}".format(kk), str(k[kk])])
 
-    command_arr.extend(["--json-out-file", result_file])
+    if result_file is not None:
+        command_arr.extend(["--json-out-file", result_file])
     command_str = " ".join(command_arr)
     if "arguments" in benchmark_config:
         # Process monitor-input URLs before adding arguments

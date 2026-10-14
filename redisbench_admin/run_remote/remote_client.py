@@ -32,6 +32,29 @@ from redisbench_admin.utils.remote import (
 )
 
 
+def concurrent_benchmark_command(primary_command, background_command):
+    """Build one remote shell command that succeeds only when both clients do."""
+    return (
+        "{{ {background} > /dev/null 2>&1; }} & background_pid=$!; "
+        "{{ {primary}; }} & primary_pid=$!; "
+        'wait "$primary_pid"; primary_status=$?; '
+        'if [ "$primary_status" -ne 0 ]; then '
+        'kill "$background_pid" 2>/dev/null; '
+        'wait "$background_pid" 2>/dev/null; '
+        'echo "Primary client exit status: $primary_status"; '
+        'echo "Background client terminated after primary failure"; '
+        "exit 1; fi; "
+        'if kill -0 "$background_pid" 2>/dev/null; then '
+        'echo "Primary client finished while the background client is still running; waiting" >&2; '
+        "fi; "
+        'wait "$background_pid"; background_status=$?; '
+        'echo "Primary client exit status: $primary_status"; '
+        'echo "Background client exit status: $background_status"; '
+        'if [ "$background_status" -ne 0 ]; '
+        "then exit 1; fi"
+    ).format(background=background_command, primary=primary_command)
+
+
 def run_remote_client_tool(
     allowed_tools,
     artifact_version,
@@ -130,6 +153,56 @@ def run_remote_client_tool(
         redis_password,
         remote_log_out_file,
     )
+    if config_key == "clientconfig" and "background_clientconfig" in benchmark_config:
+        (
+            background_min_tool_version,
+            background_min_tool_version_major,
+            background_min_tool_version_minor,
+            background_min_tool_version_patch,
+            background_tool,
+            background_tool_source,
+            _,
+            _,
+        ) = extract_benchmark_tool_settings(benchmark_config, "background_clientconfig")
+        benchmark_tools_sanity_check(allowed_tools, background_tool)
+        if background_tool != "memtier_benchmark":
+            raise ValueError(
+                "background_clientconfig currently supports only memtier_benchmark"
+            )
+        remote_tool_pre_bench_step(
+            benchmark_config,
+            background_min_tool_version,
+            background_min_tool_version_major,
+            background_min_tool_version_minor,
+            background_min_tool_version_patch,
+            background_tool,
+            client_public_ip,
+            username,
+            background_tool_source,
+            "background_clientconfig",
+            os_str,
+            arch_str,
+            client_ssh_port,
+            private_key,
+            architecture,
+        )
+        _, background_command_str = prepare_benchmark_parameters(
+            benchmark_config,
+            background_tool,
+            server_plaintext_port,
+            server_private_ip,
+            None,
+            True,
+            None,
+            cluster_api_enabled,
+            "background_clientconfig",
+            client_public_ip,
+            username,
+            private_key,
+            client_ssh_port,
+            redis_password,
+        )
+        command_str = concurrent_benchmark_command(command_str, background_command_str)
     tmp = None
     if benchmark_tool == "redis-benchmark":
         tmp = local_bench_fname

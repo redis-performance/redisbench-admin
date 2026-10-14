@@ -59,7 +59,7 @@ from redisbench_admin.run.run import (
 )
 from redisbench_admin.run_local.local_db import local_db_spin
 from redisbench_admin.run_local.local_helpers import (
-    run_local_benchmark,
+    run_local_benchmarks,
     check_benchmark_binaries_local_requirements,
 )
 from redisbench_admin.profilers.profilers_local import (
@@ -83,6 +83,51 @@ from redisbench_admin.utils.results import (
 )
 
 import threading
+
+
+def prepare_local_background_client(
+    benchmark_config,
+    allowed_tools,
+    port,
+    host,
+    cluster_api_enabled,
+    redis_password,
+):
+    if "background_clientconfig" not in benchmark_config:
+        return None, None
+
+    (
+        background_benchmark_tool,
+        background_benchmark_path,
+        background_benchmark_workdir,
+    ) = check_benchmark_binaries_local_requirements(
+        benchmark_config,
+        allowed_tools,
+        config_key="background_clientconfig",
+    )
+    if background_benchmark_tool != "memtier_benchmark":
+        raise ValueError(
+            "background_clientconfig currently supports only memtier_benchmark"
+        )
+
+    background_command, _ = prepare_benchmark_parameters(
+        benchmark_config,
+        background_benchmark_path,
+        port,
+        host,
+        None,
+        False,
+        background_benchmark_workdir,
+        cluster_api_enabled,
+        "background_clientconfig",
+        None,
+        None,
+        None,
+        None,
+        redis_password,
+    )
+    logging.info("Prepared background benchmark command")
+    return background_benchmark_tool, background_command
 
 
 def run_local_command_logic(args, project_name, project_version):
@@ -418,6 +463,18 @@ def run_local_command_logic(args, project_name, project_version):
                                     benchmark_config, args.allowed_tools
                                 )
 
+                                (
+                                    background_benchmark_tool,
+                                    background_command,
+                                ) = prepare_local_background_client(
+                                    benchmark_config,
+                                    args.allowed_tools,
+                                    args.port,
+                                    args.host,
+                                    cluster_api_enabled,
+                                    args.password,
+                                )
+
                                 # For ftsb tools, set up log file path
                                 local_log_out_file = None
                                 if "ftsb_" in benchmark_tool:
@@ -533,9 +590,19 @@ def run_local_command_logic(args, project_name, project_version):
 
                                     # Skip benchmark execution and continue to next test
                                 else:
-                                    stdout, stderr = run_local_benchmark(
-                                        benchmark_tool, command
-                                    )
+                                    try:
+                                        stdout, stderr = run_local_benchmarks(
+                                            benchmark_tool,
+                                            command,
+                                            background_benchmark_tool,
+                                            background_command,
+                                        )
+                                    except (Exception, KeyboardInterrupt):
+                                        redisbench_admin.run.metrics.BENCHMARK_RUNNING_GLOBAL = (
+                                            False
+                                        )
+                                        cpu_stats_thread.join()
+                                        raise
                                 benchmark_end_time = datetime.datetime.now()
                                 redisbench_admin.run.metrics.BENCHMARK_RUNNING_GLOBAL = (
                                     False
