@@ -10,6 +10,7 @@ from jsonpath_ng import parse
 
 CPU_USAGE_SUMMARY_METRICS = (
     ("total_shards_used_cpu_pct", "Total shards CPU usage %", "sum"),
+    ("shards_count", "Shard count", "count"),
     ("shards_cpu_usage_min_pct", "Minimum shard CPU usage %", "min"),
     ("shards_cpu_usage_max_pct", "Maximum shard CPU usage %", "max"),
     ("shards_cpu_usage_avg_pct", "Average shard CPU usage %", "mean"),
@@ -197,8 +198,16 @@ def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
     shard_cpu_values = [value for value in res.values() if value is not None]
     summary = {}
     if shard_cpu_values:
+        aggregations = {
+            "sum": np.sum,
+            "count": len,
+            "min": np.min,
+            "max": np.max,
+            "mean": np.mean,
+            "median": np.median,
+        }
         summary = {
-            metric_name: getattr(np, aggregation)(shard_cpu_values)
+            metric_name: aggregations[aggregation](shard_cpu_values)
             for metric_name, _, aggregation in CPU_USAGE_SUMMARY_METRICS
         }
     return summary, res

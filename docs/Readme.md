@@ -73,6 +73,7 @@ result artifact:
 {
   "Measurements": {
     "total_shards_used_cpu_pct": 250.0,
+    "shards_count": 4,
     "shards_cpu_usage_min_pct": 40.0,
     "shards_cpu_usage_max_pct": 90.0,
     "shards_cpu_usage_avg_pct": 62.5,
@@ -84,12 +85,13 @@ result artifact:
 Each shard is represented by the 75th percentile of its CPU usage intervals
 sampled from Redis `INFO`. The report preserves `total_shards_used_cpu_pct`, the
 sum of those per-shard values, and adds their minimum, maximum, average, and
-median to show the distribution across shards. The total can exceed 100% on a
-multi-shard deployment; each distribution metric describes one shard and can
-also exceed 100% when a Redis process uses multiple CPU cores. A report omits
-the measurements when the run is too short to produce two samples. Remote
-benchmarks also report them when they reuse an existing environment because the
-sampler is reset independently before every benchmark.
+median to show the distribution across shards. `shards_count` is the number of
+shards that contributed a valid p75 CPU value to those calculations. The total
+can exceed 100% on a multi-shard deployment; each distribution metric describes
+one shard and can also exceed 100% when a Redis process uses multiple CPU cores.
+A report omits the measurements when the run is too short to produce two
+samples. Remote benchmarks also report them when they reuse an existing
+environment because the sampler is reset independently before every benchmark.
 Benchmark definitions can export or compare them through JSONPath like other
 result metrics:
 
@@ -98,6 +100,7 @@ exporter:
   redistimeseries:
     metrics:
       - "$.Measurements.total_shards_used_cpu_pct"
+      - "$.Measurements.shards_count"
       - "$.Measurements.shards_cpu_usage_min_pct"
       - "$.Measurements.shards_cpu_usage_max_pct"
       - "$.Measurements.shards_cpu_usage_avg_pct"

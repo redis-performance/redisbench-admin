@@ -94,6 +94,7 @@ def test_remote_post_processing_persists_cpu_summary(tmp_path):
     results_file.write_text('{"ALL STATS": {"Totals": {"Ops/sec": 12.0}}}')
     cpu_summary = {
         "total_shards_used_cpu_pct": 50.0,
+        "shards_count": 2,
         "shards_cpu_usage_min_pct": 10.0,
         "shards_cpu_usage_max_pct": 40.0,
         "shards_cpu_usage_avg_pct": 25.0,
