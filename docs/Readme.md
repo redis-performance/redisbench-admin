@@ -63,7 +63,7 @@ exporter:
 
 ```
 
-## CPU consumption by shard
+## CPU consumption
 
 Local and remote benchmark reports include the Redis server CPU consumed while
 the client workload ran. The value is stored under `Measurements` in the JSON
@@ -73,22 +73,22 @@ result artifact:
 {
   "Measurements": {
     "total_shards_used_cpu_pct": 250.0,
-    "shards_cpu_usage_p50_pct": 60.0,
-    "shards_cpu_usage_p75_pct": 75.0,
-    "shards_cpu_usage_p99_pct": 91.5
+    "total_shards_used_cpu_p50_pct": 190.0,
+    "total_shards_used_cpu_p99_pct": 310.0
   }
 }
 ```
 
-The report preserves `total_shards_used_cpu_pct`, the sum of the per-shard CPU
-percentages, and adds the 50th, 75th, and 99th percentiles across shards. Each
-shard's input value is the 75th percentile of its CPU usage intervals sampled
-from Redis `INFO`; a report omits the measurements when the run is too short to
-produce two samples.
-On a single-shard deployment all four values are identical; with only two or
-three shards, p99 is effectively an interpolated maximum. Remote benchmarks
-also report these measurements when they reuse an existing environment because
-the sampler is reset independently before every benchmark.
+The report calculates the 50th, 75th, and 99th percentiles over time for each
+shard from CPU usage intervals sampled from Redis `INFO`, then sums the matching
+percentile across shards. This makes p50 representative of usual utilization
+and p99 sensitive to brief peaks without calculating percentiles across shards.
+`total_shards_used_cpu_pct` preserves the existing summed p75 value and name;
+the p50 and p99 metrics are additive. Because the metrics sum all shards, they
+can exceed 100% on multi-shard deployments. A report omits the measurements
+when the run is too short to produce two samples. Remote benchmarks also report
+them when they reuse an existing environment because the sampler is reset
+independently before every benchmark.
 Benchmark definitions can export or compare them through JSONPath like other
 result metrics:
 
@@ -97,12 +97,11 @@ exporter:
   redistimeseries:
     metrics:
       - "$.Measurements.total_shards_used_cpu_pct"
-      - "$.Measurements.shards_cpu_usage_p50_pct"
-      - "$.Measurements.shards_cpu_usage_p75_pct"
-      - "$.Measurements.shards_cpu_usage_p99_pct"
+      - "$.Measurements.total_shards_used_cpu_p50_pct"
+      - "$.Measurements.total_shards_used_cpu_p99_pct"
   comparison:
     metrics:
-      - "$.Measurements.shards_cpu_usage_p99_pct"
+      - "$.Measurements.total_shards_used_cpu_p99_pct"
     mode: lower-better
 ```
 

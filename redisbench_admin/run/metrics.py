@@ -8,11 +8,13 @@ import datetime as dt
 import redis
 from jsonpath_ng import parse
 
-CPU_USAGE_SUMMARY_METRIC_NAMES = (
-    "total_shards_used_cpu_pct",
-    "shards_cpu_usage_p50_pct",
-    "shards_cpu_usage_p75_pct",
-    "shards_cpu_usage_p99_pct",
+CPU_USAGE_SUMMARY_METRICS = (
+    ("total_shards_used_cpu_pct", "Total shards CPU usage %", 75),
+    ("total_shards_used_cpu_p50_pct", "Total shards CPU usage p50 %", 50),
+    ("total_shards_used_cpu_p99_pct", "Total shards CPU usage p99 %", 99),
+)
+CPU_USAGE_SUMMARY_METRIC_NAMES = tuple(
+    metric_name for metric_name, _, _ in CPU_USAGE_SUMMARY_METRICS
 )
 
 
@@ -164,12 +166,10 @@ def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
     """Summarize Redis process CPU usage over time and across shards.
 
     Consecutive INFO samples provide one CPU utilization interval. We first use
-    the p75 interval for each shard so brief spikes do not dominate its value,
-    preserve the existing sum across shards and add p50/p75/p99 across those
-    per-shard values. The percentiles describe shard balance without changing
-    the established total metric. On a single-shard deployment all four values
-    are identical; with few shards, NumPy linearly interpolates the percentiles
-    between the observed values.
+    p50, p75, and p99 over time for each shard, then sum the matching percentile
+    across shards. The established total metric remains the sum of per-shard
+    p75 values; p50 and p99 show the usual load and brief peaks without taking
+    percentiles of percentiles across shards.
 
     Returns an empty summary when no shard has at least two samples. This keeps
     short runs from reporting a misleading zero.
@@ -177,6 +177,7 @@ def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
     import numpy as np
 
     res = {}
+    shard_cpu_percentiles = []
     for shard_n, cpu_stats_arr in benchmark_cpu_stats.items():
         avg_cpu_pct = None
         shard_cpu_intervals = []
@@ -189,20 +190,23 @@ def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
                 if avg_cpu_pct is not None:
                     shard_cpu_intervals.append(avg_cpu_pct)
             if len(shard_cpu_intervals) > 0:
-                # Represent each shard by its p75 utilization over the run.
-                avg_cpu_pct = np.percentile(shard_cpu_intervals, 75)
+                percentiles = {
+                    percentile: np.percentile(shard_cpu_intervals, percentile)
+                    for _, _, percentile in CPU_USAGE_SUMMARY_METRICS
+                }
+                shard_cpu_percentiles.append(percentiles)
+                # Preserve the per-shard p75 map returned by this function.
+                avg_cpu_pct = percentiles[75]
 
         res[shard_n] = avg_cpu_pct
 
-    shard_cpu_values = [value for value in res.values() if value is not None]
     summary = {}
-    if shard_cpu_values:
-        # Preserve the existing sum, then add percentiles across shards.
+    if shard_cpu_percentiles:
         summary = {
-            CPU_USAGE_SUMMARY_METRIC_NAMES[0]: np.sum(shard_cpu_values),
-            CPU_USAGE_SUMMARY_METRIC_NAMES[1]: np.percentile(shard_cpu_values, 50),
-            CPU_USAGE_SUMMARY_METRIC_NAMES[2]: np.percentile(shard_cpu_values, 75),
-            CPU_USAGE_SUMMARY_METRIC_NAMES[3]: np.percentile(shard_cpu_values, 99),
+            metric_name: np.sum(
+                [values[percentile] for values in shard_cpu_percentiles]
+            )
+            for metric_name, _, percentile in CPU_USAGE_SUMMARY_METRICS
         }
     return summary, res
 

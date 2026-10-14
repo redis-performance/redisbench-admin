@@ -50,9 +50,38 @@ def test_cpu_consumption_summarizes_shards_from_two_samples():
     assert summary == pytest.approx(
         {
             "total_shards_used_cpu_pct": 50.0,
-            "shards_cpu_usage_p50_pct": 25.0,
-            "shards_cpu_usage_p75_pct": 32.5,
-            "shards_cpu_usage_p99_pct": 39.7,
+            "total_shards_used_cpu_p50_pct": 50.0,
+            "total_shards_used_cpu_p99_pct": 50.0,
+        }
+    )
+
+
+def test_cpu_consumption_summarizes_percentiles_over_time():
+    summary, by_shard = from_info_to_overall_shard_cpu(
+        {
+            "1": [
+                _cpu_sample(1_000_000, 0.0, 0.0),
+                _cpu_sample(2_000_000, 0.0, 0.1),
+                _cpu_sample(3_000_000, 0.0, 0.3),
+                _cpu_sample(4_000_000, 0.0, 0.6),
+                _cpu_sample(5_000_000, 0.0, 1.0),
+            ],
+            "2": [
+                _cpu_sample(1_000_000, 0.0, 0.0),
+                _cpu_sample(2_000_000, 0.0, 0.2),
+                _cpu_sample(3_000_000, 0.0, 0.6),
+                _cpu_sample(4_000_000, 0.0, 1.2),
+                _cpu_sample(5_000_000, 0.0, 2.0),
+            ],
+        }
+    )
+
+    assert by_shard == pytest.approx({"1": 32.5, "2": 65.0})
+    assert summary == pytest.approx(
+        {
+            "total_shards_used_cpu_pct": 97.5,
+            "total_shards_used_cpu_p50_pct": 75.0,
+            "total_shards_used_cpu_p99_pct": 119.1,
         }
     )
 
@@ -79,17 +108,15 @@ def test_cpu_consumption_is_exposed_in_report_measurements():
         {"ALL STATS": {"Totals": {"Ops/sec": 100.0}}},
         {
             "total_shards_used_cpu_pct": 240.0,
-            "shards_cpu_usage_p50_pct": 55.0,
-            "shards_cpu_usage_p75_pct": 70.0,
-            "shards_cpu_usage_p99_pct": 87.5,
+            "total_shards_used_cpu_p50_pct": 180.0,
+            "total_shards_used_cpu_p99_pct": 290.0,
         },
     )
 
     assert results["Measurements"] == {
         "total_shards_used_cpu_pct": 240.0,
-        "shards_cpu_usage_p50_pct": 55.0,
-        "shards_cpu_usage_p75_pct": 70.0,
-        "shards_cpu_usage_p99_pct": 87.5,
+        "total_shards_used_cpu_p50_pct": 180.0,
+        "total_shards_used_cpu_p99_pct": 290.0,
     }
 
 
