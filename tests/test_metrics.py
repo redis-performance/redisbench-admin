@@ -8,15 +8,132 @@ import os
 from unittest.mock import MagicMock
 
 import redis
+import pytest
 import yaml
 
 
 from redisbench_admin.run.common import merge_default_and_config_metrics
 from redisbench_admin.run.metrics import (
+    BENCHMARK_CPU_STATS_GLOBAL,
     collect_redis_metrics,
     collect_search_and_bigredis_metrics,
     extract_results_table,
+    from_info_to_overall_shard_cpu,
+    reset_cpu_stats,
 )
+from redisbench_admin.utils.results import merge_measurements_into_results
+
+
+def _cpu_sample(timestamp_usec, used_cpu_sys, used_cpu_user):
+    return {
+        "server_time_usec": timestamp_usec,
+        "used_cpu_sys": used_cpu_sys,
+        "used_cpu_user": used_cpu_user,
+    }
+
+
+def test_cpu_consumption_summarizes_shards_from_two_samples():
+    summary, by_shard = from_info_to_overall_shard_cpu(
+        {
+            "1": [
+                _cpu_sample(1_000_000, 1.0, 2.0),
+                _cpu_sample(2_000_000, 1.05, 2.05),
+            ],
+            "2": [
+                _cpu_sample(1_000_000, 3.0, 4.0),
+                _cpu_sample(2_000_000, 3.2, 4.2),
+            ],
+            "3": [_cpu_sample(1_000_000, 5.0, 6.0)],
+        }
+    )
+
+    assert {key: by_shard[key] for key in ("1", "2")} == pytest.approx(
+        {"1": 10.0, "2": 40.0}
+    )
+    assert by_shard["3"] is None
+    assert summary == pytest.approx(
+        {
+            "total_shards_used_cpu_pct": 50.0,
+            "shards_count": 2,
+            "shards_cpu_usage_min_pct": 10.0,
+            "shards_cpu_usage_max_pct": 40.0,
+            "shards_cpu_usage_avg_pct": 25.0,
+            "shards_cpu_usage_median_pct": 25.0,
+        }
+    )
+
+
+def test_cpu_consumption_summarizes_shard_p75_values():
+    summary, by_shard = from_info_to_overall_shard_cpu(
+        {
+            "1": [
+                _cpu_sample(1_000_000, 0.0, 0.0),
+                _cpu_sample(2_000_000, 0.0, 0.1),
+                _cpu_sample(3_000_000, 0.0, 0.3),
+                _cpu_sample(4_000_000, 0.0, 0.6),
+                _cpu_sample(5_000_000, 0.0, 1.0),
+            ],
+            "2": [
+                _cpu_sample(1_000_000, 0.0, 0.0),
+                _cpu_sample(2_000_000, 0.0, 0.2),
+                _cpu_sample(3_000_000, 0.0, 0.6),
+                _cpu_sample(4_000_000, 0.0, 1.2),
+                _cpu_sample(5_000_000, 0.0, 2.0),
+            ],
+        }
+    )
+
+    assert by_shard == pytest.approx({"1": 32.5, "2": 65.0})
+    assert summary == pytest.approx(
+        {
+            "total_shards_used_cpu_pct": 97.5,
+            "shards_count": 2,
+            "shards_cpu_usage_min_pct": 32.5,
+            "shards_cpu_usage_max_pct": 65.0,
+            "shards_cpu_usage_avg_pct": 48.75,
+            "shards_cpu_usage_median_pct": 48.75,
+        }
+    )
+
+
+def test_cpu_consumption_is_absent_without_enough_samples():
+    summary, by_shard = from_info_to_overall_shard_cpu(
+        {"1": [_cpu_sample(1_000_000, 1.0, 2.0)]}
+    )
+
+    assert summary == {}
+    assert by_shard == {"1": None}
+
+
+def test_cpu_stats_are_reset_between_reports():
+    BENCHMARK_CPU_STATS_GLOBAL["1"] = [_cpu_sample(1_000_000, 1.0, 2.0)]
+
+    reset_cpu_stats()
+
+    assert BENCHMARK_CPU_STATS_GLOBAL == {}
+
+
+def test_cpu_consumption_is_exposed_in_report_measurements():
+    results = merge_measurements_into_results(
+        {"ALL STATS": {"Totals": {"Ops/sec": 100.0}}},
+        {
+            "total_shards_used_cpu_pct": 240.0,
+            "shards_count": 4,
+            "shards_cpu_usage_min_pct": 40.0,
+            "shards_cpu_usage_max_pct": 90.0,
+            "shards_cpu_usage_avg_pct": 60.0,
+            "shards_cpu_usage_median_pct": 55.0,
+        },
+    )
+
+    assert results["Measurements"] == {
+        "total_shards_used_cpu_pct": 240.0,
+        "shards_count": 4,
+        "shards_cpu_usage_min_pct": 40.0,
+        "shards_cpu_usage_max_pct": 90.0,
+        "shards_cpu_usage_avg_pct": 60.0,
+        "shards_cpu_usage_median_pct": 55.0,
+    }
 
 
 def test_extract_results_table():
@@ -88,7 +205,6 @@ def test_extract_results_table_skips_non_numeric_values():
 
 def test_collect_redis_metrics():
     import os
-    import pytest
 
     rts_host = os.getenv("RTS_DATASINK_HOST", None)
     # Ensure we have the test DB to store results

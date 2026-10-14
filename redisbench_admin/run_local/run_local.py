@@ -38,9 +38,11 @@ from redisbench_admin.run.common import (
     run_redis_post_steps,
 )
 from redisbench_admin.run.metrics import (
+    CPU_USAGE_SUMMARY_METRIC_NAMES,
     from_info_to_overall_shard_cpu,
     collect_redis_metrics,
     collect_cpu_data,
+    reset_cpu_stats,
 )
 
 from redisbench_admin.run.redistimeseries import (
@@ -470,6 +472,7 @@ def run_local_command_logic(args, project_name, project_version):
 
                                 # run the benchmark
 
+                                reset_cpu_stats()
                                 cpu_stats_thread = threading.Thread(
                                     target=collect_cpu_data,
                                     args=(redis_conns, 5.0, 1.0),
@@ -538,17 +541,26 @@ def run_local_command_logic(args, project_name, project_version):
                                     False
                                 )
                                 cpu_stats_thread.join()
-                                (
-                                    total_shards_cpu_usage,
-                                    cpu_usage_map,
-                                ) = from_info_to_overall_shard_cpu(
-                                    redisbench_admin.run.metrics.BENCHMARK_CPU_STATS_GLOBAL
-                                )
-                                logging.info(
-                                    "Total CPU usage ({:.3f} %)".format(
-                                        total_shards_cpu_usage
+                                cpu_usage_summary, cpu_usage_map = (
+                                    from_info_to_overall_shard_cpu(
+                                        redisbench_admin.run.metrics.BENCHMARK_CPU_STATS_GLOBAL
                                     )
                                 )
+                                if not cpu_usage_summary:
+                                    logging.info("Total CPU usage (n/a)")
+                                else:
+                                    logging.info(
+                                        "Total CPU usage ({:.3f} %)".format(
+                                            cpu_usage_summary[
+                                                CPU_USAGE_SUMMARY_METRIC_NAMES[0]
+                                            ]
+                                        )
+                                    )
+                                    logging.info(
+                                        "CPU usage summary: {}".format(
+                                            json.dumps(cpu_usage_summary, indent=2)
+                                        )
+                                    )
                                 logging.info(
                                     "CPU MAP: {}".format(
                                         json.dumps(cpu_usage_map, indent=2)
@@ -597,6 +609,7 @@ def run_local_command_logic(args, project_name, project_version):
                                         ]
                                     },
                                 )
+                                overall_end_time_metrics.update(cpu_usage_summary)
 
                                 # run post commands after benchmark completes and
                                 # end-of-benchmark metrics have been collected, so
@@ -638,12 +651,15 @@ def run_local_command_logic(args, project_name, project_version):
                                         local_benchmark_output_filename, "r"
                                     ) as json_file:
                                         results_dict = json.load(json_file)
-                                    # server side measurements are merged into the
-                                    # client tool results so that the exporter
-                                    # section reaches them via jsonpath
-                                    if index_measurements:
+                                    # Merge server-side measurements (index build
+                                    # time and CPU distribution across shards) into
+                                    # the client results so exporters can reach
+                                    # them through JSONPath.
+                                    report_measurements = dict(index_measurements)
+                                    report_measurements.update(cpu_usage_summary)
+                                    if report_measurements:
                                         results_dict = merge_measurements_into_results(
-                                            results_dict, index_measurements
+                                            results_dict, report_measurements
                                         )
                                         with open(
                                             local_benchmark_output_filename, "w"
@@ -658,7 +674,7 @@ def run_local_command_logic(args, project_name, project_version):
                                         setup_name,
                                         setup_type,
                                         test_name,
-                                        total_shards_cpu_usage,
+                                        cpu_usage_summary,
                                         overall_end_time_metrics,
                                         [
                                             "memory_used_memory",

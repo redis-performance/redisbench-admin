@@ -11,7 +11,11 @@ import redisbench_admin
 from redisbench_admin.run.common import (
     prepare_benchmark_parameters,
 )
-from redisbench_admin.run.metrics import collect_cpu_data
+from redisbench_admin.run.metrics import (
+    collect_cpu_data,
+    from_info_to_overall_shard_cpu,
+    reset_cpu_stats,
+)
 from redisbench_admin.run.run import calculate_client_tool_duration_and_check
 from redisbench_admin.run_remote.remote_helpers import (
     benchmark_tools_sanity_check,
@@ -158,6 +162,7 @@ def run_remote_client_tool(
     cpu_stats_thread = None
     if collect_cpu_stats_thread is True:
         # run the benchmark
+        reset_cpu_stats()
         cpu_stats_thread = threading.Thread(
             target=collect_cpu_data,
             args=(redis_conns, 5.0, 1.0),
@@ -184,6 +189,12 @@ def run_remote_client_tool(
         redisbench_admin.run.metrics.BENCHMARK_RUNNING_GLOBAL = False
         cpu_stats_thread.join()
         logging.info("CPU collecting thread stopped")
+        cpu_usage_summary, _ = from_info_to_overall_shard_cpu(
+            redisbench_admin.run.metrics.BENCHMARK_CPU_STATS_GLOBAL
+        )
+        if cpu_usage_summary:
+            extra_results = dict(extra_results or {})
+            extra_results.update(cpu_usage_summary)
     if len(post_commands) > 0:
         res = execute_remote_commands(
             client_public_ip, username, private_key, post_commands, client_ssh_port

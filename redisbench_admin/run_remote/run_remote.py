@@ -10,10 +10,10 @@ import traceback
 import redis
 import pytablewriter
 from pytablewriter import MarkdownTableWriter
-import redisbench_admin.run.metrics
+import redisbench_admin
 from redisbench_admin.profilers.perf import PERF_CALLGRAPH_MODE
 from redisbench_admin.run.metrics import (
-    from_info_to_overall_shard_cpu,
+    CPU_USAGE_SUMMARY_METRIC_NAMES,
     collect_redis_metrics,
     collect_search_and_bigredis_metrics,
 )
@@ -1137,25 +1137,37 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
                                             )
 
-                                    total_shards_cpu_usage = None
-                                    if skip_remote_db_setup is False:
-                                        (
-                                            total_shards_cpu_usage,
-                                            cpu_usage_map,
-                                        ) = from_info_to_overall_shard_cpu(
-                                            redisbench_admin.run.metrics.BENCHMARK_CPU_STATS_GLOBAL
+                                    # remote_client already calculated and stored
+                                    # the CPU summary in the report. Reuse that
+                                    # exact result for logging and RedisTimeSeries
+                                    # instead of independently calculating it again.
+                                    measurements = {}
+                                    if type(results_dict) == dict:
+                                        measurements = results_dict.get(
+                                            "Measurements", {}
                                         )
-                                    if total_shards_cpu_usage is None:
-                                        total_shards_cpu_usage_str = "n/a"
+                                    if type(measurements) != dict:
+                                        measurements = {}
+                                    cpu_usage_summary = {
+                                        name: measurements[name]
+                                        for name in CPU_USAGE_SUMMARY_METRIC_NAMES
+                                        if name in measurements
+                                    }
+                                    if not cpu_usage_summary:
+                                        logging.info("Total CPU usage (n/a)")
                                     else:
-                                        total_shards_cpu_usage_str = "{:.3f}".format(
-                                            total_shards_cpu_usage
+                                        logging.info(
+                                            "Total CPU usage ({:.3f} %)".format(
+                                                cpu_usage_summary[
+                                                    CPU_USAGE_SUMMARY_METRIC_NAMES[0]
+                                                ]
+                                            )
                                         )
-                                    logging.info(
-                                        "Total CPU usage ({} %)".format(
-                                            total_shards_cpu_usage_str
+                                        logging.info(
+                                            "CPU usage summary: {}".format(
+                                                cpu_usage_summary
+                                            )
                                         )
-                                    )
 
                                     if remote_run_result is False:
                                         db_error_artifacts(
@@ -1270,10 +1282,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                                         ]
                                                     },
                                                 )
-                                                if total_shards_cpu_usage is not None:
-                                                    overall_end_time_metrics[
-                                                        "total_shards_used_cpu_pct"
-                                                    ] = total_shards_cpu_usage
+                                                overall_end_time_metrics.update(
+                                                    cpu_usage_summary
+                                                )
                                                 expire_ms = 7 * 24 * 60 * 60 * 1000
                                                 export_redis_metrics(
                                                     artifact_version,
@@ -1549,7 +1560,7 @@ def run_remote_command_logic(args, project_name, project_version):
                                             setup_name,
                                             setup_type,
                                             test_name,
-                                            total_shards_cpu_usage,
+                                            cpu_usage_summary,
                                         )
                                     client_artifacts.append(local_bench_fname)
                                     client_artifacts.extend(client_output_artifacts)

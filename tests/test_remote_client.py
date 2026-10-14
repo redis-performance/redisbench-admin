@@ -10,6 +10,7 @@ from redisbench_admin.run_remote.remote_client import (
     ann_benchmark_remote_cmds,
     is_ycsb_java,
 )
+from redisbench_admin.run_remote.remote_helpers import post_process_remote_run
 from redisbench_admin.utils.benchmark_config import extract_benchmark_tool_settings
 
 
@@ -86,3 +87,33 @@ def test_is_ycsb_java():
         "/tmp/abacac/java/etc/adad/a/a/ycsb -s 10.3.0.117 -p 6379 --hide-histogram --json-out-file /tmp/benchmark-result-search-wildcard-nosorting_2022-07-25-14-01-44.out --test-time 120 -c 32 -t 1 --hide-histogram --command 'FT.SEARCH ycsb * LIMIT 0 0'"
     ]
     assert is_ycsb_java(commands) == True
+
+
+def test_remote_post_processing_persists_cpu_summary(tmp_path):
+    results_file = tmp_path / "benchmark-result.json"
+    results_file.write_text('{"ALL STATS": {"Totals": {"Ops/sec": 12.0}}}')
+    cpu_summary = {
+        "total_shards_used_cpu_pct": 50.0,
+        "shards_count": 2,
+        "shards_cpu_usage_min_pct": 10.0,
+        "shards_cpu_usage_max_pct": 40.0,
+        "shards_cpu_usage_avg_pct": 25.0,
+        "shards_cpu_usage_median_pct": 25.0,
+    }
+
+    _, _, results_dict, return_code = post_process_remote_run(
+        "81201",
+        {},
+        "memtier_benchmark",
+        str(results_file),
+        0,
+        1756200000000,
+        "2026-08-26-00-00-00",
+        "",
+        None,
+        extra_results=cpu_summary,
+    )
+
+    assert return_code == 0
+    assert results_dict["Measurements"] == cpu_summary
+    assert "shards_cpu_usage_median_pct" in results_file.read_text()

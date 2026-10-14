@@ -8,6 +8,18 @@ import datetime as dt
 import redis
 from jsonpath_ng import parse
 
+CPU_USAGE_SUMMARY_METRICS = (
+    ("total_shards_used_cpu_pct", "Total shards CPU usage %", "sum"),
+    ("shards_count", "Shard count", "count"),
+    ("shards_cpu_usage_min_pct", "Minimum shard CPU usage %", "min"),
+    ("shards_cpu_usage_max_pct", "Maximum shard CPU usage %", "max"),
+    ("shards_cpu_usage_avg_pct", "Average shard CPU usage %", "mean"),
+    ("shards_cpu_usage_median_pct", "Median shard CPU usage %", "median"),
+)
+CPU_USAGE_SUMMARY_METRIC_NAMES = tuple(
+    metric_name for metric_name, _, _ in CPU_USAGE_SUMMARY_METRICS
+)
+
 
 def extract_results_table(
     metrics,
@@ -154,28 +166,51 @@ def collect_redis_metrics(
 
 
 def from_info_to_overall_shard_cpu(benchmark_cpu_stats):
+    """Summarize Redis process CPU usage over time and across shards.
+
+    Consecutive INFO samples provide one CPU utilization interval. Each shard is
+    represented by its p75 utilization over time. The summary preserves the
+    established sum and describes the distribution of those per-shard values
+    with their minimum, maximum, average, and median.
+
+    Returns an empty summary when no shard has at least two samples. This keeps
+    short runs from reporting a misleading zero.
+    """
     import numpy as np
 
-    total_avg_cpu_pct = 0.0
     res = {}
     for shard_n, cpu_stats_arr in benchmark_cpu_stats.items():
         avg_cpu_pct = None
-        shards_cpu_arr = []
-        # we need at least 2 elements to compute the cpu usage
+        shard_cpu_intervals = []
+        # Two cumulative CPU samples are required to calculate one interval.
         if len(cpu_stats_arr) >= 2:
-            for start_pos in range(0, len(cpu_stats_arr) - 2):
+            for start_pos in range(0, len(cpu_stats_arr) - 1):
                 avg_cpu_pct = get_avg_cpu_pct(
                     avg_cpu_pct, cpu_stats_arr[start_pos], cpu_stats_arr[start_pos + 1]
                 )
                 if avg_cpu_pct is not None:
-                    shards_cpu_arr.append(avg_cpu_pct)
-            if len(shards_cpu_arr) > 0:
-                avg_cpu_pct = np.percentile(shards_cpu_arr, 75)
+                    shard_cpu_intervals.append(avg_cpu_pct)
+            if len(shard_cpu_intervals) > 0:
+                avg_cpu_pct = np.percentile(shard_cpu_intervals, 75)
 
         res[shard_n] = avg_cpu_pct
-        if avg_cpu_pct is not None:
-            total_avg_cpu_pct += avg_cpu_pct
-    return total_avg_cpu_pct, res
+
+    shard_cpu_values = [value for value in res.values() if value is not None]
+    summary = {}
+    if shard_cpu_values:
+        aggregations = {
+            "sum": np.sum,
+            "count": len,
+            "min": np.min,
+            "max": np.max,
+            "mean": np.mean,
+            "median": np.median,
+        }
+        summary = {
+            metric_name: aggregations[aggregation](shard_cpu_values)
+            for metric_name, _, aggregation in CPU_USAGE_SUMMARY_METRICS
+        }
+    return summary, res
 
 
 def get_avg_cpu_pct(avg_cpu_pct, stats_start_pos, stats_end_pos):
@@ -237,6 +272,11 @@ def collect_search_and_bigredis_metrics(redis_conns):
 
 BENCHMARK_RUNNING_GLOBAL = False
 BENCHMARK_CPU_STATS_GLOBAL = {}
+
+
+def reset_cpu_stats():
+    """Discard samples from previous benchmarks before starting a new run."""
+    BENCHMARK_CPU_STATS_GLOBAL.clear()
 
 
 def collect_cpu_data(redis_conns=[], delta_secs: float = 5.0, delay_start: float = 1.0):

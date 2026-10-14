@@ -18,10 +18,9 @@ MEASUREMENTS_KEY = "Measurements"
 def merge_measurements_into_results(results_dict, measurements, key=MEASUREMENTS_KEY):
     """Merge server-side measurements into the client tool results dict.
 
-    Server-side measurements ( e.g. the secondary index build time ) only become
-    reachable from the `exporter` yaml section via jsonpath
-    ( $.Measurements.index_time_secs ) once they sit on the results dict, exactly
-    like any client tool metric.
+    Server-side measurements (e.g. secondary index build time and shard CPU
+    distribution) only become reachable from the `exporter` yaml section via
+    JSONPath once they sit on the results dict, exactly like client tool metrics.
     """
     if measurements is None or len(measurements) == 0:
         return results_dict
