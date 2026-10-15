@@ -834,3 +834,163 @@ def test_get_run_full_filename_branch_with_multiple_slashes():
     )
     assert "/" not in result
     assert "feat-area-thing" in result
+
+
+# --------------------------------------------------------------------------- #
+# push_data_to_redistimeseries: two round trips, whatever the series count
+# --------------------------------------------------------------------------- #
+class _FakeInfo:
+    def __init__(self, labels):
+        self.labels = labels
+
+
+class _FakePipeline:
+    """Records what was queued and hands back programmed results."""
+
+    def __init__(self, owner):
+        self.owner = owner
+        self.queued = []
+
+    def info(self, key):
+        self.queued.append(("info", key))
+        return self
+
+    def create(self, key, **kwargs):
+        self.queued.append(("create", key, kwargs))
+        return self
+
+    def alter(self, key, **kwargs):
+        self.queued.append(("alter", key, kwargs))
+        return self
+
+    def add(self, key, timestamp, value, **kwargs):
+        self.queued.append(("add", key, timestamp, value))
+        return self
+
+    def pexpire(self, key, msecs):
+        self.queued.append(("pexpire", key, msecs))
+        return self
+
+    def execute(self, raise_on_error=True):
+        self.owner.executions.append(list(self.queued))
+        results = []
+        for cmd in self.queued:
+            kind, key = cmd[0], cmd[1]
+            if kind == "info":
+                if key in self.owner.existing:
+                    results.append(_FakeInfo(dict(self.owner.existing[key])))
+                else:
+                    results.append(
+                        redis.exceptions.ResponseError("TSDB: the key does not exist")
+                    )
+            elif kind == "add" and key in self.owner.failing_adds:
+                results.append(redis.exceptions.ResponseError("TSDB: rejected"))
+            else:
+                results.append(True)
+        return results
+
+
+class _FakeTSNamespace:
+    def __init__(self, owner):
+        self.owner = owner
+
+    def pipeline(self, transaction=True):
+        return _FakePipeline(self.owner)
+
+
+class _FakeRTS:
+    def __init__(self, existing=None, failing_adds=()):
+        self.existing = existing or {}
+        self.failing_adds = set(failing_adds)
+        self.executions = []
+
+    def ts(self):
+        return _FakeTSNamespace(self)
+
+
+def _series(labels, data):
+    return {"labels": dict(labels), "data": dict(data)}
+
+
+def test_push_uses_two_round_trips_regardless_of_series_count():
+    for n_series in (1, 5, 40):
+        tsd = {
+            f"key/{i}": _series({"arch": "x86_64"}, {1000 + i: float(i)})
+            for i in range(n_series)
+        }
+        rts = _FakeRTS()
+        errors, inserts = push_data_to_redistimeseries(rts, tsd)
+        assert errors == 0
+        assert inserts == n_series
+        # the whole point: cost does not scale with the number of series
+        assert (
+            len(rts.executions) == 2
+        ), f"{n_series} series took {len(rts.executions)} round trips"
+
+
+def test_push_creates_missing_and_skips_create_for_existing():
+    labels = {"arch": "x86_64", "test_name": "t"}
+    tsd = {
+        "exists/1": _series(labels, {1000: 1.0}),
+        "missing/1": _series(labels, {1000: 2.0}),
+    }
+    rts = _FakeRTS(existing={"exists/1": labels})
+    errors, inserts = push_data_to_redistimeseries(rts, tsd)
+    assert (errors, inserts) == (0, 2)
+    writer = rts.executions[1]
+    kinds = [(c[0], c[1]) for c in writer]
+    assert ("create", "missing/1") in kinds
+    assert ("create", "exists/1") not in kinds
+    # matching labels must not trigger a needless TS.ALTER
+    assert ("alter", "exists/1") not in kinds
+
+
+def test_push_alters_when_labels_drifted():
+    tsd = {"k": _series({"arch": "x86_64", "branch": "new"}, {1000: 1.0})}
+    rts = _FakeRTS(existing={"k": {"arch": "x86_64", "branch": "old"}})
+    push_data_to_redistimeseries(rts, tsd)
+    kinds = [(c[0], c[1]) for c in rts.executions[1]]
+    assert ("alter", "k") in kinds
+
+
+def test_push_counts_failed_datapoints_rather_than_reporting_success():
+    tsd = {
+        "good": _series({}, {1000: 1.0}),
+        "bad": _series({}, {1000: 2.0, 2000: 3.0}),
+    }
+    rts = _FakeRTS(failing_adds={"bad"})
+    errors, inserts = push_data_to_redistimeseries(rts, tsd)
+    assert errors == 2, "both rejected datapoints must be counted"
+    assert inserts == 1
+
+
+def test_push_drops_none_labels_and_qualifies_aarch64_keys():
+    tsd = {
+        "plain/key": _series({"arch": "aarch64", "empty": None}, {1000: 1.0}),
+        "already/aarch64/key": _series({"arch": "aarch64"}, {1000: 1.0}),
+    }
+    rts = _FakeRTS()
+    push_data_to_redistimeseries(rts, tsd)
+    created = {c[1]: c[2]["labels"] for c in rts.executions[1] if c[0] == "create"}
+    assert "plain/key/arch/aarch64" in created, created
+    assert (
+        "already/aarch64/key" in created
+    ), "key already naming the arch must not be rewritten"
+    assert "empty" not in created["plain/key/arch/aarch64"]
+
+
+def test_push_auto_timestamp_sends_star_not_the_value():
+    tsd = {"k": _series({}, {None: 7.5})}
+    rts = _FakeRTS()
+    errors, inserts = push_data_to_redistimeseries(rts, tsd)
+    assert (errors, inserts) == (0, 1)
+    adds = [c for c in rts.executions[1] if c[0] == "add"]
+    assert adds == [("add", "k", "*", 7.5)], adds
+
+
+def test_push_is_a_noop_without_client_or_data():
+    assert push_data_to_redistimeseries(None, {"k": _series({}, {1: 1.0})}) == (0, 0)
+    assert push_data_to_redistimeseries(_FakeRTS(), None) == (0, 0)
+    rts = _FakeRTS()
+    assert push_data_to_redistimeseries(rts, {}) == (0, 0)
+    assert rts.executions == [], "an empty push must not talk to the database"
