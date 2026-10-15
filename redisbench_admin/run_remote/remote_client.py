@@ -32,6 +32,72 @@ from redisbench_admin.utils.remote import (
 )
 
 
+def concurrent_benchmark_command(primary_command, background_command):
+    """Build one remote shell command that succeeds only when both clients do."""
+    return (
+        "{{ {background} > /dev/null 2>&1; }} & background_pid=$!; "
+        "{{ {primary}; }} & primary_pid=$!; "
+        'wait "$primary_pid"; primary_status=$?; '
+        'if [ "$primary_status" -ne 0 ]; then '
+        'kill "$background_pid" 2>/dev/null; '
+        'wait "$background_pid" 2>/dev/null; '
+        'echo "Primary client exit status: $primary_status"; '
+        'echo "Background client terminated after primary failure"; '
+        "exit 1; fi; "
+        'if kill -0 "$background_pid" 2>/dev/null; then '
+        'echo "Primary client finished while the background client is still running; waiting" >&2; '
+        "fi; "
+        'wait "$background_pid"; background_status=$?; '
+        'echo "Primary client exit status: $primary_status"; '
+        'echo "Background client exit status: $background_status"; '
+        'if [ "$background_status" -ne 0 ]; '
+        "then exit 1; fi"
+    ).format(background=background_command, primary=primary_command)
+
+
+def setup_remote_benchmark_tool(
+    benchmark_config,
+    allowed_tools,
+    config_key,
+    client_public_ip,
+    username,
+    os_str,
+    arch_str,
+    client_ssh_port,
+    private_key,
+    architecture,
+):
+    (
+        benchmark_min_tool_version,
+        benchmark_min_tool_version_major,
+        benchmark_min_tool_version_minor,
+        benchmark_min_tool_version_patch,
+        benchmark_tool,
+        benchmark_tool_source,
+        _,
+        _,
+    ) = extract_benchmark_tool_settings(benchmark_config, config_key)
+    benchmark_tools_sanity_check(allowed_tools, benchmark_tool)
+    remote_tool_pre_bench_step(
+        benchmark_config,
+        benchmark_min_tool_version,
+        benchmark_min_tool_version_major,
+        benchmark_min_tool_version_minor,
+        benchmark_min_tool_version_patch,
+        benchmark_tool,
+        client_public_ip,
+        username,
+        benchmark_tool_source,
+        config_key,
+        os_str,
+        arch_str,
+        client_ssh_port,
+        private_key,
+        architecture,
+    )
+    return benchmark_tool
+
+
 def run_remote_client_tool(
     allowed_tools,
     artifact_version,
@@ -60,37 +126,20 @@ def run_remote_client_tool(
     architecture="x86_64",
     extra_results=None,
 ):
-    (
-        benchmark_min_tool_version,
-        benchmark_min_tool_version_major,
-        benchmark_min_tool_version_minor,
-        benchmark_min_tool_version_patch,
-        benchmark_tool,
-        benchmark_tool_source,
-        _,
-        _,
-    ) = extract_benchmark_tool_settings(benchmark_config, config_key)
-    benchmark_tools_sanity_check(allowed_tools, benchmark_tool)
-    local_output_artifacts = []
-    remote_output_artifacts = []
-    # setup the benchmark tool
-    remote_tool_pre_bench_step(
+    benchmark_tool = setup_remote_benchmark_tool(
         benchmark_config,
-        benchmark_min_tool_version,
-        benchmark_min_tool_version_major,
-        benchmark_min_tool_version_minor,
-        benchmark_min_tool_version_patch,
-        benchmark_tool,
+        allowed_tools,
+        config_key,
         client_public_ip,
         username,
-        benchmark_tool_source,
-        config_key,
         os_str,
         arch_str,
         client_ssh_port,
         private_key,
         architecture,
     )
+    local_output_artifacts = []
+    remote_output_artifacts = []
     if "ann-benchmarks" in benchmark_tool:
         logging.info(
             "Ensuring that the ann-benchmark being used is the latest version release within the redisbench-admin package"
@@ -130,6 +179,36 @@ def run_remote_client_tool(
         redis_password,
         remote_log_out_file,
     )
+    if config_key == "clientconfig" and "background_clientconfig" in benchmark_config:
+        background_tool = setup_remote_benchmark_tool(
+            benchmark_config,
+            allowed_tools,
+            "background_clientconfig",
+            client_public_ip,
+            username,
+            os_str,
+            arch_str,
+            client_ssh_port,
+            private_key,
+            architecture,
+        )
+        _, background_command_str = prepare_benchmark_parameters(
+            benchmark_config,
+            background_tool,
+            server_plaintext_port,
+            server_private_ip,
+            None,
+            True,
+            None,
+            cluster_api_enabled,
+            "background_clientconfig",
+            client_public_ip,
+            username,
+            private_key,
+            client_ssh_port,
+            redis_password,
+        )
+        command_str = concurrent_benchmark_command(command_str, background_command_str)
     tmp = None
     if benchmark_tool == "redis-benchmark":
         tmp = local_bench_fname

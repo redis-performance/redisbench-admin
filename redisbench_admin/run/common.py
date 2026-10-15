@@ -222,15 +222,9 @@ def prepare_benchmark_parameters(
             input_file_url,
             log_out_file,
         )
-    printed_command_str = command_str
-    printed_command_arr = command_arr
-    if len(command_str) > 500:
-        printed_command_str = command_str[:500] + "... (trimmed output) ..."
-        printed_command_arr = printed_command_arr[:1] + ["(...) trimmed output...."]
     logging.info(
-        "Running the benchmark with the following parameters:\n\tArgs array: {}\n\tArgs str: {}".format(
-            printed_command_arr, printed_command_str
-        )
+        "Prepared {} benchmark command; parameters omitted because they may contain "
+        "credentials".format(benchmark_tool)
     )
     return command_arr, command_str
 
