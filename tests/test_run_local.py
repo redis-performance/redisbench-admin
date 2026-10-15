@@ -142,22 +142,29 @@ def test_prepare_local_background_client_wires_memtier_without_report(monkeypatc
     assert captured["prepare"][8] == "background_clientconfig"
 
 
-def test_prepare_local_background_client_rejects_non_memtier(monkeypatch):
+def test_prepare_local_background_client_supports_other_allowed_tools(monkeypatch):
     monkeypatch.setattr(
         run_local_module,
         "check_benchmark_binaries_local_requirements",
         lambda *args, **kwargs: ("redis-benchmark", "/usr/bin/redis-benchmark", None),
     )
+    monkeypatch.setattr(
+        run_local_module,
+        "prepare_benchmark_parameters",
+        lambda *args, **kwargs: (["redis-benchmark", "--csv"], "command"),
+    )
 
-    with pytest.raises(ValueError, match="supports only memtier_benchmark"):
-        run_local_module.prepare_local_background_client(
-            {"background_clientconfig": {"tool": "redis-benchmark"}},
-            "redis-benchmark",
-            6379,
-            "localhost",
-            False,
-            None,
-        )
+    tool, command = run_local_module.prepare_local_background_client(
+        {"background_clientconfig": {"tool": "redis-benchmark"}},
+        "redis-benchmark",
+        6379,
+        "localhost",
+        False,
+        None,
+    )
+
+    assert tool == "redis-benchmark"
+    assert command == ["redis-benchmark", "--csv"]
 
 
 def test_check_benchmark_binaries_local_requirements():

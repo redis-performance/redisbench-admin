@@ -113,11 +113,11 @@ exporter:
 
 ## Concurrent background client
 
-A benchmark can run a second `memtier_benchmark` process alongside its primary
-client by defining `background_clientconfig`. The primary client's result is
-the benchmark report and the only source for KPIs. The background client does
-not produce, transfer, or post-process a report, and its normal output is
-discarded to minimize overhead.
+A benchmark can run a second benchmark client alongside its primary client by
+defining `background_clientconfig`. Any tool in the configured allowed-tools
+list can be used. The primary client's result is the benchmark report and the
+only source for KPIs. The background client does not produce, transfer, or
+post-process a report, and its normal output is discarded to minimize overhead.
 
 Both clients are part of one benchmark run: a non-zero exit status from either
 client fails the run. The background client starts first and both processes

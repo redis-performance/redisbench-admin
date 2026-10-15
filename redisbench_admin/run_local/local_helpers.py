@@ -18,12 +18,15 @@ from redisbench_admin.utils.benchmark_config import extract_benchmark_tool_setti
 from redisbench_admin.utils.utils import get_decompressed_filename, decompress_file
 
 
+BENCHMARK_TOOLS_WITH_STDOUT_RESULTS = {"redis-benchmark", "ycsb"}
+
+
 def _start_local_benchmark(benchmark_tool, command, suppress_output=False):
     if suppress_output:
         return subprocess.Popen(
             args=command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
-    if benchmark_tool == "redis-benchmark" or benchmark_tool == "ycsb":
+    if benchmark_tool in BENCHMARK_TOOLS_WITH_STDOUT_RESULTS:
         return subprocess.Popen(
             args=command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )

@@ -165,10 +165,6 @@ def run_remote_client_tool(
             _,
         ) = extract_benchmark_tool_settings(benchmark_config, "background_clientconfig")
         benchmark_tools_sanity_check(allowed_tools, background_tool)
-        if background_tool != "memtier_benchmark":
-            raise ValueError(
-                "background_clientconfig currently supports only memtier_benchmark"
-            )
         remote_tool_pre_bench_step(
             benchmark_config,
             background_min_tool_version,

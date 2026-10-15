@@ -105,10 +105,6 @@ def prepare_local_background_client(
         allowed_tools,
         config_key="background_clientconfig",
     )
-    if background_benchmark_tool != "memtier_benchmark":
-        raise ValueError(
-            "background_clientconfig currently supports only memtier_benchmark"
-        )
 
     background_command, _ = prepare_benchmark_parameters(
         benchmark_config,
