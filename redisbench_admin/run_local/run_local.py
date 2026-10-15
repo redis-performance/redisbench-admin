@@ -59,7 +59,7 @@ from redisbench_admin.run.run import (
 )
 from redisbench_admin.run_local.local_db import local_db_spin
 from redisbench_admin.run_local.local_helpers import (
-    run_local_benchmarks,
+    run_local_full_benchmark,
     check_benchmark_binaries_local_requirements,
 )
 from redisbench_admin.profilers.profilers_local import (
@@ -587,7 +587,7 @@ def run_local_command_logic(args, project_name, project_version):
                                     # Skip benchmark execution and continue to next test
                                 else:
                                     try:
-                                        stdout, stderr = run_local_benchmarks(
+                                        stdout, stderr = run_local_full_benchmark(
                                             benchmark_tool,
                                             command,
                                             background_benchmark_tool,

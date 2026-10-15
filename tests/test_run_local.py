@@ -30,9 +30,9 @@ def test_get_local_run_full_filename_sanitizes_branch_slashes():
     )
 
 
-def test_run_local_benchmarks_fails_when_primary_client_fails():
+def test_run_local_full_benchmark_fails_when_primary_client_fails():
     with pytest.raises(RuntimeError, match="exited with status 3"):
-        local_helpers_module.run_local_benchmarks(
+        local_helpers_module.run_local_full_benchmark(
             "primary",
             [sys.executable, "-c", "raise SystemExit(3)"],
             "background",
@@ -40,20 +40,20 @@ def test_run_local_benchmarks_fails_when_primary_client_fails():
         )
 
 
-def test_run_local_benchmarks_preserves_single_client_exit_behavior():
+def test_run_local_full_benchmark_preserves_single_client_exit_behavior():
     # Existing single-client runs historically continue to post-processing even
     # when the tool exits non-zero. Background support must not change that.
-    local_helpers_module.run_local_benchmarks(
+    local_helpers_module.run_local_full_benchmark(
         "redis-benchmark",
         [sys.executable, "-c", "raise SystemExit(3)"],
     )
 
 
-def test_run_local_benchmarks_fails_when_background_client_fails():
+def test_run_local_full_benchmark_fails_when_background_client_fails():
     with pytest.raises(
         RuntimeError, match="Background background exited with status 4"
     ):
-        local_helpers_module.run_local_benchmarks(
+        local_helpers_module.run_local_full_benchmark(
             "primary",
             [sys.executable, "-c", "pass"],
             "background",
@@ -61,9 +61,9 @@ def test_run_local_benchmarks_fails_when_background_client_fails():
         )
 
 
-def test_run_local_benchmarks_warns_when_background_outlives_primary(caplog):
+def test_run_local_full_benchmark_warns_when_background_outlives_primary(caplog):
     caplog.set_level("WARNING")
-    local_helpers_module.run_local_benchmarks(
+    local_helpers_module.run_local_full_benchmark(
         "primary",
         [sys.executable, "-c", "pass"],
         "background",
@@ -72,7 +72,9 @@ def test_run_local_benchmarks_warns_when_background_outlives_primary(caplog):
     assert "background client is still running" in caplog.text
 
 
-def test_run_local_benchmarks_stops_background_when_primary_launch_fails(monkeypatch):
+def test_run_local_full_benchmark_stops_background_when_primary_launch_fails(
+    monkeypatch,
+):
     background_process = MagicMock()
     background_process.poll.return_value = None
     starts = iter([background_process, OSError("primary failed to start")])
@@ -83,10 +85,12 @@ def test_run_local_benchmarks_stops_background_when_primary_launch_fails(monkeyp
             raise result
         return result
 
-    monkeypatch.setattr(local_helpers_module, "_start_local_benchmark", fake_start)
+    monkeypatch.setattr(
+        local_helpers_module, "_start_local_benchmark_client", fake_start
+    )
 
     with pytest.raises(OSError, match="primary failed to start"):
-        local_helpers_module.run_local_benchmarks(
+        local_helpers_module.run_local_full_benchmark(
             "primary", ["primary"], "background", ["background"]
         )
 

@@ -21,7 +21,7 @@ from redisbench_admin.utils.utils import get_decompressed_filename, decompress_f
 BENCHMARK_TOOLS_WITH_STDOUT_RESULTS = {"redis-benchmark", "ycsb"}
 
 
-def _start_local_benchmark(benchmark_tool, command, suppress_output=False):
+def _start_local_benchmark_client(benchmark_tool, command, suppress_output=False):
     if suppress_output:
         return subprocess.Popen(
             args=command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
@@ -35,7 +35,9 @@ def _start_local_benchmark(benchmark_tool, command, suppress_output=False):
 
 def run_local_benchmark(benchmark_tool, command):
     try:
-        benchmark_client_process = _start_local_benchmark(benchmark_tool, command)
+        benchmark_client_process = _start_local_benchmark_client(
+            benchmark_tool, command
+        )
         (stdout, sterr) = benchmark_client_process.communicate()
         if sterr:
             logging.critical(
@@ -55,25 +57,16 @@ def run_local_benchmark(benchmark_tool, command):
     return stdout, sterr
 
 
-def run_local_benchmarks(
-    benchmark_tool,
-    command,
-    background_benchmark_tool=None,
-    background_command=None,
+def run_local_benchmark_with_background(
+    benchmark_tool, command, background_benchmark_tool, background_command
 ):
-    """Run a primary benchmark with an optional concurrent background client.
-
-    The primary client's output remains the benchmark output. Both processes
-    must exit successfully; otherwise the complete benchmark run fails.
-    """
-    if background_command is None:
-        return run_local_benchmark(benchmark_tool, command)
-
-    background_process = _start_local_benchmark(
+    background_process = _start_local_benchmark_client(
         background_benchmark_tool, background_command, suppress_output=True
     )
     try:
-        benchmark_client_process = _start_local_benchmark(benchmark_tool, command)
+        benchmark_client_process = _start_local_benchmark_client(
+            benchmark_tool, command
+        )
         stdout, sterr = benchmark_client_process.communicate()
     except (Exception, KeyboardInterrupt):
         if background_process is not None and background_process.poll() is None:
@@ -104,6 +97,24 @@ def run_local_benchmarks(
             )
         )
     return stdout, sterr
+
+
+def run_local_full_benchmark(
+    benchmark_tool,
+    command,
+    background_benchmark_tool=None,
+    background_command=None,
+):
+    """Run a primary benchmark with an optional concurrent background client.
+
+    The primary client's output remains the benchmark output. Both processes
+    must exit successfully; otherwise the complete benchmark run fails.
+    """
+    if background_command is None:
+        return run_local_benchmark(benchmark_tool, command)
+    return run_local_benchmark_with_background(
+        benchmark_tool, command, background_benchmark_tool, background_command
+    )
 
 
 def check_benchmark_binaries_local_requirements(
