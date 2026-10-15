@@ -55,6 +55,49 @@ def concurrent_benchmark_command(primary_command, background_command):
     ).format(background=background_command, primary=primary_command)
 
 
+def setup_remote_benchmark_tool(
+    benchmark_config,
+    allowed_tools,
+    config_key,
+    client_public_ip,
+    username,
+    os_str,
+    arch_str,
+    client_ssh_port,
+    private_key,
+    architecture,
+):
+    (
+        benchmark_min_tool_version,
+        benchmark_min_tool_version_major,
+        benchmark_min_tool_version_minor,
+        benchmark_min_tool_version_patch,
+        benchmark_tool,
+        benchmark_tool_source,
+        _,
+        _,
+    ) = extract_benchmark_tool_settings(benchmark_config, config_key)
+    benchmark_tools_sanity_check(allowed_tools, benchmark_tool)
+    remote_tool_pre_bench_step(
+        benchmark_config,
+        benchmark_min_tool_version,
+        benchmark_min_tool_version_major,
+        benchmark_min_tool_version_minor,
+        benchmark_min_tool_version_patch,
+        benchmark_tool,
+        client_public_ip,
+        username,
+        benchmark_tool_source,
+        config_key,
+        os_str,
+        arch_str,
+        client_ssh_port,
+        private_key,
+        architecture,
+    )
+    return benchmark_tool
+
+
 def run_remote_client_tool(
     allowed_tools,
     artifact_version,
@@ -83,37 +126,20 @@ def run_remote_client_tool(
     architecture="x86_64",
     extra_results=None,
 ):
-    (
-        benchmark_min_tool_version,
-        benchmark_min_tool_version_major,
-        benchmark_min_tool_version_minor,
-        benchmark_min_tool_version_patch,
-        benchmark_tool,
-        benchmark_tool_source,
-        _,
-        _,
-    ) = extract_benchmark_tool_settings(benchmark_config, config_key)
-    benchmark_tools_sanity_check(allowed_tools, benchmark_tool)
-    local_output_artifacts = []
-    remote_output_artifacts = []
-    # setup the benchmark tool
-    remote_tool_pre_bench_step(
+    benchmark_tool = setup_remote_benchmark_tool(
         benchmark_config,
-        benchmark_min_tool_version,
-        benchmark_min_tool_version_major,
-        benchmark_min_tool_version_minor,
-        benchmark_min_tool_version_patch,
-        benchmark_tool,
+        allowed_tools,
+        config_key,
         client_public_ip,
         username,
-        benchmark_tool_source,
-        config_key,
         os_str,
         arch_str,
         client_ssh_port,
         private_key,
         architecture,
     )
+    local_output_artifacts = []
+    remote_output_artifacts = []
     if "ann-benchmarks" in benchmark_tool:
         logging.info(
             "Ensuring that the ann-benchmark being used is the latest version release within the redisbench-admin package"
@@ -154,28 +180,12 @@ def run_remote_client_tool(
         remote_log_out_file,
     )
     if config_key == "clientconfig" and "background_clientconfig" in benchmark_config:
-        (
-            background_min_tool_version,
-            background_min_tool_version_major,
-            background_min_tool_version_minor,
-            background_min_tool_version_patch,
-            background_tool,
-            background_tool_source,
-            _,
-            _,
-        ) = extract_benchmark_tool_settings(benchmark_config, "background_clientconfig")
-        benchmark_tools_sanity_check(allowed_tools, background_tool)
-        remote_tool_pre_bench_step(
+        background_tool = setup_remote_benchmark_tool(
             benchmark_config,
-            background_min_tool_version,
-            background_min_tool_version_major,
-            background_min_tool_version_minor,
-            background_min_tool_version_patch,
-            background_tool,
+            allowed_tools,
+            "background_clientconfig",
             client_public_ip,
             username,
-            background_tool_source,
-            "background_clientconfig",
             os_str,
             arch_str,
             client_ssh_port,
