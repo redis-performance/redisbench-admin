@@ -178,6 +178,46 @@ def env_flag(var_name):
     return value.strip().lower() not in FALSY_ENV_VALUES
 
 
+REDACTED = "***"
+# password flags used by the benchmark tools (memtier/redis-benchmark -a,
+# memtier --authenticate, ftsb --a, ycsb -p redis.password=) and redis:// URIs
+_PASSWORD_FLAG_RE = re.compile(
+    r"(?<!\S)(-a|--a|--authenticate|--pass|--password)(=|\s+)(\S+)"
+)
+_PASSWORD_PROPERTY_RE = re.compile(r"(redis\.password=)(\S+)")
+_URI_CREDENTIALS_RE = re.compile(r"(rediss?://[^:/@\s]*:)([^@\s]+)(@)")
+
+
+def redact_command(command, redis_password=None):
+    """Return a loggable copy of a benchmark command with credentials masked.
+
+    Accepts a command string or argument list, so callers can keep logging the
+    full command for debugging without leaking passwords.
+    """
+    if isinstance(command, (list, tuple)):
+        redacted = []
+        mask_next = False
+        for arg in command:
+            arg = str(arg)
+            if mask_next:
+                redacted.append(REDACTED)
+                mask_next = False
+                continue
+            if arg in ("-a", "--a", "--authenticate", "--pass", "--password"):
+                mask_next = True
+            redacted.append(redact_command(arg, redis_password))
+        return redacted
+    if command is None:
+        return None
+    command = str(command)
+    if redis_password:
+        command = command.replace(str(redis_password), REDACTED)
+    command = _PASSWORD_FLAG_RE.sub(r"\1\2{}".format(REDACTED), command)
+    command = _PASSWORD_PROPERTY_RE.sub(r"\1{}".format(REDACTED), command)
+    command = _URI_CREDENTIALS_RE.sub(r"\1{}\3".format(REDACTED), command)
+    return command
+
+
 def _dbconfig_value(benchmark_config, key, dbconfig_keyname="dbconfig"):
     """Read a scalar out of dbconfig, in either the dict or legacy list form."""
     if benchmark_config is None or dbconfig_keyname not in benchmark_config:

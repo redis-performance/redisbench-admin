@@ -31,6 +31,7 @@ from redisbench_admin.utils.remote import (
     execute_remote_commands,
     fetch_file_from_remote_setup,
 )
+from redisbench_admin.utils.utils import redact_command
 
 
 def concurrent_benchmark_command(primary_command, background_command):
@@ -542,7 +543,11 @@ def run_remote_benchmark(
                         remote_results_file,
                     )
         else:
-            logging.info("Skipped result fetching for the remote benchmark command")
+            logging.info(
+                "Given the bellow commands list:\n\t{}\nwe've skipped result fetching".format(
+                    redact_command(commands)
+                )
+            )
     return remote_run_result, stdout, stderr
 
 
@@ -563,8 +568,11 @@ def print_commands_outputs(commands, print_err, res):
         recv_exit_status, stdout, stderr = res_tuple
         if pos == 0:
             stderr, stdout = stderr, stdout
-        # the command itself is not logged since it may contain credentials
-        logging.info("Exit status for command #{}: {}".format(pos, recv_exit_status))
+        logging.info(
+            "Exit status for command {}: {}".format(
+                redact_command(commands[pos]), recv_exit_status
+            )
+        )
         logging.info("\tremote process stdout:")
         for line in stdout:
             print(line.strip())

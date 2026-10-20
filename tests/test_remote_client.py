@@ -204,7 +204,7 @@ def test_run_remote_client_tool_rejects_unsupported_background_tool(monkeypatch)
     assert "commands" not in captured
 
 
-def test_print_commands_outputs_does_not_log_commands(caplog):
+def test_print_commands_outputs_logs_redacted_commands(caplog):
     caplog.set_level(logging.INFO)
     remote_client_module.print_commands_outputs(
         ["memtier_benchmark -a sensitive-password-value"],
@@ -212,7 +212,7 @@ def test_print_commands_outputs_does_not_log_commands(caplog):
         [(1, ["out"], ["err"])],
     )
     assert "sensitive-password-value" not in caplog.text
-    assert "Exit status for command #0: 1" in caplog.text
+    assert "Exit status for command memtier_benchmark -a ***: 1" in caplog.text
 
 
 def test_ann_benchmark_remote_cmds():

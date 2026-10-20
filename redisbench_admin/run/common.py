@@ -51,7 +51,7 @@ from redisbench_admin.utils.benchmark_config import (
     parse_exporter_timemetric_definition,
     check_required_modules,
 )
-from redisbench_admin.utils.utils import _dbconfig_value
+from redisbench_admin.utils.utils import _dbconfig_value, redact_command
 from redisbench_admin.utils.redisgraph_benchmark_go import (
     get_redisbench_admin_remote_path,
 )
@@ -236,9 +236,15 @@ def prepare_benchmark_parameters(
             input_file_url,
             log_out_file,
         )
+    printed_command_str = redact_command(command_str, redis_password)
+    printed_command_arr = redact_command(command_arr, redis_password)
+    if printed_command_str is not None and len(printed_command_str) > 500:
+        printed_command_str = printed_command_str[:500] + "... (trimmed output) ..."
+        printed_command_arr = printed_command_arr[:1] + ["(...) trimmed output...."]
     logging.info(
-        "Prepared {} benchmark command; parameters omitted because they may contain "
-        "credentials".format(benchmark_tool)
+        "Running the benchmark with the following parameters:\n\tArgs array: {}\n\tArgs str: {}".format(
+            printed_command_arr, printed_command_str
+        )
     )
     return command_arr, command_str
 

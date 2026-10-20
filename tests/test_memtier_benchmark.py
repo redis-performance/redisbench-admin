@@ -177,12 +177,12 @@ def test_prepare_memtier_command_does_not_log_password(caplog):
     assert password not in caplog.text
 
 
-def test_prepare_memtier_command_omits_parameters_without_explicit_password(caplog):
+def test_prepare_memtier_command_logs_redacted_command(caplog):
     caplog.set_level(logging.INFO)
     benchmark_config = {
         "clientconfig": {
             "tool": "memtier_benchmark",
-            "arguments": "--test-time 1 --command 'PING'",
+            "arguments": "--test-time 1 --authenticate inline-secret --command 'PING'",
         }
     }
     prepare_benchmark_parameters(
@@ -191,9 +191,14 @@ def test_prepare_memtier_command_omits_parameters_without_explicit_password(capl
         "6379",
         "localhost",
         "result.json",
+        redis_password="sensitive-password-value",
     )
-    assert "Prepared memtier_benchmark benchmark command" in caplog.text
-    assert "PING" not in caplog.text
+    assert "Running the benchmark with the following parameters" in caplog.text
+    assert "PING" in caplog.text
+    assert "-a ***" in caplog.text
+    assert "--authenticate ***" in caplog.text
+    assert "sensitive-password-value" not in caplog.text
+    assert "inline-secret" not in caplog.text
 
 
 def test_prepare_memtier_benchmark_command_with_monitor_input_remote():
