@@ -26,6 +26,11 @@ Current supported benchmark tools:
 - [ftsb_redisearch](https://github.com/RediSearch/ftsb)
 - [ann-benchmarks](https://github.com/RedisAI/ann-benchmarks)
 
+Remote benchmark tool setup retries SSH `NoValidConnectionsError` up to three
+times, waiting 1, 2, and 4 seconds. This happens before measurement starts.
+Authentication errors, other setup errors, and benchmark execution failures
+are not retried by this policy.
+
 ## Installation
 
 Installation is done using pip, the package installer for Python, in the following manner:

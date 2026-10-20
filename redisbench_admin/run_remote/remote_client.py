@@ -6,6 +6,9 @@
 import datetime
 import logging
 import threading
+import time
+
+from paramiko.ssh_exception import NoValidConnectionsError
 
 import redisbench_admin
 from redisbench_admin.run.common import (
@@ -73,24 +76,39 @@ def run_remote_client_tool(
     benchmark_tools_sanity_check(allowed_tools, benchmark_tool)
     local_output_artifacts = []
     remote_output_artifacts = []
-    # setup the benchmark tool
-    remote_tool_pre_bench_step(
-        benchmark_config,
-        benchmark_min_tool_version,
-        benchmark_min_tool_version_major,
-        benchmark_min_tool_version_minor,
-        benchmark_min_tool_version_patch,
-        benchmark_tool,
-        client_public_ip,
-        username,
-        benchmark_tool_source,
-        config_key,
-        os_str,
-        arch_str,
-        client_ssh_port,
-        private_key,
-        architecture,
-    )
+    # Retry connection failures only during tool setup, before any measurement.
+    # Never replay a benchmark or retry authentication/remote command failures.
+    for attempt in range(4):
+        try:
+            remote_tool_pre_bench_step(
+                benchmark_config,
+                benchmark_min_tool_version,
+                benchmark_min_tool_version_major,
+                benchmark_min_tool_version_minor,
+                benchmark_min_tool_version_patch,
+                benchmark_tool,
+                client_public_ip,
+                username,
+                benchmark_tool_source,
+                config_key,
+                os_str,
+                arch_str,
+                client_ssh_port,
+                private_key,
+                architecture,
+            )
+            break
+        except NoValidConnectionsError:
+            if attempt == 3:
+                raise
+            delay = 2**attempt
+            logging.warning(
+                "SSH connection failed before benchmark tool setup completed; "
+                "retry %s/3 in %s seconds",
+                attempt + 1,
+                delay,
+            )
+            time.sleep(delay)
     if "ann-benchmarks" in benchmark_tool:
         logging.info(
             "Ensuring that the ann-benchmark being used is the latest version release within the redisbench-admin package"
