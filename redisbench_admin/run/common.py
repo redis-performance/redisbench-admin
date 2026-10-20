@@ -51,7 +51,7 @@ from redisbench_admin.utils.benchmark_config import (
     parse_exporter_timemetric_definition,
     check_required_modules,
 )
-from redisbench_admin.utils.utils import _dbconfig_value
+from redisbench_admin.utils.utils import _dbconfig_value, redact_command
 from redisbench_admin.utils.redisgraph_benchmark_go import (
     get_redisbench_admin_remote_path,
 )
@@ -95,6 +95,20 @@ def search_indexing_poll_interval_secs(benchmark_config=None):
     if yaml_value is not None:
         return float(yaml_value)
     return SEARCH_INDEXING_POLL_INTERVAL_SECS
+
+
+# Tools that can run as background_clientconfig. A background client produces
+# no results file, so only tools whose command can be prepared without one are
+# accepted (e.g. ftsb_/tsbs_ require --json-out-file/--results-file).
+BACKGROUND_CLIENT_TOOLS = ["memtier_benchmark", "redis-benchmark"]
+
+
+def background_client_tool_sanity_check(benchmark_tool):
+    if benchmark_tool not in BACKGROUND_CLIENT_TOOLS:
+        raise Exception(
+            "Benchmark tool {} is not supported as a background client. "
+            "Supported tools: {}".format(benchmark_tool, BACKGROUND_CLIENT_TOOLS)
+        )
 
 
 def extract_input_file_url_from_parameters(entry, benchmark_tool):
@@ -222,10 +236,10 @@ def prepare_benchmark_parameters(
             input_file_url,
             log_out_file,
         )
-    printed_command_str = command_str
-    printed_command_arr = command_arr
-    if len(command_str) > 500:
-        printed_command_str = command_str[:500] + "... (trimmed output) ..."
+    printed_command_str = redact_command(command_str, redis_password)
+    printed_command_arr = redact_command(command_arr, redis_password)
+    if printed_command_str is not None and len(printed_command_str) > 500:
+        printed_command_str = printed_command_str[:500] + "... (trimmed output) ..."
         printed_command_arr = printed_command_arr[:1] + ["(...) trimmed output...."]
     logging.info(
         "Running the benchmark with the following parameters:\n\tArgs array: {}\n\tArgs str: {}".format(
@@ -263,7 +277,7 @@ def prepare_benchmark_parameters_specif_tooling(
             cluster_api_enabled,
             current_workdir,
         )
-        if isremote is True:
+        if isremote is True and remote_results_file is not None:
             redirect_file = "> {}".format(remote_results_file)
             command_arr.append(redirect_file)
             command_str = command_str + " " + redirect_file

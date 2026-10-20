@@ -1,21 +1,18 @@
 import os
+import sys
+from unittest.mock import MagicMock
 
 import argparse
+import pytest
 import redis
 import yaml
 
+import redisbench_admin.run_local.local_helpers as local_helpers_module
+import redisbench_admin.run_local.run_local as run_local_module
 from redisbench_admin.profilers.pprof import process_pprof_text_to_tabular
 from redisbench_admin.run.args import REDIS_7
 from redisbench_admin.run_local.args import create_run_local_arguments
-from redisbench_admin.run_local.local_helpers import (
-    check_benchmark_binaries_local_requirements,
-)
 from redisbench_admin.profilers.profilers_schema import get_profilers_rts_key_prefix
-from redisbench_admin.run_local.run_local import (
-    run_local_command_logic,
-    save_env_for_cross_type_reuse,
-    tear_down_previous_mixed_env_if_needed,
-)
 from redisbench_admin.run.redistimeseries import datasink_profile_tabular_data
 from redisbench_admin.utils.local import get_local_run_full_filename
 
@@ -33,6 +30,170 @@ def test_get_local_run_full_filename_sanitizes_branch_slashes():
     )
 
 
+def test_run_local_full_benchmark_fails_when_primary_client_fails():
+    with pytest.raises(RuntimeError, match="exited with status 3"):
+        local_helpers_module.run_local_full_benchmark(
+            "primary",
+            [sys.executable, "-c", "raise SystemExit(3)"],
+            "background",
+            [sys.executable, "-c", "import time; time.sleep(5)"],
+        )
+
+
+def test_run_local_full_benchmark_preserves_single_client_exit_behavior():
+    # Existing single-client runs historically continue to post-processing even
+    # when the tool exits non-zero. Background support must not change that.
+    local_helpers_module.run_local_full_benchmark(
+        "redis-benchmark",
+        [sys.executable, "-c", "raise SystemExit(3)"],
+    )
+
+
+def test_run_local_full_benchmark_fails_when_background_client_fails():
+    with pytest.raises(
+        RuntimeError, match="Background background exited with status 4"
+    ):
+        local_helpers_module.run_local_full_benchmark(
+            "primary",
+            [sys.executable, "-c", "pass"],
+            "background",
+            [sys.executable, "-c", "raise SystemExit(4)"],
+        )
+
+
+def test_run_local_full_benchmark_warns_when_background_outlives_primary(caplog):
+    caplog.set_level("WARNING")
+    local_helpers_module.run_local_full_benchmark(
+        "primary",
+        [sys.executable, "-c", "pass"],
+        "background",
+        [sys.executable, "-c", "import time; time.sleep(0.1)"],
+    )
+    assert "background client is still running" in caplog.text
+
+
+def test_run_local_full_benchmark_stops_background_when_primary_launch_fails(
+    monkeypatch,
+):
+    background_process = MagicMock()
+    background_process.poll.return_value = None
+    starts = iter([background_process, OSError("primary failed to start")])
+
+    def fake_start(*args, **kwargs):
+        result = next(starts)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    monkeypatch.setattr(
+        local_helpers_module, "_start_local_benchmark_client", fake_start
+    )
+
+    with pytest.raises(OSError, match="primary failed to start"):
+        local_helpers_module.run_local_full_benchmark(
+            "primary", ["primary"], "background", ["background"]
+        )
+
+    background_process.terminate.assert_called_once_with()
+    background_process.communicate.assert_called_once_with()
+
+
+def test_prepare_local_background_client_returns_none_when_not_configured():
+    assert run_local_module.prepare_local_background_client(
+        {}, "memtier_benchmark", 6379, "localhost", False, None
+    ) == (
+        None,
+        None,
+    )
+
+
+def test_prepare_local_background_client_wires_memtier_without_report(monkeypatch):
+    benchmark_config = {"background_clientconfig": {"tool": "memtier_benchmark"}}
+    captured = {}
+
+    def fake_check(config, allowed_tools, config_key):
+        captured["check"] = (config, allowed_tools, config_key)
+        return "memtier_benchmark", "/usr/bin/memtier_benchmark", "/tmp/workdir"
+
+    def fake_prepare(*args, **kwargs):
+        captured["prepare"] = args
+        return ["memtier_benchmark", "--requests", "10"], "command"
+
+    monkeypatch.setattr(
+        run_local_module,
+        "check_benchmark_binaries_local_requirements",
+        fake_check,
+    )
+    monkeypatch.setattr(run_local_module, "prepare_benchmark_parameters", fake_prepare)
+
+    tool, command = run_local_module.prepare_local_background_client(
+        benchmark_config,
+        "memtier_benchmark",
+        6379,
+        "localhost",
+        False,
+        "password",
+    )
+
+    assert tool == "memtier_benchmark"
+    assert command == ["memtier_benchmark", "--requests", "10"]
+    assert captured["check"] == (
+        benchmark_config,
+        "memtier_benchmark",
+        "background_clientconfig",
+    )
+    assert captured["prepare"][4] is None
+    assert captured["prepare"][8] == "background_clientconfig"
+
+
+def test_prepare_local_background_client_supports_other_allowed_tools(monkeypatch):
+    monkeypatch.setattr(
+        run_local_module,
+        "check_benchmark_binaries_local_requirements",
+        lambda *args, **kwargs: ("redis-benchmark", "/usr/bin/redis-benchmark", None),
+    )
+    monkeypatch.setattr(
+        run_local_module,
+        "prepare_benchmark_parameters",
+        lambda *args, **kwargs: (["redis-benchmark", "--csv"], "command"),
+    )
+
+    tool, command = run_local_module.prepare_local_background_client(
+        {"background_clientconfig": {"tool": "redis-benchmark"}},
+        "redis-benchmark",
+        6379,
+        "localhost",
+        False,
+        None,
+    )
+
+    assert tool == "redis-benchmark"
+    assert command == ["redis-benchmark", "--csv"]
+
+
+def test_prepare_local_background_client_rejects_tools_requiring_results_file(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        run_local_module,
+        "check_benchmark_binaries_local_requirements",
+        lambda *args, **kwargs: ("ftsb_redisearch", "/usr/bin/ftsb_redisearch", None),
+    )
+    prepare = MagicMock()
+    monkeypatch.setattr(run_local_module, "prepare_benchmark_parameters", prepare)
+
+    with pytest.raises(Exception, match="not supported as a background client"):
+        run_local_module.prepare_local_background_client(
+            {"background_clientconfig": {"tool": "ftsb_redisearch"}},
+            "ftsb_redisearch",
+            6379,
+            "localhost",
+            False,
+            None,
+        )
+    prepare.assert_not_called()
+
+
 def test_check_benchmark_binaries_local_requirements():
     filename = "ycsb-redisearch-binding-0.18.0-SNAPSHOT.tar.gz"
     inner_foldername = "ycsb-redisearch-binding-0.18.0-SNAPSHOT"
@@ -43,7 +204,7 @@ def test_check_benchmark_binaries_local_requirements():
             benchmark_tool,
             which_benchmark_tool,
             benchmark_tool_workdir,
-        ) = check_benchmark_binaries_local_requirements(
+        ) = local_helpers_module.check_benchmark_binaries_local_requirements(
             benchmark_config, "ycsb", binaries_localtemp_dir
         )
         assert which_benchmark_tool == os.path.abspath(
@@ -132,7 +293,7 @@ def test_run_local_command_logic_redis_benchmark():
         ]
     )
     try:
-        run_local_command_logic(args, "tool", "v0")
+        run_local_module.run_local_command_logic(args, "tool", "v0")
     except SystemExit as e:
         assert e.code == 0
     finally:
@@ -158,7 +319,7 @@ def test_run_local_command_logic():
         ]
     )
     try:
-        run_local_command_logic(args, "tool", "v0")
+        run_local_module.run_local_command_logic(args, "tool", "v0")
     except SystemExit as e:
         assert e.code == 0
 
@@ -182,7 +343,7 @@ def test_run_local_command_logic():
         ]
     )
     try:
-        run_local_command_logic(args, "tool", "v0")
+        run_local_module.run_local_command_logic(args, "tool", "v0")
     except SystemExit as e:
         assert e.code == 0
 
@@ -204,7 +365,7 @@ def test_run_local_command_logic():
     )
     exit_raised = False
     try:
-        run_local_command_logic(args, "tool", "v0")
+        run_local_module.run_local_command_logic(args, "tool", "v0")
     except SystemExit as e:
         exit_raised = True
         assert e.code == 1
@@ -243,7 +404,7 @@ def test_run_local_command_logic():
         ]
     )
     try:
-        run_local_command_logic(args, "tool", "v0")
+        run_local_module.run_local_command_logic(args, "tool", "v0")
     except SystemExit as e:
         assert e.code == 0
 
@@ -277,7 +438,7 @@ def test_run_local_mixed_env_no_leak():
         ]
     )
     try:
-        run_local_command_logic(args, "tool", "v0")
+        run_local_module.run_local_command_logic(args, "tool", "v0")
     except SystemExit as e:
         assert e.code == 0, (
             f"run_local_command_logic exited with code {e.code} — the "
@@ -310,7 +471,7 @@ def test_run_local_dataset_reuse_memtier():
         ]
     )
     try:
-        run_local_command_logic(args, "tool", "v0")
+        run_local_module.run_local_command_logic(args, "tool", "v0")
     except SystemExit as e:
         assert e.code == 0
 
@@ -339,7 +500,7 @@ def test_run_local_dataset_reuse_not_possible_memtier():
         ]
     )
     try:
-        run_local_command_logic(args, "tool", "v0")
+        run_local_module.run_local_command_logic(args, "tool", "v0")
     except SystemExit as e:
         assert e.code == 0
     finally:
@@ -369,7 +530,7 @@ def test_run_local_dataset_reuse_not_possible_ftsb():
         ]
     )
     try:
-        run_local_command_logic(args, "tool", "v0")
+        run_local_module.run_local_command_logic(args, "tool", "v0")
     except SystemExit as e:
         assert e.code == 0
     finally:
@@ -403,7 +564,7 @@ def test_run_local_dataset_reuse_ftsb():
         ]
     )
     try:
-        run_local_command_logic(args, "tool", "v0")
+        run_local_module.run_local_command_logic(args, "tool", "v0")
     except SystemExit as e:
         assert e.code == 0
 
@@ -417,7 +578,7 @@ def test_save_env_for_cross_type_reuse_publishes_to_shared_env():
     shared_env = {}
     env_key = ("ds1", "oss-standalone")
 
-    published = save_env_for_cross_type_reuse(
+    published = run_local_module.save_env_for_cross_type_reuse(
         reuse_mixed=True,
         env_key=env_key,
         setup_details=setup_details,
@@ -438,7 +599,7 @@ def test_save_env_for_cross_type_reuse_disabled_is_noop():
     shared_env = {}
     env_key = ("ds1", "oss-standalone")
 
-    published = save_env_for_cross_type_reuse(
+    published = run_local_module.save_env_for_cross_type_reuse(
         reuse_mixed=False,
         env_key=env_key,
         setup_details=setup_details,
@@ -459,11 +620,9 @@ def test_tear_down_previous_mixed_env_clears_and_removes_from_shared_env(monkeyp
     the reuse branch, which asserts `benchmark_type == "read-only"`). The
     env must also be removed from `shared_env` since the Redis it references
     no longer exists."""
-    from redisbench_admin.run_local import run_local as run_local_mod
-
     teardown_calls = []
     monkeypatch.setattr(
-        run_local_mod,
+        run_local_module,
         "teardown_local_setup",
         lambda conns, procs, name: teardown_calls.append((conns, procs, name)),
     )
@@ -473,7 +632,7 @@ def test_tear_down_previous_mixed_env_clears_and_removes_from_shared_env(monkeyp
     env_key = ("ds1", "oss-standalone")
     shared_env = {env_key: fake_env}
 
-    tore_down = run_local_mod.tear_down_previous_mixed_env_if_needed(
+    tore_down = run_local_module.tear_down_previous_mixed_env_if_needed(
         benchmark_type="mixed",
         reuse_mixed=True,
         setup_details=setup_details,
@@ -491,11 +650,9 @@ def test_tear_down_previous_mixed_env_clears_and_removes_from_shared_env(monkeyp
 def test_tear_down_previous_mixed_env_noop_on_first_iteration(monkeypatch):
     """First iteration in a mixed group: `setup_details["env"]` is None — no
     previous env to tear down. Helper must be a no-op."""
-    from redisbench_admin.run_local import run_local as run_local_mod
-
     teardown_calls = []
     monkeypatch.setattr(
-        run_local_mod,
+        run_local_module,
         "teardown_local_setup",
         lambda conns, procs, name: teardown_calls.append((conns, procs, name)),
     )
@@ -503,7 +660,7 @@ def test_tear_down_previous_mixed_env_noop_on_first_iteration(monkeypatch):
     setup_details = {"env": None}
     shared_env = {}
 
-    tore_down = run_local_mod.tear_down_previous_mixed_env_if_needed(
+    tore_down = run_local_module.tear_down_previous_mixed_env_if_needed(
         benchmark_type="mixed",
         reuse_mixed=True,
         setup_details=setup_details,
@@ -519,11 +676,9 @@ def test_tear_down_previous_mixed_env_noop_on_first_iteration(monkeypatch):
 def test_tear_down_previous_mixed_env_noop_for_read_only(monkeypatch):
     """Read-only types intentionally reuse env within a group (that's the
     original RO optimization); the helper must not interfere."""
-    from redisbench_admin.run_local import run_local as run_local_mod
-
     teardown_calls = []
     monkeypatch.setattr(
-        run_local_mod,
+        run_local_module,
         "teardown_local_setup",
         lambda conns, procs, name: teardown_calls.append((conns, procs, name)),
     )
@@ -533,7 +688,7 @@ def test_tear_down_previous_mixed_env_noop_for_read_only(monkeypatch):
     env_key = ("ds1", "oss-standalone")
     shared_env = {env_key: fake_env}
 
-    tore_down = run_local_mod.tear_down_previous_mixed_env_if_needed(
+    tore_down = run_local_module.tear_down_previous_mixed_env_if_needed(
         benchmark_type="read-only",
         reuse_mixed=True,
         setup_details=setup_details,
@@ -551,11 +706,9 @@ def test_tear_down_previous_mixed_env_noop_for_read_only(monkeypatch):
 def test_tear_down_previous_mixed_env_noop_when_keep_env_and_topo(monkeypatch):
     """`--keep-env-and-topo` is the user explicitly opting out of teardown —
     the helper must respect that even for mixed groups."""
-    from redisbench_admin.run_local import run_local as run_local_mod
-
     teardown_calls = []
     monkeypatch.setattr(
-        run_local_mod,
+        run_local_module,
         "teardown_local_setup",
         lambda conns, procs, name: teardown_calls.append((conns, procs, name)),
     )
@@ -564,7 +717,7 @@ def test_tear_down_previous_mixed_env_noop_when_keep_env_and_topo(monkeypatch):
     setup_details = {"env": fake_env}
     shared_env = {}
 
-    tore_down = run_local_mod.tear_down_previous_mixed_env_if_needed(
+    tore_down = run_local_module.tear_down_previous_mixed_env_if_needed(
         benchmark_type="mixed",
         reuse_mixed=True,
         setup_details=setup_details,
@@ -576,3 +729,11 @@ def test_tear_down_previous_mixed_env_noop_when_keep_env_and_topo(monkeypatch):
     assert tore_down is False
     assert teardown_calls == []
     assert setup_details["env"] is fake_env
+
+
+def test_run_local_benchmark_returns_none_when_tool_cannot_start():
+    stdout, stderr = local_helpers_module.run_local_benchmark(
+        "memtier_benchmark", ["/nonexistent/memtier_benchmark"]
+    )
+    assert stdout is None
+    assert stderr is None

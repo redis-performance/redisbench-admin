@@ -3,8 +3,11 @@
 #  Copyright (c) 2022., Redis Labs Modules
 #  All rights reserved.
 #
+import logging
+
 import yaml
 
+from redisbench_admin.run.common import prepare_benchmark_parameters
 from redisbench_admin.run.memtier_benchmark.memtier_benchmark import (
     extract_monitor_input_from_arguments,
     replace_monitor_input_in_arguments,
@@ -114,6 +117,88 @@ def test_prepare_memtier_benchmark_command():
             == "FT.SEARCH idx 'text0=>[KNN $k @hnsw_vector $BLOB]' PARAMS 4 k 10 BLOB aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         )
         assert len(command_arr) == 17
+
+
+def test_prepare_memtier_background_command_without_report():
+    benchmark_config = {
+        "tool": "memtier_benchmark",
+        "arguments": "-c 1 -t 1 --requests 10 --command 'HSET key field value'",
+    }
+    command_arr, command_str = prepare_memtier_benchmark_command(
+        "memtier_benchmark",
+        "localhost",
+        "6379",
+        benchmark_config,
+        False,
+        None,
+    )
+    assert "--json-out-file" not in command_arr
+    assert "--json-out-file" not in command_str
+    assert "--hide-histogram" in command_arr
+
+
+def test_prepare_remote_redis_benchmark_background_command_without_report():
+    benchmark_config = {
+        "background_clientconfig": {
+            "tool": "redis-benchmark",
+            "parameters": [{"clients": 1}, {"requests": 10}],
+        }
+    }
+    command_arr, command_str = prepare_benchmark_parameters(
+        benchmark_config,
+        "redis-benchmark",
+        "6379",
+        "localhost",
+        None,
+        True,
+        config_key="background_clientconfig",
+    )
+    assert "None" not in command_str
+    assert ">" not in command_str
+
+
+def test_prepare_memtier_command_does_not_log_password(caplog):
+    caplog.set_level(logging.INFO)
+    benchmark_config = {
+        "clientconfig": {
+            "tool": "memtier_benchmark",
+            "arguments": "--test-time 1 --command 'PING'",
+        }
+    }
+    password = "sensitive-password-value"
+    prepare_benchmark_parameters(
+        benchmark_config,
+        "memtier_benchmark",
+        "6379",
+        "localhost",
+        "result.json",
+        redis_password=password,
+    )
+    assert password not in caplog.text
+
+
+def test_prepare_memtier_command_logs_redacted_command(caplog):
+    caplog.set_level(logging.INFO)
+    benchmark_config = {
+        "clientconfig": {
+            "tool": "memtier_benchmark",
+            "arguments": "--test-time 1 --authenticate inline-secret --command 'PING'",
+        }
+    }
+    prepare_benchmark_parameters(
+        benchmark_config,
+        "memtier_benchmark",
+        "6379",
+        "localhost",
+        "result.json",
+        redis_password="sensitive-password-value",
+    )
+    assert "Running the benchmark with the following parameters" in caplog.text
+    assert "PING" in caplog.text
+    assert "-a ***" in caplog.text
+    assert "--authenticate ***" in caplog.text
+    assert "sensitive-password-value" not in caplog.text
+    assert "inline-secret" not in caplog.text
 
 
 def test_prepare_memtier_benchmark_command_with_monitor_input_remote():

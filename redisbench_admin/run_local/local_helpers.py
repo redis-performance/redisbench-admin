@@ -7,7 +7,6 @@ import logging
 import os
 import shutil
 import subprocess
-import sys
 
 import wget
 
@@ -18,14 +17,28 @@ from redisbench_admin.utils.benchmark_config import extract_benchmark_tool_setti
 from redisbench_admin.utils.utils import get_decompressed_filename, decompress_file
 
 
+BENCHMARK_TOOLS_WITH_STDOUT_RESULTS = {"redis-benchmark", "ycsb"}
+
+
+def _start_local_benchmark_client(benchmark_tool, command, suppress_output=False):
+    if suppress_output:
+        return subprocess.Popen(
+            args=command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+    if benchmark_tool in BENCHMARK_TOOLS_WITH_STDOUT_RESULTS:
+        return subprocess.Popen(
+            args=command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        )
+    return subprocess.Popen(args=command)
+
+
 def run_local_benchmark(benchmark_tool, command):
+    stdout = None
+    sterr = None
     try:
-        if benchmark_tool == "redis-benchmark" or benchmark_tool == "ycsb":
-            benchmark_client_process = subprocess.Popen(
-                args=command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-            )
-        else:
-            benchmark_client_process = subprocess.Popen(args=command)
+        benchmark_client_process = _start_local_benchmark_client(
+            benchmark_tool, command
+        )
         (stdout, sterr) = benchmark_client_process.communicate()
         if sterr:
             logging.critical(
@@ -34,15 +47,75 @@ def run_local_benchmark(benchmark_tool, command):
     except OSError as error:
         errorMessage = (
             ">>> Error while executing:\n"
-            + command
+            + str(command)
             + "\n>>> Returned with error:\n"
-            + str(error.output)
+            + str(error)
         )
         logging.error(errorMessage)
-    except:
-        logging.error("Error > ", sys.exc_info()[0])
+    except Exception:
+        logging.exception("Error while running {}".format(benchmark_tool))
 
     return stdout, sterr
+
+
+def run_local_benchmark_with_background(
+    benchmark_tool, command, background_benchmark_tool, background_command
+):
+    background_process = _start_local_benchmark_client(
+        background_benchmark_tool, background_command, suppress_output=True
+    )
+    try:
+        benchmark_client_process = _start_local_benchmark_client(
+            benchmark_tool, command
+        )
+        stdout, sterr = benchmark_client_process.communicate()
+    except (Exception, KeyboardInterrupt):
+        if background_process is not None and background_process.poll() is None:
+            background_process.terminate()
+            background_process.communicate()
+        raise
+
+    if benchmark_client_process.returncode != 0:
+        if background_process is not None and background_process.poll() is None:
+            background_process.terminate()
+            background_process.communicate()
+        raise RuntimeError(
+            "{} exited with status {}".format(
+                benchmark_tool, benchmark_client_process.returncode
+            )
+        )
+
+    if background_process.poll() is None:
+        logging.warning(
+            "Primary client finished while the background client is still running; "
+            "waiting for the background workload to finish"
+        )
+    background_process.communicate()
+    if background_process.returncode != 0:
+        raise RuntimeError(
+            "Background {} exited with status {}".format(
+                background_benchmark_tool, background_process.returncode
+            )
+        )
+    return stdout, sterr
+
+
+def run_local_full_benchmark(
+    benchmark_tool,
+    command,
+    background_benchmark_tool=None,
+    background_command=None,
+):
+    """Run a primary benchmark with an optional concurrent background client.
+
+    The primary client's output remains the benchmark output. Both processes
+    must exit successfully; otherwise the complete benchmark run fails.
+    """
+    if background_command is None:
+        return run_local_benchmark(benchmark_tool, command)
+    return run_local_benchmark_with_background(
+        benchmark_tool, command, background_benchmark_tool, background_command
+    )
 
 
 def check_benchmark_binaries_local_requirements(

@@ -6,6 +6,7 @@ from redisbench_admin.utils.utils import (
     get_remote_input_file_from_url,
     env_flag,
     search_create_before_load,
+    redact_command,
 )
 
 
@@ -199,3 +200,44 @@ def test_search_create_before_load_explicit_opt_out(monkeypatch):
     for disabled in ["0", "false", "no", "off"]:
         monkeypatch.setenv("SEARCH_CREATE_BEFORE_LOAD", disabled)
         assert search_create_before_load() is False, disabled
+
+
+def test_redact_command_masks_password_flags_and_value():
+    command = (
+        "memtier_benchmark -s host -a secret1 --authenticate=secret2 "
+        "--command 'AUTH secret3' --test-time 10"
+    )
+    redacted = redact_command(command, "secret3")
+    assert "secret1" not in redacted
+    assert "secret2" not in redacted
+    assert "secret3" not in redacted
+    assert "-a ***" in redacted
+    assert "--authenticate=***" in redacted
+    assert "--test-time 10" in redacted
+
+
+def test_redact_command_masks_ycsb_property_and_uri_credentials():
+    command = (
+        "ycsb run redis -p redis.password=secret1 "
+        "--url redis://default:secret2@host:6379 -c 1"
+    )
+    redacted = redact_command(command)
+    assert "secret1" not in redacted
+    assert "secret2" not in redacted
+    assert "redis.password=***" in redacted
+    assert "redis://default:***@host:6379" in redacted
+
+
+def test_redact_command_masks_argument_lists():
+    command = ["redis-benchmark", "-h", "host", "-a", "secret", "-c", "1"]
+    assert redact_command(command) == [
+        "redis-benchmark",
+        "-h",
+        "host",
+        "-a",
+        "***",
+        "-c",
+        "1",
+    ]
+    assert command[4] == "secret"
+    assert redact_command(None) is None

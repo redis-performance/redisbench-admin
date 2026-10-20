@@ -111,6 +111,45 @@ exporter:
     mode: lower-better
 ```
 
+## Concurrent background client
+
+A benchmark can run a second benchmark client alongside its primary client by
+defining `background_clientconfig`. Supported background tools are
+`memtier_benchmark` and `redis-benchmark` (they must also be in the configured
+allowed-tools list); tools that require a results file, such as `ftsb_*` or
+`tsbs_*`, are rejected. The primary client's result is the benchmark report and the
+only source for KPIs. The background client does not produce, transfer, or
+post-process a report, and its normal output is discarded to minimize overhead.
+
+Both clients are part of one benchmark run: a non-zero exit status from either
+client fails the run. The background client starts first and both processes
+then run concurrently.
+
+The background workload must be bounded and configured to finish within the
+primary client's expected duration. The runner waits for both clients, so a
+background workload that outlives the primary extends CPU collection and the
+reported client-tool duration. A warning is logged when the primary finishes
+first. If the primary fails, the background client is terminated immediately.
+
+For example, this runs a fixed number of HSET operations at a controlled rate
+while measuring only the time-limited query workload:
+
+```yml
+clientconfig:
+  benchmark_type: mixed
+  tool: memtier_benchmark
+  arguments: "--test-time 180 -c 16 -t 4 --command 'FT.SEARCH idx ...'"
+
+background_clientconfig:
+  tool: memtier_benchmark
+  arguments: "-c 1 -t 1 --requests 99875 --rate-limiting 555 --command 'HSET __key__ update_date_ts 1450000000'"
+```
+
+`benchmark_type: mixed` describes the dataset lifecycle: the benchmark mutates
+the dataset and therefore must not be treated as read-only for environment
+reuse. It is independent of whether one client mixes several commands or two
+separate clients generate the read and write traffic.
+
 ## Secondary index build time (`Measurements.index_time_secs`)
 
 Before handing over to the client tool, the runners always block until every
