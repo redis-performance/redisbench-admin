@@ -59,6 +59,22 @@ def test_connect_succeeds_on_first_attempt_without_retry(ssh_clients):
     sleep.assert_not_called()
 
 
+def test_connect_bounds_each_attempt_with_timeout(ssh_clients):
+    clients, _ = ssh_clients(None)
+    remote_module.connect_remote_ssh(
+        22, "key.pem", "client.example", "ubuntu", timeout=7
+    )
+    kwargs = clients[0].connect.call_args.kwargs
+    assert kwargs["timeout"] == 7
+    assert kwargs["banner_timeout"] == 7
+
+
+def test_connect_retries_timed_out_connection(ssh_clients):
+    clients, sleep = ssh_clients(TimeoutError("timed out"), None)
+    assert _connect() is clients[1]
+    sleep.assert_called_once_with(1)
+
+
 def test_connect_retries_refused_connection_then_succeeds(ssh_clients):
     clients, sleep = ssh_clients(_connection_refused(), None)
     assert _connect() is clients[1]
