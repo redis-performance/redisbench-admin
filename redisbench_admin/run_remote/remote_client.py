@@ -9,6 +9,7 @@ import threading
 
 import redisbench_admin
 from redisbench_admin.run.common import (
+    background_client_tool_sanity_check,
     prepare_benchmark_parameters,
 )
 from redisbench_admin.run.metrics import (
@@ -33,9 +34,14 @@ from redisbench_admin.utils.remote import (
 
 
 def concurrent_benchmark_command(primary_command, background_command):
-    """Build one remote shell command that succeeds only when both clients do."""
+    """Build one remote shell command that succeeds only when both clients do.
+
+    The background client is exec'd so that $! is the benchmark process itself.
+    Without exec, bash forks the client under a subshell and killing $! after a
+    primary failure leaves the client running against the DB.
+    """
     return (
-        "{{ {background} > /dev/null 2>&1; }} & background_pid=$!; "
+        "{{ exec {background} > /dev/null 2>&1; }} & background_pid=$!; "
         "{{ {primary}; }} & primary_pid=$!; "
         'wait "$primary_pid"; primary_status=$?; '
         'if [ "$primary_status" -ne 0 ]; then '
@@ -192,6 +198,7 @@ def run_remote_client_tool(
             private_key,
             architecture,
         )
+        background_client_tool_sanity_check(background_tool)
         _, background_command_str = prepare_benchmark_parameters(
             benchmark_config,
             background_tool,
@@ -535,11 +542,7 @@ def run_remote_benchmark(
                         remote_results_file,
                     )
         else:
-            logging.info(
-                "Given the bellow commands list:\n\t{}\nwe've skipped result fetching".format(
-                    commands
-                )
-            )
+            logging.info("Skipped result fetching for the remote benchmark command")
     return remote_run_result, stdout, stderr
 
 
@@ -560,9 +563,8 @@ def print_commands_outputs(commands, print_err, res):
         recv_exit_status, stdout, stderr = res_tuple
         if pos == 0:
             stderr, stdout = stderr, stdout
-        logging.info(
-            "Exit status for command {}: {}".format(commands[pos], recv_exit_status)
-        )
+        # the command itself is not logged since it may contain credentials
+        logging.info("Exit status for command #{}: {}".format(pos, recv_exit_status))
         logging.info("\tremote process stdout:")
         for line in stdout:
             print(line.strip())

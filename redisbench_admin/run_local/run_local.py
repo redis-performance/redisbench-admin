@@ -29,6 +29,7 @@ from redisbench_admin.profilers.profilers_schema import (
 )
 from redisbench_admin.run.args import PROFILE_FREQ
 from redisbench_admin.run.common import (
+    background_client_tool_sanity_check,
     prepare_benchmark_parameters,
     get_start_time_vars,
     BENCHMARK_REPETITIONS,
@@ -105,6 +106,7 @@ def prepare_local_background_client(
         allowed_tools,
         config_key="background_clientconfig",
     )
+    background_client_tool_sanity_check(background_benchmark_tool)
 
     background_command, _ = prepare_benchmark_parameters(
         benchmark_config,

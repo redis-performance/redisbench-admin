@@ -171,6 +171,29 @@ def test_prepare_local_background_client_supports_other_allowed_tools(monkeypatc
     assert command == ["redis-benchmark", "--csv"]
 
 
+def test_prepare_local_background_client_rejects_tools_requiring_results_file(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        run_local_module,
+        "check_benchmark_binaries_local_requirements",
+        lambda *args, **kwargs: ("ftsb_redisearch", "/usr/bin/ftsb_redisearch", None),
+    )
+    prepare = MagicMock()
+    monkeypatch.setattr(run_local_module, "prepare_benchmark_parameters", prepare)
+
+    with pytest.raises(Exception, match="not supported as a background client"):
+        run_local_module.prepare_local_background_client(
+            {"background_clientconfig": {"tool": "ftsb_redisearch"}},
+            "ftsb_redisearch",
+            6379,
+            "localhost",
+            False,
+            None,
+        )
+    prepare.assert_not_called()
+
+
 def test_check_benchmark_binaries_local_requirements():
     filename = "ycsb-redisearch-binding-0.18.0-SNAPSHOT.tar.gz"
     inner_foldername = "ycsb-redisearch-binding-0.18.0-SNAPSHOT"

@@ -97,6 +97,20 @@ def search_indexing_poll_interval_secs(benchmark_config=None):
     return SEARCH_INDEXING_POLL_INTERVAL_SECS
 
 
+# Tools that can run as background_clientconfig. A background client produces
+# no results file, so only tools whose command can be prepared without one are
+# accepted (e.g. ftsb_/tsbs_ require --json-out-file/--results-file).
+BACKGROUND_CLIENT_TOOLS = ["memtier_benchmark", "redis-benchmark"]
+
+
+def background_client_tool_sanity_check(benchmark_tool):
+    if benchmark_tool not in BACKGROUND_CLIENT_TOOLS:
+        raise Exception(
+            "Benchmark tool {} is not supported as a background client. "
+            "Supported tools: {}".format(benchmark_tool, BACKGROUND_CLIENT_TOOLS)
+        )
+
+
 def extract_input_file_url_from_parameters(entry, benchmark_tool):
     """
     Extract the input file URL from the parameters entry.
@@ -257,7 +271,7 @@ def prepare_benchmark_parameters_specif_tooling(
             cluster_api_enabled,
             current_workdir,
         )
-        if isremote is True:
+        if isremote is True and remote_results_file is not None:
             redirect_file = "> {}".format(remote_results_file)
             command_arr.append(redirect_file)
             command_str = command_str + " " + redirect_file

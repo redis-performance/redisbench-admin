@@ -3,6 +3,10 @@
 #  Copyright (c) 2021., Redis Labs Modules
 #  All rights reserved.
 #
+import logging
+import os
+import shutil
+import signal
 import subprocess
 
 import pytest
@@ -54,43 +58,53 @@ def test_run_remote_benchmark():
 
 
 def test_concurrent_benchmark_command_succeeds_only_when_both_clients_succeed():
-    success = remote_client_module.concurrent_benchmark_command("exit 0", "exit 0")
-    assert "exit 0 > /dev/null 2>&1" in success
+    success = remote_client_module.concurrent_benchmark_command("true", "true")
+    assert "exec true > /dev/null 2>&1" in success
     assert subprocess.run(success, shell=True, check=False).returncode == 0
 
     primary_failure = remote_client_module.concurrent_benchmark_command(
-        "exit 2", "exit 0"
+        "exit 2", "true"
     )
     assert subprocess.run(primary_failure, shell=True, check=False).returncode != 0
 
     background_failure = remote_client_module.concurrent_benchmark_command(
-        "exit 0", "exit 3"
+        "true", "sh -c 'exit 3'"
     )
     assert subprocess.run(background_failure, shell=True, check=False).returncode != 0
 
-    primary_failure_stops_background = (
-        remote_client_module.concurrent_benchmark_command("exit 2", "sleep 5")
+
+@pytest.mark.parametrize("shell", ["sh", "bash"])
+def test_concurrent_benchmark_command_kills_background_client_on_primary_failure(
+    shell, tmp_path
+):
+    # bash (the login shell on the remote client VMs) forks a background
+    # command group into a subshell, so killing $! must reach the client
+    # itself and not only its parent subshell.
+    if shutil.which(shell) is None:
+        pytest.skip("{} not available".format(shell))
+    pid_file = tmp_path / "background.pid"
+    background = "sh -c 'echo $$ > {}; exec sleep 30'".format(pid_file)
+    command = remote_client_module.concurrent_benchmark_command(
+        "sleep 0.5; exit 2", background
     )
-    assert (
-        subprocess.run(
-            primary_failure_stops_background,
-            shell=True,
-            check=False,
-            timeout=1,
-        ).returncode
-        != 0
-    )
+    result = subprocess.run([shell, "-c", command], check=False, timeout=10)
+    assert result.returncode != 0
+
+    background_pid = int(pid_file.read_text().strip())
+    try:
+        with pytest.raises(ProcessLookupError):
+            os.kill(background_pid, 0)
+    finally:
+        try:
+            os.kill(background_pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
 
 
-def test_run_remote_client_tool_wires_background_client(monkeypatch):
-    benchmark_config = {
-        "clientconfig": {"tool": "memtier_benchmark"},
-        "background_clientconfig": {"tool": "memtier_benchmark"},
-    }
-    captured = {}
-
+def _patch_remote_client_tool(monkeypatch, tools_by_config_key, captured):
     def fake_tool_settings(_benchmark_config, config_key):
-        return None, None, None, None, "memtier_benchmark", None, None, None
+        tool = tools_by_config_key[config_key]
+        return None, None, None, None, tool, None, None, None
 
     def fake_prepare(*args, **kwargs):
         config_key = args[8]
@@ -121,8 +135,10 @@ def test_run_remote_client_tool_wires_background_client(monkeypatch):
         lambda *args: 1,
     )
 
-    remote_client_module.run_remote_client_tool(
-        "memtier_benchmark",
+
+def _run_remote_client_tool(benchmark_config):
+    return remote_client_module.run_remote_client_tool(
+        "memtier_benchmark,ftsb_redisearch",
         "version",
         benchmark_config,
         "client.example",
@@ -145,9 +161,58 @@ def test_run_remote_client_tool_wires_background_client(monkeypatch):
         do_post_process=False,
     )
 
+
+def test_run_remote_client_tool_wires_background_client(monkeypatch):
+    benchmark_config = {
+        "clientconfig": {"tool": "memtier_benchmark"},
+        "background_clientconfig": {"tool": "memtier_benchmark"},
+    }
+    captured = {}
+    _patch_remote_client_tool(
+        monkeypatch,
+        {
+            "clientconfig": "memtier_benchmark",
+            "background_clientconfig": "memtier_benchmark",
+        },
+        captured,
+    )
+
+    _run_remote_client_tool(benchmark_config)
+
     command = captured["commands"][0]
-    assert "background_clientconfig-command > /dev/null 2>&1" in command
+    assert "exec background_clientconfig-command > /dev/null 2>&1" in command
     assert "clientconfig-command" in command
+
+
+def test_run_remote_client_tool_rejects_unsupported_background_tool(monkeypatch):
+    benchmark_config = {
+        "clientconfig": {"tool": "memtier_benchmark"},
+        "background_clientconfig": {"tool": "ftsb_redisearch"},
+    }
+    captured = {}
+    _patch_remote_client_tool(
+        monkeypatch,
+        {
+            "clientconfig": "memtier_benchmark",
+            "background_clientconfig": "ftsb_redisearch",
+        },
+        captured,
+    )
+
+    with pytest.raises(Exception, match="not supported as a background client"):
+        _run_remote_client_tool(benchmark_config)
+    assert "commands" not in captured
+
+
+def test_print_commands_outputs_does_not_log_commands(caplog):
+    caplog.set_level(logging.INFO)
+    remote_client_module.print_commands_outputs(
+        ["memtier_benchmark -a sensitive-password-value"],
+        True,
+        [(1, ["out"], ["err"])],
+    )
+    assert "sensitive-password-value" not in caplog.text
+    assert "Exit status for command #0: 1" in caplog.text
 
 
 def test_ann_benchmark_remote_cmds():

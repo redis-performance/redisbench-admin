@@ -137,6 +137,26 @@ def test_prepare_memtier_background_command_without_report():
     assert "--hide-histogram" in command_arr
 
 
+def test_prepare_remote_redis_benchmark_background_command_without_report():
+    benchmark_config = {
+        "background_clientconfig": {
+            "tool": "redis-benchmark",
+            "parameters": [{"clients": 1}, {"requests": 10}],
+        }
+    }
+    command_arr, command_str = prepare_benchmark_parameters(
+        benchmark_config,
+        "redis-benchmark",
+        "6379",
+        "localhost",
+        None,
+        True,
+        config_key="background_clientconfig",
+    )
+    assert "None" not in command_str
+    assert ">" not in command_str
+
+
 def test_prepare_memtier_command_does_not_log_password(caplog):
     caplog.set_level(logging.INFO)
     benchmark_config = {

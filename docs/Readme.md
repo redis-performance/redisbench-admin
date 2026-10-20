@@ -114,8 +114,10 @@ exporter:
 ## Concurrent background client
 
 A benchmark can run a second benchmark client alongside its primary client by
-defining `background_clientconfig`. Any tool in the configured allowed-tools
-list can be used. The primary client's result is the benchmark report and the
+defining `background_clientconfig`. Supported background tools are
+`memtier_benchmark` and `redis-benchmark` (they must also be in the configured
+allowed-tools list); tools that require a results file, such as `ftsb_*` or
+`tsbs_*`, are rejected. The primary client's result is the benchmark report and the
 only source for KPIs. The background client does not produce, transfer, or
 post-process a report, and its normal output is discarded to minimize overhead.
 
