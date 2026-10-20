@@ -26,6 +26,17 @@ Current supported benchmark tools:
 - [ftsb_redisearch](https://github.com/RediSearch/ftsb)
 - [ann-benchmarks](https://github.com/RedisAI/ann-benchmarks)
 
+Remote SSH connections retry transient connection failures (e.g. a refused
+connection or a brief host outage) up to `SSH_CONNECT_MAX_RETRIES` times
+(default 5), waiting 1, 2, 4, ... seconds between attempts. Each attempt is
+bounded by `SSH_CONNECT_TIMEOUT` seconds (default 30), so an unreachable host
+fails after about 3.5 minutes with the defaults; refused connections fail
+immediately and only pay the backoff (31 seconds). Only opening the connection is
+retried, before any remote command runs, so setup steps and benchmark
+measurements are never replayed. Authentication errors are not retried.
+Fetching result files retries transient SSH/SFTP errors the same way, up to
+`SSH_FETCH_MAX_RETRIES` times (default 3).
+
 ## Installation
 
 Installation is done using pip, the package installer for Python, in the following manner:
