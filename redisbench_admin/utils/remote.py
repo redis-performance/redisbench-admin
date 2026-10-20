@@ -84,6 +84,7 @@ REDIS_HEALTH_CHECK_INTERVAL = int(os.getenv("REDIS_HEALTH_CHECK_INTERVAL", "15")
 REDIS_SOCKET_TIMEOUT = int(os.getenv("REDIS_SOCKET_TIMEOUT", "300"))
 TERRAFORM_BIN_PATH = os.getenv("TERRAFORM_BIN_PATH", "terraform")
 SSH_FETCH_MAX_RETRIES = int(os.getenv("SSH_FETCH_MAX_RETRIES", "3"))
+SSH_CONNECT_MAX_RETRIES = int(os.getenv("SSH_CONNECT_MAX_RETRIES", "5"))
 
 # Transient failure modes seen on an otherwise-healthy remote host: a dropped
 # packet or momentary network blip on a freshly opened SSH/SFTP connection.
@@ -325,12 +326,52 @@ def execute_remote_commands(
     return res
 
 
-def connect_remote_ssh(port, private_key, server_public_ip, username):
+def connect_remote_ssh(
+    port,
+    private_key,
+    server_public_ip,
+    username,
+    max_retries=SSH_CONNECT_MAX_RETRIES,
+):
+    """Open an SSH connection, retrying transient connection failures.
+
+    A brief SSH outage on an otherwise healthy host ("NoValidConnectionsError:
+    Unable to connect to port 22") used to fail the test outright, even though
+    the previous and next benchmarks on the same host ran fine (MOD-19933).
+    Refused connections fail fast, so the backoff only costs time when the
+    host is actually unreachable. Only establishing the connection is retried: no remote
+    command has run yet, so a retry can never replay a setup step or a
+    benchmark measurement. Authentication failures are not retried.
+    """
     k = paramiko.RSAKey.from_private_key_file(private_key)
-    c = paramiko.SSHClient()
-    c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     logging.info("Connecting to remote server {}".format(server_public_ip))
-    c.connect(hostname=server_public_ip, port=port, username=username, pkey=k)
+    attempt = 0
+    while True:
+        c = paramiko.SSHClient()
+        c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        try:
+            c.connect(hostname=server_public_ip, port=port, username=username, pkey=k)
+            break
+        except paramiko.AuthenticationException:
+            c.close()
+            raise
+        except TRANSIENT_SSH_ERRORS as e:
+            c.close()
+            if attempt >= max_retries:
+                logging.error(
+                    "Giving up connecting to remote server {} after {} attempts: {}".format(
+                        server_public_ip, attempt + 1, e
+                    )
+                )
+                raise
+            logging.warning(
+                "Transient error connecting to remote server {} (attempt {}/{}): {}. "
+                "Retrying in {} seconds...".format(
+                    server_public_ip, attempt + 1, max_retries + 1, e, 2**attempt
+                )
+            )
+            time.sleep(2**attempt)
+            attempt += 1
     transport = c.get_transport()
     transport.set_keepalive(10)  # Send keepalive every 10 seconds
     logging.info("Connected to remote server {}".format(server_public_ip))
