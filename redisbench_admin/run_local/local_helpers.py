@@ -7,7 +7,6 @@ import logging
 import os
 import shutil
 import subprocess
-import sys
 
 import wget
 
@@ -34,6 +33,8 @@ def _start_local_benchmark_client(benchmark_tool, command, suppress_output=False
 
 
 def run_local_benchmark(benchmark_tool, command):
+    stdout = None
+    sterr = None
     try:
         benchmark_client_process = _start_local_benchmark_client(
             benchmark_tool, command
@@ -51,8 +52,8 @@ def run_local_benchmark(benchmark_tool, command):
             + str(error)
         )
         logging.error(errorMessage)
-    except:
-        logging.error("Error > ", sys.exc_info()[0])
+    except Exception:
+        logging.exception("Error while running {}".format(benchmark_tool))
 
     return stdout, sterr
 

@@ -729,3 +729,11 @@ def test_tear_down_previous_mixed_env_noop_when_keep_env_and_topo(monkeypatch):
     assert tore_down is False
     assert teardown_calls == []
     assert setup_details["env"] is fake_env
+
+
+def test_run_local_benchmark_returns_none_when_tool_cannot_start():
+    stdout, stderr = local_helpers_module.run_local_benchmark(
+        "memtier_benchmark", ["/nonexistent/memtier_benchmark"]
+    )
+    assert stdout is None
+    assert stderr is None

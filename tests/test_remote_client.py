@@ -3,6 +3,7 @@
 #  Copyright (c) 2021., Redis Labs Modules
 #  All rights reserved.
 #
+import contextlib
 import logging
 import os
 import shutil
@@ -95,10 +96,9 @@ def test_concurrent_benchmark_command_kills_background_client_on_primary_failure
         with pytest.raises(ProcessLookupError):
             os.kill(background_pid, 0)
     finally:
-        try:
+        # only reached when the background client was orphaned
+        with contextlib.suppress(ProcessLookupError):
             os.kill(background_pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
 
 
 def _patch_remote_client_tool(monkeypatch, tools_by_config_key, captured):
