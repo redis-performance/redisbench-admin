@@ -195,6 +195,7 @@ def generate_cluster_redis_server_args(
     logname_prefix=None,
     enable_debug_command="yes",
     enable_redis_7_config_directives=False,
+    waive_cluster_bus_port_protection=False,
 ):
     if logname_prefix is None:
         logname_prefix = ""
@@ -244,6 +245,9 @@ def generate_cluster_redis_server_args(
                     cluster_node_timeout
                 )
             )
+    # Ahead of configuration_parameters so an explicit value still wins.
+    if waive_cluster_bus_port_protection:
+        command.extend(["--cluster-bus-port-protected-mode", "no"])
     if configuration_parameters is not None:
         for parameter, parameter_value in configuration_parameters.items():
             command.extend(

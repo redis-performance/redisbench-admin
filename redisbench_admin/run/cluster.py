@@ -189,6 +189,15 @@ def spin_up_redis_cluster_remote_redis(
         remote_redis_server_path if remote_redis_server_path else "redis-server"
     )
 
+    # Redis refuses to start a non-TLS cluster node without this waiver, while
+    # servers that predate it abort on it, so only pass it to binaries that know it.
+    probe = 'grep -qaF cluster-bus-port-protected-mode "$(command -v {})"'.format(
+        redis_server_binary
+    )
+    [[probe_exit_status, _, _]] = execute_remote_commands(
+        server_public_ip, username, private_key, [probe], ssh_port
+    )
+
     logging.info("Generating the remote redis-server command arguments")
     redis_process_commands = []
     logfiles = []
@@ -208,6 +217,7 @@ def spin_up_redis_cluster_remote_redis(
             logname_prefix,
             "yes",
             redis_7,
+            probe_exit_status == 0,
         )
         # Prepend LD_LIBRARY_PATH if specified
         if ld_prefix:
