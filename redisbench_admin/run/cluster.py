@@ -5,6 +5,7 @@
 #
 import logging
 import os
+import shlex
 
 from redisbench_admin.run_remote.consts import remote_module_file_dir
 from redisbench_admin.utils.remote import (
@@ -12,8 +13,45 @@ from redisbench_admin.utils.remote import (
     execute_remote_commands,
 )
 
-from redisbench_admin.environments.oss_cluster import generate_cluster_redis_server_args
+from redisbench_admin.environments.oss_cluster import (
+    CLUSTER_BUS_PORT_PROTECTED_MODE,
+    generate_cluster_redis_server_args,
+)
 from redisbench_admin.utils.utils import wait_for_conn
+
+
+def remote_binary_supports_cluster_bus_port_protected_mode(
+    server_public_ip, username, private_key, ssh_port, redis_server_binary
+):
+    """Whether the remote redis-server binary knows cluster-bus-port-protected-mode.
+
+    Redis refuses to start a non-TLS cluster node without the waiver, while servers
+    that predate the directive abort on it, so it is only passed to binaries that
+    contain it. A match only means the name is present in the binary, not that the
+    directive is recognised.
+    """
+    probe = 'grep -qaF {} "$(command -v {})"'.format(
+        CLUSTER_BUS_PORT_PROTECTED_MODE, shlex.quote(redis_server_binary)
+    )
+    [[exit_status, _, _]] = execute_remote_commands(
+        server_public_ip, username, private_key, [probe], ssh_port
+    )
+    if exit_status not in (0, 1):
+        logging.warning(
+            "Could not probe {} for {} (exit status {}): binary not found or unreadable; "
+            "not passing the waiver".format(
+                redis_server_binary, CLUSTER_BUS_PORT_PROTECTED_MODE, exit_status
+            )
+        )
+    supported = exit_status == 0
+    logging.info(
+        "{} {} (probe exit status {})".format(
+            "Passing" if supported else "Not passing",
+            CLUSTER_BUS_PORT_PROTECTED_MODE,
+            exit_status,
+        )
+    )
+    return supported
 
 
 def cluster_init_steps(clusterconfig, redis_conns, local_module_file):
@@ -189,6 +227,12 @@ def spin_up_redis_cluster_remote_redis(
         remote_redis_server_path if remote_redis_server_path else "redis-server"
     )
 
+    waive_cluster_bus_port_protection = (
+        remote_binary_supports_cluster_bus_port_protected_mode(
+            server_public_ip, username, private_key, ssh_port, redis_server_binary
+        )
+    )
+
     logging.info("Generating the remote redis-server command arguments")
     redis_process_commands = []
     logfiles = []
@@ -208,6 +252,7 @@ def spin_up_redis_cluster_remote_redis(
             logname_prefix,
             "yes",
             redis_7,
+            waive_cluster_bus_port_protection,
         )
         # Prepend LD_LIBRARY_PATH if specified
         if ld_prefix:
