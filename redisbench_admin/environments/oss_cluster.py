@@ -5,6 +5,7 @@
 #
 import logging
 import os
+import shutil
 import subprocess
 from time import sleep
 
@@ -15,6 +16,22 @@ from redisbench_admin.utils.utils import (
     redis_server_config_module_part,
     generate_common_server_args,
 )
+
+
+CLUSTER_BUS_PORT_PROTECTED_MODE = "cluster-bus-port-protected-mode"
+
+
+def binary_supports_cluster_bus_port_protected_mode(binary):
+    """Whether a local redis-server binary knows the config directive.
+
+    Servers that predate it abort on the unknown directive, so it must only be
+    passed to binaries that contain it. Unresolvable binaries count as unsupported.
+    """
+    path = shutil.which(binary)
+    if path is None:
+        return False
+    with open(path, "rb") as f:
+        return CLUSTER_BUS_PORT_PROTECTED_MODE.encode() in f.read()
 
 
 def spin_up_local_redis_cluster(
@@ -50,6 +67,7 @@ def spin_up_local_redis_cluster(
             None,
             "yes",
             redis_7,
+            binary_supports_cluster_bus_port_protected_mode(binary),
         )
 
         logging.info(
@@ -247,7 +265,7 @@ def generate_cluster_redis_server_args(
             )
     # Ahead of configuration_parameters so an explicit value still wins.
     if waive_cluster_bus_port_protection:
-        command.extend(["--cluster-bus-port-protected-mode", "no"])
+        command.extend(["--" + CLUSTER_BUS_PORT_PROTECTED_MODE, "no"])
     if configuration_parameters is not None:
         for parameter, parameter_value in configuration_parameters.items():
             command.extend(
