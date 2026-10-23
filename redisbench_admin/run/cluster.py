@@ -5,6 +5,7 @@
 #
 import logging
 import os
+import shlex
 
 from redisbench_admin.run_remote.consts import remote_module_file_dir
 from redisbench_admin.utils.remote import (
@@ -30,14 +31,14 @@ def remote_binary_supports_cluster_bus_port_protected_mode(
     directive is recognised.
     """
     probe = 'grep -qaF {} "$(command -v {})"'.format(
-        CLUSTER_BUS_PORT_PROTECTED_MODE, redis_server_binary
+        CLUSTER_BUS_PORT_PROTECTED_MODE, shlex.quote(redis_server_binary)
     )
     [[exit_status, _, _]] = execute_remote_commands(
         server_public_ip, username, private_key, [probe], ssh_port
     )
     if exit_status not in (0, 1):
         logging.warning(
-            "Could not probe {} for {} (exit status {}): SSH or binary path problem; "
+            "Could not probe {} for {} (exit status {}): binary not found or unreadable; "
             "not passing the waiver".format(
                 redis_server_binary, CLUSTER_BUS_PORT_PROTECTED_MODE, exit_status
             )
@@ -226,8 +227,10 @@ def spin_up_redis_cluster_remote_redis(
         remote_redis_server_path if remote_redis_server_path else "redis-server"
     )
 
-    waive_cluster_bus_port_protection = remote_binary_supports_cluster_bus_port_protected_mode(
-        server_public_ip, username, private_key, ssh_port, redis_server_binary
+    waive_cluster_bus_port_protection = (
+        remote_binary_supports_cluster_bus_port_protected_mode(
+            server_public_ip, username, private_key, ssh_port, redis_server_binary
+        )
     )
 
     logging.info("Generating the remote redis-server command arguments")

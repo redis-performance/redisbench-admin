@@ -30,8 +30,16 @@ def binary_supports_cluster_bus_port_protected_mode(binary):
     path = shutil.which(binary)
     if path is None:
         return False
-    with open(path, "rb") as f:
-        return CLUSTER_BUS_PORT_PROTECTED_MODE.encode() in f.read()
+    try:
+        with open(path, "rb") as f:
+            return CLUSTER_BUS_PORT_PROTECTED_MODE.encode() in f.read()
+    except OSError as e:
+        logging.warning(
+            "Could not read {} to probe for {}: {}; not passing the waiver".format(
+                path, CLUSTER_BUS_PORT_PROTECTED_MODE, e
+            )
+        )
+        return False
 
 
 def spin_up_local_redis_cluster(

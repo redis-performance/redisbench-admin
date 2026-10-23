@@ -130,3 +130,24 @@ def test_remote_binary_supports_cluster_bus_port_protected_mode(
         )
     probe = execute.call_args[0][3][0]
     assert "cluster-bus-port-protected-mode" in probe and "redis-server" in probe
+
+
+def test_binary_supports_cluster_bus_port_protected_mode_unreadable():
+    with mock.patch(
+        "redisbench_admin.environments.oss_cluster.shutil.which",
+        return_value="/usr/bin/redis-server",
+    ), mock.patch("builtins.open", side_effect=PermissionError("denied")):
+        assert not binary_supports_cluster_bus_port_protected_mode("redis-server")
+
+
+def test_remote_probe_quotes_binary_path():
+    binary = "/opt/my redis/redis-server"
+    with mock.patch(
+        "redisbench_admin.run.cluster.execute_remote_commands",
+        return_value=[[0, [], []]],
+    ) as execute:
+        remote_binary_supports_cluster_bus_port_protected_mode(
+            "1.2.3.4", "ubuntu", "key", 22, binary
+        )
+    probe = execute.call_args[0][3][0]
+    assert "\"$(command -v '/opt/my redis/redis-server')\"" in probe
