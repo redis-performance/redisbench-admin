@@ -15,6 +15,7 @@ import yaml
 from redisbench_admin.run.common import merge_default_and_config_metrics
 from redisbench_admin.run.metrics import (
     BENCHMARK_CPU_STATS_GLOBAL,
+    collect_command_metrics,
     collect_info_metrics,
     collect_redis_metrics,
     collect_search_and_bigredis_metrics,
@@ -509,3 +510,108 @@ def test_collect_redis_metrics_ignore_shard_errors():
     # Without the flag only a ConnectionError is tolerated, as before.
     with pytest.raises(redis.exceptions.TimeoutError):
         collect_redis_metrics([ok, slow], ["memory"])
+
+
+def _command_conn(reply):
+    conn = MagicMock()
+    conn.execute_command.return_value = reply
+    return conn
+
+
+VECSIM_INFO_REPLY = [
+    b"ALGORITHM",
+    b"TIERED",
+    b"TIERED_HNSW_DISK_GC_MOVES",
+    7,
+    b"BACKEND_INDEX",
+    [b"ALGORITHM", b"HNSW_DISK", b"NUM_ID_HOLES", 5, b"NEXT_ID", b"120"],
+]
+
+VECSIM_INFO_ENTRY = {
+    "name": "vecsim_info",
+    "command": ["_FT.DEBUG", "VECSIM_INFO", "idx", "vec"],
+    "fields": [
+        "BACKEND_INDEX.NUM_ID_HOLES",
+        "BACKEND_INDEX.NEXT_ID",
+        "TIERED_HNSW_DISK_GC_MOVES",
+    ],
+}
+
+
+def test_collect_command_metrics_reads_numbers_out_of_a_nested_reply():
+    conn = _command_conn(VECSIM_INFO_REPLY)
+    out = collect_command_metrics([conn], [VECSIM_INFO_ENTRY])
+    assert out == {
+        "vecsim_info_BACKEND_INDEX_NUM_ID_HOLES": 5,
+        "vecsim_info_BACKEND_INDEX_NEXT_ID": 120,
+        "vecsim_info_TIERED_HNSW_DISK_GC_MOVES": 7,
+    }
+    conn.execute_command.assert_called_once_with(
+        "_FT.DEBUG", "VECSIM_INFO", "idx", "vec"
+    )
+
+
+def test_collect_command_metrics_without_config_collects_nothing():
+    conn = _command_conn(VECSIM_INFO_REPLY)
+    assert collect_command_metrics([conn], None) == {}
+    assert collect_command_metrics([conn], []) == {}
+    conn.execute_command.assert_not_called()
+
+
+def test_collect_command_metrics_sums_across_shards():
+    out = collect_command_metrics(
+        [_command_conn(VECSIM_INFO_REPLY), _command_conn(VECSIM_INFO_REPLY)],
+        [VECSIM_INFO_ENTRY],
+    )
+    assert out["vecsim_info_BACKEND_INDEX_NUM_ID_HOLES"] == 10
+    assert out["vecsim_info_TIERED_HNSW_DISK_GC_MOVES"] == 14
+
+
+def test_collect_command_metrics_leaves_out_what_is_not_a_number():
+    entry = dict(
+        VECSIM_INFO_ENTRY,
+        fields=[
+            "ALGORITHM",
+            "BACKEND_INDEX.MISSING",
+            "MISSING.NEXT_ID",
+            "BACKEND_INDEX",
+        ],
+    )
+    assert collect_command_metrics([_command_conn(VECSIM_INFO_REPLY)], [entry]) == {}
+
+
+def test_collect_command_metrics_skips_malformed_entries():
+    conn = _command_conn(VECSIM_INFO_REPLY)
+    out = collect_command_metrics(
+        [conn],
+        [
+            "not a dict",
+            {"name": "x", "command": [], "fields": ["a"]},
+            {"name": "x", "command": ["PING"], "fields": "a"},
+            {"command": ["PING"], "fields": ["a"]},
+            VECSIM_INFO_ENTRY,
+        ],
+    )
+    assert out["vecsim_info_TIERED_HNSW_DISK_GC_MOVES"] == 7
+    assert conn.execute_command.call_count == 1
+
+
+def test_collect_command_metrics_ignores_a_value_that_is_not_a_list():
+    conn = _command_conn(VECSIM_INFO_REPLY)
+    assert collect_command_metrics([conn], {"name": "x"}) == {}
+    conn.execute_command.assert_not_called()
+
+
+def test_collect_command_metrics_keeps_the_shards_that_answer():
+    failing = MagicMock()
+    failing.execute_command.side_effect = redis.exceptions.ResponseError("unknown")
+    out = collect_command_metrics(
+        [failing, _command_conn(VECSIM_INFO_REPLY)], [VECSIM_INFO_ENTRY]
+    )
+    assert out["vecsim_info_BACKEND_INDEX_NUM_ID_HOLES"] == 5
+
+
+def test_collect_command_metrics_survives_an_error_on_every_shard():
+    failing = MagicMock()
+    failing.execute_command.side_effect = Exception("boom")
+    assert collect_command_metrics([failing], [VECSIM_INFO_ENTRY]) == {}

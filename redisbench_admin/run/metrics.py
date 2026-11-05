@@ -333,6 +333,115 @@ def collect_info_metrics(redis_conns, info_metrics):
     return kv_overall
 
 
+def _reply_to_tree(reply):
+    """Turn a command reply into nested dicts where it is made of names and values.
+
+    A flat list of alternating names and values, as `FT.DEBUG VECSIM_INFO` returns it
+    (a value may be such a list again), becomes a dict. Any other list stays a list, and
+    bytes are decoded when they are text.
+    """
+    if isinstance(reply, bytes):
+        try:
+            return reply.decode()
+        except UnicodeDecodeError:
+            return reply
+    if isinstance(reply, (list, tuple)):
+        items = [_reply_to_tree(item) for item in reply]
+        if len(items) % 2 == 0 and all(isinstance(k, str) for k in items[0::2]):
+            return {items[i]: items[i + 1] for i in range(0, len(items), 2)}
+        return items
+    return reply
+
+
+def _number_at(tree, path):
+    """The number at a dotted `path` of a nested dict, or None."""
+    node = tree
+    for part in path.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return None
+        node = node[part]
+    if isinstance(node, bool):
+        return None
+    if isinstance(node, (int, float)):
+        return node
+    if isinstance(node, str):
+        try:
+            return float(node) if any(c in node for c in ".eE") else int(node)
+        except ValueError:
+            return None
+    return None
+
+
+def collect_command_metrics(redis_conns, command_metrics):
+    """Run the read-only commands a benchmark definition asks for with `command_metrics`
+    and read numbers out of their replies.
+
+    `command_metrics` is a list of {"name": <metric prefix>, "command": [<arg>, ...],
+    "fields": [<dotted path>, ...]} entries, for example the debug info of a vector index:
+
+        command_metrics:
+          - name: vecsim_info
+            command: ["_FT.DEBUG", "VECSIM_INFO", "idx", "vec"]
+            fields:
+              - BACKEND_INDEX.NUM_ID_HOLES
+              - TIERED_HNSW_DISK_GC_MOVES
+
+    The reply is read as nested names and values (see `_reply_to_tree`), and a path
+    walks it. Numeric values are summed across shards, like the INFO metrics, and
+    returned as {"<name>_<path with the dots as underscores>": value}. Malformed entries
+    are skipped with a warning, a path that is missing or not a number is simply absent,
+    and a command that fails on a shard is logged and left out for that shard, so a
+    benchmark never fails because of this measurement. The command must not change the
+    server: it runs after the client tool finished, and the runners do not check it.
+    """
+    if not command_metrics:
+        return {}
+    if not isinstance(command_metrics, list):
+        logging.warning(
+            "Ignoring command_metrics: expected a list of name, command and fields entries, got {}".format(
+                type(command_metrics).__name__
+            )
+        )
+        return {}
+    totals = {}
+    for entry in command_metrics:
+        name = entry.get("name") if isinstance(entry, dict) else None
+        command = entry.get("command") if isinstance(entry, dict) else None
+        fields = entry.get("fields") if isinstance(entry, dict) else None
+        if (
+            not isinstance(name, str)
+            or not isinstance(command, list)
+            or len(command) == 0
+            or not all(isinstance(arg, (str, int)) for arg in command)
+            or not isinstance(fields, list)
+            or not all(isinstance(field, str) for field in fields)
+        ):
+            logging.warning(
+                "Ignoring malformed command_metrics entry (expected a name, a command and a list of fields): {}".format(
+                    entry
+                )
+            )
+            continue
+        for conn in redis_conns:
+            try:
+                reply = conn.execute_command(*command)
+            except Exception as e:
+                logging.warning(
+                    "Could not run {} for command_metrics {}: {}".format(
+                        command, name, e
+                    )
+                )
+                continue
+            tree = _reply_to_tree(reply)
+            for field in fields:
+                value = _number_at(tree, field)
+                if value is None:
+                    continue
+                key = "{}_{}".format(name, field.replace(".", "_"))
+                totals[key] = totals.get(key, 0) + value
+    return totals
+
+
 BENCHMARK_RUNNING_GLOBAL = False
 BENCHMARK_CPU_STATS_GLOBAL = {}
 

@@ -276,6 +276,32 @@ info_metrics:
 - The values are read after the client tool finished, so they describe the whole run
   (counters accumulate from the start of the server).
 
+## Numbers from the reply of a command at the end of the run (`command_metrics`)
+
+Some counters are not in `INFO`, only in the reply of a command, for example the debug
+info of a RediSearch vector index. A benchmark can ask for numbers out of such a reply.
+After the benchmark completes the runners run the command once on every shard, read the
+numbers, log them as `Command metrics: {...}`, and export them with the other end of
+run metrics, like the `info_metrics`.
+
+```yml
+command_metrics:
+  - name: vecsim_info
+    command: ["_FT.DEBUG", "VECSIM_INFO", "idx", "vec"]
+    fields:
+      - BACKEND_INDEX.NUM_ID_HOLES
+      - TIERED_HNSW_DISK_GC_MOVES
+```
+
+- `command` is the argument list, and must only read: nothing checks that.
+- A reply of alternating names and values (a value may be such a list again) is read as
+  nested names. A `fields` entry is the dotted path of a number in it.
+- The metric name is `<name>_<path with the dots as underscores>`, for example
+  `vecsim_info_BACKEND_INDEX_NUM_ID_HOLES`. Numbers are summed across shards.
+- A path that is missing or not a number is left out, a malformed entry or a command that
+  fails is logged as a warning, so this never fails a run.
+- The values are read after the client tool finished, so they describe the whole run.
+
 # Running benchmarks
 
 The benchmark automation currently allows running benchmarks in various environments:
