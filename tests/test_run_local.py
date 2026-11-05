@@ -737,3 +737,46 @@ def test_run_local_benchmark_returns_none_when_tool_cannot_start():
     )
     assert stdout is None
     assert stderr is None
+
+
+def test_run_local_exports_the_info_metrics_the_benchmark_asks_for(
+    monkeypatch, tmp_path
+):
+    with open("./tests/test_data/redis-benchmark-vanilla.yml") as fd:
+        benchmark_config = yaml.safe_load(fd)
+    benchmark_config["info_metrics"] = [
+        {"section": "memory", "fields": ["used_memory"]}
+    ]
+    test_file = tmp_path / "info-metrics.yml"
+    test_file.write_text(yaml.safe_dump(benchmark_config))
+
+    seen = []
+    real_print = run_local_module.print_results_table_stdout
+
+    def spy(*args, **kwargs):
+        # overall_end_time_metrics is the 8th positional argument
+        seen.append(dict(args[7]))
+        return real_print(*args, **kwargs)
+
+    monkeypatch.setattr(run_local_module, "print_results_table_stdout", spy)
+    parser = argparse.ArgumentParser(
+        description="test",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser = create_run_local_arguments(parser)
+    args = parser.parse_args(
+        args=[
+            "--test",
+            str(test_file),
+            "--allowed-envs",
+            "oss-standalone",
+            "--redis-7",
+            "{}".format(REDIS_7),
+        ]
+    )
+    try:
+        run_local_module.run_local_command_logic(args, "tool", "v0")
+    except SystemExit as e:
+        assert e.code == 0
+    assert seen, "the end of run metrics were never reported"
+    assert seen[0]["memory_used_memory"] > 0

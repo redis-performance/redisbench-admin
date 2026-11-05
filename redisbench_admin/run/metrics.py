@@ -115,7 +115,14 @@ def collect_redis_metrics(
     redis_conns,
     sections=["memory", "cpu", "commandstats", "latencystats"],
     section_filter=None,
+    ignore_shard_errors=False,
 ):
+    """Read the INFO sections of every connection and sum them across shards.
+
+    With `ignore_shard_errors` any error while reading a section from a shard is
+    logged and that section is left out for that shard, instead of only the
+    ConnectionError, so the other shards still report.
+    """
     start_time = dt.datetime.utcnow()
     start_time_ms = int((start_time - dt.datetime(1970, 1, 1)).total_seconds() * 1000)
     res = []
@@ -152,6 +159,12 @@ def collect_redis_metrics(
             except redis.exceptions.ConnectionError as e:
                 logging.warning(
                     f"Unable to collect section {section} from redis. error: {e.__str__}"
+                )
+            except Exception as e:
+                if not ignore_shard_errors:
+                    raise
+                logging.warning(
+                    f"Unable to collect section {section} from shard {conn_n + 1}. error: {e}"
                 )
 
         res.append(conn_res)
@@ -268,6 +281,56 @@ def collect_search_and_bigredis_metrics(redis_conns):
     merged.update(search_disk_kv)
 
     return merged
+
+
+def collect_info_metrics(redis_conns, info_metrics):
+    """Read the INFO fields a benchmark definition asks for with `info_metrics`.
+
+    `info_metrics` is a list of {"section": <INFO section>, "fields": [<field>, ...]}
+    entries, for example the vector index counters of the RediSearch module:
+
+        info_metrics:
+          - section: search_vector_index
+            fields: [search_hnsw_direct_main_thread_insertions]
+
+    Numeric scalar values are summed across shards, like the other end of run INFO
+    metrics, and returned as {"<section>_<field>": value}. Malformed entries are
+    skipped with a warning, a missing section or field is simply absent from the
+    result, and an error while reading INFO is logged, so a benchmark never fails
+    because of this measurement. When a shard fails, the shards that answered are
+    still reported.
+    """
+    if not info_metrics:
+        return {}
+    if not isinstance(info_metrics, list):
+        logging.warning(
+            "Ignoring info_metrics: expected a list of section and fields entries, got {}".format(
+                type(info_metrics).__name__
+            )
+        )
+        return {}
+    section_filter = {}
+    for entry in info_metrics:
+        section = entry.get("section") if isinstance(entry, dict) else None
+        fields = entry.get("fields") if isinstance(entry, dict) else None
+        if (
+            not isinstance(section, str)
+            or not isinstance(fields, list)
+            or not all(isinstance(field, str) for field in fields)
+        ):
+            logging.warning(
+                "Ignoring malformed info_metrics entry (expected a section and a list of fields): {}".format(
+                    entry
+                )
+            )
+            continue
+        section_filter.setdefault(section, []).extend(fields)
+    if not section_filter:
+        return {}
+    _, _, kv_overall = collect_redis_metrics(
+        redis_conns, list(section_filter), section_filter, ignore_shard_errors=True
+    )
+    return kv_overall
 
 
 BENCHMARK_RUNNING_GLOBAL = False

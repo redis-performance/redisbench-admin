@@ -41,6 +41,7 @@ from redisbench_admin.run.common import (
 from redisbench_admin.run.metrics import (
     CPU_USAGE_SUMMARY_METRIC_NAMES,
     from_info_to_overall_shard_cpu,
+    collect_info_metrics,
     collect_redis_metrics,
     collect_cpu_data,
     reset_cpu_stats,
@@ -675,6 +676,15 @@ def run_local_command_logic(args, project_name, project_version):
                                     },
                                 )
                                 overall_end_time_metrics.update(cpu_usage_summary)
+
+                                info_metrics = collect_info_metrics(
+                                    redis_conns, benchmark_config.get("info_metrics")
+                                )
+                                if info_metrics:
+                                    logging.info(
+                                        "INFO metrics: {}".format(info_metrics)
+                                    )
+                                    overall_end_time_metrics.update(info_metrics)
 
                                 # run post commands after benchmark completes and
                                 # end-of-benchmark metrics have been collected, so

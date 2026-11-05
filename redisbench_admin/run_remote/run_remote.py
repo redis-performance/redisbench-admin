@@ -14,6 +14,7 @@ import redisbench_admin
 from redisbench_admin.profilers.perf import PERF_CALLGRAPH_MODE
 from redisbench_admin.run.metrics import (
     CPU_USAGE_SUMMARY_METRIC_NAMES,
+    collect_info_metrics,
     collect_redis_metrics,
     collect_search_and_bigredis_metrics,
 )
@@ -1169,6 +1170,15 @@ def run_remote_command_logic(args, project_name, project_version):
                                             )
                                         )
 
+                                    info_metrics = collect_info_metrics(
+                                        redis_conns,
+                                        benchmark_config.get("info_metrics"),
+                                    )
+                                    if info_metrics:
+                                        logging.info(
+                                            "INFO metrics: {}".format(info_metrics)
+                                        )
+
                                     if remote_run_result is False:
                                         db_error_artifacts(
                                             db_ssh_port,
@@ -1284,6 +1294,9 @@ def run_remote_command_logic(args, project_name, project_version):
                                                 )
                                                 overall_end_time_metrics.update(
                                                     cpu_usage_summary
+                                                )
+                                                overall_end_time_metrics.update(
+                                                    info_metrics
                                                 )
                                                 expire_ms = 7 * 24 * 60 * 60 * 1000
                                                 export_redis_metrics(

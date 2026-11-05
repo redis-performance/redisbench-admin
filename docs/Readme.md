@@ -249,6 +249,33 @@ Notes:
   environment of a previous test records none.
 - this is a measurement, not a gate. Nothing here fails a run.
 
+## Extra INFO fields at the end of the run (`info_metrics`)
+
+A benchmark can ask for Redis `INFO` fields that are not collected by default, for
+example a RediSearch counter that explains a result. After the benchmark completes the
+runners read them once, log them as `INFO metrics: {...}`, and export them with the
+other end of run metrics (`used_memory`, the CPU summary) to RedisTimeSeries.
+
+```yml
+info_metrics:
+  - section: search_vector_index
+    fields:
+      - search_hnsw_direct_main_thread_insertions
+      - search_tiered_index_frontend_buffer_size
+```
+
+- `section` is the `INFO` section as the server reports it. A module prefixes both its
+  sections and its fields with its name, as in `INFO search_vector_index`.
+- The metric name is `<section>_<field>`, and numeric scalar values are summed across
+  shards (a dict-valued field is flattened per shard instead, as for the other INFO
+  metrics).
+- Only numeric fields are collected. A section or field the server does not report is
+  left out, and a malformed entry, a value that is not a list, or an error while reading `INFO` is
+  logged as a warning, so this never fails a run. If one shard of a cluster fails to
+  answer, the values of the other shards are still reported.
+- The values are read after the client tool finished, so they describe the whole run
+  (counters accumulate from the start of the server).
+
 # Running benchmarks
 
 The benchmark automation currently allows running benchmarks in various environments:
