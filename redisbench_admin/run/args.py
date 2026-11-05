@@ -65,6 +65,17 @@ def common_run_args(parser):
         help=f"Architecture to run the benchmark on. One of {VALID_ARCHS}.",
     )
     parser.add_argument(
+        "--running_platform",
+        type=str,
+        required=False,
+        default=None,
+        help="Platform identifier recorded in the time-series key and labels, "
+        "for example the instance class the benchmark ran on. Without it, runs "
+        "on different hardware share a single series, because labels are "
+        "per-series rather than per-sample and get overwritten by the latest "
+        "push. Set it to keep results from different platforms separable.",
+    )
+    parser.add_argument(
         "--keep_env_and_topo",
         required=False,
         default=KEEP_ENV,
