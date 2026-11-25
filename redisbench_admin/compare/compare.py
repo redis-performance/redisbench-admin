@@ -23,7 +23,21 @@ from redisbench_admin.run_remote.notifications import (
     generate_new_pr_comment_notification,
 )
 from redisbench_admin.utils.remote import get_overall_dashboard_keynames
-from redisbench_admin.compare.args import ARCH_X86
+from redisbench_admin.compare.args import ARCH_X86, VALID_ARCHS
+
+
+def arch_filters(architecture):
+    """Return the RedisTimeSeries label filters that select `architecture`.
+
+    x86 was the only architecture before series were labelled with `arch`,
+    so older x86 series may lack the label and can't be matched with
+    `arch=x86_64`. Excluding every other architecture keeps them while
+    still dropping the series of other architectures, which otherwise match
+    the same filters and get picked arbitrarily.
+    """
+    if architecture == ARCH_X86:
+        return [f"arch!={arch}" for arch in VALID_ARCHS if arch != ARCH_X86]
+    return [f"arch={architecture}"]
 
 
 def get_project_compare_zsets(triggering_env, org, repo):
@@ -1447,8 +1461,7 @@ def from_rts_to_regression_table(
             filters_baseline.append("github_repo={}".format(tf_github_repo))
         if running_platform is not None:
             filters_baseline.append("running_platform={}".format(running_platform))
-        if baseline_architecture != ARCH_X86:
-            filters_baseline.append(f"arch={baseline_architecture}")
+        filters_baseline.extend(arch_filters(baseline_architecture))
         filters_comparison = [
             "{}={}".format(by_str_comparison, comparison_str),
             "metric={}".format(metric_name),
@@ -1462,8 +1475,7 @@ def from_rts_to_regression_table(
             filters_comparison.append("github_repo={}".format(tf_github_repo))
         if running_platform is not None:
             filters_comparison.append("running_platform={}".format(running_platform))
-        if comparison_architecture != ARCH_X86:
-            filters_comparison.append(f"arch={comparison_architecture}")
+        filters_comparison.extend(arch_filters(comparison_architecture))
         baseline_timeseries = rts.ts().queryindex(filters_baseline)
         comparison_timeseries = rts.ts().queryindex(filters_comparison)
 
@@ -1994,10 +2006,8 @@ def check_client_side_latency(
             if running_platform is not None:
                 filters_baseline.append(f"running_platform={running_platform}")
                 filters_comparison.append(f"running_platform={running_platform}")
-            if baseline_architecture != ARCH_X86:
-                filters_baseline.append(f"arch={baseline_architecture}")
-            if comparison_architecture != ARCH_X86:
-                filters_comparison.append(f"arch={comparison_architecture}")
+            filters_baseline.extend(arch_filters(baseline_architecture))
+            filters_comparison.extend(arch_filters(comparison_architecture))
 
             # Query for client-side latency time-series
             baseline_client_ts = rts.ts().queryindex(filters_baseline)
@@ -2268,10 +2278,8 @@ def perform_variance_and_p99_analysis(
         if running_platform is not None:
             filters_baseline.append(f"running_platform={running_platform}")
             filters_comparison.append(f"running_platform={running_platform}")
-        if baseline_architecture != ARCH_X86:
-            filters_baseline.append(f"arch={baseline_architecture}")
-        if comparison_architecture != ARCH_X86:
-            filters_comparison.append(f"arch={comparison_architecture}")
+        filters_baseline.extend(arch_filters(baseline_architecture))
+        filters_comparison.extend(arch_filters(comparison_architecture))
 
         # Query for p99 latency time-series
         logging.info(f"Querying p99 latencystats time-series for {test_name}")
@@ -2556,10 +2564,8 @@ def check_latency_for_unstable_throughput(
         if running_platform is not None:
             filters_baseline.append(f"running_platform={running_platform}")
             filters_comparison.append(f"running_platform={running_platform}")
-        if baseline_architecture != ARCH_X86:
-            filters_baseline.append(f"arch={baseline_architecture}")
-        if comparison_architecture != ARCH_X86:
-            filters_comparison.append(f"arch={comparison_architecture}")
+        filters_baseline.extend(arch_filters(baseline_architecture))
+        filters_comparison.extend(arch_filters(comparison_architecture))
 
         # Query for p50 latency time-series
         logging.info(f"Querying p50 latencystats time-series for {test_name}")

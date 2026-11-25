@@ -7,6 +7,7 @@ import redis
 
 from redisbench_admin.compare.args import create_compare_arguments
 from redisbench_admin.compare.compare import (
+    arch_filters,
     build_upsert_marker,
     check_regression_comment,
     compare_command_logic,
@@ -497,6 +498,44 @@ def test_compare_architectures_single_entry_no_cross_arch() -> None:
     assert "## Architecture: `x86_64` — branch-over-branch" in result.comment_body
     assert "## Architecture: `aarch64`" not in result.comment_body
     assert "## Cross-arch delta" not in result.comment_body
+
+
+def test_compare_x86_ignores_aarch64_series() -> None:
+    """The x86_64 section must not read aarch64 series, which match all the
+    other filters. With only aarch64 data on the comparison branch, x86_64
+    has nothing to compare."""
+    conn = _get_redis_connection()
+    if conn is None:
+        pytest.skip("Redis not available (RTS_DATASINK_HOST or RTS_PORT not set)")
+    rts, rts_host, rts_port, rts_pass = conn
+    rts.flushall()
+
+    for branch, arch in (("master", "x86_64"), ("feature", "aarch64")):
+        _export_benchmark_data(
+            rts_host,
+            rts_port,
+            rts_pass,
+            branch,
+            "org",
+            "repo",
+            architecture=arch,
+        )
+    result = _run_comparison(
+        rts_host,
+        rts_port,
+        rts_pass,
+        "master",
+        "feature",
+        "org",
+        "repo",
+        architectures="x86_64",
+    )
+    assert result.total_comparison_points == 0
+
+
+def test_arch_filters() -> None:
+    assert arch_filters("x86_64") == ["arch!=aarch64"]
+    assert arch_filters("aarch64") == ["arch=aarch64"]
 
 
 # ----------------------------------------------------------------------------
