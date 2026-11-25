@@ -209,6 +209,17 @@ def common_run_args(parser):
         help="uploads the results to RedisTimeSeries. Proper credentials are required",
     )
     parser.add_argument(
+        "--continue-on-redistimeseries-export-error",
+        default=bool(int(os.getenv("CONTINUE_ON_RTS_EXPORT_ERROR", "0"))),
+        action="store_true",
+        help=(
+            "Treat transient RedisTimeSeries metrics-export failures (connection "
+            "reset, timeout) as warnings instead of fatal errors. The benchmark "
+            "itself is unaffected; only the post-run metrics push is best-effort. "
+            "Can also be enabled via CONTINUE_ON_RTS_EXPORT_ERROR=1."
+        ),
+    )
+    parser.add_argument(
         "--collect_commandstats",
         type=bool,
         default=COMMANDSTATS_ENABLED,
